@@ -1,0 +1,16 @@
+# Local development helper.
+# Supabase local services are intentionally not defined here.
+# Use the Supabase CLI (`supabase start`) for the local Supabase stack.
+
+services:
+  app:
+    profiles:
+      - app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}

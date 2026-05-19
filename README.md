@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Legal Docs SaaS
+
+MVP foundation for a legal productivity SaaS for independent lawyers in Costa Rica.
+
+The product will help lawyers manage reusable legal document templates ("machotes") and structured metadata for clients, notarial index preparation, and accounts receivable. The MVP must not store generated legal documents or full sensitive escritura content.
+
+## Stack
+
+- Next.js App Router with TypeScript, Tailwind CSS, ESLint, and `src/`
+- Supabase for Auth, Postgres, and future RLS-based authorization
+- Vercel for production hosting
+- Docker only for local development support, mainly alongside the Supabase local stack
+- Modular monolith with Clean Architecture-inspired boundaries
+- GitHub Actions CI and Dependabot updates
+- Vitest and Playwright reserved for focused tests as features are added
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the local app:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
+- [MVP scope](docs/MVP_SCOPE.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Security](docs/SECURITY.md)
+- [Database](docs/DATABASE.md)
+- [Accessibility](docs/ACCESSIBILITY.md)
+- [Testing](docs/TESTING.md)
+- [CI/CD](docs/CI_CD.md)
+- [Docker](docs/DOCKER.md)
+- [AI workflow](docs/AI_WORKFLOW.md)
+- [Product rules](docs/PRODUCT_RULES.md)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Current Status
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This repository is intentionally at foundation stage. Product screens, database tables, document-generation logic, and production deployment configuration are deferred.
 
-## Deploy on Vercel
+## Non-Negotiables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Do not store generated legal documents.
+- Do not store full sensitive escritura content.
+- Do not expose Supabase service role keys to client-side code.
+- Enforce per-user authorization with Supabase RLS before handling real user data.
+- Keep security, accessibility, and data minimization visible in every feature review.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## TODO
+
+- Define the first database schema and RLS policies.
+- Add Supabase client/server helpers.
+- Add Vitest and Playwright configurations when the first testable behavior exists.
+- Add Vercel project and environment configuration.
