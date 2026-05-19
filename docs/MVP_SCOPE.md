@@ -2,36 +2,238 @@
 
 ## Product Goal
 
-Help independent lawyers in Costa Rica manage reusable legal document templates ("machotes") and the minimal structured metadata needed for client reuse, notarial index preparation, and accounts receivable.
+Build a legal productivity SaaS MVP for independent lawyers in Costa Rica.
+
+The product helps lawyers create and manage reusable legal document templates called "machotes", generate editable Word documents, reuse client metadata, prepare notarial index metadata, and track basic accounts receivable.
+
+The system supports the lawyer's workflow, but it does not replace the lawyer's legal judgment, official responsibilities, digital signature process, document custody, or official submissions.
+
+## Primary User
+
+The primary user is an independent lawyer or notary in Costa Rica who needs to generate recurring legal documents faster and with fewer manual errors.
+
+The MVP must support multiple independent lawyers from the beginning.
+
+The MVP is not designed as a complex multi-firm enterprise system yet.
+
+## Product Positioning
+
+This application is:
+
+- A productivity tool.
+- A template management tool.
+- A document generation assistant.
+- A structured metadata capture tool.
+- A basic accounts receivable tracker.
+
+This application is not:
+
+- A legal authority.
+- A law firm ERP.
+- A digital signature platform.
+- An official notarial index submission system.
+- A long-term custody system for generated legal documents.
+- A legal advice system.
+- An AI legal assistant.
 
 ## Included In MVP
 
-- Multi-user accounts through Supabase Auth.
-- Template catalog and template editing workflow for reusable machotes.
-- Generation of editable Word documents from approved templates.
-- Client metadata reuse for recurring legal work.
-- Structured metadata capture for notarial index preparation.
-- Basic accounts receivable tracking related to matters or documents.
-- User-owned data isolation through Supabase RLS.
-- Security, accessibility, and data minimization from the first release.
+### Authentication And User Profile
+
+- User registration and login through Supabase Auth.
+- Basic lawyer profile.
+- Default document formatting preferences.
+
+### Document Formatting Settings
+
+Each user may configure default document preferences such as:
+
+- Font family.
+- Font size.
+- Page margins.
+- Line spacing.
+- Default date format.
+- Lawyer or notary profile data used in templates.
+
+### Client Metadata Reuse
+
+The MVP includes a client catalog for recurring legal work.
+
+Initial client types:
+
+- Individual person.
+- Legal entity or company.
+
+The client module should store only reusable metadata needed for document generation and index preparation.
+
+### Template Management
+
+The MVP includes a template catalog and template editing workflow for reusable machotes.
+
+The first version should prioritize a controlled editor with variables and basic formatting, not a full Microsoft Word clone.
+
+Templates may include:
+
+- Static text.
+- Basic formatting.
+- Variables.
+- Required fields.
+- Optional fields.
+- Simple conditional blocks.
+- Repeated parties or roles when needed.
+
+### Document Generation
+
+The MVP generates editable Word documents from approved templates and user-provided data.
+
+Generated documents are downloaded by the lawyer and discarded by the application.
+
+The application must not store generated legal documents.
+
+PDF generation is not mandatory for the MVP. It may be added later after Word generation is stable.
+
+### Notarial Index Metadata Preparation
+
+The MVP stores minimal structured metadata needed to help prepare a notarial index.
+
+The system may help:
+
+- Capture relevant metadata.
+- Filter by period.
+- Validate missing required fields.
+- Export a table or Word document with prepared metadata.
+
+The system must not submit the official notarial index.
+
+The lawyer remains responsible for official submission and validation.
+
+### Accounts Receivable
+
+The MVP includes basic accounts receivable tracking related to matters or generated document metadata.
+
+Initial fields may include:
+
+- Related client.
+- Related document metadata.
+- Amount.
+- Payment status.
+- Payment date.
+- Notes.
+- Basic monthly summary.
+
+The MVP does not include formal accounting or electronic invoicing.
+
+### Security And Data Minimization
+
+The MVP must include:
+
+- User-owned data isolation.
+- Supabase RLS for user-owned data.
+- Input validation.
+- Data minimization.
+- No storage of generated legal documents.
+- No storage of unnecessary sensitive escritura details.
+
+### Accessibility
+
+The MVP must consider accessibility from the start, especially for form-heavy workflows.
+
+Required principles:
+
+- Semantic HTML.
+- Labels for inputs.
+- Keyboard navigation.
+- Visible focus states.
+- Clear error messages.
+- Logical tab order.
+- Accessible dialogs and menus.
 
 ## Excluded From MVP
+
+The following features are intentionally excluded:
 
 - Storing generated legal documents.
 - Storing full sensitive escritura content.
 - Digital signatures.
-- Official legal or notarial submissions.
+- Official legal submissions.
 - Official notarial index submission.
-- Automated legal responsibility, legal judgment, or legal advice.
+- Legal advice or legal decision-making.
 - AI product features.
+- Complex multi-firm account hierarchy.
+- Full accounting.
+- Electronic invoicing.
+- Full Word-compatible editor inside the browser.
+- Uploading and parsing existing `.docx` templates as a mandatory MVP feature.
 - Self-hosted production Docker deployment.
+
+## Deferred Features
+
+These may be considered after the MVP:
+
+- PDF export.
+- Uploading existing `.docx` templates.
+- More advanced template versioning.
+- More advanced role management.
+- Multi-lawyer firm accounts.
+- Audit log dashboard.
+- Electronic invoicing integration.
+- Advanced reports.
+- Official platform integrations, only if legally and technically appropriate.
+- AI-assisted template suggestions, only after the core product is stable and legal risks are reviewed.
 
 ## Data Boundaries
 
-The system may store only structured metadata that is necessary for product workflows. Generated Word files should be produced for download or handoff and then discarded by the application.
+The application may store:
 
-## TODO
+- User profile data.
+- Template definitions.
+- Template field definitions.
+- Client metadata.
+- Minimal document metadata.
+- Minimal notarial index metadata.
+- Accounts receivable metadata.
+- Operational audit events without sensitive legal content.
 
-- Define the exact metadata fields after a schema design task.
-- Validate Costa Rica-specific workflows with practicing lawyers.
-- Decide which MVP flows require audit logs.
+The application must not store:
+
+- Final generated Word documents.
+- Signed documents.
+- Full escritura text generated for a specific case.
+- Complete sensitive details that are not required by the workflow.
+- Secrets or credentials in application data.
+
+## Success Criteria
+
+The MVP is successful if an independent lawyer can:
+
+1. Create or configure a profile.
+2. Register frequent clients.
+3. Create a reusable machote with variables.
+4. Generate an editable Word document from that machote.
+5. Download the generated Word file.
+6. Register minimal metadata for index preparation.
+7. Track whether the related work has been paid.
+8. Use the system without generated legal documents being stored by the application.
+
+## First Implementation Priorities
+
+Recommended implementation order:
+
+1. Project documentation and architecture.
+2. Database model design.
+3. Supabase migrations and RLS policies.
+4. Authentication and protected dashboard shell.
+5. Lawyer profile and document settings.
+6. Clients module.
+7. Templates module.
+8. Document generation module.
+9. Notarial index metadata module.
+10. Accounts receivable module.
+
+## Open Questions
+
+- What exact fields are required for the notarial index metadata?
+- What exact default margins and formatting should be provided for Costa Rica legal documents?
+- Which client fields should be mandatory in the first version?
+- Should generated document metadata be created automatically every time a document is downloaded?
+- Which events require audit logging in the MVP?
