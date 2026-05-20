@@ -72,8 +72,47 @@ Recommended workflow:
 4. Review the plan.
 5. Ask AI to implement only the approved scope.
 6. Review the diff manually.
-7. Run lint, typecheck, tests, and build.
+7. Run validation commands according to the Validation Policy.
 8. Commit only reviewed changes.
+
+## Validation Policy
+
+Agents must choose validation commands based on the type of change.
+
+For documentation-only changes:
+
+- Do not run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` by default.
+- Only run them if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
+
+For configuration changes:
+
+- Run the specific command related to the changed configuration.
+- If the change affects CI, package scripts, dependencies, TypeScript, Next.js, ESLint, Tailwind, Supabase, or build behavior, run the relevant validation commands.
+
+For dependency, source code, tests, framework config, Supabase config, or CI changes:
+
+- Run the appropriate checks, normally:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+
+For Supabase local setup changes:
+
+- Run only the relevant Supabase commands when needed:
+  - `pnpm supabase --version`
+  - `pnpm supabase status`
+  - `pnpm supabase start`
+  - `pnpm supabase stop`
+
+Agents must explain which commands were skipped and why.
+
+Examples:
+
+- Updating only `docs/DATABASE.md`: no pnpm validation needed by default.
+- Updating `.github/workflows/ci.yml`: run relevant CI-equivalent checks.
+- Updating `package.json` or `pnpm-lock.yaml`: run install and full validation.
+- Updating application TypeScript/React code: run lint, typecheck, tests, and build.
 
 ## Prompting Rules
 
@@ -132,7 +171,7 @@ Before accepting AI-generated changes, verify:
 9. Did it include or update tests when needed?
 10. Did it keep accessibility in mind?
 11. Did it update documentation if decisions changed?
-12. Does the project still pass lint, typecheck, tests, and build?
+12. Were validation commands chosen according to the Validation Policy?
 
 ## Suggested AI Commands Or Prompts
 
