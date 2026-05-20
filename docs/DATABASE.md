@@ -2,24 +2,28 @@
 
 ## Status
 
-This is a planning document for the initial MVP database model.
+This is the planning document for the initial MVP database model.
 
-Do not create tables, migrations, seed files, or Supabase Cloud resources from this document until the schema is reviewed and explicitly approved.
+Do not create tables, migrations, seed files, or Supabase Cloud resources from this document until the first migration task is explicitly approved.
 
 The database target is Supabase Postgres with Supabase Auth and Row Level Security.
 
 ## MVP Database Decisions
 
 - Supabase Auth is the source of truth for application users.
-- Every user-owned application table includes `owner_id uuid not null references auth.users(id)`.
+- Every user-owned application table in the first migration includes `owner_id uuid not null references auth.users(id)`.
 - RLS is required for every user-owned table before the table is used by product code.
+- Users can only access their own records.
+- Child records must validate ownership consistency with parent records.
+- Anonymous users must not access private user-owned data.
 - Generated legal documents are never stored in the database or application storage.
-- Full sensitive escritura content is never stored.
-- The database stores reusable structured metadata, template definitions, generation metadata, index preparation metadata, receivables metadata, and safe audit events.
-- Template content should be structured enough to validate variables and fields; raw HTML-only template storage is not the preferred model.
-- `document_metadata` records the fact and business context of a document workflow, not the generated file or full generated text.
-- Notarial index features prepare metadata only. The application does not submit official notarial indexes.
-- Accounts receivable is intentionally basic and not a formal accounting or electronic invoicing system.
+- Generated Word files, PDFs, full escritura text, and storage paths for generated documents are intentionally excluded.
+- The first migration focuses on independent lawyers and physical-person clients.
+- Company clients, legal representatives, audit events, and independent notes are deferred.
+- The database stores only structured metadata required for lawyer profile settings, clients, templates, optional document metadata, notarial index preparation, and basic receivables.
+- `document_metadata` is not created automatically every time a Word document is generated.
+- `document_metadata` is created only when the user chooses to save information for notarial index preparation and/or accounts receivable.
+- Accounts receivable is intentionally basic and does not include formal accounting, tax calculation, electronic invoicing, or a separate partial-payment table.
 - This document describes candidate fields only. Migrations are intentionally deferred.
 
 ## Database Goals
@@ -27,22 +31,50 @@ The database target is Supabase Postgres with Supabase Auth and Row Level Securi
 The MVP database must support:
 
 - Multiple independent lawyers.
-- Lawyer profile and document formatting settings.
-- Reusable client metadata.
-- Template management and template fields.
-- Minimal generated document metadata.
-- Minimal notarial index metadata preparation.
+- Lawyer profile data.
+- One default document formatting configuration per lawyer.
+- Physical-person client metadata.
+- Template management.
+- Template variable and field definitions.
+- Optional document metadata for index and/or receivable workflows.
+- Structured notarial index metadata preparation.
 - Basic accounts receivable.
-- Non-sensitive audit events.
 
 The database must avoid storing:
 
 - Generated `.docx` or PDF files.
+- Storage paths for generated legal documents.
 - Signed documents.
 - Full escritura text.
 - Official submission payloads.
 - Secrets or credentials.
 - Unnecessary legal transaction detail.
+- AI prompts, AI responses, or AI legal advice content.
+
+## First Migration Scope
+
+Candidate tables for the first migration:
+
+- `lawyer_profiles`
+- `document_settings`
+- `clients`
+- `templates`
+- `template_fields`
+- `document_metadata`
+- `notarial_records`
+- `receivables`
+
+Explicitly excluded from the first migration:
+
+- Company clients.
+- Legal representatives.
+- `audit_events`.
+- Independent notes module.
+- Generated document storage.
+- AI features.
+- Supabase Storage buckets for generated legal documents.
+- Dynamic complex party lists.
+- Partial-payment detail table.
 
 ## Proposed Tables
 
@@ -72,8 +104,8 @@ Relationships:
 
 Sensitive data:
 
-- Contains personal/professional contact data.
-- Does not store official credentials, signatures, identity scans, or authentication secrets.
+- Contains personal and professional contact data.
+- Does not store official credentials, signatures, identity scans, authentication secrets, or service role keys.
 
 Ownership rule:
 
@@ -92,7 +124,12 @@ Pending questions:
 
 Purpose:
 
-Stores each lawyer's default formatting preferences for generated Word documents.
+Stores the lawyer's default formatting preferences for generated Word documents.
+
+Decision:
+
+- One default configuration per lawyer.
+- No named presets in the MVP.
 
 Candidate fields:
 
@@ -106,7 +143,6 @@ margin_bottom_cm
 margin_left_cm
 margin_right_cm
 line_spacing
-default_date_format
 created_at
 updated_at
 ```
@@ -114,7 +150,7 @@ updated_at
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
-- Usually one active settings record per owner.
+- One active settings record per owner in the MVP.
 
 Sensitive data:
 
@@ -130,49 +166,52 @@ RLS need:
 
 Pending questions:
 
-- Decide whether MVP supports one default settings record or named presets.
 - Confirm default legal document formatting values with target users.
+- Decide later whether named presets are needed after MVP.
 
 ### `clients`
 
 Purpose:
 
-Stores reusable client metadata for document generation, notarial index preparation, and receivables.
+Stores reusable client metadata for physical persons.
+
+Decision:
+
+- First migration focuses on physical-person clients only.
+- `identification_type` remains included for future compatibility.
+- MVP will primarily use `cedula_fisica`.
+- Initial allowed `identification_type` value: `cedula_fisica`.
+- Company clients are deferred.
+- Legal representative data is deferred.
+- `email` and `phone` are not first-migration fields.
+- `notes` is not a first-migration field.
 
 Candidate fields:
 
 ```txt
 id
 owner_id
-client_type
-display_name
+full_name
 identification_type
 identification_number
-email
-phone
-address
-notes
+marital_status
+nationality
+occupation
+exact_address
 created_at
 updated_at
-```
-
-Candidate `client_type` values:
-
-```txt
-individual
-company
 ```
 
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
 - May be referenced by `document_metadata`.
-- May be referenced by `receivables`.
+- Referenced by `receivables`.
 
 Sensitive data:
 
-- Contains client personal or company metadata and should be treated as sensitive.
-- Does not store identity document images, full legal narratives, or unnecessary transaction details.
+- Contains personal client metadata and must be treated as sensitive.
+- Does not store identity document images, contact details, notes, full legal narratives, or unnecessary transaction details in the first migration.
 
 Ownership rule:
 
@@ -184,9 +223,8 @@ RLS need:
 
 Pending questions:
 
-- Confirm required MVP fields for individuals versus companies.
-- Decide whether legal representative metadata is required in MVP or should be deferred.
-- Decide whether `notes` should be limited or replaced with structured fields to reduce sensitive free text.
+- Decide how to model company clients later.
+- Decide how to model legal representatives later.
 
 ### `templates`
 
@@ -217,6 +255,8 @@ active
 archived
 ```
 
+These are the initial allowed template status values for the first migration.
+
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
@@ -225,7 +265,7 @@ Relationships:
 
 Sensitive data:
 
-- Template text can be sensitive if it contains legal clauses, but it should be reusable template content, not case-specific escritura content.
+- Template content may include reusable legal clauses, but must not contain case-specific full escritura text.
 - `content_json` must not contain generated document output for a real matter.
 
 Ownership rule:
@@ -238,9 +278,47 @@ RLS need:
 
 Pending questions:
 
-- Define the exact structured template format.
-- Decide whether template versioning is required in MVP or deferred.
+- Define the exact structured template format before implementation.
+- Decide whether template versioning is required after MVP.
 - Define allowed status transitions.
+
+## Template Variables
+
+Internal variable format:
+
+```txt
+{{role.field}}
+```
+
+UI display:
+
+- The editor may show user-friendly chips instead of raw braces.
+- Example chip: `[Comprador 1: Nombre completo]`.
+- The lawyer should not need to manually type braces when using the editor.
+
+Examples:
+
+```txt
+{{buyer_1.full_name}}
+{{buyer_1.identification_number}}
+{{buyer_1.marital_status}}
+{{seller_1.full_name}}
+{{seller_1.identification_number}}
+{{folio_number}}
+```
+
+Rules:
+
+- If a variable appears multiple times in a machote, the user fills it once and the value replaces every occurrence.
+- For multiple buyers/sellers in the MVP, use fixed role keys such as `buyer_1`, `buyer_2`, `seller_1`, and `seller_2`.
+- Do not implement complex dynamic lists in the MVP.
+- Variables must be validated against known `template_fields`.
+- Variable names must not execute code or allow arbitrary script behavior.
+
+Pending questions:
+
+- Define exact allowed role keys for first templates.
+- Decide when dynamic repeated parties are worth adding after MVP.
 
 ### `template_fields`
 
@@ -258,9 +336,8 @@ field_key
 label
 field_type
 required
-default_value
-options_json
-help_text
+role_key
+source
 sort_order
 created_at
 updated_at
@@ -272,6 +349,7 @@ Candidate `field_type` values:
 text
 number
 date
+time
 money
 client
 select
@@ -279,16 +357,24 @@ boolean
 textarea
 ```
 
+Candidate `source` values:
+
+```txt
+manual
+client
+```
+
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
 - `template_id` references `templates(id)`.
-- `field_key` should be unique per template.
+- `field_key` should be unique per template and role when applicable.
+- Fields with the same `role_key` may be completed from the same frequent client record.
 
 Sensitive data:
 
 - Usually low to moderate sensitivity because it stores field definitions, not submitted case values.
-- `default_value` and `help_text` should not contain sensitive real client data.
+- Field definitions must not include real client values or generated document content.
 
 Ownership rule:
 
@@ -300,17 +386,20 @@ RLS need:
 
 Pending questions:
 
-- Decide whether `textarea` is allowed in MVP or should be constrained to prevent full escritura capture.
-- Define validation rules for `field_key`.
-- Define how client fields map to reusable client metadata.
+- Decide whether `textarea` should be allowed in first migration or constrained to reduce full escritura capture risk.
+- Define validation rules for `field_key` and `role_key`.
+- Define exact mappings from client fields to template field sources.
 
 ### `document_metadata`
 
 Purpose:
 
-Stores minimal metadata about a document workflow or generation event.
+Stores minimal metadata about a document workflow only when the user chooses to save information for index preparation and/or receivables.
 
-This table must not store generated files or full generated text.
+Decision:
+
+- Do not create `document_metadata` automatically every time a Word document is generated.
+- Create metadata only when the user decides to save information for index and/or billing.
 
 Candidate fields:
 
@@ -318,22 +407,22 @@ Candidate fields:
 id
 owner_id
 template_id
-client_id
+client_id nullable
 title
 document_type
-status
+created_for_index
+created_for_receivable
 generated_at
 created_at
 updated_at
 ```
 
-Candidate `status` values:
+Initial allowed `document_type` values:
 
 ```txt
-draft
-generated
-finalized
-archived
+escritura
+nota
+otro
 ```
 
 Relationships:
@@ -342,16 +431,19 @@ Relationships:
 - `template_id` references `templates(id)`.
 - `client_id` optionally references `clients(id)`.
 - May have one `notarial_records` row.
-- May have one or more `receivables` rows if billing is split later.
+- May be referenced by `receivables`.
 
 Sensitive data:
 
 - Contains legal workflow metadata and should be treated as sensitive.
-- Does not store generated `.docx`, PDF, storage path, or full escritura text.
+- Does not store generated Word files.
+- Does not store PDFs.
+- Does not store full escritura text.
+- Does not store a storage path for a generated document.
 
 Ownership rule:
 
-- The owner is the lawyer who generated or manages the document metadata.
+- The owner is the lawyer who manages the document metadata.
 
 RLS need:
 
@@ -359,15 +451,13 @@ RLS need:
 
 Pending questions:
 
-- Decide whether metadata is created before generation, after download, or both.
-- Decide whether `client_id` is required or optional for all document types.
-- Define which document types are allowed in MVP.
+- Decide whether additional document types are needed after initial template workflows are tested.
 
 ### `notarial_records`
 
 Purpose:
 
-Stores minimal structured metadata to help prepare a notarial index.
+Stores structured metadata required to help prepare a notarial index.
 
 The application prepares metadata only and does not submit official notarial indexes.
 
@@ -377,19 +467,30 @@ Candidate fields:
 id
 owner_id
 document_metadata_id
-instrument_number
-book_number
-folio
-grant_date
-act_type
-parties_summary
-amount
-include_in_index
-index_period_start
-index_period_end
-notes
+volume
+initial_folio
+final_folio
+deed_number
+deed_date
+deed_time
+act_or_contract
+parties
+period_half
+period_month
+period_year
 created_at
 updated_at
+```
+
+Column type decision:
+
+- `parties` is `text` for the MVP.
+
+Initial allowed `period_half` values:
+
+```txt
+first
+second
 ```
 
 Relationships:
@@ -401,7 +502,7 @@ Sensitive data:
 
 - Contains notarial workflow metadata and can be sensitive.
 - Should store only what is needed for index preparation.
-- `parties_summary` and `notes` should remain minimal and must not become full escritura text.
+- `parties` must remain a minimal index-oriented representation and must not become full escritura text.
 
 Ownership rule:
 
@@ -411,11 +512,16 @@ RLS need:
 
 - Required. Users can only access their own notarial records.
 
+Rules:
+
+- All listed notarial record fields are required for the index.
+- First half-month period: day 1 through day 15.
+- Second half-month period: day 16 through the end of the month.
+- The system only prepares metadata. It does not send the official index.
+
 Pending questions:
 
-- Validate exact Costa Rica notarial index fields with a real anonymized example.
-- Decide whether `parties_summary` should be replaced with structured party references.
-- Decide whether `notes` should exist in MVP or be removed to reduce free-text risk.
+- Decide whether `parties` should become structured JSON after MVP validation.
 
 ### `receivables`
 
@@ -423,7 +529,7 @@ Purpose:
 
 Stores basic accounts receivable metadata for legal work.
 
-The MVP does not provide formal accounting, tax calculation, or electronic invoicing.
+The MVP does not provide formal accounting, tax calculation, electronic invoicing, or separate payment tracking.
 
 Candidate fields:
 
@@ -431,14 +537,14 @@ Candidate fields:
 id
 owner_id
 client_id
-document_metadata_id
+document_metadata_id nullable
 description
 amount
 currency
 status
 due_date
 paid_at
-notes
+internal_notes
 created_at
 updated_at
 ```
@@ -451,6 +557,8 @@ partial
 paid
 cancelled
 ```
+
+These are the initial allowed receivable status values for the first migration.
 
 Relationships:
 
@@ -471,19 +579,50 @@ RLS need:
 
 - Required. Users can only access their own receivables.
 
+Decisions:
+
+- No separate partial-payment table in MVP.
+- Partial payments are tracked using `status = partial` and `internal_notes`.
+
 Pending questions:
 
-- Decide if `document_metadata_id` is required or optional.
-- Decide whether partial payments need separate payment rows after MVP.
 - Confirm supported currencies for MVP.
+- Decide if `document_metadata_id` becomes required after workflows are tested.
 
-### `audit_events`
+## Deferred: Notes
 
-Purpose:
+The independent notes module is outside the first migration.
 
-Stores safe operational audit events without sensitive legal content.
+It may be evaluated later as a separate table, for example `lawyer_notes`.
 
-Candidate fields:
+Possible future fields:
+
+```txt
+id
+owner_id
+title
+content
+due_date
+status
+created_at
+updated_at
+```
+
+Before implementing notes, the project must review:
+
+- Security risk.
+- Validation.
+- Sanitization.
+- Sensitive text risk.
+- Whether notes encourage storing full legal narratives that should stay outside the product.
+
+## Deferred: Audit Events
+
+`audit_events` is deferred and must not be included in the first migration.
+
+Audit events remain a possible future improvement for operational traceability and security review.
+
+Possible future fields:
 
 ```txt
 id
@@ -495,45 +634,15 @@ metadata_json
 created_at
 ```
 
-Candidate `event_type` values:
+Future audit logging must not store:
 
-```txt
-profile.updated
-client.created
-client.updated
-template.created
-template.updated
-document.generated
-index.exported
-receivable.status_changed
-```
+- Generated document content.
+- Full escritura text.
+- Secrets.
+- Full client identity details.
+- Complete transaction details.
 
-Relationships:
-
-- `owner_id` references `auth.users(id)`.
-- `resource_id` may reference different resource tables by convention, not necessarily by foreign key.
-
-Sensitive data:
-
-- Must be non-sensitive.
-- Must not store generated document content, full escritura text, secrets, full client identity details, or complete transaction details.
-
-Ownership rule:
-
-- The owner is the user whose account/workspace the event belongs to.
-
-RLS need:
-
-- Required. Users can only read audit events for their own account.
-- Insert rules may be server-mediated later to reduce tampering.
-
-Pending questions:
-
-- Decide which MVP events are mandatory.
-- Decide whether users can view audit events in the MVP UI.
-- Decide whether `metadata_json` should be replaced by stricter typed columns for specific events.
-
-## Relationship Draft
+## Relationship Draft For First Migration
 
 ```txt
 auth.users
@@ -548,14 +657,14 @@ auth.users
   ├─ document_metadata
   │   ├─ notarial_records
   │   └─ receivables
-  └─ audit_events
+  └─ receivables
 ```
 
 All child tables still carry their own `owner_id` so RLS does not rely only on joins.
 
 ## Fields Intentionally Excluded
 
-The following are intentionally excluded from the MVP schema:
+The following are intentionally excluded from the first migration:
 
 - Generated Word document binary data.
 - Generated PDF binary data.
@@ -566,15 +675,23 @@ The following are intentionally excluded from the MVP schema:
 - Official submission payloads or submission credentials.
 - Supabase service role keys or other secrets.
 - Scanned identity documents.
+- Company client fields.
+- Legal representative fields.
+- Client email.
+- Client phone.
+- General client notes.
 - Full legal case narratives.
 - Full accounting ledger entries.
 - Electronic invoice payloads.
 - Payment card or bank credential data.
+- Partial-payment detail rows.
+- Audit event rows.
+- Independent notes.
 - AI prompt, AI response, or AI legal advice fields.
 
 ## RLS Planning
 
-RLS is required for every proposed user-owned table:
+RLS is required for every first-migration user-owned table:
 
 - `lawyer_profiles`
 - `document_settings`
@@ -584,7 +701,6 @@ RLS is required for every proposed user-owned table:
 - `document_metadata`
 - `notarial_records`
 - `receivables`
-- `audit_events`
 
 Base policy concept:
 
@@ -598,15 +714,16 @@ Policy planning:
 - Insert: authenticated users can insert only rows where `owner_id = auth.uid()`.
 - Update: authenticated users can update only rows where `owner_id = auth.uid()`.
 - Delete: authenticated users can delete only allowed resources where `owner_id = auth.uid()`.
-- Child records should validate ownership consistency with parent records.
-- Audit event insertion may be restricted to server-side flows in a later implementation plan.
+- Child records must validate ownership consistency with parent records.
+- Anonymous users must not access private user-owned data.
+- Users must not be able to update `owner_id` to transfer ownership.
 
 RLS tests should include:
 
 - User can access own records.
 - User cannot access another user's records.
 - User cannot create child records under another user's parent record.
-- User cannot update `owner_id` to transfer ownership.
+- User cannot update `owner_id` to another user.
 - Anonymous users cannot access private user-owned data.
 
 ## Indexing Considerations
@@ -621,9 +738,9 @@ document_metadata_id
 status
 created_at
 generated_at
-include_in_index
-index_period_start
-index_period_end
+period_month
+period_year
+period_half
 ```
 
 Indexes should be added based on real query needs.
@@ -634,7 +751,7 @@ Avoid premature optimization.
 
 Before approving any table or field, answer:
 
-1. Is this field required for the MVP?
+1. Is this field required for the first migration?
 2. Is this field sensitive?
 3. Can the product work without it?
 4. Is this field needed for index metadata, client reuse, or receivables?
@@ -671,23 +788,18 @@ Use clearly fake values only.
 
 ## Open Questions
 
-- What exact fields are required in the Costa Rica notarial index?
-- Should `document_settings` be one-to-one with profile or support presets?
-- Should legal representative data be part of `clients` in MVP?
-- Should `document_metadata` be created before or after generation?
-- Should receivables be linked to clients, document metadata, or both?
-- Which audit events are mandatory for MVP?
-- Which fields should support soft delete?
-- Which free-text fields should be removed or constrained before migration design?
+- Future details for company clients.
+- Future model for legal representatives.
+- Whether and how to implement an independent notes module.
+- Whether and how to implement audit events.
+- Future improvements for `identification_type`.
+- Future improvements for dynamic drafting in machotes.
+- Whether dynamic lists for multiple parties are needed after fixed MVP role keys.
+- Future values for status fields, identification types, document types, and period fields beyond the initial allowed values.
+- Which fields should support soft delete.
 
 ## Next Step
 
-The next database task should produce:
-
-1. Final MVP entity list.
-2. Final field list.
-3. Relationship diagram.
-4. RLS policy plan.
-5. First Supabase migration plan.
+The next database task should produce the first Supabase migration plan based on the approved first migration scope.
 
 Do not create migrations until this design is approved.
