@@ -184,20 +184,50 @@ Unit tests are required for critical logic such as:
 - Authorization-sensitive logic.
 - Document export transformations.
 
+## Validation Policy
+
+Agents must choose validation commands based on the type of change.
+
+For documentation-only changes:
+
+- Do not run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` by default.
+- Only run them if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
+
+For configuration changes:
+
+- Run the specific command related to the changed configuration.
+- If the change affects CI, package scripts, dependencies, TypeScript, Next.js, ESLint, Tailwind, Supabase, or build behavior, run the relevant validation commands.
+
+For dependency, source code, tests, framework config, Supabase config, or CI changes:
+
+- Run the appropriate checks, normally:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+
+For Supabase local setup changes:
+
+- Run only the relevant Supabase commands when needed:
+  - `pnpm supabase --version`
+  - `pnpm supabase status`
+  - `pnpm supabase start`
+  - `pnpm supabase stop`
+
+Agents must explain which commands were skipped and why.
+
+Examples:
+
+- Updating only `docs/DATABASE.md`: no pnpm validation needed by default.
+- Updating `.github/workflows/ci.yml`: run relevant CI-equivalent checks.
+- Updating `package.json` or `pnpm-lock.yaml`: run install and full validation.
+- Updating application TypeScript/React code: run lint, typecheck, tests, and build.
+
 ## Workflow
 
 Keep changes small and reviewable.
 
-Before handing off significant changes, run when practical:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-If a command was not run, explain why.
+Before handing off significant changes, apply the Validation Policy above. If a command was skipped, explain why.
 
 ## Final Response Expectations
 
