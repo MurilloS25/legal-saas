@@ -32,7 +32,10 @@ These rules are strict for the MVP foundation and future product work.
 ## Quality
 
 - Keep TypeScript strict.
-- Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` before merging when practical.
+- Choose validation commands based on the change type.
+- Do not run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` by default for documentation-only changes unless the documentation affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or the user explicitly asks.
+- Run full validation for source code, dependency, package script, framework configuration, Supabase configuration, CI, or build behavior changes when practical.
+- Explain which validation commands were skipped and why.
 - Add tests with new behavior, especially authorization, validation, and data minimization logic.
 - Follow accessibility requirements in `docs/ACCESSIBILITY.md`.
 - Follow security requirements in `docs/SECURITY.md`.
