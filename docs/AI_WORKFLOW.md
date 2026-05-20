@@ -1,27 +1,216 @@
 # AI Workflow
 
-## Role Of AI
+## Goal
 
-AI tools such as Codex and Claude may assist with development, documentation, refactoring, and tests. AI is not part of the MVP product experience.
+This project uses AI tools to accelerate development while keeping architecture, security, and product scope under control.
 
-## Required Behavior
+AI tools may help with:
 
-- Read `AGENTS.md`, `RULES.md`, and `docs/PRODUCT_RULES.md` before making changes.
-- Read relevant local Next.js docs in `node_modules/next/dist/docs/` before changing Next.js code.
-- Keep changes scoped to the requested task.
-- Do not invent product scope.
-- Do not add database tables, product screens, or document-generation logic unless explicitly requested.
-- Do not store generated documents or full sensitive escritura content.
-- Never expose service role keys to client code.
+- Code generation.
+- Refactoring.
+- Documentation.
+- Test creation.
+- Architecture review.
+- Security review.
+- Accessibility review.
+- Prompting and planning.
 
-## Review Checklist
+AI tools must not make product or legal scope decisions without explicit approval.
 
-- Does the change preserve data minimization?
-- Does the change keep user-owned data behind future RLS boundaries?
-- Does the change avoid misleading placeholder behavior?
-- Does the change compile?
-- Are TODOs explicit where implementation is deferred?
+## Tools
+
+The expected AI-assisted workflow may include:
+
+- ChatGPT for planning, architecture, documentation, review, and prompts.
+- Codex for repository-level changes and code generation.
+- Claude Code for implementation support in the local IDE.
+- GitHub Copilot or similar tools if used later.
+
+## Core Rule
+
+AI can propose.
+
+The developer decides.
+
+Do not accept AI-generated changes blindly.
+
+## Required Context For AI Agents
+
+AI agents must understand:
+
+- This is a legal productivity SaaS MVP.
+- The primary users are independent lawyers in Costa Rica.
+- The app helps with templates, Word generation, client reuse, notarial index metadata, and receivables.
+- The app does not store generated legal documents.
+- The app does not provide legal advice.
+- The app does not submit official legal documents.
+- The app does not include AI product features in the MVP.
+- Security, accessibility, and data minimization are mandatory.
+
+## Agent Instruction Files
+
+The repository uses:
+
+- `AGENTS.md`
+- `CLAUDE.md`
+- `RULES.md`
+- `docs/PRODUCT_RULES.md`
+- `docs/ARCHITECTURE.md`
+- `docs/SECURITY.md`
+- `docs/ACCESSIBILITY.md`
+- `docs/TESTING.md`
+
+Agents should read these before implementing features.
+
+## Safe AI Workflow
+
+Recommended workflow:
+
+1. Define the task clearly.
+2. Confirm the task is inside MVP scope.
+3. Ask AI for a plan before code.
+4. Review the plan.
+5. Ask AI to implement only the approved scope.
+6. Review the diff manually.
+7. Run lint, typecheck, tests, and build.
+8. Commit only reviewed changes.
+
+## Prompting Rules
+
+Prompts should include:
+
+- Product context.
+- Exact files or modules to change.
+- What not to change.
+- Security constraints.
+- Accessibility constraints if UI is involved.
+- Testing expectations.
+- Expected output.
+
+Example prompt structure:
+
+```txt
+Context:
+Task:
+Files to change:
+Files not to change:
+Security rules:
+Accessibility rules:
+Testing expectations:
+Expected final summary:
+```
+
+## What AI Must Not Do
+
+AI must not:
+
+- Add features outside MVP scope.
+- Create database tables without approved schema.
+- Store generated documents.
+- Add digital signature flows.
+- Add official submission flows.
+- Add AI legal advice features.
+- Add unnecessary dependencies.
+- Expose secrets.
+- Bypass RLS.
+- Put business rules directly in UI components.
+- Rewrite large parts of the app without approval.
+- Change architecture rules without updating docs.
+
+## Code Review Checklist For AI Changes
+
+Before accepting AI-generated changes, verify:
+
+1. Is the change inside the requested scope?
+2. Did it modify unrelated files?
+3. Did it add dependencies?
+4. Did it expose secrets?
+5. Did it bypass architecture boundaries?
+6. Did it add direct Supabase calls in UI components?
+7. Did it introduce generated document storage?
+8. Did it affect RLS or auth?
+9. Did it include or update tests when needed?
+10. Did it keep accessibility in mind?
+11. Did it update documentation if decisions changed?
+12. Does the project still pass lint, typecheck, tests, and build?
+
+## Suggested AI Commands Or Prompts
+
+### Architecture Review
+
+```txt
+Review the current changes against docs/ARCHITECTURE.md.
+Do not rewrite code.
+Return only concrete violations and recommended fixes.
+```
+
+### Security Review
+
+```txt
+Review the current changes against docs/SECURITY.md and OWASP Top 10.
+Focus on access control, secrets, input validation, unsafe rendering, logging, and data minimization.
+Do not rewrite code unless explicitly asked.
+```
+
+### Accessibility Review
+
+```txt
+Review the current UI changes against docs/ACCESSIBILITY.md.
+Focus on labels, keyboard navigation, focus management, error messages, and accessible names.
+```
+
+### Test Creation
+
+```txt
+Create tests for the approved use case.
+Focus on critical business logic, happy path, and failure cases.
+Do not change production code unless a bug is found and explained.
+```
+
+### Documentation Update
+
+```txt
+Update the relevant docs to reflect the approved architecture decision.
+Do not introduce new product scope.
+```
+
+## Commit Rules For AI-Assisted Work
+
+Commits should be small and meaningful.
+
+Examples:
+
+```txt
+docs: refine architecture foundation
+docs: add accessibility and testing strategy
+chore: configure supabase local setup
+feat: add client domain model
+test: add template variable parser tests
+```
+
+Avoid:
+
+```txt
+update stuff
+changes
+ai generated code
+```
+
+## Developer Responsibility
+
+The developer is responsible for:
+
+- Reviewing AI output.
+- Running commands.
+- Checking diffs.
+- Confirming security.
+- Confirming scope.
+- Confirming tests.
+- Making final architecture decisions.
 
 ## TODO
 
-- Add prompt examples for schema review, security review, and accessibility review after product work begins.
+- Add Claude custom commands if the tool supports them.
+- Add code review prompt templates under a dedicated folder if useful.
+- Add examples for feature implementation prompts.
+- Define how AI should help with database migrations after schema approval.
