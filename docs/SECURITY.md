@@ -2,49 +2,311 @@
 
 ## Security Position
 
-Security and data minimization are mandatory because the product handles legal workflows. Treat all user data as sensitive by default.
+Security and data minimization are mandatory because the product supports legal workflows.
+
+Treat all user data as sensitive by default.
+
+The product must help lawyers work faster without becoming a risky storage system for generated legal documents or unnecessary sensitive legal content.
+
+## Core Security Principles
+
+The MVP follows these principles:
+
+- Data minimization.
+- Least privilege.
+- Defense in depth.
+- Secure defaults.
+- Explicit authorization.
+- Safe error handling.
+- Safe logging.
+- Dependency hygiene.
+- OWASP Top 10 awareness.
+- Accessibility and security considered together in form-heavy workflows.
 
 ## Data Minimization
 
-- Do not store generated legal documents.
-- Do not store full sensitive escritura content.
-- Store only structured metadata required for index preparation, client reuse, and accounts receivable.
-- Avoid broad free-text capture unless there is a clear product and legal need.
-- Redact sensitive details from logs and errors.
+The application must not store:
+
+- Generated legal documents.
+- Signed documents.
+- Full sensitive escritura content.
+- Unnecessary details about legal transactions.
+- Secrets.
+- Credentials.
+- Official submission artifacts.
+
+The application may store:
+
+- Lawyer profile data.
+- Template definitions.
+- Template field definitions.
+- Client metadata.
+- Minimal document metadata.
+- Minimal notarial index metadata.
+- Accounts receivable metadata.
+- Non-sensitive audit events.
+
+When in doubt, store less.
 
 ## Supabase And RLS
 
-- Every user-owned table must have Row Level Security enabled before use.
-- Policies must restrict reads and writes to the owning user or authorized account scope.
-- RLS must be tested with positive and negative cases.
-- The Supabase service role key is server-only and must never be imported into client-side code.
+Supabase Row Level Security is mandatory for user-owned data.
 
-## OWASP Top 10:2025 Checklist
+Every user-owned table must:
 
-Use the current OWASP Top 10 web application categories as a review checklist:
+- Include an ownership model, usually `owner_id`.
+- Enable RLS before production use.
+- Define policies for select, insert, update, and delete when applicable.
+- Restrict access to the owning user or explicitly authorized account scope.
+- Be tested with allowed and denied access cases.
 
-- A01 Broken Access Control: enforce RLS, server authorization, and route protection.
-- A02 Security Misconfiguration: keep secure defaults, least privilege, and reviewed environment variables.
-- A03 Software Supply Chain Failures: use lockfiles, Dependabot, and CI checks.
-- A04 Cryptographic Failures: use managed TLS and avoid custom cryptography.
-- A05 Injection: validate input and use parameterized database access.
-- A06 Insecure Design: review abuse cases before implementing workflows.
-- A07 Authentication Failures: rely on Supabase Auth and protect sessions.
-- A08 Software or Data Integrity Failures: protect CI/CD, dependencies, and generated artifacts.
-- A09 Security Logging and Alerting Failures: log security events without sensitive legal content.
-- A10 Mishandling of Exceptional Conditions: return safe errors and avoid leaking internals.
+Base policy idea:
 
-Reference: https://owasp.org/Top10/2025/
+```sql
+owner_id = auth.uid()
+```
+
+RLS is not optional.
+
+Frontend filtering is not authorization.
 
 ## Secrets
 
-- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` may be exposed to browser code.
+Environment variables must follow these rules:
+
+- `NEXT_PUBLIC_SUPABASE_URL` may be used in browser code.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` may be used in browser code.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only.
-- Never commit real `.env` files.
-- Never print secrets in CI output.
+- `SUPABASE_SERVICE_ROLE_KEY` must never be imported into client-side code.
+- Real `.env` files must never be committed.
+- Secrets must never be printed in CI logs.
+- Secrets must never be sent to client components.
+
+## OWASP Top 10 Checklist
+
+Use OWASP Top 10 as a security review checklist for web application risks.
+
+This project uses the OWASP Top 10 2021 categories as the initial baseline because they are widely used for web application security training and review.
+
+### A01 Broken Access Control
+
+Main project risk.
+
+Examples to prevent:
+
+- A lawyer reading another lawyer's clients.
+- A lawyer modifying another lawyer's templates.
+- A lawyer accessing another lawyer's receivables by changing an ID.
+- Dashboard routes showing private data without an authenticated session.
+
+Required controls:
+
+- Supabase RLS.
+- Server-side authorization checks.
+- Protected routes.
+- Ownership validation.
+- Negative tests for unauthorized access.
+
+### A02 Cryptographic Failures
+
+Required controls:
+
+- Use managed HTTPS in production.
+- Do not implement custom cryptography.
+- Do not store unnecessary sensitive legal content.
+- Do not store generated legal documents.
+- Protect secrets and environment variables.
+- Avoid logging sensitive data.
+
+### A03 Injection
+
+Required controls:
+
+- Validate input with schemas before persistence.
+- Avoid raw SQL string concatenation.
+- Avoid unsafe HTML rendering.
+- Sanitize or strictly control rich text/template content.
+- Validate template variables against allowed field definitions.
+- Avoid dynamic code execution.
+
+### A04 Insecure Design
+
+Required controls:
+
+- Review abuse cases before implementing workflows.
+- Keep official legal submission outside MVP scope.
+- Keep digital signature outside MVP scope.
+- Avoid storing generated documents by design.
+- Separate document metadata, index metadata, and receivables.
+- Review new features against `MVP_SCOPE.md`.
+
+### A05 Security Misconfiguration
+
+Required controls:
+
+- Secure environment variable handling.
+- No debug-only routes in production.
+- No broad database policies.
+- No public unrestricted tables for user-owned data.
+- Review Supabase policies before deployment.
+- Use secure defaults in CI/CD.
+
+### A06 Vulnerable And Outdated Components
+
+Required controls:
+
+- Use lockfiles.
+- Use Dependabot.
+- Review dependency updates.
+- Avoid unnecessary dependencies.
+- Prefer reputable libraries.
+- Run CI checks before merging dependency updates.
+
+### A07 Identification And Authentication Failures
+
+Required controls:
+
+- Use Supabase Auth.
+- Protect private dashboard routes.
+- Handle session state safely.
+- Use secure password reset flows through the auth provider.
+- Do not implement custom authentication unless explicitly approved.
+
+### A08 Software And Data Integrity Failures
+
+Required controls:
+
+- Use pull requests.
+- Run CI before merging.
+- Protect `main`.
+- Use package lockfiles.
+- Avoid executing unreviewed scripts.
+- Avoid committing generated artifacts that should not be versioned.
+
+### A09 Security Logging And Monitoring Failures
+
+Required controls:
+
+- Log important security-relevant events without sensitive legal content.
+- Do not log generated document content.
+- Do not log full escritura text.
+- Do not log secrets.
+- Capture enough operational context to investigate failures safely.
+
+Potential audit events:
+
+- Login.
+- Profile update.
+- Template creation.
+- Template update.
+- Document generation event without generated content.
+- Index export event.
+- Receivable status update.
+
+### A10 Server-Side Request Forgery
+
+Current MVP risk is low because the app should not fetch arbitrary user-provided URLs.
+
+Required controls if future imports are added:
+
+- Do not fetch arbitrary URLs from user input.
+- Validate file uploads.
+- Validate file size and type.
+- Block internal network targets.
+- Avoid server-side URL fetch features unless explicitly reviewed.
+
+## Template And Rich Text Security
+
+Template editing is a sensitive area.
+
+Rules:
+
+- Do not execute template content as code.
+- Do not allow arbitrary scripts.
+- Validate variable names against known fields.
+- Keep conditional syntax controlled.
+- Avoid rendering unsanitized HTML.
+- Prefer structured template content over raw HTML-only storage.
+
+## Document Generation Security
+
+Generated documents must be handled carefully.
+
+Rules:
+
+- Generate files for immediate download.
+- Do not persist generated legal documents by default.
+- Avoid writing generated files to permanent storage.
+- Avoid logging generated content.
+- Keep export adapters server-side.
+- Validate all input before export.
+
+## Logging Rules
+
+Logs must not include:
+
+- Generated legal document content.
+- Full escritura content.
+- Secrets.
+- Credentials.
+- Complete sensitive transaction details.
+- Full client identification details unless explicitly required for safe debugging.
+
+Logs may include:
+
+- Event type.
+- User ID.
+- Timestamp.
+- Non-sensitive resource ID.
+- Error code.
+- Safe technical context.
+
+## CI/CD Security
+
+CI/CD must:
+
+- Run lint.
+- Run typecheck.
+- Run tests.
+- Run build.
+- Avoid printing secrets.
+- Avoid using overly broad GitHub token permissions.
+- Run on pull requests before merge.
+
+## Dependency Security
+
+Use Dependabot for:
+
+- npm dependencies.
+- GitHub Actions dependencies.
+
+Dependency updates should be reviewed before merging.
+
+Avoid adding libraries unless they have a clear purpose.
+
+## Security Review Checklist For New Features
+
+Before merging a new feature, answer:
+
+1. Does it store any new user data?
+2. Is the data necessary?
+3. Does the table require RLS?
+4. Can one user access another user's data?
+5. Are inputs validated?
+6. Are errors safe?
+7. Are logs safe?
+8. Does it expose secrets?
+9. Does it render user-controlled HTML?
+10. Does it change document generation behavior?
+11. Does it affect official legal workflows?
+12. Does it require tests?
 
 ## TODO
 
-- Add threat model for auth, metadata, and document export flows.
-- Define audit logging requirements.
-- Add security test cases after schema and auth are implemented.
+- Define exact RLS policies after the database schema is approved.
+- Add threat model for authentication.
+- Add threat model for template editing.
+- Add threat model for document export.
+- Add threat model for notarial index metadata.
+- Define audit log requirements.
+- Add security-focused test cases.

@@ -1,36 +1,119 @@
-# Docker
+# Docker Strategy
 
-## Purpose
+## Decision
 
-Docker is optional local-development support. It is not the MVP production deployment strategy.
+Docker is used for local development support.
 
-Production is intended to run on Vercel plus Supabase Cloud.
+Docker is not required for the MVP production deployment.
 
-## Supabase Local Development
+The intended MVP production target is:
 
-Use the Supabase CLI for the local Supabase stack. The `docker-compose.yml` file intentionally does not attempt to define or self-host production Supabase services manually.
+```txt
+Vercel - Next.js app
+Supabase Cloud - Auth and Postgres
+```
 
-## App Container
+The intended local development target is:
 
-The `Dockerfile` provides an optional future container build for the Next.js app. Normal local app development should use:
+```txt
+Local Next.js app
+Supabase local stack through Docker
+```
+
+## Why Docker Is Useful Locally
+
+Docker helps provide a reproducible local development environment.
+
+In this project, Docker is mainly useful for:
+
+- Running the Supabase local stack.
+- Running local Postgres through Supabase.
+- Testing migrations before applying them to cloud environments.
+- Avoiding manual local database setup.
+- Supporting a professional development workflow for the master's project.
+
+## Why Docker Is Not Required In MVP Production
+
+For the MVP, production deployment should be simple.
+
+Using Vercel plus Supabase Cloud avoids the need to manage:
+
+- Linux servers.
+- Container registries.
+- Reverse proxies.
+- TLS certificates.
+- Manual container restarts.
+- Server patching.
+- Self-hosted Supabase operations.
+- Production database backups at the infrastructure level.
+
+This keeps the MVP focused on product value instead of infrastructure complexity.
+
+## Docker Files
+
+The repository may include:
+
+- `Dockerfile`: optional future container build for the Next.js app.
+- `docker-compose.yml`: local development helper.
+- `.dockerignore`: excludes files that should not be copied into Docker build contexts.
+
+These files do not mean that production must use Docker.
+
+## Local Supabase
+
+Supabase local development requires Docker.
+
+Typical local workflow:
+
+```bash
+supabase start
+```
+
+This starts the local Supabase services.
+
+The exact commands may change after the Supabase project is initialized.
+
+## Local App
+
+The Next.js app can run directly on the developer machine:
 
 ```bash
 pnpm dev
 ```
 
-To build the optional app image through Compose:
+The app does not need to run inside Docker during normal development.
 
-```bash
-docker compose --profile app build
+## Production
+
+Production MVP deployment is expected to use:
+
+```txt
+GitHub
+  ↓
+Vercel
+  ↓
+Supabase Cloud
 ```
 
-To run it:
+Docker-based production deployment may be reconsidered in the future if the project requires:
 
-```bash
-docker compose --profile app up app
-```
+- Self-hosting.
+- Custom infrastructure.
+- Enterprise deployment.
+- Non-Vercel hosting.
+- More control over runtime behavior.
+
+## Rules
+
+- Do not self-host Supabase for MVP production.
+- Do not make Docker a requirement for deploying the MVP.
+- Do not store secrets in Docker files.
+- Do not copy `.env` into Docker images.
+- Keep Docker configuration simple.
+- Document any production Docker decision before implementing it.
 
 ## TODO
 
-- Add Supabase CLI setup notes after the local project is initialized.
-- Decide whether the app container is useful for CI smoke testing.
+- Confirm the exact Supabase local setup after `supabase init`.
+- Confirm whether the `Dockerfile` builds successfully after the app has real runtime dependencies.
+- Add Docker-related commands to `README.md` after the workflow is stable.

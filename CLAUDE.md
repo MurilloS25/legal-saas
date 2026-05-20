@@ -1,14 +1,7 @@
 # Claude Instructions
 
-Follow `AGENTS.md`, `RULES.md`, and `docs/PRODUCT_RULES.md`.
+Start by reading `AGENTS.md`.
 
-Before changing Next.js code, read the relevant guide in `node_modules/next/dist/docs/` because this project uses a newer Next.js version with breaking changes.
+`AGENTS.md` is the main routing guide for this repository. It explains which documentation files to read depending on the task.
 
-Core constraints:
-
-- Do not implement product screens until explicitly requested.
-- Do not create database tables until a schema task is approved.
-- Do not add document-generation logic yet.
-- Do not store generated legal documents or full sensitive escritura content.
-- Never expose Supabase service role keys to client-side code.
-- Keep the modular monolith boundaries clear and avoid overengineering.
+Do not read all documentation files automatically. Read only the files relevant to the current task.
