@@ -19,24 +19,10 @@ The product will help lawyers manage reusable legal document templates ("machote
 Install dependencies and run the local app:
 
 ```bash
-pnpm install
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## Local Development
-
-Run the app directly and manage Supabase local services through the project CLI:
-
-```bash
-pnpm dev
-pnpm supabase start
-pnpm supabase status
-pnpm supabase stop
-```
-
-Docker Desktop must be running before `pnpm supabase start`.
 
 ## Quality Commands
 
