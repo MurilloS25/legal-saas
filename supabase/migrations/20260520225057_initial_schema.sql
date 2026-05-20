@@ -248,95 +248,113 @@ alter table public.receivables enable row level security;
 create policy "lawyer_profiles_select_own"
 on public.lawyer_profiles
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "lawyer_profiles_insert_own"
 on public.lawyer_profiles
 for insert
+to authenticated
 with check (owner_id = auth.uid());
 
 create policy "lawyer_profiles_update_own"
 on public.lawyer_profiles
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
 
 create policy "lawyer_profiles_delete_own"
 on public.lawyer_profiles
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "document_settings_select_own"
 on public.document_settings
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "document_settings_insert_own"
 on public.document_settings
 for insert
+to authenticated
 with check (owner_id = auth.uid());
 
 create policy "document_settings_update_own"
 on public.document_settings
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
 
 create policy "document_settings_delete_own"
 on public.document_settings
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "clients_select_own"
 on public.clients
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "clients_insert_own"
 on public.clients
 for insert
+to authenticated
 with check (owner_id = auth.uid());
 
 create policy "clients_update_own"
 on public.clients
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
 
 create policy "clients_delete_own"
 on public.clients
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "templates_select_own"
 on public.templates
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "templates_insert_own"
 on public.templates
 for insert
+to authenticated
 with check (owner_id = auth.uid());
 
 create policy "templates_update_own"
 on public.templates
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
 
 create policy "templates_delete_own"
 on public.templates
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "template_fields_select_own"
 on public.template_fields
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "template_fields_insert_own"
 on public.template_fields
 for insert
+to authenticated
 with check (
   owner_id = auth.uid()
   and exists (
@@ -350,6 +368,7 @@ with check (
 create policy "template_fields_update_own"
 on public.template_fields
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (
   owner_id = auth.uid()
@@ -364,16 +383,19 @@ with check (
 create policy "template_fields_delete_own"
 on public.template_fields
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "document_metadata_select_own"
 on public.document_metadata
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "document_metadata_insert_own"
 on public.document_metadata
 for insert
+to authenticated
 with check (
   owner_id = auth.uid()
   and exists (
@@ -396,6 +418,7 @@ with check (
 create policy "document_metadata_update_own"
 on public.document_metadata
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (
   owner_id = auth.uid()
@@ -419,16 +442,19 @@ with check (
 create policy "document_metadata_delete_own"
 on public.document_metadata
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "notarial_records_select_own"
 on public.notarial_records
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "notarial_records_insert_own"
 on public.notarial_records
 for insert
+to authenticated
 with check (
   owner_id = auth.uid()
   and exists (
@@ -442,6 +468,7 @@ with check (
 create policy "notarial_records_update_own"
 on public.notarial_records
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (
   owner_id = auth.uid()
@@ -456,16 +483,19 @@ with check (
 create policy "notarial_records_delete_own"
 on public.notarial_records
 for delete
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "receivables_select_own"
 on public.receivables
 for select
+to authenticated
 using (owner_id = auth.uid());
 
 create policy "receivables_insert_own"
 on public.receivables
 for insert
+to authenticated
 with check (
   owner_id = auth.uid()
   and exists (
@@ -488,6 +518,7 @@ with check (
 create policy "receivables_update_own"
 on public.receivables
 for update
+to authenticated
 using (owner_id = auth.uid())
 with check (
   owner_id = auth.uid()
@@ -511,4 +542,5 @@ with check (
 create policy "receivables_delete_own"
 on public.receivables
 for delete
+to authenticated
 using (owner_id = auth.uid());
