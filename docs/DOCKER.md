@@ -61,28 +61,17 @@ These files do not mean that production must use Docker.
 
 ## Local Supabase
 
-Supabase local development uses the official Supabase CLI plus Docker.
+Supabase local development requires Docker.
 
-Docker Desktop must be installed and running before starting Supabase local services. The CLI is installed as a project dev dependency and should be run through pnpm.
-
-Main commands:
+Typical local workflow:
 
 ```bash
-pnpm supabase start
-pnpm supabase status
-pnpm supabase stop
+supabase start
 ```
 
-Local service URLs:
+This starts the local Supabase services.
 
-- Supabase Studio: `http://127.0.0.1:54323`
-- Local project API URL: `http://127.0.0.1:54321`
-
-Do not paste or commit local anon keys, service role keys, JWT secrets, database passwords, or other secrets from `pnpm supabase status`.
-
-Do not define a manual Supabase self-hosting stack in `docker-compose.yml`. The intended local workflow is Supabase CLI managed services, not hand-maintained Docker Compose services.
-
-If the Supabase CLI reports that a new version is available, review the official Supabase CLI docs and update the dependency in a controlled change with validation.
+The exact commands may change after the Supabase project is initialized.
 
 ## Local App
 
@@ -125,4 +114,6 @@ Docker-based production deployment may be reconsidered in the future if the proj
 
 ## TODO
 
+- Confirm the exact Supabase local setup after `supabase init`.
 - Confirm whether the `Dockerfile` builds successfully after the app has real runtime dependencies.
+- Add Docker-related commands to `README.md` after the workflow is stable.
