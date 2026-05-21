@@ -13,7 +13,7 @@ export type AllowedFontFamily = (typeof ALLOWED_FONT_FAMILIES)[number];
 // ------------------------------------------------------------------ profiles
 
 export const ProfileSchema = z.object({
-  full_name: z.string().min(1, "El nombre completo es requerido").trim(),
+  full_name: z.string().trim().min(1, "El nombre completo es requerido"),
   professional_code: z.string().trim(),
   // Email is optional: empty string is accepted, non-empty must be valid.
   email: z

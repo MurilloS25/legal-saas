@@ -24,6 +24,19 @@ describe("ProfileSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects a full_name made of only whitespace", () => {
+    const result = ProfileSchema.safeParse({
+      full_name: "   ",
+      professional_code: "",
+      email: "",
+      phone: "",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.full_name).toBeDefined();
+    }
+  });
+
   it("rejects when full_name is missing", () => {
     const result = ProfileSchema.safeParse({
       full_name: "",
