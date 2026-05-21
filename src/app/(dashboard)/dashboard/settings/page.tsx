@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "./_components/ProfileForm";
 import { DocumentSettingsForm } from "./_components/DocumentSettingsForm";
 
 export const metadata = {
-  title: "Configuración — Legal Docs SaaS",
+  title: "Configuración — LexCR",
 };
 
 export default async function SettingsPage() {
@@ -34,31 +33,21 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      {/* Header */}
-      <div className="mb-8 flex items-center gap-4">
-        <div>
-          <nav className="mb-1">
-            <Link
-              href="/dashboard"
-              className="text-sm text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
-            >
-              ← Panel
-            </Link>
-          </nav>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Configuración
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Perfil profesional y preferencias documentales.
-          </p>
-        </div>
+    <div className="px-6 py-8 max-w-3xl mx-auto">
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Configuración
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Perfil profesional y preferencias de documentos.
+        </p>
       </div>
 
       <div className="space-y-8">
         <ProfileForm initialData={profileResult.data} />
         <DocumentSettingsForm initialData={settingsResult.data} />
       </div>
-    </main>
+    </div>
   );
 }

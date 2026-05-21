@@ -13,10 +13,10 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="bg-white rounded-xl border border-slate-200 px-8 py-10 shadow-sm">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900">
+    <div className="w-full max-w-md">
+      <div className="bg-white rounded-2xl border border-slate-200 px-8 py-10 shadow-sm">
+        <div className="mb-7">
+          <h1 className="text-xl font-semibold text-slate-900">
             Iniciar sesión
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -47,7 +47,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               required
-              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50"
               placeholder="abogado@ejemplo.com"
               aria-describedby={
                 state.errors?.email ? "email-error" : undefined
@@ -55,7 +55,11 @@ export default function LoginPage() {
               aria-invalid={!!state.errors?.email}
             />
             {state.errors?.email && (
-              <p id="email-error" role="alert" className="mt-1.5 text-xs text-red-700">
+              <p
+                id="email-error"
+                role="alert"
+                className="mt-1.5 text-xs text-red-700"
+              >
                 {state.errors.email}
               </p>
             )}
@@ -74,15 +78,19 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               required
-              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
-              placeholder="••••••••"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50"
+              placeholder="••••••••••••"
               aria-describedby={
                 state.errors?.password ? "password-error" : undefined
               }
               aria-invalid={!!state.errors?.password}
             />
             {state.errors?.password && (
-              <p id="password-error" role="alert" className="mt-1.5 text-xs text-red-700">
+              <p
+                id="password-error"
+                role="alert"
+                className="mt-1.5 text-xs text-red-700"
+              >
                 {state.errors.password}
               </p>
             )}
@@ -91,7 +99,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {pending ? "Ingresando…" : "Ingresar"}
           </button>

@@ -14,17 +14,22 @@ export default function SignupPage() {
 
   if (state.requiresConfirmation) {
     return (
-      <div className="w-full max-w-sm">
-        <div className="bg-white rounded-xl border border-slate-200 px-8 py-10 shadow-sm text-center">
-          <div className="mb-4 flex justify-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-600 text-2xl">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl border border-slate-200 px-8 py-10 shadow-sm text-center">
+          <div className="mb-5 flex justify-center">
+            <span
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-600 text-2xl"
+              aria-hidden="true"
+            >
               ✉
             </span>
           </div>
           <h1 className="text-xl font-semibold text-slate-900">
             Revisa tu correo
           </h1>
-          <p className="mt-2 text-sm text-slate-500">{state.message}</p>
+          <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+            {state.message}
+          </p>
           <p className="mt-6 text-sm text-slate-500">
             ¿Ya confirmaste?{" "}
             <Link
@@ -40,12 +45,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="bg-white rounded-xl border border-slate-200 px-8 py-10 shadow-sm">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Crear cuenta
-          </h1>
+    <div className="w-full max-w-md">
+      <div className="bg-white rounded-2xl border border-slate-200 px-8 py-10 shadow-sm">
+        <div className="mb-7">
+          <h1 className="text-xl font-semibold text-slate-900">Crear cuenta</h1>
           <p className="mt-1 text-sm text-slate-500">
             Configura tu espacio de trabajo legal.
           </p>
@@ -74,7 +77,7 @@ export default function SignupPage() {
               type="email"
               autoComplete="email"
               required
-              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50"
               placeholder="abogado@ejemplo.com"
               aria-describedby={
                 state.errors?.email ? "email-error" : undefined
@@ -105,22 +108,31 @@ export default function SignupPage() {
               type="password"
               autoComplete="new-password"
               required
-              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50"
               placeholder="Crea una contraseña segura"
-              aria-describedby="password-hints password-error"
+              aria-describedby="password-requirements password-error"
               aria-invalid={!!state.errors?.password}
             />
-            <p
-              id="password-hints"
-              className="mt-1.5 text-xs text-slate-400 leading-relaxed"
+            {/* Password requirements — always visible to guide the user */}
+            <div
+              id="password-requirements"
+              className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5"
             >
-              Mínimo 12 caracteres · mayúscula · minúscula · número · símbolo
-            </p>
+              <p className="text-xs font-medium text-slate-500 mb-1.5">
+                La contraseña debe incluir:
+              </p>
+              <ul className="space-y-1 text-xs text-slate-400">
+                <li>· Mínimo 12 caracteres</li>
+                <li>· Al menos una mayúscula y una minúscula</li>
+                <li>· Al menos un número</li>
+                <li>· Al menos un símbolo (p. ej. ! @ # $)</li>
+              </ul>
+            </div>
             {state.errors?.password && (
               <p
                 id="password-error"
                 role="alert"
-                className="mt-1 text-xs text-red-700"
+                className="mt-1.5 text-xs text-red-700"
               >
                 {state.errors.password}
               </p>
@@ -140,7 +152,7 @@ export default function SignupPage() {
               type="password"
               autoComplete="new-password"
               required
-              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50"
               placeholder="Repite la contraseña"
               aria-describedby={
                 state.errors?.confirmPassword
@@ -163,7 +175,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {pending ? "Creando cuenta…" : "Crear cuenta"}
           </button>
