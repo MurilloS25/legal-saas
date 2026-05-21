@@ -33,6 +33,7 @@ Use this guide before starting any task:
 | Database design, tables, relationships, RLS planning | `docs/DATABASE.md`, `docs/SECURITY.md` |
 | Security, OWASP, secrets, logging, RLS | `docs/SECURITY.md` |
 | Accessibility, forms, keyboard navigation, focus, errors | `docs/ACCESSIBILITY.md` |
+| UI implementation, visual design, app layout, components | `docs/UI_GUIDELINES.md` |
 | Testing, TDD rules, unit tests, E2E tests | `docs/TESTING.md` |
 | CI/CD, GitHub Actions, Dependabot, deployment flow | `docs/CI_CD.md` |
 | Docker usage and local development strategy | `docs/DOCKER.md` |
@@ -157,6 +158,8 @@ This includes:
 Accessibility is mandatory for UI work.
 
 For UI tasks, read `docs/ACCESSIBILITY.md`.
+
+For UI implementation tasks, read `docs/UI_GUIDELINES.md` first.
 
 All user-facing forms must consider:
 
