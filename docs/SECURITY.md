@@ -301,6 +301,65 @@ Before merging a new feature, answer:
 11. Does it affect official legal workflows?
 12. Does it require tests?
 
+## Auth Hardening Checklist
+
+The following items are required before production deployment of Supabase Auth.
+They are intentionally deferred from the MVP development phase.
+
+### Rate Limits
+
+Supabase Auth has built-in rate limits for signup, login, OTP, and password reset.
+
+Before production:
+
+- Review the rate limit settings in the Supabase project dashboard.
+- Consider enabling CAPTCHA (hCaptcha or Cloudflare Turnstile) via Supabase Auth settings
+  if bot traffic or credential stuffing becomes a concern.
+- Do not implement manual rate limiting in application code unless Supabase limits are insufficient.
+
+### CAPTCHA
+
+CAPTCHA integration is deferred.
+
+Supabase Auth natively supports hCaptcha and Cloudflare Turnstile.
+Enable and configure via the Supabase Auth project settings when needed.
+
+### Password Policy Alignment
+
+The application enforces a password policy at the form validation layer (Zod schema).
+The Supabase Auth project settings have a separate password strength configuration.
+
+Before production:
+
+- Set the Supabase Auth password minimum length to 12 characters to match the application schema.
+- Enable uppercase, lowercase, digit, and symbol requirements in Supabase Auth settings.
+- Both layers must be aligned — the application layer provides UX feedback;
+  the Supabase layer enforces the policy at the API level.
+
+### Custom SMTP
+
+Before production:
+
+- Configure a custom SMTP server in Supabase project settings.
+- Using Supabase's default SMTP has rate limits not suitable for production.
+
+### Email Confirmation Templates
+
+Before production:
+
+- Update the Supabase email confirmation template to point to:
+  `<your-domain>/auth/confirm?token_hash={{ .TokenHash }}&type=signup`
+- Review all email templates (confirmation, password reset, invite) in Supabase project settings.
+
+### Deferred Auth Features
+
+The following features are intentionally deferred:
+
+- Google OAuth (and other social providers).
+- Magic link / passwordless login.
+- Multi-factor authentication (MFA / TOTP).
+- Passkeys / WebAuthn.
+
 ## TODO
 
 - Define exact RLS policies after the database schema is approved.
