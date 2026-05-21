@@ -82,7 +82,11 @@ export default function SignupPage() {
               aria-invalid={!!state.errors?.email}
             />
             {state.errors?.email && (
-              <p id="email-error" role="alert" className="mt-1.5 text-xs text-red-700">
+              <p
+                id="email-error"
+                role="alert"
+                className="mt-1.5 text-xs text-red-700"
+              >
                 {state.errors.email}
               </p>
             )}
@@ -102,15 +106,56 @@ export default function SignupPage() {
               autoComplete="new-password"
               required
               className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
-              placeholder="Mínimo 8 caracteres"
-              aria-describedby={
-                state.errors?.password ? "password-error" : undefined
-              }
+              placeholder="Crea una contraseña segura"
+              aria-describedby="password-hints password-error"
               aria-invalid={!!state.errors?.password}
             />
+            <p
+              id="password-hints"
+              className="mt-1.5 text-xs text-slate-400 leading-relaxed"
+            >
+              Mínimo 12 caracteres · mayúscula · minúscula · número · símbolo
+            </p>
             {state.errors?.password && (
-              <p id="password-error" role="alert" className="mt-1.5 text-xs text-red-700">
+              <p
+                id="password-error"
+                role="alert"
+                className="mt-1 text-xs text-red-700"
+              >
                 {state.errors.password}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-slate-700 mb-1.5"
+            >
+              Confirmar contraseña
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              required
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
+              placeholder="Repite la contraseña"
+              aria-describedby={
+                state.errors?.confirmPassword
+                  ? "confirmPassword-error"
+                  : undefined
+              }
+              aria-invalid={!!state.errors?.confirmPassword}
+            />
+            {state.errors?.confirmPassword && (
+              <p
+                id="confirmPassword-error"
+                role="alert"
+                className="mt-1.5 text-xs text-red-700"
+              >
+                {state.errors.confirmPassword}
               </p>
             )}
           </div>

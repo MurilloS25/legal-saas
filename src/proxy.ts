@@ -6,6 +6,14 @@ const supabaseKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Add new protected route prefixes here as features are implemented.
+// Only /dashboard exists for now. Future examples:
+//   "/clients", "/templates", "/settings", "/receivables", "/notarial-index"
+const PRIVATE_ROUTE_PREFIXES = ["/dashboard"];
+
+// Public auth routes — authenticated users are redirected away from these.
+const AUTH_ROUTES = ["/login", "/signup"];
+
 export async function proxy(request: NextRequest) {
   // supabaseResponse must be returned at the end so session cookies are forwarded.
   // When setAll reassigns it, the new response carries the refreshed tokens.
@@ -39,13 +47,21 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!user && pathname.startsWith("/dashboard")) {
+  const isPrivateRoute = PRIVATE_ROUTE_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+
+  const isAuthRoute = AUTH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/"),
+  );
+
+  if (!user && isPrivateRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

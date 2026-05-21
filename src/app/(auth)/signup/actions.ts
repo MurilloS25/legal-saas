@@ -8,6 +8,7 @@ export type SignupState = {
   errors?: {
     email?: string;
     password?: string;
+    confirmPassword?: string;
   };
   message?: string;
   requiresConfirmation?: boolean;
@@ -20,6 +21,7 @@ export async function signupAction(
   const raw = {
     email: formData.get("email"),
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   };
 
   const result = SignupSchema.safeParse(raw);
@@ -30,6 +32,7 @@ export async function signupAction(
       errors: {
         email: fieldErrors.email?.[0],
         password: fieldErrors.password?.[0],
+        confirmPassword: fieldErrors.confirmPassword?.[0],
       },
     };
   }
