@@ -162,6 +162,16 @@ Things to Avoid:
 - Landing-page style sections inside the app.
 - Complex dashboards before real data exists.
 
+## Design References
+
+Visual screen references and the Sober Juris design system specification are in `docs/design/`.
+
+- `docs/design/DESIGN.md` — color tokens, typography scale, spacing, component styles.
+- `docs/design/reference/` — PNG mockups for login, register, dashboard, and settings screens.
+- `docs/design/README.md` — how to use these references and what constraints apply.
+
+Use these as visual direction, not pixel-perfect specs. MVP scope and accessibility requirements take precedence.
+
 ## Inspiration Sources
 
 Use as broad inspiration, not strict copy:
