@@ -248,10 +248,53 @@ Critical logic is done only when:
 5. It does not store unnecessary sensitive data.
 6. It passes lint, typecheck, tests, and build.
 
+## Running Tests
+
+### Unit tests (Vitest)
+
+```bash
+pnpm test
+```
+
+### RLS tests (Supabase local)
+
+```bash
+pnpm supabase test db --local supabase/tests/rls_initial_schema.test.sql
+```
+
+Requires Supabase local to be running (`pnpm supabase start`).
+
+### E2E tests (Playwright)
+
+```bash
+pnpm e2e          # headless, list reporter
+pnpm e2e:ui       # interactive Playwright UI
+pnpm e2e:headed   # headed browser
+```
+
+**Requirements before running E2E tests:**
+
+- `.env.local` must be configured with the Supabase local credentials.
+- Supabase local must be running (`pnpm supabase start`) for flows that depend on Auth, such as login, redirect, and error handling.
+- The dev server starts automatically via `pnpm dev` unless it is already running on port 3000.
+
+**Phase 1 scope (current):**
+
+- Smoke tests for unauthenticated flows: login page, signup page, and protected route redirects.
+- Tests do not create real users or share authentication state between runs.
+- No visual regression tests.
+- Not included in CI yet.
+
+**Phase 2 (future):**
+
+- Authenticated tests using a dedicated test user and `storageState`.
+- Full workflow flows: create client, create template, generate document.
+- Possible CI integration with a Supabase test environment.
+
 ## TODO
 
-- Add Vitest config if needed.
-- Add Playwright config when the first E2E flow exists.
 - Decide between centralized tests or feature-local tests.
 - Add test factories for fake users, clients, templates, and receivables.
 - Add RLS testing strategy after Supabase schema exists.
+- Phase 2: authenticated E2E tests with storageState.
+- Phase 2: add E2E to CI pipeline.
