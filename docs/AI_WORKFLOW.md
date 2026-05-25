@@ -68,21 +68,49 @@ Recommended workflow:
 
 1. Define the task clearly.
 2. Confirm the task is inside MVP scope.
-3. Ask AI for a plan before code.
-4. Review the plan.
-5. Ask AI to implement only the approved scope.
-6. Review the diff manually.
-7. Run validation commands according to the Validation Policy.
-8. Commit only reviewed changes.
+3. Run `git status` and `git branch --show-current`.
+4. If there are unexpected local changes, stop and ask before editing.
+5. Ask AI for a plan before code when the task changes behavior, data, security, or architecture.
+6. Review the plan.
+7. Ask AI to implement only the approved scope.
+8. Review the diff manually.
+9. Run validation commands according to the Validation Policy.
+10. Commit only reviewed changes.
+
+## Claude / Codex Responsibilities
+
+The normal workflow is:
+
+- Claude implements requested changes.
+- Codex reviews when the user asks for review.
+- Codex must not modify files during review-only tasks.
+- Either tool may implement when the user explicitly asks it to do so.
+
+Do not create Git worktrees unless the user explicitly asks for one.
+
+Work in the current user worktree. When isolation is needed, create or switch to a normal Git branch in the current worktree.
+
+Do not use `.claude/worktrees/` unless explicitly authorized by the user.
+
+## TDD For New Modules
+
+New business modules should follow the Red-Green-Refactor workflow documented in `docs/TESTING.md`.
+
+This applies to modules such as clients, templates, template variables, document generation, notarial index, and receivables.
+
+Start with fast tests close to the logic. Use Playwright E2E only for limited, high-value user flows after the lower-level behavior is covered.
 
 ## Validation Policy
 
 Agents must choose validation commands based on the type of change.
 
+The authoritative validation matrix is in `docs/TESTING.md`.
+
 For documentation-only changes:
 
 - Do not run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` by default.
-- Only run them if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
+- Do not run `pnpm e2e` by default.
+- Only run commands if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
 
 For configuration changes:
 
@@ -113,6 +141,30 @@ Examples:
 - Updating `.github/workflows/ci.yml`: run relevant CI-equivalent checks.
 - Updating `package.json` or `pnpm-lock.yaml`: run install and full validation.
 - Updating application TypeScript/React code: run lint, typecheck, tests, and build.
+
+## Playwright E2E Policy
+
+Use Playwright for critical user workflows that combine UI, Auth, routing, and Supabase persistence.
+
+Do not use Playwright to duplicate every unit test or to assert fragile visual details.
+
+Agents must not commit `playwright/.auth/`, storageState files, screenshots, traces, reports, or `test-results/`.
+
+Keep Playwright out of CI unless a task explicitly asks to add it with browser installation, environment variables, and a clear Supabase local/test strategy.
+
+## Supabase Safety
+
+Never touch Supabase Cloud without explicit user permission.
+
+Never run `supabase db push` without explicit user permission.
+
+For database changes:
+
+1. Use versioned migrations.
+2. Update database/security documentation when decisions change.
+3. Add or update RLS tests for ownership and access-control behavior.
+4. Run local Supabase validation.
+5. Do not store generated legal documents, Word files, PDFs, full escritura text, or generated document storage paths.
 
 ## Prompting Rules
 

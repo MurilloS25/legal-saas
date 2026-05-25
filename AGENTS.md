@@ -189,14 +189,26 @@ Unit tests are required for critical logic such as:
 - Authorization-sensitive logic.
 - Document export transformations.
 
+For new business modules, follow Red-Green-Refactor TDD as described in `docs/TESTING.md`.
+
+TDD should normally start with fast tests close to the logic. Add Playwright E2E near the end for the module's critical UI flow.
+
 ## Validation Policy
 
 Agents must choose validation commands based on the type of change.
 
+`docs/TESTING.md` is the authoritative validation matrix. The short version is:
+
 For documentation-only changes:
 
 - Do not run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` by default.
-- Only run them if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
+- Do not run `pnpm e2e` by default.
+- Only run commands if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
+
+For UI/React changes without critical logic:
+
+- Run `pnpm lint`, `pnpm typecheck`, and `pnpm build`.
+- Run `pnpm test` or `pnpm e2e` when related behavior, protected routes, or critical flows changed.
 
 For configuration changes:
 
@@ -210,6 +222,11 @@ For dependency, source code, tests, framework config, Supabase config, or CI cha
   - `pnpm typecheck`
   - `pnpm test`
   - `pnpm build`
+
+For Auth, protected routes, settings, critical flows, or large module changes:
+
+- Run the relevant full checks from `docs/TESTING.md`.
+- Include `pnpm e2e` when the changed module has critical UI coverage or the task asks for it.
 
 For Supabase local setup changes:
 
@@ -227,6 +244,38 @@ Examples:
 - Updating `.github/workflows/ci.yml`: run relevant CI-equivalent checks.
 - Updating `package.json` or `pnpm-lock.yaml`: run install and full validation.
 - Updating application TypeScript/React code: run lint, typecheck, tests, and build.
+
+## Playwright Rule
+
+Use Playwright only for high-value user workflows. Prefer accessible locators such as `getByRole`, `getByLabel`, and `getByText`.
+
+Do not commit `playwright/.auth/`, storageState files, screenshots, traces, reports, or test artifacts.
+
+Do not add Playwright to CI unless the task explicitly asks for it.
+
+## Supabase Safety Rule
+
+Never use `supabase db push` or touch Supabase Cloud without explicit user permission.
+
+For database changes:
+
+1. Use versioned migrations.
+2. Update documentation when decisions change.
+3. Add or update RLS tests.
+4. Run local Supabase validation.
+5. Keep generated legal documents, PDFs, Word files, full escritura text, and storage paths out of the database.
+
+## Worktree Rule
+
+Do not create Git worktrees unless the user explicitly asks for one.
+
+Work in the user's current worktree. When a task needs isolation, create or switch to a normal Git branch inside the current worktree.
+
+Before any task:
+
+1. Run `git status`.
+2. Run `git branch --show-current`.
+3. If there are unexpected uncommitted changes, stop and ask before editing.
 
 ## Workflow
 
