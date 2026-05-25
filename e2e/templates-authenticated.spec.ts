@@ -1,0 +1,132 @@
+import { test, expect } from "@playwright/test";
+
+// Tests share the same user account. Serial mode prevents race conditions
+// between tests that write to the same template records.
+test.describe.configure({ mode: "serial" });
+
+// Module-level state shared between serial tests in this describe block.
+let createdTemplateName = "";
+let editedTemplateName = "";
+
+test.describe("templates module", () => {
+  test("A: templates list page is accessible from the sidebar", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+
+    await page.getByRole("link", { name: "Machotes" }).first().click();
+
+    await expect(page).toHaveURL(/\/dashboard\/templates/);
+    await expect(
+      page.getByRole("heading", { name: "Machotes", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("B: new template page is reachable", async ({ page }) => {
+    await page.goto("/dashboard/templates");
+
+    await page
+      .getByRole("link", { name: /Nuevo machote|Crear machote/ })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/dashboard\/templates\/new$/);
+    await expect(
+      page.getByRole("heading", { name: "Nuevo machote", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("C: user can create a new template", async ({ page }) => {
+    createdTemplateName = `E2E Machote ${Date.now()}`;
+
+    await page.goto("/dashboard/templates/new");
+
+    await page.getByLabel("Nombre del machote").fill(createdTemplateName);
+    await page.getByLabel(/[Dd]escripción/).fill("Plantilla de prueba E2E");
+    await page
+      .getByLabel("Contenido")
+      .fill(
+        "CONTRATO DE PRUEBA. Las partes acuerdan lo siguiente: el arrendatario acepta las condiciones del presente instrumento.",
+      );
+    // status defaults to "draft" — no change needed
+
+    await page.getByRole("button", { name: "Crear machote" }).click();
+
+    // Successful create redirects to /dashboard/templates (the list).
+    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
+      timeout: 15_000,
+    });
+    await expect(page.getByText(createdTemplateName).first()).toBeVisible();
+  });
+
+  test("D: created template appears in the list", async ({ page }) => {
+    await page.goto("/dashboard/templates");
+
+    await expect(page.getByText(createdTemplateName).first()).toBeVisible();
+  });
+
+  test("E: user can edit an existing template", async ({ page }) => {
+    await page.goto("/dashboard/templates");
+
+    await page
+      .getByRole("link")
+      .filter({ hasText: createdTemplateName })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+
+    editedTemplateName = `${createdTemplateName} Editado`;
+
+    await page.getByLabel("Nombre del machote").fill(editedTemplateName);
+    await page
+      .getByLabel("Contenido")
+      .fill(
+        "CONTRATO ACTUALIZADO. Versión editada. El arrendatario acepta las condiciones revisadas del presente instrumento.",
+      );
+    await page.getByLabel("Estado").selectOption("active");
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+    // After save, redirects back to the list.
+    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
+      timeout: 15_000,
+    });
+  });
+
+  test("F: edited template fields persist after page reload", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/templates");
+
+    await page
+      .getByRole("link")
+      .filter({ hasText: editedTemplateName })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+
+    await page.reload();
+
+    await expect(page.getByLabel("Nombre del machote")).toHaveValue(
+      editedTemplateName,
+    );
+    await expect(page.getByLabel("Estado")).toHaveValue("active");
+    await expect(page.getByLabel("Contenido")).toHaveValue(
+      /CONTRATO ACTUALIZADO/,
+    );
+  });
+
+  test("G: edited template appears in the list with updated status", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/templates");
+
+    await expect(page.getByText(editedTemplateName).first()).toBeVisible();
+
+    // The Activo badge (span, exact text) should be visible within the row.
+    const templateRow = page
+      .locator("li")
+      .filter({ hasText: editedTemplateName });
+    await expect(templateRow.getByText("Activo", { exact: true }).first()).toBeVisible();
+  });
+});

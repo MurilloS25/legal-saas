@@ -71,7 +71,11 @@ test.describe("clients module", () => {
   test("E: user can edit an existing client", async ({ page }) => {
     await page.goto("/dashboard/clients");
 
-    await page.getByText(createdClientName).first().click();
+    await page
+      .getByRole("link")
+      .filter({ hasText: createdClientName })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
 
     editedClientName = `${createdClientName} Editado`;
@@ -84,7 +88,11 @@ test.describe("clients module", () => {
 
   test("F: edited client name persists after page reload", async ({ page }) => {
     await page.goto("/dashboard/clients");
-    await page.getByText(editedClientName).first().click();
+    await page
+      .getByRole("link")
+      .filter({ hasText: editedClientName })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
 
     await page.reload();
@@ -95,7 +103,11 @@ test.describe("clients module", () => {
 
   test("G: user can delete a client from the detail page", async ({ page }) => {
     await page.goto("/dashboard/clients");
-    await page.getByText(editedClientName).first().click();
+    await page
+      .getByRole("link")
+      .filter({ hasText: editedClientName })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
 
     // Open delete confirmation dialog — trash icon in the card header
