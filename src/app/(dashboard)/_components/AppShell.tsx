@@ -52,11 +52,11 @@ function XIcon() {
 
 const ACTIVE_LINKS = [
   { label: "Panel", href: "/dashboard" },
+  { label: "Clientes", href: "/dashboard/clients" },
   { label: "Configuración", href: "/dashboard/settings" },
 ] as const;
 
 const FUTURE_LABELS = [
-  "Clientes",
   "Machotes",
   "Índice Notarial",
   "Cuentas por Cobrar",

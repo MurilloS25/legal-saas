@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(17);
+select plan(18);
 
 create schema rls_test;
 grant usage on schema rls_test to public;
@@ -556,6 +556,17 @@ select ok(
     where id = '11111111-0000-0000-0000-000000000003'
   $$),
   'User A cannot update owner_id to transfer ownership'
+);
+
+-- Switch to User B and verify they only see their own records (not User A's).
+reset role;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.clients),
+  1::bigint,
+  'User B cannot see User A clients — only sees their own'
 );
 
 reset role;
