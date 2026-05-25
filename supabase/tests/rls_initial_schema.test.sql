@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(21);
+select plan(30);
 
 create schema rls_test;
 grant usage on schema rls_test to public;
@@ -606,6 +606,41 @@ select ok(
   'User A cannot update owner_id to transfer ownership'
 );
 
+select ok(
+  rls_test.statement_fails($$
+    insert into public.templates (
+      id,
+      owner_id,
+      name,
+      status,
+      content_json
+    )
+    values (
+      'aaaaaaaa-0000-0000-0000-000000000010',
+      '22222222-2222-2222-2222-222222222222',
+      'Invalid Cross Owner Template',
+      'draft',
+      '{}'::jsonb
+    )
+  $$),
+  'User A cannot create a template with User B owner_id'
+);
+
+select ok(
+  rls_test.statement_fails($$
+    update public.templates
+    set owner_id = '22222222-2222-2222-2222-222222222222'
+    where id = '11111111-0000-0000-0000-000000000004'
+  $$),
+  'User A cannot update template owner_id to transfer ownership'
+);
+
+select is(
+  (select count(*) from public.template_fields),
+  1::bigint,
+  'User A sees only their own template fields'
+);
+
 -- Switch to User B and verify they only see their own records (not User A's).
 reset role;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
@@ -626,6 +661,27 @@ select is(
   'User B cannot delete User A client'
 );
 
+select is(
+  (select count(*) from public.templates),
+  1::bigint,
+  'User B cannot see User A templates — only sees their own'
+);
+
+select is(
+  rls_test.statement_row_count($$
+    delete from public.templates
+    where id = '11111111-0000-0000-0000-000000000004'
+  $$),
+  0::bigint,
+  'User B cannot delete User A template'
+);
+
+select is(
+  (select count(*) from public.template_fields),
+  1::bigint,
+  'User B cannot see User A template fields — only sees their own'
+);
+
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 set local role anon;
@@ -640,6 +696,30 @@ select is(
 );
 
 select is((select count(*) from public.clients), 0::bigint, 'Anonymous users cannot select private client data');
+
+select is((select count(*) from public.templates), 0::bigint, 'Anonymous users cannot select private template data');
+
+select ok(
+  rls_test.statement_fails($$
+    insert into public.templates (
+      id,
+      owner_id,
+      name,
+      status,
+      content_json
+    )
+    values (
+      'aaaaaaaa-0000-0000-0000-000000000011',
+      '11111111-1111-1111-1111-111111111111',
+      'Anonymous Template',
+      'draft',
+      '{}'::jsonb
+    )
+  $$),
+  'Anonymous users cannot insert private template data'
+);
+
+select is((select count(*) from public.template_fields), 0::bigint, 'Anonymous users cannot select private template_fields data');
 
 select ok(
   rls_test.statement_fails($$
