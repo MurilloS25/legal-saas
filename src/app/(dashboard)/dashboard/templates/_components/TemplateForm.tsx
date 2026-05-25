@@ -8,7 +8,12 @@ import {
   type TemplateState,
 } from "../actions";
 import type { TemplateRow } from "../queries";
-import { extractContent } from "../queries";
+
+function extractContent(row: TemplateRow): string {
+  if (!row.content_json) return "";
+  const json = row.content_json as { text?: string };
+  return json.text ?? "";
+}
 
 // ------------------------------------------------------------------ status options
 
