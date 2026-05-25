@@ -18,7 +18,10 @@ test.describe("clients module", () => {
 
     await expect(page).toHaveURL(/\/dashboard\/clients/);
     await expect(
-      page.getByRole("heading", { name: "Directorio de clientes", exact: true }),
+      page.getByRole("heading", {
+        name: "Directorio de clientes",
+        exact: true,
+      }),
     ).toBeVisible();
   });
 
@@ -52,14 +55,11 @@ test.describe("clients module", () => {
 
     await page.getByRole("button", { name: "Crear cliente" }).click();
 
-    // After successful create the action redirects to /dashboard/clients/{uuid}.
-    // The negative lookahead (?!new) prevents matching the current URL while pending.
-    await expect(page).toHaveURL(/\/dashboard\/clients\/(?!new)[^/]+$/, {
+    // After successful create the action redirects to /dashboard/clients (the list).
+    await expect(page).toHaveURL(/\/dashboard\/clients$/, {
       timeout: 15_000,
     });
-    await expect(
-      page.getByRole("heading", { name: createdClientName }),
-    ).toBeVisible();
+    await expect(page.getByText(createdClientName).first()).toBeVisible();
   });
 
   test("D: created client appears in the list", async ({ page }) => {
@@ -78,8 +78,8 @@ test.describe("clients module", () => {
     await page.getByLabel("Nombre completo").fill(editedClientName);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    // Success status should appear after save.
-    await expect(page.getByRole("status").first()).toBeVisible();
+    // After save the action redirects back to the client list.
+    await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 15_000 });
   });
 
   test("F: edited client name persists after page reload", async ({ page }) => {
@@ -93,14 +93,23 @@ test.describe("clients module", () => {
     );
   });
 
-  test("G: user can delete a client", async ({ page }) => {
+  test("G: user can delete a client from the detail page", async ({ page }) => {
     await page.goto("/dashboard/clients");
     await page.getByText(editedClientName).first().click();
     await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
 
-    await page.getByRole("button", { name: "Eliminar cliente" }).click();
+    // Open delete confirmation dialog — trash icon in the card header
+    await page.getByRole("button", { name: `Eliminar ${editedClientName}` }).click();
 
-    // After delete the action redirects back to /dashboard/clients.
+    // Dialog should be visible with the confirmation message
+    await expect(
+      page.getByRole("alertdialog"),
+    ).toBeVisible();
+
+    // Confirm deletion (exact: true avoids matching the trash-icon trigger button)
+    await page.getByRole("button", { name: "Eliminar", exact: true }).click();
+
+    // After delete the action redirects back to /dashboard/clients
     await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 10_000 });
     await expect(page.getByText(editedClientName)).not.toBeVisible();
   });

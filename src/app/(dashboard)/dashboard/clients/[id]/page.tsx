@@ -2,13 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientById } from "../queries";
 import { ClientForm } from "../_components/ClientForm";
-import { deleteClientAction } from "../actions";
 
 export const metadata = {
   title: "Cliente — LexCR",
 };
 
-// ------------------------------------------------------------------ avatar helpers (duplicated from list page for SSR independence)
+// ------------------------------------------------------------------ avatar helpers
 
 const AVATAR_COLORS = [
   "bg-teal-600",
@@ -46,7 +45,6 @@ export default async function ClientDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
-  const boundDelete = deleteClientAction.bind(null, client.id);
   const initials = getInitials(client.full_name);
   const avatarColor = getAvatarColor(client.full_name);
 
@@ -92,27 +90,8 @@ export default async function ClientDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Edit form */}
+      {/* Edit form (delete icon lives in the card header) */}
       <ClientForm mode="edit" client={client} />
-
-      {/* Danger zone */}
-      <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-6 py-5">
-        <h2 className="text-sm font-semibold text-red-800 mb-1">
-          Zona de riesgo
-        </h2>
-        <p className="text-xs text-red-700 mb-4">
-          Eliminar este cliente es irreversible. Los documentos generados no se
-          ven afectados.
-        </p>
-        <form action={boundDelete}>
-          <button
-            type="submit"
-            className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-          >
-            Eliminar cliente
-          </button>
-        </form>
-      </div>
     </div>
   );
 }

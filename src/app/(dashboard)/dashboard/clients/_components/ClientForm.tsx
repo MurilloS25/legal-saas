@@ -8,6 +8,7 @@ import {
   type ClientState,
 } from "../actions";
 import type { ClientRow } from "../queries";
+import { DeleteClientButton } from "./DeleteClientButton";
 
 // ------------------------------------------------------------------ marital status options
 
@@ -34,10 +35,10 @@ const requiredMark = (
 
 // ------------------------------------------------------------------ field error helper
 
-function FieldError({ message }: { message?: string }) {
+function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="mt-1.5 text-xs text-red-700">
+    <p id={id} role="alert" className="mt-1.5 text-xs text-red-700">
       {message}
     </p>
   );
@@ -97,6 +98,15 @@ export function ClientForm(props: Props) {
             son obligatorios.
           </p>
         </div>
+        {isEdit && client && (
+          <div className="ml-auto shrink-0">
+            <DeleteClientButton
+              clientId={client.id}
+              clientName={client.full_name}
+              variant="icon"
+            />
+          </div>
+        )}
       </div>
 
       {/* ---- Form body ---- */}
@@ -139,7 +149,10 @@ export function ClientForm(props: Props) {
                 }
                 aria-invalid={!!state.errors?.full_name}
               />
-              <FieldError message={state.errors?.full_name} />
+              <FieldError
+                id="full_name-error"
+                message={state.errors?.full_name}
+              />
             </div>
 
             <div>
@@ -161,7 +174,10 @@ export function ClientForm(props: Props) {
               >
                 <option value="cedula_fisica">Cédula física</option>
               </select>
-              <FieldError message={state.errors?.identification_type} />
+              <FieldError
+                id="identification_type-error"
+                message={state.errors?.identification_type}
+              />
             </div>
           </div>
 
@@ -186,7 +202,10 @@ export function ClientForm(props: Props) {
                 }
                 aria-invalid={!!state.errors?.identification_number}
               />
-              <FieldError message={state.errors?.identification_number} />
+              <FieldError
+                id="identification_number-error"
+                message={state.errors?.identification_number}
+              />
             </div>
 
             <div>
@@ -215,7 +234,10 @@ export function ClientForm(props: Props) {
                   </option>
                 ))}
               </select>
-              <FieldError message={state.errors?.marital_status} />
+              <FieldError
+                id="marital_status-error"
+                message={state.errors?.marital_status}
+              />
             </div>
           </div>
 
@@ -238,7 +260,10 @@ export function ClientForm(props: Props) {
                 }
                 aria-invalid={!!state.errors?.nationality}
               />
-              <FieldError message={state.errors?.nationality} />
+              <FieldError
+                id="nationality-error"
+                message={state.errors?.nationality}
+              />
             </div>
 
             <div>
@@ -258,7 +283,10 @@ export function ClientForm(props: Props) {
                 }
                 aria-invalid={!!state.errors?.occupation}
               />
-              <FieldError message={state.errors?.occupation} />
+              <FieldError
+                id="occupation-error"
+                message={state.errors?.occupation}
+              />
             </div>
           </div>
 
@@ -280,7 +308,10 @@ export function ClientForm(props: Props) {
               }
               aria-invalid={!!state.errors?.exact_address}
             />
-            <FieldError message={state.errors?.exact_address} />
+            <FieldError
+              id="exact_address-error"
+              message={state.errors?.exact_address}
+            />
           </div>
         </div>
 

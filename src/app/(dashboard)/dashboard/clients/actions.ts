@@ -21,6 +21,10 @@ export type ClientState = {
   success?: boolean;
 };
 
+export type DeleteClientState = {
+  message?: string;
+};
+
 // ------------------------------------------------------------------ helpers
 
 function parseFormData(formData: FormData) {
@@ -78,7 +82,7 @@ export async function createClientAction(
   }
 
   revalidatePath("/dashboard/clients");
-  redirect(`/dashboard/clients/${data.id}`);
+  redirect("/dashboard/clients");
 }
 
 // ------------------------------------------------------------------ update
@@ -112,13 +116,19 @@ export async function updateClientAction(
 
   revalidatePath(`/dashboard/clients/${id}`);
   revalidatePath("/dashboard/clients");
-
-  return { success: true, message: "Cliente actualizado correctamente." };
+  redirect("/dashboard/clients");
 }
 
 // ------------------------------------------------------------------ delete
 
-export async function deleteClientAction(id: string): Promise<void> {
+export async function deleteClientAction(
+  id: string,
+  _prevState: DeleteClientState,
+  _formData: FormData,
+): Promise<DeleteClientState> {
+  void _prevState;
+  void _formData;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -126,11 +136,20 @@ export async function deleteClientAction(id: string): Promise<void> {
 
   if (!user) redirect("/login");
 
-  await supabase
+  const { data, error } = await supabase
     .from("clients")
     .delete()
     .eq("id", id)
-    .eq("owner_id", user.id);
+    .eq("owner_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      message:
+        "No se pudo eliminar el cliente. Puede estar asociado a otros registros.",
+    };
+  }
 
   revalidatePath("/dashboard/clients");
   redirect("/dashboard/clients");
