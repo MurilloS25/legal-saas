@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-// These tests run in the `chromium-authenticated` project which loads a
-// pre-saved storageState. The `setup` project must complete first so that
-// playwright/.auth/user.json exists before any test here runs.
+// Tests share the same user account and database rows so they must run
+// sequentially. fullyParallel is enabled globally but serial mode here
+// prevents race conditions between tests that write to the same profile.
+test.describe.configure({ mode: "serial" });
 
 test.describe("authenticated flows", () => {
   test("A: authenticated user reaches /dashboard without redirect to /login", async ({
@@ -23,8 +24,9 @@ test.describe("authenticated flows", () => {
     await page.goto("/dashboard/settings");
 
     await expect(page).not.toHaveURL(/\/login/);
+    // exact: true distinguishes the h1 "Configuración" from the h2 "Configuración de documentos".
     await expect(
-      page.getByRole("heading", { name: "Configuración" }),
+      page.getByRole("heading", { name: "Configuración", exact: true }),
     ).toBeVisible();
   });
 
@@ -46,7 +48,8 @@ test.describe("authenticated flows", () => {
   test("D: user can save document settings", async ({ page }) => {
     await page.goto("/dashboard/settings");
 
-    await page.getByLabel("Fuente").selectOption("Arial");
+    // exact: true distinguishes "Fuente" from "Tamaño de fuente (pt)".
+    await page.getByLabel("Fuente", { exact: true }).selectOption("Arial");
     await page.getByLabel("Tamaño de fuente (pt)").fill("11");
 
     // Margin inputs are inside a fieldset — locate by their visible labels.

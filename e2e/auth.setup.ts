@@ -6,6 +6,9 @@ const authDir = path.join(__dirname, "../playwright/.auth");
 const authFile = path.join(authDir, "user.json");
 
 setup("authenticate", async ({ page }) => {
+  // Auth setup can be slow: signup + possible fallback login + storageState save.
+  setup.setTimeout(60_000);
+
   const email = process.env.E2E_USER_EMAIL;
   const password = process.env.E2E_USER_PASSWORD;
 
@@ -28,7 +31,7 @@ setup("authenticate", async ({ page }) => {
   await page.getByRole("button", { name: "Crear cuenta" }).click();
 
   const signedUp = await page
-    .waitForURL(/\/dashboard/, { timeout: 8_000 })
+    .waitForURL(/\/dashboard/, { timeout: 15_000 })
     .then(() => true)
     .catch(() => false);
 
@@ -38,7 +41,7 @@ setup("authenticate", async ({ page }) => {
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill(password);
     await page.getByRole("button", { name: "Ingresar" }).click();
-    await page.waitForURL(/\/dashboard/);
+    await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
   }
 
   // 3. Persist the authenticated session for the chromium-authenticated project.
