@@ -278,23 +278,65 @@ pnpm e2e:headed   # headed browser
 - Supabase local must be running (`pnpm supabase start`) for flows that depend on Auth, such as login, redirect, and error handling.
 - The dev server starts automatically via `pnpm dev` unless it is already running on port 3000.
 
-**Phase 1 scope (current):**
+**Phase 1 scope (smoke, unauthenticated — current):**
 
 - Smoke tests for unauthenticated flows: login page, signup page, and protected route redirects.
 - Tests do not create real users or share authentication state between runs.
 - No visual regression tests.
 - Not included in CI yet.
+- Test file: `e2e/auth-smoke.spec.ts`
+- Playwright project: `chromium-public`
 
-**Phase 2 (future):**
+**Phase 2 scope (authenticated — current):**
 
-- Authenticated tests using a dedicated test user and `storageState`.
+- Authenticated tests using a dedicated local test user and Playwright `storageState`.
+- Covers: dashboard access, settings page, save lawyer profile, save document settings, persistence after reload, and logout.
+- Not included in CI yet (requires a live Supabase local instance and test credentials).
+- Test file: `e2e/settings-authenticated.spec.ts`
+- Playwright project: `chromium-authenticated` (depends on `setup`)
+
+**Setting up authenticated E2E tests:**
+
+1. Start Supabase local:
+   ```bash
+   pnpm supabase start
+   ```
+
+2. Create a dedicated test user via the Supabase local dashboard (http://localhost:54323) or by signing up through the app at http://localhost:3000/signup. Use a clearly fake address — for example `e2e-test@example.com`.
+
+3. Add the credentials to `.env.local` (never commit this file):
+   ```
+   E2E_USER_EMAIL=e2e-test@example.com
+   E2E_USER_PASSWORD=a-strong-test-password
+   ```
+
+4. Start the dev server (Playwright starts it automatically via `webServer`, but you can also start it manually):
+   ```bash
+   pnpm dev
+   ```
+
+5. Run all E2E tests:
+   ```bash
+   pnpm e2e
+   ```
+
+**Auth state file:**
+
+Playwright saves session cookies/tokens to `playwright/.auth/user.json` after the `setup` project runs.
+
+- This file is listed in `.gitignore` and must never be committed.
+- It is regenerated automatically each time `pnpm e2e` runs.
+- If the file is missing or the session expires, re-run `pnpm e2e` to regenerate it.
+
+**Phase 3 (future):**
+
 - Full workflow flows: create client, create template, generate document.
-- Possible CI integration with a Supabase test environment.
+- CI integration with a Supabase test environment.
 
 ## TODO
 
 - Decide between centralized tests or feature-local tests.
 - Add test factories for fake users, clients, templates, and receivables.
 - Add RLS testing strategy after Supabase schema exists.
-- Phase 2: authenticated E2E tests with storageState.
-- Phase 2: add E2E to CI pipeline.
+- Phase 3: extend authenticated E2E tests to cover client and template workflows.
+- Phase 3: add E2E to CI pipeline with a dedicated Supabase test environment.
