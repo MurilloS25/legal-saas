@@ -47,6 +47,8 @@ export default defineConfig({
     },
 
     // Authenticated tests — reuse session from the setup project.
+    // Must run AFTER chromium-clients because test F logs the user out,
+    // which would invalidate the shared Supabase session mid-run.
     {
       name: "chromium-authenticated",
       use: {
@@ -54,6 +56,17 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
+      dependencies: ["setup", "chromium-clients"],
+    },
+
+    // Clients module — authenticated.
+    {
+      name: "chromium-clients",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /clients-authenticated\.spec\.ts/,
       dependencies: ["setup"],
     },
   ],

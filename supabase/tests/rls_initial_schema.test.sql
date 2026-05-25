@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(17);
+select plan(21);
 
 create schema rls_test;
 grant usage on schema rls_test to public;
@@ -30,6 +30,22 @@ begin
   return false;
 exception when others then
   return true;
+end;
+$$;
+
+create function rls_test.statement_row_count(statement text)
+returns bigint
+language plpgsql
+as $$
+declare
+  affected_rows bigint;
+begin
+  execute statement;
+  get diagnostics affected_rows = row_count;
+  return affected_rows;
+exception when others then
+  raise notice 'statement failed unexpectedly: % (%)', sqlerrm, sqlstate;
+  return -1;
 end;
 $$;
 
@@ -329,6 +345,38 @@ select ok(
   'User A can create their own client'
 );
 
+insert into public.clients (
+  id,
+  owner_id,
+  full_name,
+  identification_type,
+  identification_number,
+  marital_status,
+  nationality,
+  occupation,
+  exact_address
+)
+values (
+  '11111111-0000-0000-0000-000000000009',
+  '11111111-1111-1111-1111-111111111111',
+  'Fake Disposable Client A',
+  'cedula_fisica',
+  '1-0000-0009',
+  'single',
+  'Costa Rican',
+  'Tester',
+  'Fake disposable address A'
+);
+
+select is(
+  rls_test.statement_row_count($$
+    delete from public.clients
+    where id = '11111111-0000-0000-0000-000000000009'
+  $$),
+  1::bigint,
+  'User A can delete their own client'
+);
+
 select ok(
   rls_test.statement_succeeds($$
     insert into public.templates (
@@ -558,9 +606,38 @@ select ok(
   'User A cannot update owner_id to transfer ownership'
 );
 
+-- Switch to User B and verify they only see their own records (not User A's).
+reset role;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.clients),
+  1::bigint,
+  'User B cannot see User A clients — only sees their own'
+);
+
+select is(
+  rls_test.statement_row_count($$
+    delete from public.clients
+    where id = '11111111-0000-0000-0000-000000000003'
+  $$),
+  0::bigint,
+  'User B cannot delete User A client'
+);
+
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
 set local role anon;
+
+select is(
+  rls_test.statement_row_count($$
+    delete from public.clients
+    where id = '11111111-0000-0000-0000-000000000003'
+  $$),
+  0::bigint,
+  'Anonymous users cannot delete private client data'
+);
 
 select is((select count(*) from public.clients), 0::bigint, 'Anonymous users cannot select private client data');
 

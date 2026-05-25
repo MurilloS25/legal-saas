@@ -29,7 +29,8 @@ const MODULE_CARDS: ModuleCard[] = [
   {
     label: "Clientes",
     description: "Gestión de datos reutilizables de clientes.",
-    active: false,
+    href: "/dashboard/clients",
+    active: true,
   },
   {
     label: "Machotes",
