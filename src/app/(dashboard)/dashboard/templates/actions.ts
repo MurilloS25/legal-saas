@@ -15,7 +15,6 @@ export type TemplateState = {
     status?: string;
   };
   message?: string;
-  success?: boolean;
 };
 
 // ------------------------------------------------------------------ helpers
@@ -78,7 +77,7 @@ export async function createTemplateAction(
   }
 
   revalidatePath("/dashboard/templates");
-  redirect(`/dashboard/templates/${data.id}`);
+  redirect("/dashboard/templates");
 }
 
 // ------------------------------------------------------------------ update
@@ -118,5 +117,5 @@ export async function updateTemplateAction(
 
   revalidatePath(`/dashboard/templates/${id}`);
   revalidatePath("/dashboard/templates");
-  return { success: true, message: "Machote actualizado correctamente." };
+  redirect("/dashboard/templates");
 }

@@ -109,16 +109,8 @@ export function TemplateForm(props: Props) {
 
       {/* ---- Form body ---- */}
       <form action={formAction} noValidate className="px-6 py-6">
-        {/* Global feedback */}
-        {state.success && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
-          >
-            {state.message}
-          </div>
-        )}
-        {state.message && !state.success && !state.errors && (
+        {/* Global error feedback (validation passed but DB failed) */}
+        {state.message && !state.errors && (
           <div
             role="alert"
             className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
