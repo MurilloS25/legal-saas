@@ -18,7 +18,7 @@ test.describe("clients module", () => {
 
     await expect(page).toHaveURL(/\/dashboard\/clients/);
     await expect(
-      page.getByRole("heading", { name: "Clientes", exact: true }),
+      page.getByRole("heading", { name: "Directorio de clientes", exact: true }),
     ).toBeVisible();
   });
 
@@ -44,7 +44,7 @@ test.describe("clients module", () => {
 
     await page.getByLabel("Nombre completo").fill(createdClientName);
     // identification_type defaults to cedula_fisica — no change needed
-    await page.getByLabel("Número de identificación").fill("0-0001-0001");
+    await page.getByLabel("Número de cédula").fill("0-0001-0001");
     await page.getByLabel("Estado civil").selectOption("soltero");
     await page.getByLabel("Nacionalidad").fill("Costarricense");
     await page.getByLabel("Ocupación").fill("Ingeniero de pruebas");
