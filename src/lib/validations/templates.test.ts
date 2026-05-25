@@ -71,18 +71,21 @@ describe("TemplateSchema", () => {
   });
 
   it("rejects when name is missing", () => {
-    const { name: _n, ...without } = valid;
-    expect(TemplateSchema.safeParse(without).success).toBe(false);
+    expect(
+      TemplateSchema.safeParse({ content: valid.content, status: valid.status }).success,
+    ).toBe(false);
   });
 
   it("rejects when content is missing", () => {
-    const { content: _c, ...without } = valid;
-    expect(TemplateSchema.safeParse(without).success).toBe(false);
+    expect(
+      TemplateSchema.safeParse({ name: valid.name, status: valid.status }).success,
+    ).toBe(false);
   });
 
   it("rejects when status is missing", () => {
-    const { status: _s, ...without } = valid;
-    expect(TemplateSchema.safeParse(without).success).toBe(false);
+    expect(
+      TemplateSchema.safeParse({ name: valid.name, content: valid.content }).success,
+    ).toBe(false);
   });
 
   it("trims whitespace from name before checking length", () => {
