@@ -186,7 +186,7 @@ export function TemplateForm(props: Props) {
               rows={16}
               defaultValue={currentContent}
               className={inputClass + " resize-y font-mono text-xs leading-relaxed"}
-              placeholder="Redacta aquí el texto del machote. Puedes usar variables entre corchetes dobles, por ejemplo [[Nombre_Cliente]]."
+              placeholder="Redacta aquí el texto del machote. Puedes usar variables como {{buyer_1.full_name}}."
               aria-describedby={state.errors?.content ? "content-error" : undefined}
               aria-invalid={!!state.errors?.content}
             />

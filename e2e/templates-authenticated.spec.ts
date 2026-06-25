@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // Tests share the same user account. Serial mode prevents race conditions
 // between tests that write to the same template records.
@@ -7,6 +7,20 @@ test.describe.configure({ mode: "serial" });
 // Module-level state shared between serial tests in this describe block.
 let createdTemplateName = "";
 let editedTemplateName = "";
+
+async function openTemplateFromList(page: Page, name: string) {
+  const templateLink = page
+    .getByRole("link")
+    .filter({ hasText: name })
+    .first();
+  await expect(templateLink).toBeVisible();
+
+  const href = await templateLink.getAttribute("href");
+  expect(href).toMatch(/^\/dashboard\/templates\/[^/]+$/);
+
+  await page.goto(href!);
+  await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+}
 
 test.describe("templates module", () => {
   test("A: templates list page is accessible from the sidebar", async ({
@@ -68,12 +82,7 @@ test.describe("templates module", () => {
   test("E: user can edit an existing template", async ({ page }) => {
     await page.goto("/dashboard/templates");
 
-    await page
-      .getByRole("link")
-      .filter({ hasText: createdTemplateName })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+    await openTemplateFromList(page, createdTemplateName);
 
     editedTemplateName = `${createdTemplateName} Editado`;
 
@@ -98,12 +107,7 @@ test.describe("templates module", () => {
   }) => {
     await page.goto("/dashboard/templates");
 
-    await page
-      .getByRole("link")
-      .filter({ hasText: editedTemplateName })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+    await openTemplateFromList(page, editedTemplateName);
 
     await page.reload();
 

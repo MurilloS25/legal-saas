@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // Tests share the same user account. Serial mode prevents race conditions
 // between tests that write to the same client records.
@@ -7,6 +7,20 @@ test.describe.configure({ mode: "serial" });
 // Module-level state shared between serial tests in this describe block.
 let createdClientName = "";
 let editedClientName = "";
+
+async function openClientFromList(page: Page, name: string) {
+  const clientLink = page
+    .getByRole("link")
+    .filter({ hasText: name })
+    .first();
+  await expect(clientLink).toBeVisible();
+
+  const href = await clientLink.getAttribute("href");
+  expect(href).toMatch(/^\/dashboard\/clients\/[^/]+$/);
+
+  await page.goto(href!);
+  await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
+}
 
 test.describe("clients module", () => {
   test("A: clients list page is accessible from the sidebar", async ({
@@ -71,12 +85,7 @@ test.describe("clients module", () => {
   test("E: user can edit an existing client", async ({ page }) => {
     await page.goto("/dashboard/clients");
 
-    await page
-      .getByRole("link")
-      .filter({ hasText: createdClientName })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
+    await openClientFromList(page, createdClientName);
 
     editedClientName = `${createdClientName} Editado`;
     await page.getByLabel("Nombre completo").fill(editedClientName);
@@ -88,12 +97,7 @@ test.describe("clients module", () => {
 
   test("F: edited client name persists after page reload", async ({ page }) => {
     await page.goto("/dashboard/clients");
-    await page
-      .getByRole("link")
-      .filter({ hasText: editedClientName })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
+    await openClientFromList(page, editedClientName);
 
     await page.reload();
     await expect(page.getByLabel("Nombre completo")).toHaveValue(
@@ -103,12 +107,7 @@ test.describe("clients module", () => {
 
   test("G: user can delete a client from the detail page", async ({ page }) => {
     await page.goto("/dashboard/clients");
-    await page
-      .getByRole("link")
-      .filter({ hasText: editedClientName })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
+    await openClientFromList(page, editedClientName);
 
     // Open delete confirmation dialog — trash icon in the card header
     await page.getByRole("button", { name: `Eliminar ${editedClientName}` }).click();

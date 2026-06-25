@@ -512,5 +512,5 @@ Playwright saves session cookies/tokens to `playwright/.auth/user.json` after th
 - Decide between centralized tests or feature-local tests.
 - Add test factories for fake users, clients, templates, and receivables.
 - Add RLS testing strategy after Supabase schema exists.
-- Phase 3: extend authenticated E2E tests to cover client and template workflows.
+- Phase 3: extend authenticated E2E tests to cover document generation workflows.
 - Phase 3: add E2E to CI pipeline with a dedicated Supabase test environment.
