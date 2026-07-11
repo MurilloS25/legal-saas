@@ -73,10 +73,11 @@ test.describe("template fields module", () => {
 
     await page.getByRole("button", { name: "Agregar campo" }).click();
 
-    await page.getByLabel("Etiqueta").fill(fieldLabel);
-    await page.getByLabel("Variable").fill(fieldKey);
-    await page.getByLabel("Tipo de campo").selectOption("text");
-    await page.getByLabel("Campo obligatorio").check();
+    const section = fieldsSection(page);
+    await section.getByLabel("Etiqueta").fill(fieldLabel);
+    await section.getByLabel("Variable").fill(fieldKey);
+    await section.getByLabel("Tipo de campo").selectOption("text");
+    await section.getByLabel("Campo obligatorio").check();
 
     await page.getByRole("button", { name: "Guardar campo" }).click();
 
@@ -96,8 +97,9 @@ test.describe("template fields module", () => {
 
     await page.getByRole("button", { name: "Agregar campo" }).click();
 
-    await page.getByLabel("Etiqueta").fill("Campo inválido");
-    await page.getByLabel("Variable").fill("Comprador 1 nombre");
+    const section = fieldsSection(page);
+    await section.getByLabel("Etiqueta").fill("Campo inválido");
+    await section.getByLabel("Variable").fill("Comprador 1 nombre");
 
     await page.getByRole("button", { name: "Guardar campo" }).click();
 
