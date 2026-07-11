@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TemplateSchema } from "@/lib/validations/templates";
 import { TemplateFieldSchema } from "@/lib/validations/template-fields";
+import { validateDocumentFill } from "@/lib/validations/document-fill";
 
 // ------------------------------------------------------------------ types
 
@@ -332,4 +333,54 @@ export async function deleteTemplateFieldAction(
 
   revalidatePath(`/dashboard/templates/${templateId}`);
   return { success: true };
+}
+
+// ================================================================== document fill
+
+export type DocumentFillState = {
+  errors?: Record<string, string>;
+  message?: string;
+  /** Valores validados listos para el documento. Solo en memoria, nunca en DB. */
+  preparedValues?: Record<string, string>;
+};
+
+export async function prepareDocumentAction(
+  templateId: string,
+  _prevState: DocumentFillState,
+  formData: FormData,
+): Promise<DocumentFillState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  if (!(await userOwnsTemplate(supabase, templateId, user.id))) {
+    return { message: "No se encontró el machote." };
+  }
+
+  const { data: fields, error } = await supabase
+    .from("template_fields")
+    .select("field_key, label, field_type, required")
+    .eq("template_id", templateId)
+    .eq("owner_id", user.id)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    return { message: "No fue posible cargar los campos. Intenta de nuevo." };
+  }
+
+  // Solo se leen del form las keys definidas como campos del machote.
+  const rawValues: Record<string, string> = {};
+  for (const field of fields ?? []) {
+    rawValues[field.field_key] = String(formData.get(field.field_key) ?? "");
+  }
+
+  const result = validateDocumentFill(fields ?? [], rawValues);
+  if (!result.success) {
+    return { errors: result.errors };
+  }
+
+  return { preparedValues: result.values };
 }
