@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTemplateById } from "../queries";
+import { getTemplateById, listTemplateFields } from "../queries";
 import { TemplateForm } from "../_components/TemplateForm";
+import { TemplateFieldsSection } from "../_components/TemplateFieldsSection";
 
 export const metadata = {
   title: "Machote — LexCR",
@@ -26,6 +27,8 @@ export default async function TemplateDetailPage({ params }: Props) {
   const template = await getTemplateById(id);
 
   if (!template) notFound();
+
+  const fields = await listTemplateFields(template.id);
 
   return (
     <div className="px-6 py-8 max-w-4xl mx-auto">
@@ -77,6 +80,8 @@ export default async function TemplateDetailPage({ params }: Props) {
       </div>
 
       <TemplateForm mode="edit" template={template} />
+
+      <TemplateFieldsSection templateId={template.id} fields={fields} />
     </div>
   );
 }
