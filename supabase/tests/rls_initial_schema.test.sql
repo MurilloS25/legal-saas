@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(30);
+select plan(33);
 
 create schema rls_test;
 grant usage on schema rls_test to public;
@@ -641,6 +641,15 @@ select is(
   'User A sees only their own template fields'
 );
 
+select ok(
+  rls_test.statement_fails($$
+    update public.template_fields
+    set owner_id = '22222222-2222-2222-2222-222222222222'
+    where id = '11111111-0000-0000-0000-000000000005'
+  $$),
+  'User A cannot update template field owner_id to transfer ownership'
+);
+
 -- Switch to User B and verify they only see their own records (not User A's).
 reset role;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
@@ -680,6 +689,25 @@ select is(
   (select count(*) from public.template_fields),
   1::bigint,
   'User B cannot see User A template fields — only sees their own'
+);
+
+select is(
+  rls_test.statement_row_count($$
+    update public.template_fields
+    set label = 'Hacked label'
+    where id = '11111111-0000-0000-0000-000000000005'
+  $$),
+  0::bigint,
+  'User B cannot update User A template fields'
+);
+
+select is(
+  rls_test.statement_row_count($$
+    delete from public.template_fields
+    where id = '11111111-0000-0000-0000-000000000005'
+  $$),
+  0::bigint,
+  'User B cannot delete User A template fields'
 );
 
 reset role;
