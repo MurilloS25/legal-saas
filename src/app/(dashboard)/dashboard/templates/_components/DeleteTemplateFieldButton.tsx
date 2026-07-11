@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import {
   deleteTemplateFieldAction,
   type DeleteTemplateFieldState,
@@ -28,9 +28,9 @@ export function DeleteTemplateFieldButton({
     FormData
   >(boundDelete, {});
 
-  useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+  // Tras un borrado exitoso la fila desaparece con la revalidación;
+  // derivar el cierre evita un setState dentro de un effect.
+  const showDialog = open && !state.success;
 
   const descriptionId = state.message
     ? "delete-field-dialog-desc delete-field-dialog-error"
@@ -66,7 +66,7 @@ export function DeleteTemplateFieldButton({
       </button>
 
       {/* ---- Confirmation dialog ---- */}
-      {open && (
+      {showDialog && (
         <>
           {/* Backdrop */}
           <div
