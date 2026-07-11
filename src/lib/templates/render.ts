@@ -6,15 +6,10 @@
  * deja visible en el texto — es la opción más segura porque el abogado ve
  * exactamente qué falta en el documento.
  *
- * NOTA: el patrón de placeholder y la regla de field_key también existen en
- * `feat/template-variable-inspector` (src/lib/templates/variables.ts).
- * Cuando ambas ramas estén en develop, unificar en un solo módulo.
  */
 
-const PLACEHOLDER_PATTERN = /\{\{([^{}]*)\}\}/g;
-
-// Misma regla de formato que field_key en template_fields.
-const FIELD_KEY_PATTERN = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/;
+import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import { PLACEHOLDER_PATTERN } from "./variables";
 
 function resolvedValue(
   key: string,
