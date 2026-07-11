@@ -9,6 +9,12 @@ const valid = {
   sort_order: 0,
 };
 
+function omit(key: keyof typeof valid) {
+  const copy: Partial<typeof valid> = { ...valid };
+  delete copy[key];
+  return copy;
+}
+
 describe("TemplateFieldSchema", () => {
   it("accepts a valid field payload", () => {
     const result = TemplateFieldSchema.safeParse(valid);
@@ -162,17 +168,14 @@ describe("TemplateFieldSchema", () => {
   });
 
   it("rejects when field_key is missing", () => {
-    const { field_key: _omitted, ...rest } = valid;
-    expect(TemplateFieldSchema.safeParse(rest).success).toBe(false);
+    expect(TemplateFieldSchema.safeParse(omit("field_key")).success).toBe(false);
   });
 
   it("rejects when label is missing", () => {
-    const { label: _omitted, ...rest } = valid;
-    expect(TemplateFieldSchema.safeParse(rest).success).toBe(false);
+    expect(TemplateFieldSchema.safeParse(omit("label")).success).toBe(false);
   });
 
   it("rejects when field_type is missing", () => {
-    const { field_type: _omitted, ...rest } = valid;
-    expect(TemplateFieldSchema.safeParse(rest).success).toBe(false);
+    expect(TemplateFieldSchema.safeParse(omit("field_type")).success).toBe(false);
   });
 });
