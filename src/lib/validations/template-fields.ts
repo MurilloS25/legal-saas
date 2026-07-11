@@ -8,7 +8,7 @@ export type TemplateFieldType = (typeof TEMPLATE_FIELD_TYPES)[number];
  * separados por un solo punto. Ej: `buyer_1.full_name`, `sale.price`, `price`.
  * Excluye espacios, mayúsculas, puntos al inicio/final y puntos dobles.
  */
-const FIELD_KEY_PATTERN = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/;
+export const FIELD_KEY_PATTERN = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/;
 
 export const TemplateFieldSchema = z.object({
   field_key: z

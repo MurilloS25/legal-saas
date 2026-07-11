@@ -1,8 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTemplateById, listTemplateFields } from "../queries";
+import { extractContent, getTemplateById, listTemplateFields } from "../queries";
 import { TemplateForm } from "../_components/TemplateForm";
 import { TemplateFieldsSection } from "../_components/TemplateFieldsSection";
+import { TemplateVariablesInspector } from "../_components/TemplateVariablesInspector";
+import {
+  extractTemplateVariables,
+  findMissingTemplateFields,
+  findUnusedTemplateFields,
+} from "@/lib/templates/variables";
 
 export const metadata = {
   title: "Machote — LexCR",
@@ -29,6 +35,11 @@ export default async function TemplateDetailPage({ params }: Props) {
   if (!template) notFound();
 
   const fields = await listTemplateFields(template.id);
+
+  const variables = extractTemplateVariables(extractContent(template));
+  const definedFieldKeys = fields.map((field) => field.field_key);
+  const missingFields = findMissingTemplateFields(variables, definedFieldKeys);
+  const unusedFields = findUnusedTemplateFields(variables, definedFieldKeys);
 
   return (
     <div className="px-6 py-8 max-w-4xl mx-auto">
@@ -82,6 +93,12 @@ export default async function TemplateDetailPage({ params }: Props) {
       <TemplateForm mode="edit" template={template} />
 
       <TemplateFieldsSection templateId={template.id} fields={fields} />
+
+      <TemplateVariablesInspector
+        variables={variables}
+        missingFields={missingFields}
+        unusedFields={unusedFields}
+      />
     </div>
   );
 }
