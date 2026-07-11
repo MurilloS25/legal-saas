@@ -52,3 +52,37 @@ export async function getTemplateById(id: string): Promise<TemplateRow | null> {
 
   return (data as TemplateRow | null) ?? null;
 }
+
+// ------------------------------------------------------------------ template fields
+
+export type TemplateFieldRow = {
+  id: string;
+  template_id: string;
+  field_key: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  sort_order: number;
+};
+
+export async function listTemplateFields(
+  templateId: string,
+): Promise<TemplateFieldRow[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("template_fields")
+    .select("id, template_id, field_key, label, field_type, required, sort_order")
+    .eq("template_id", templateId)
+    .eq("owner_id", user.id)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) return [];
+  return (data ?? []) as TemplateFieldRow[];
+}
