@@ -56,7 +56,12 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["setup", "chromium-clients", "chromium-templates"],
+      dependencies: [
+        "setup",
+        "chromium-clients",
+        "chromium-templates",
+        "chromium-template-fields",
+      ],
     },
 
     // Clients module — authenticated.
@@ -78,6 +83,17 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /templates-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Template fields module — authenticated.
+    {
+      name: "chromium-template-fields",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-fields-authenticated\.spec\.ts/,
       dependencies: ["setup"],
     },
   ],
