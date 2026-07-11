@@ -460,10 +460,14 @@ pnpm e2e:headed   # headed browser
 **Phase 2 scope (authenticated — current):**
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
-- Covers: dashboard access, settings page, save lawyer profile, save document settings, persistence after reload, and logout.
 - Not included in CI yet (requires a live Supabase local instance and test credentials).
-- Test file: `e2e/settings-authenticated.spec.ts`
-- Playwright project: `chromium-authenticated` (depends on `setup`)
+- Project execution order: `setup` → `chromium-clients` + `chromium-templates` (parallel) → `chromium-authenticated` (last, logs out).
+
+| Playwright project | Test file | Covers |
+|---|---|---|
+| `chromium-clients` | `e2e/clients-authenticated.spec.ts` | Create, edit, delete client; persistence after reload |
+| `chromium-templates` | `e2e/templates-authenticated.spec.ts` | Create, edit template; status change; persistence after reload |
+| `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
 
 **Setting up authenticated E2E tests:**
 
@@ -500,7 +504,7 @@ Playwright saves session cookies/tokens to `playwright/.auth/user.json` after th
 
 **Phase 3 (future):**
 
-- Full workflow flows: create client, create template, generate document.
+- Full workflow flows: generate document from template + client data.
 - CI integration with a Supabase test environment.
 
 ## TODO
@@ -508,5 +512,5 @@ Playwright saves session cookies/tokens to `playwright/.auth/user.json` after th
 - Decide between centralized tests or feature-local tests.
 - Add test factories for fake users, clients, templates, and receivables.
 - Add RLS testing strategy after Supabase schema exists.
-- Phase 3: extend authenticated E2E tests to cover client and template workflows.
+- Phase 3: extend authenticated E2E tests to cover document generation workflows.
 - Phase 3: add E2E to CI pipeline with a dedicated Supabase test environment.

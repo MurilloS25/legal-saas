@@ -9,6 +9,7 @@ import {
 } from "../actions";
 import type { ClientRow } from "../queries";
 import { DeleteClientButton } from "./DeleteClientButton";
+import { FieldError } from "@/components/forms/FieldError";
 
 // ------------------------------------------------------------------ marital status options
 
@@ -32,17 +33,6 @@ const requiredMark = (
     *
   </span>
 );
-
-// ------------------------------------------------------------------ field error helper
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <p id={id} role="alert" className="mt-1.5 text-xs text-red-700">
-      {message}
-    </p>
-  );
-}
 
 // ------------------------------------------------------------------ props
 

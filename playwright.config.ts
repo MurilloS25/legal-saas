@@ -46,9 +46,9 @@ export default defineConfig({
       testMatch: /auth-smoke\.spec\.ts/,
     },
 
-    // Authenticated tests — reuse session from the setup project.
-    // Must run AFTER chromium-clients because test F logs the user out,
-    // which would invalidate the shared Supabase session mid-run.
+    // Authenticated tests (settings) — must run last because test F logs
+    // the user out, which would invalidate the shared session for any
+    // still-running authenticated project.
     {
       name: "chromium-authenticated",
       use: {
@@ -56,7 +56,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["setup", "chromium-clients"],
+      dependencies: ["setup", "chromium-clients", "chromium-templates"],
     },
 
     // Clients module — authenticated.
@@ -67,6 +67,17 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /clients-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Templates module — authenticated.
+    {
+      name: "chromium-templates",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /templates-authenticated\.spec\.ts/,
       dependencies: ["setup"],
     },
   ],
