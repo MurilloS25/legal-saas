@@ -1,8 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTemplateById, listTemplateFields } from "../queries";
+import { extractContent, getTemplateById, listTemplateFields } from "../queries";
 import { TemplateForm } from "../_components/TemplateForm";
 import { TemplateFieldsSection } from "../_components/TemplateFieldsSection";
+import { TemplateVariablesInspector } from "../_components/TemplateVariablesInspector";
+import {
+  extractTemplateVariables,
+  findMissingTemplateFields,
+  findUnusedTemplateFields,
+} from "@/lib/templates/variables";
 
 export const metadata = {
   title: "Machote — LexCR",
@@ -29,6 +35,11 @@ export default async function TemplateDetailPage({ params }: Props) {
   if (!template) notFound();
 
   const fields = await listTemplateFields(template.id);
+
+  const variables = extractTemplateVariables(extractContent(template));
+  const definedFieldKeys = fields.map((field) => field.field_key);
+  const missingFields = findMissingTemplateFields(variables, definedFieldKeys);
+  const unusedFields = findUnusedTemplateFields(variables, definedFieldKeys);
 
   return (
     <div className="px-6 py-8 max-w-4xl mx-auto">
@@ -57,7 +68,8 @@ export default async function TemplateDetailPage({ params }: Props) {
       </nav>
 
       {/* Template header */}
-      <div className="mb-6">
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-semibold text-slate-900">
             {template.name}
@@ -77,11 +89,25 @@ export default async function TemplateDetailPage({ params }: Props) {
         {template.description && (
           <p className="mt-1 text-sm text-slate-500">{template.description}</p>
         )}
+        </div>
+
+        <Link
+          href={`/dashboard/templates/${template.id}/fill`}
+          className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+        >
+          Llenar machote
+        </Link>
       </div>
 
       <TemplateForm mode="edit" template={template} />
 
       <TemplateFieldsSection templateId={template.id} fields={fields} />
+
+      <TemplateVariablesInspector
+        variables={variables}
+        missingFields={missingFields}
+        unusedFields={unusedFields}
+      />
     </div>
   );
 }
