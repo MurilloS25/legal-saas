@@ -7,6 +7,7 @@ import {
   getTemplateById,
   listTemplateFields,
 } from "../../templates/queries";
+import { buildFillableFields } from "@/lib/templates/fillable-fields";
 import { DocumentDraftForm } from "../_components/DocumentDraftForm";
 
 export const metadata = {
@@ -28,7 +29,12 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   if (!document) notFound();
 
   const template = await getTemplateById(document.template_id);
-  const fields = template ? await listTemplateFields(template.id) : [];
+  const content = template ? extractContent(template) : "";
+  // La misma derivación que al crear: variables sin campo configurado
+  // también son llenables al editar el borrador.
+  const fields = template
+    ? buildFillableFields(await listTemplateFields(template.id), content)
+    : [];
 
   return (
     <PageContainer>
@@ -89,7 +95,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           document={document}
           savedJustNow={saved === "1"}
           fields={fields}
-          content={extractContent(template)}
+          content={content}
         />
       )}
     </PageContainer>
