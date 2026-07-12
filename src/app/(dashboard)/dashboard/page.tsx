@@ -21,12 +21,6 @@ type ModuleCard = {
 
 const MODULE_CARDS: ModuleCard[] = [
   {
-    label: "Configuración",
-    description: "Perfil del abogado, fuente, márgenes e interlineado.",
-    href: "/dashboard/settings",
-    active: true,
-  },
-  {
     label: "Clientes",
     description: "Gestión de datos reutilizables de clientes.",
     href: "/dashboard/clients",
@@ -35,7 +29,20 @@ const MODULE_CARDS: ModuleCard[] = [
   {
     label: "Machotes",
     description: "Plantillas reutilizables de documentos legales.",
-    active: false,
+    href: "/dashboard/templates",
+    active: true,
+  },
+  {
+    label: "Escrituras",
+    description: "Crea documentos a partir de tus machotes.",
+    href: "/dashboard/documents",
+    active: true,
+  },
+  {
+    label: "Configuración",
+    description: "Perfil del abogado, fuente, márgenes e interlineado.",
+    href: "/dashboard/settings",
+    active: true,
   },
   {
     label: "Índice Notarial",
