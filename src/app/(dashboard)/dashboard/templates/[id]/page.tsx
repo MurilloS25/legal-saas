@@ -71,32 +71,35 @@ export default async function TemplateDetailPage({ params }: Props) {
       {/* Template header */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {template.name}
-          </h1>
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              template.status === "active"
-                ? "bg-teal-50 text-teal-700"
-                : template.status === "archived"
-                  ? "bg-amber-50 text-amber-700"
-                  : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            {STATUS_LABEL[template.status] ?? template.status}
-          </span>
-        </div>
-        {template.description && (
-          <p className="mt-1 text-sm text-slate-500">{template.description}</p>
-        )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {template.name}
+            </h1>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                template.status === "active"
+                  ? "bg-teal-50 text-teal-700"
+                  : template.status === "archived"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {STATUS_LABEL[template.status] ?? template.status}
+            </span>
+          </div>
+          {template.description && (
+            <p className="mt-1 text-sm text-slate-500">
+              {template.description}
+            </p>
+          )}
         </div>
 
+        {/* Acceso rápido secundario: el flujo principal vive en Escrituras. */}
         <Link
-          href={`/dashboard/templates/${template.id}/fill`}
-          className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+          href={`/dashboard/documents/new/${template.id}`}
+          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
         >
-          Llenar machote
+          Crear escritura
         </Link>
       </div>
 

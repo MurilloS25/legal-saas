@@ -49,6 +49,17 @@ test.describe("auth smoke", () => {
     ).toBeVisible();
   });
 
+  test("D2: /dashboard/documents sin sesión redirige a /login", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/documents");
+
+    await expect(page).toHaveURL(/\/login/);
+    await expect(
+      page.getByRole("heading", { name: "Iniciar sesión" }),
+    ).toBeVisible();
+  });
+
   test("E: login inválido muestra error visible", async ({ page }) => {
     await page.goto("/login");
 

@@ -5,6 +5,10 @@ import { useActionState } from "react";
 import { prepareDocumentAction, type DocumentFillState } from "../actions";
 import type { TemplateFieldRow } from "../queries";
 import { FieldError } from "@/components/forms/FieldError";
+import {
+  renderTemplateContent,
+  findUnresolvedVariables,
+} from "@/lib/templates/render";
 
 // ------------------------------------------------------------------ styles
 
@@ -70,15 +74,28 @@ function FieldInput({ field, defaultValue, error }: FieldInputProps) {
 type Props = {
   templateId: string;
   fields: TemplateFieldRow[];
+  /** Contenido del machote con placeholders, para la vista previa. */
+  content: string;
+  /** Destino del botón Cancelar. Por defecto, el detalle del machote. */
+  cancelHref?: string;
 };
 
 const initialState: DocumentFillState = {};
 
-export function DocumentFillForm({ templateId, fields }: Props) {
+export function DocumentFillForm({
+  templateId,
+  fields,
+  content,
+  cancelHref,
+}: Props) {
   const action = prepareDocumentAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
 
   const prepared = state.preparedValues;
+  // El reemplazo lo hace el helper compartido de render; el componente solo
+  // presenta el resultado como texto plano.
+  const preview = prepared ? renderTemplateContent(content, prepared) : null;
+  const unresolved = prepared ? findUnresolvedVariables(content, prepared) : [];
 
   return (
     <div className="space-y-6">
@@ -119,7 +136,7 @@ export function DocumentFillForm({ templateId, fields }: Props) {
 
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
             <Link
-              href={`/dashboard/templates/${templateId}`}
+              href={cancelHref ?? `/dashboard/templates/${templateId}`}
               className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
             >
               Cancelar
@@ -135,38 +152,44 @@ export function DocumentFillForm({ templateId, fields }: Props) {
         </form>
       </div>
 
-      {/* ---- Resumen temporal (solo en memoria) ---- */}
-      {prepared && (
+      {/* ---- Vista previa del documento (solo en memoria) ---- */}
+      {preview !== null && (
         <section
-          aria-labelledby="fill-summary-heading"
+          aria-labelledby="document-preview-heading"
           className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden"
         >
           <div className="px-6 py-5 border-b border-slate-100 bg-teal-50/60">
             <h2
-              id="fill-summary-heading"
+              id="document-preview-heading"
               className="text-sm font-semibold text-slate-900"
             >
-              Resumen del documento
+              Vista previa del documento
             </h2>
             <p className="text-xs text-slate-500">
-              Datos validados para este documento. No se guardan en el sistema.
+              Contenido del machote con los datos sustituidos. No se guarda en
+              el sistema.
             </p>
           </div>
-          <dl className="px-6 py-5 divide-y divide-slate-100">
-            {fields.map((field) => (
-              <div
-                key={field.id}
-                className="py-2.5 grid grid-cols-1 gap-1 sm:grid-cols-[1fr_1fr]"
-              >
-                <dt className="text-sm text-slate-500">{field.label}</dt>
-                <dd className="text-sm text-slate-900">
-                  {prepared[field.field_key] || (
-                    <span className="text-slate-400">—</span>
-                  )}
-                </dd>
+
+          {unresolved.length > 0 && (
+            <div className="px-6 py-3 border-b border-amber-100 bg-amber-50">
+              <p className="text-xs font-medium text-amber-800 mb-1.5">
+                Variables sin valor (se muestran tal cual en el texto):
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {unresolved.map((variable) => (
+                  <code
+                    key={variable}
+                    className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-amber-800 border border-amber-200"
+                  >{`{{${variable}}}`}</code>
+                ))}
               </div>
-            ))}
-          </dl>
+            </div>
+          )}
+
+          <pre className="px-6 py-5 text-sm text-slate-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
+            {preview}
+          </pre>
         </section>
       )}
     </div>

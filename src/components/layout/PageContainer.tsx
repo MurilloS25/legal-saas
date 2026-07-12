@@ -12,6 +12,7 @@
 type Props = {
   children: React.ReactNode;
   width?: "wide" | "form";
+  className?: string;
 };
 
 const WIDTH_CLASS: Record<NonNullable<Props["width"]>, string> = {
@@ -19,12 +20,17 @@ const WIDTH_CLASS: Record<NonNullable<Props["width"]>, string> = {
   form: "max-w-4xl",
 };
 
-export function PageContainer({ children, width = "wide" }: Props) {
+export function PageContainer({ children, width = "wide", className }: Props) {
+  const classes = [
+    "w-full",
+    WIDTH_CLASS[width],
+    "mx-auto px-4 py-8 sm:px-6 lg:px-10",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      className={`w-full ${WIDTH_CLASS[width]} mx-auto px-4 py-8 sm:px-6 lg:px-10`}
-    >
-      {children}
-    </div>
+    <div className={classes}>{children}</div>
   );
 }
