@@ -2,9 +2,9 @@
 
 ## Status
 
-This is the planning document for the initial MVP database model.
+This document tracks the MVP database model and approved migration decisions.
 
-Do not create tables, migrations, seed files, or Supabase Cloud resources from this document until the first migration task is explicitly approved.
+Do not create new tables, migrations, seed files, or Supabase Cloud resources from this document unless the task explicitly asks for a database change.
 
 The database target is Supabase Postgres with Supabase Auth and Row Level Security.
 
@@ -16,15 +16,16 @@ The database target is Supabase Postgres with Supabase Auth and Row Level Securi
 - Users can only access their own records.
 - Child records must validate ownership consistency with parent records.
 - Anonymous users must not access private user-owned data.
-- Generated legal documents are never stored in the database or application storage.
-- Generated Word files, PDFs, full escritura text, and storage paths for generated documents are intentionally excluded.
+- Generated Word files, PDFs, signed documents, official submission payloads, and storage paths for generated documents are intentionally excluded.
+- Persistent draft escrituras may store validated `field_values` and a server-rendered `rendered_content` text snapshot.
+- Persistent draft text is sensitive user-owned data and must be protected by RLS, validation, and no-content logging rules.
 - The first migration focuses on independent lawyers and physical-person clients.
 - Company clients, legal representatives, audit events, and independent notes are deferred.
-- The database stores only structured metadata required for lawyer profile settings, clients, templates, optional document metadata, notarial index preparation, and basic receivables.
+- The database stores only data required for lawyer profile settings, clients, templates, persistent draft escrituras, optional document metadata, notarial index preparation, and basic receivables.
 - `document_metadata` is not created automatically every time a Word document is generated.
 - `document_metadata` is created only when the user chooses to save information for notarial index preparation and/or accounts receivable.
 - Accounts receivable is intentionally basic and does not include formal accounting, tax calculation, electronic invoicing, or a separate partial-payment table.
-- This document describes candidate fields only. Migrations are intentionally deferred.
+- This document describes approved schema decisions and future candidate fields. New migrations still require an explicit task.
 
 ## Database Goals
 
@@ -36,6 +37,7 @@ The MVP database must support:
 - Physical-person client metadata.
 - Template management.
 - Template variable and field definitions.
+- Persistent draft escrituras.
 - Optional document metadata for index and/or receivable workflows.
 - Structured notarial index metadata preparation.
 - Basic accounts receivable.
@@ -45,8 +47,8 @@ The database must avoid storing:
 - Generated `.docx` or PDF files.
 - Storage paths for generated legal documents.
 - Signed documents.
-- Full escritura text.
 - Official submission payloads.
+- Full escritura text outside the approved persistent draft workflow.
 - Secrets or credentials.
 - Unnecessary legal transaction detail.
 - AI prompts, AI responses, or AI legal advice content.
@@ -75,6 +77,19 @@ Explicitly excluded from the first migration:
 - Supabase Storage buckets for generated legal documents.
 - Dynamic complex party lists.
 - Partial-payment detail table.
+
+### Document Draft Persistence Migration Scope
+
+The later document draft persistence migration adds:
+
+- `documents`
+
+It must not add:
+
+- Generated Word/PDF file storage.
+- Signed document storage.
+- Official submission payloads.
+- Storage paths for generated legal documents.
 
 ## Proposed Tables
 
@@ -390,6 +405,69 @@ Pending questions:
 - Define validation rules for `field_key` and `role_key`.
 - Define exact mappings from client fields to template field sources.
 
+### `documents`
+
+Purpose:
+
+Stores user-owned persistent draft escrituras while the lawyer is preparing a document from a machote.
+
+Decision:
+
+- `documents` is for editable drafts, not generated Word/PDF storage.
+- `field_values` stores a flat `field_key -> text` map.
+- `rendered_content` stores the server-rendered plain-text snapshot used for preview and continuation.
+- `status` only allows `draft` in this iteration.
+- Editing a machote must not silently rewrite saved draft snapshots.
+- Saving a draft again regenerates `rendered_content` from the current machote and saved values.
+- Unknown historical `field_values` should be preserved unless a future explicit deletion workflow is approved.
+
+Candidate fields:
+
+```txt
+id
+owner_id
+template_id
+title
+status
+field_values
+rendered_content
+created_at
+updated_at
+```
+
+Initial allowed `status` values:
+
+```txt
+draft
+```
+
+Relationships:
+
+- `owner_id` references `auth.users(id)`.
+- `(template_id, owner_id)` references `templates(id, owner_id)`.
+- The template foreign key must not cascade delete documents; deleting a machote with associated drafts should be blocked.
+
+Sensitive data:
+
+- Contains draft legal text and submitted field values.
+- Must be treated as sensitive user-owned data.
+- Must not contain generated Word/PDF files, signed documents, official submission payloads, or storage paths.
+
+Ownership rule:
+
+- The owner is the lawyer who created and manages the draft.
+- `owner_id` is always derived from the authenticated user, never from the browser.
+
+RLS need:
+
+- Required. Users can only select, insert, update, and delete their own draft documents.
+- Insert/update policies must also verify that the referenced template belongs to the same owner.
+
+Pending questions:
+
+- Whether future non-draft statuses are needed.
+- Whether future draft archival or soft delete is needed.
+
 ### `document_metadata`
 
 Purpose:
@@ -642,7 +720,7 @@ Future audit logging must not store:
 - Full client identity details.
 - Complete transaction details.
 
-## Relationship Draft For First Migration
+## Relationship Draft For MVP Schema
 
 ```txt
 auth.users
@@ -653,7 +731,9 @@ auth.users
   │   └─ receivables
   ├─ templates
   │   ├─ template_fields
+  │   ├─ documents
   │   └─ document_metadata
+  ├─ documents
   ├─ document_metadata
   │   ├─ notarial_records
   │   └─ receivables
@@ -669,7 +749,7 @@ The following are intentionally excluded from the first migration:
 - Generated Word document binary data.
 - Generated PDF binary data.
 - Permanent storage paths for generated legal documents.
-- Full generated escritura text.
+- Full generated escritura text outside the approved persistent draft workflow.
 - Signed document files.
 - Digital signature data.
 - Official submission payloads or submission credentials.
@@ -691,13 +771,14 @@ The following are intentionally excluded from the first migration:
 
 ## RLS Planning
 
-RLS is required for every first-migration user-owned table:
+RLS is required for every user-owned table:
 
 - `lawyer_profiles`
 - `document_settings`
 - `clients`
 - `templates`
 - `template_fields`
+- `documents`
 - `document_metadata`
 - `notarial_records`
 - `receivables`
@@ -767,7 +848,8 @@ Migration files must:
 - Enable RLS for user-owned tables.
 - Add policies before exposing data.
 - Avoid destructive changes without backup/review.
-- Avoid storing generated documents.
+- Avoid storing generated Word/PDF files, signed documents, official submission payloads, or generated document storage paths.
+- Store draft escritura text only through the approved user-owned `documents` model.
 - Avoid broad public access.
 
 No migrations should be created until this design is approved.
@@ -800,6 +882,4 @@ Use clearly fake values only.
 
 ## Next Step
 
-The next database task should produce the first Supabase migration plan based on the approved first migration scope.
-
-Do not create migrations until this design is approved.
+Future database tasks should update this document when approved decisions change, then add versioned migrations and RLS tests locally.

@@ -5,6 +5,7 @@ import {
   DocumentRenderedContentSchema,
   DocumentIdSchema,
   DocumentStatusSchema,
+  mergeDocumentDraftValues,
 } from "./documents";
 
 describe("DocumentTitleSchema", () => {
@@ -95,6 +96,12 @@ describe("DocumentValuesSchema", () => {
     }
   });
 
+  it("rejects dangerous keys on null-prototype objects", () => {
+    const values = Object.create(null) as Record<string, string>;
+    values["__proto__"] = "x";
+    expect(DocumentValuesSchema.safeParse(values).success).toBe(false);
+  });
+
   it("rejects keys longer than 120 characters", () => {
     expect(
       DocumentValuesSchema.safeParse({ ["k".repeat(121)]: "x" }).success,
@@ -132,6 +139,43 @@ describe("DocumentRenderedContentSchema", () => {
     expect(
       DocumentRenderedContentSchema.safeParse("x".repeat(200001)).success,
     ).toBe(false);
+  });
+});
+
+describe("mergeDocumentDraftValues", () => {
+  it("preserves historical values that are no longer editable", () => {
+    const result = mergeDocumentDraftValues(
+      {
+        "buyer_1.full_name": "Nombre viejo",
+        "legacy.field": "valor historico",
+      },
+      {
+        "buyer_1.full_name": "Nombre nuevo",
+      },
+      ["buyer_1.full_name"],
+    );
+
+    expect(result).toEqual({
+      "buyer_1.full_name": "Nombre nuevo",
+      "legacy.field": "valor historico",
+    });
+  });
+
+  it("preserves exact text in current and historical values", () => {
+    const result = mergeDocumentDraftValues(
+      {
+        "legacy.lines": "linea uno\nlinea dos",
+      },
+      {
+        price: "  1.000.000,50  ",
+        code: "007",
+      },
+      ["price", "code"],
+    );
+
+    expect(result["legacy.lines"]).toBe("linea uno\nlinea dos");
+    expect(result.price).toBe("  1.000.000,50  ");
+    expect(result.code).toBe("007");
   });
 });
 
