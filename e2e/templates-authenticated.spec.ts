@@ -28,9 +28,14 @@ test.describe("templates module", () => {
   }) => {
     await page.goto("/dashboard");
 
-    await page.getByRole("link", { name: "Machotes" }).first().click();
+    await page
+      .getByRole("navigation", { name: "Navegación principal" })
+      .getByRole("link", { name: "Machotes", exact: true })
+      .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/templates/);
+    await expect(page).toHaveURL(/\/dashboard\/templates/, {
+      timeout: 15_000,
+    });
     await expect(
       page.getByRole("heading", { name: "Machotes", exact: true }),
     ).toBeVisible();

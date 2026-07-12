@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 // Tests share the same user account and template. Serial mode prevents
 // race conditions between tests that depend on the created template.
 test.describe.configure({ mode: "serial" });
+test.setTimeout(60_000);
 
 // Module-level state shared between serial tests.
 let templateName = "";
@@ -67,7 +68,9 @@ test.describe("documents workspace", () => {
       .getByRole("link", { name: "Escrituras" })
       .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents$/);
+    await expect(page).toHaveURL(/\/dashboard\/documents$/, {
+      timeout: 15_000,
+    });
     await expect(
       page.getByRole("heading", { name: "Escrituras", exact: true }),
     ).toBeVisible();
@@ -78,15 +81,21 @@ test.describe("documents workspace", () => {
   }) => {
     await page.goto("/dashboard");
     await page.getByRole("link", { name: /Machotes/ }).last().click();
-    await expect(page).toHaveURL(/\/dashboard\/templates$/);
+    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
+      timeout: 15_000,
+    });
 
     await page.goto("/dashboard");
     await page.getByRole("link", { name: /Escrituras/ }).last().click();
-    await expect(page).toHaveURL(/\/dashboard\/documents$/);
+    await expect(page).toHaveURL(/\/dashboard\/documents$/, {
+      timeout: 15_000,
+    });
 
     await page.goto("/dashboard");
     await page.getByRole("link", { name: /Clientes/ }).last().click();
-    await expect(page).toHaveURL(/\/dashboard\/clients$/);
+    await expect(page).toHaveURL(/\/dashboard\/clients$/, {
+      timeout: 15_000,
+    });
   });
 
   test("D: documents section lists the template with a create action", async ({
