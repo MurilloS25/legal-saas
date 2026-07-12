@@ -91,11 +91,12 @@ export default async function TemplateDetailPage({ params }: Props) {
         )}
         </div>
 
+        {/* Acceso rápido secundario: el flujo principal vive en Escrituras. */}
         <Link
-          href={`/dashboard/templates/${template.id}/fill`}
-          className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+          href={`/dashboard/documents/new/${template.id}`}
+          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
         >
-          Llenar machote
+          Crear escritura
         </Link>
       </div>
 

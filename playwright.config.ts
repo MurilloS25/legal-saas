@@ -61,6 +61,7 @@ export default defineConfig({
         "chromium-clients",
         "chromium-templates",
         "chromium-template-fields",
+        "chromium-documents",
       ],
     },
 
@@ -94,6 +95,17 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-fields-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Documents (Escrituras) workspace — authenticated.
+    {
+      name: "chromium-documents",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /documents-authenticated\.spec\.ts/,
       dependencies: ["setup"],
     },
   ],

@@ -28,9 +28,14 @@ test.describe("clients module", () => {
   }) => {
     await page.goto("/dashboard");
 
-    await page.getByRole("link", { name: "Clientes" }).first().click();
+    await page
+      .getByRole("navigation", { name: "Navegación principal" })
+      .getByRole("link", { name: "Clientes", exact: true })
+      .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/clients/);
+    await expect(page).toHaveURL(/\/dashboard\/clients/, {
+      timeout: 15_000,
+    });
     await expect(
       page.getByRole("heading", {
         name: "Directorio de clientes",

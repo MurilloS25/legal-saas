@@ -54,6 +54,7 @@ const ACTIVE_LINKS = [
   { label: "Panel", href: "/dashboard" },
   { label: "Clientes", href: "/dashboard/clients" },
   { label: "Machotes", href: "/dashboard/templates" },
+  { label: "Escrituras", href: "/dashboard/documents" },
   { label: "Configuración", href: "/dashboard/settings" },
 ] as const;
 

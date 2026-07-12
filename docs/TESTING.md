@@ -461,13 +461,14 @@ pnpm e2e:headed   # headed browser
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
 - Not included in CI yet (requires a live Supabase local instance and test credentials).
-- Project execution order: `setup` → `chromium-clients` + `chromium-templates` + `chromium-template-fields` (parallel) → `chromium-authenticated` (last, logs out).
+- Project execution order: `setup` → `chromium-clients` + `chromium-templates` + `chromium-template-fields` + `chromium-documents` (parallel) → `chromium-authenticated` (last, logs out).
 
 | Playwright project | Test file | Covers |
 |---|---|---|
 | `chromium-clients` | `e2e/clients-authenticated.spec.ts` | Create, edit, delete client; persistence after reload |
 | `chromium-templates` | `e2e/templates-authenticated.spec.ts` | Create, edit template; status change; persistence after reload |
 | `chromium-template-fields` | `e2e/template-fields-authenticated.spec.ts` | Add, edit, delete template fields; validation error; persistence after reload |
+| `chromium-documents` | `e2e/documents-authenticated.spec.ts` | Documents (Escrituras) workspace: navigation, create-document flow, fill form, textual preview, required validation |
 | `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
 
 **Setting up authenticated E2E tests:**
