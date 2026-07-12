@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { prepareDocumentAction, type DocumentFillState } from "../actions";
-import type { TemplateFieldRow } from "../queries";
-import { FieldError } from "@/components/forms/FieldError";
 import {
-  renderTemplateContent,
-  findUnresolvedVariables,
-} from "@/lib/templates/render";
+  createDocumentDraftAction,
+  updateDocumentDraftAction,
+  type DocumentDraftState,
+} from "../actions";
+import type { DocumentRow } from "../queries";
+import type { TemplateFieldRow } from "../../templates/queries";
+import { FieldError } from "@/components/forms/FieldError";
+import { findUnresolvedVariables } from "@/lib/templates/render";
 
 // ------------------------------------------------------------------ styles
 
@@ -23,7 +25,7 @@ const requiredMark = (
   </span>
 );
 
-// ------------------------------------------------------------------ dynamic input
+// ------------------------------------------------------------------ field input
 
 type FieldInputProps = {
   field: TemplateFieldRow;
@@ -32,7 +34,7 @@ type FieldInputProps = {
 };
 
 function FieldInput({ field, defaultValue, error }: FieldInputProps) {
-  const id = `fill-${field.field_key}`;
+  const id = `draft-${field.field_key}`;
   const errorId = `${id}-error`;
 
   const shared = {
@@ -55,9 +57,6 @@ function FieldInput({ field, defaultValue, error }: FieldInputProps) {
           <span className="text-slate-400 font-normal"> (opcional)</span>
         )}
       </label>
-      {/* Todos los valores se escriben como texto (montos en palabras,
-          fechas jurídicas, etc.). Los campos legados de tipo textarea
-          conservan el área de texto; el resto usa input de texto. */}
       {field.field_type === "textarea" ? (
         <textarea {...shared} rows={4} className={inputClass + " resize-y"} />
       ) : (
@@ -68,51 +67,66 @@ function FieldInput({ field, defaultValue, error }: FieldInputProps) {
   );
 }
 
-// ------------------------------------------------------------------ component
+// ------------------------------------------------------------------ props
 
 type Props = {
-  templateId: string;
   fields: TemplateFieldRow[];
-  /** Contenido del machote con placeholders, para la vista previa. */
+  /** Contenido del machote con placeholders (para variables sin valor). */
   content: string;
-  /** Destino del botón Cancelar. Por defecto, el detalle del machote. */
-  cancelHref?: string;
-};
+} & (
+  | { mode: "create"; templateId: string; defaultTitle: string }
+  | { mode: "edit"; document: DocumentRow; savedJustNow?: boolean }
+);
 
-const initialState: DocumentFillState = {};
+const initialState: DocumentDraftState = {};
 
-export function DocumentFillForm({
-  templateId,
-  fields,
-  content,
-  cancelHref,
-}: Props) {
-  const action = prepareDocumentAction.bind(null, templateId);
+// ------------------------------------------------------------------ component
+
+export function DocumentDraftForm(props: Props) {
+  const { fields, content } = props;
+  const isEdit = props.mode === "edit";
+  const doc = isEdit ? props.document : null;
+
+  const action = isEdit
+    ? updateDocumentDraftAction.bind(null, props.document.id)
+    : createDocumentDraftAction.bind(null, props.templateId);
+
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  const prepared = state.preparedValues;
-  // El reemplazo lo hace el helper compartido de render; el componente solo
-  // presenta el resultado como texto plano.
-  const preview = prepared ? renderTemplateContent(content, prepared) : null;
-  const unresolved = prepared ? findUnresolvedVariables(content, prepared) : [];
+  const savedValues = doc?.field_values ?? {};
+  const showSavedBanner =
+    state.success || (isEdit && props.savedJustNow && !state.message && !state.errors);
+
+  // Variables del contenido sin valor en el último guardado.
+  const unresolved = doc ? findUnresolvedVariables(content, savedValues) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="grid items-start gap-6 xl:grid-cols-2">
+      {/* ---- Formulario ---- */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
           <p className="text-sm font-semibold text-slate-900">
-            Datos del documento
+            Datos de la escritura
           </p>
           <p className="text-xs text-slate-500">
             Los campos marcados con{" "}
             <span aria-hidden="true" className="text-red-500 font-semibold">
               *
             </span>{" "}
-            son obligatorios. Los valores no se guardan en el sistema.
+            son obligatorios. Al guardar se actualiza la vista previa.
           </p>
         </div>
 
         <form action={formAction} noValidate className="px-6 py-6">
+          {showSavedBanner && (
+            <div
+              role="status"
+              className="mb-6 rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-800"
+            >
+              Borrador guardado.
+            </div>
+          )}
+
           {state.message && (
             <div
               role="alert"
@@ -123,11 +137,30 @@ export function DocumentFillForm({
           )}
 
           <div className="space-y-5">
+            <div>
+              <label htmlFor="draft-title" className={labelClass}>
+                Título de la escritura{requiredMark}
+              </label>
+              <input
+                id="draft-title"
+                name="title"
+                type="text"
+                required
+                defaultValue={isEdit ? doc!.title : props.defaultTitle}
+                className={inputClass}
+                aria-describedby={
+                  state.titleError ? "draft-title-error" : undefined
+                }
+                aria-invalid={!!state.titleError}
+              />
+              <FieldError id="draft-title-error" message={state.titleError} />
+            </div>
+
             {fields.map((field) => (
               <FieldInput
                 key={field.id}
                 field={field}
-                defaultValue={prepared?.[field.field_key] ?? ""}
+                defaultValue={savedValues[field.field_key] ?? ""}
                 error={state.errors?.[field.field_key]}
               />
             ))}
@@ -135,24 +168,24 @@ export function DocumentFillForm({
 
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
             <Link
-              href={cancelHref ?? `/dashboard/templates/${templateId}`}
+              href="/dashboard/documents"
               className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
             >
-              Cancelar
+              Volver a Escrituras
             </Link>
             <button
               type="submit"
               disabled={pending}
               className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {pending ? "Preparando…" : "Preparar documento"}
+              {pending ? "Guardando…" : "Guardar borrador"}
             </button>
           </div>
         </form>
       </div>
 
-      {/* ---- Vista previa del documento (solo en memoria) ---- */}
-      {preview !== null && (
+      {/* ---- Vista previa guardada (solo en edición) ---- */}
+      {isEdit && (
         <section
           aria-labelledby="document-preview-heading"
           className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden"
@@ -165,8 +198,7 @@ export function DocumentFillForm({
               Vista previa del documento
             </h2>
             <p className="text-xs text-slate-500">
-              Contenido del machote con los datos sustituidos. No se guarda en
-              el sistema.
+              Refleja el último borrador guardado.
             </p>
           </div>
 
@@ -186,9 +218,11 @@ export function DocumentFillForm({
             </div>
           )}
 
-          <pre className="px-6 py-5 text-sm text-slate-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
-            {preview}
-          </pre>
+          <div className="px-8 py-8">
+            <pre className="mx-auto max-w-prose text-sm text-slate-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
+              {doc!.rendered_content}
+            </pre>
+          </div>
         </section>
       )}
     </div>

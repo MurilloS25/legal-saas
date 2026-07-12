@@ -391,6 +391,8 @@ pnpm test
 pnpm build
 ```
 
+`pnpm typecheck` runs `next typegen` before `tsc --noEmit` so route/page types are regenerated for the current branch before TypeScript reads `.next/types`.
+
 Future E2E tests may run separately because they are slower.
 
 ## What Not To Over-Test
@@ -446,7 +448,9 @@ pnpm e2e:headed   # headed browser
 - Supabase local must be running (`pnpm supabase start`) for flows that depend on Auth, such as login, redirect, and error handling.
 - Authenticated E2E tests require `E2E_USER_EMAIL` and `E2E_USER_PASSWORD`.
 - `playwright/.auth/` must stay uncommitted.
-- The dev server starts automatically via `pnpm dev` unless it is already running on port 3000.
+- By default, Playwright starts its own `pnpm dev` server. Do not keep another dev server running on port 3000 during validation.
+- Only reuse an existing local dev server intentionally by setting `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+- Do not run `pnpm build` while an E2E dev server is running, because both commands share `.next/`.
 
 **Phase 1 scope (smoke, unauthenticated — current):**
 
@@ -486,10 +490,7 @@ pnpm e2e:headed   # headed browser
    E2E_USER_PASSWORD=a-strong-test-password
    ```
 
-4. Start the dev server (Playwright starts it automatically via `webServer`, but you can also start it manually):
-   ```bash
-   pnpm dev
-   ```
+4. Make sure no manual dev server is running on port 3000, unless you intentionally set `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
 
 5. Run all E2E tests:
    ```bash

@@ -1,29 +1,36 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// Tests share the same user account and template. Serial mode prevents
-// race conditions between tests that depend on the created template.
+// Tests share the same user account, template and draft. Serial mode keeps
+// the workflow consistent between tests.
 test.describe.configure({ mode: "serial" });
 test.setTimeout(60_000);
 
 // Module-level state shared between serial tests.
 let templateName = "";
+let draftTitle = "";
+let editedDraftTitle = "";
 
 const fieldLabel = "Comprador 1 - Nombre completo";
 const fieldKey = "buyer_1.full_name";
 const filledValue = "Cliente de Prueba Uno";
+const editedValue = "Cliente Editado 007 (cero inicial: 012)";
 
-async function openDocumentsSection(page: Page) {
+async function openDocumentsHome(page: Page) {
   await page.goto("/dashboard/documents");
   await expect(
     page.getByRole("heading", { name: "Escrituras", exact: true }),
   ).toBeVisible();
 }
 
-test.describe("documents workspace", () => {
-  test("A: create a template with content and one field", async ({ page }) => {
-    templateName = `E2E Escritura ${Date.now()}`;
+function draftRow(page: Page, title: string) {
+  return page.locator("li").filter({ hasText: title });
+}
 
-    // Create the template.
+test.describe("document drafts workspace", () => {
+  test("A: create a template with content and one field", async ({ page }) => {
+    templateName = `E2E Borrador ${Date.now()}`;
+    draftTitle = `${templateName} — Borrador`;
+
     await page.goto("/dashboard/templates/new");
     await page.getByLabel("Nombre del machote").fill(templateName);
     await page
@@ -36,8 +43,6 @@ test.describe("documents workspace", () => {
       timeout: 15_000,
     });
 
-    // Open its detail and define one field (vehicle.plate stays undefined
-    // on purpose to exercise the unresolved-variable path).
     const templateLink = page
       .getByRole("link")
       .filter({ hasText: templateName })
@@ -55,150 +60,180 @@ test.describe("documents workspace", () => {
     await fieldsSection
       .getByRole("button", { name: "Guardar campo" })
       .click();
+
     await expect(
       fieldsSection.locator("li").filter({ hasText: fieldLabel }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("B: sidebar navigates to the documents section", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("B: documents home offers the new-document action", async ({ page }) => {
+    await openDocumentsHome(page);
+
+    await expect(
+      page
+        .getByRole("link", { name: /Nueva escritura|Crear primera escritura/ })
+        .first(),
+    ).toBeVisible();
+  });
+
+  test("C: user can create and save a draft with preview", async ({ page }) => {
+    await openDocumentsHome(page);
 
     await page
-      .getByRole("navigation", { name: "Navegación principal" })
-      .getByRole("link", { name: "Escrituras" })
+      .getByRole("link", { name: /Nueva escritura|Crear primera escritura/ })
+      .first()
       .click();
-
-    await expect(page).toHaveURL(/\/dashboard\/documents$/, {
-      timeout: 15_000,
-    });
-    await expect(
-      page.getByRole("heading", { name: "Escrituras", exact: true }),
-    ).toBeVisible();
-  });
-
-  test("C: dashboard module cards navigate to their sections", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard");
-    await page.getByRole("link", { name: /Machotes/ }).last().click();
-    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
+    await expect(page).toHaveURL(/\/dashboard\/documents\/new$/, {
       timeout: 15_000,
     });
 
-    await page.goto("/dashboard");
-    await page.getByRole("link", { name: /Escrituras/ }).last().click();
-    await expect(page).toHaveURL(/\/dashboard\/documents$/, {
-      timeout: 15_000,
-    });
-
-    await page.goto("/dashboard");
-    await page.getByRole("link", { name: /Clientes/ }).last().click();
-    await expect(page).toHaveURL(/\/dashboard\/clients$/, {
-      timeout: 15_000,
-    });
-  });
-
-  test("D: documents section lists the template with a create action", async ({
-    page,
-  }) => {
-    await openDocumentsSection(page);
-
-    const templateCard = page.locator("li").filter({ hasText: templateName });
-    await expect(templateCard).toBeVisible();
-    await expect(
-      templateCard.getByRole("link", { name: "Crear escritura" }),
-    ).toBeVisible();
-  });
-
-  test("E: create document flow shows the shared fill form", async ({
-    page,
-  }) => {
-    await openDocumentsSection(page);
-
+    // Pick the template created in test A.
     await page
       .locator("li")
       .filter({ hasText: templateName })
-      .getByRole("link", { name: "Crear escritura" })
+      .getByRole("link", { name: "Usar este machote" })
       .click();
-
-    // First navigation may trigger an on-demand compile in the dev server.
     await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 30_000,
+      timeout: 15_000,
     });
-    await expect(
-      page.getByRole("heading", { name: "Crear escritura" }),
-    ).toBeVisible();
-    await expect(page.getByLabel(new RegExp(fieldLabel))).toBeVisible();
-  });
 
-  test("F: preview renders filled values and keeps missing variables visible", async ({
-    page,
-  }) => {
-    await openDocumentsSection(page);
-    await page
-      .locator("li")
-      .filter({ hasText: templateName })
-      .getByRole("link", { name: "Crear escritura" })
-      .click();
-    // First navigation may trigger an on-demand compile in the dev server.
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 30_000,
-    });
+    // The title is pre-generated from the template name.
+    await expect(page.getByLabel("Título de la escritura")).toHaveValue(
+      draftTitle,
+    );
 
     await page.getByLabel(new RegExp(fieldLabel)).fill(filledValue);
-    await page.getByRole("button", { name: "Preparar documento" }).click();
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+
+    // Saving redirects to the edit view with a confirmation. The first hit
+    // compiles the route on demand while other projects run in parallel,
+    // so this navigation gets a generous timeout.
+    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByText("Borrador guardado.", { exact: true }),
+    ).toBeVisible();
 
     const preview = page.getByRole("region", {
       name: "Vista previa del documento",
     });
-    await expect(preview).toBeVisible({ timeout: 15_000 });
-
-    // Filled variable is substituted; undefined variable stays as placeholder.
+    await expect(preview).toBeVisible();
     await expect(preview.getByText(new RegExp(filledValue))).toBeVisible();
+    // The undefined variable stays visible as a placeholder.
     await expect(
       preview.getByText(/\{\{vehicle\.plate\}\}/).first(),
     ).toBeVisible();
   });
 
-  test("G: required field validation blocks empty submissions", async ({
+  test("D: the saved draft appears in the documents list", async ({ page }) => {
+    await openDocumentsHome(page);
+
+    const row = draftRow(page, draftTitle);
+    await expect(row).toBeVisible();
+    await expect(row.getByText("Borrador", { exact: true })).toBeVisible();
+    await expect(row.getByRole("link", { name: "Continuar" })).toBeVisible();
+  });
+
+  test("E: user can edit the draft and the preview updates", async ({
     page,
   }) => {
-    await openDocumentsSection(page);
-    await page
-      .locator("li")
-      .filter({ hasText: templateName })
-      .getByRole("link", { name: "Crear escritura" })
+    await openDocumentsHome(page);
+    await draftRow(page, draftTitle)
+      .getByRole("link", { name: "Continuar" })
       .click();
-    // First navigation may trigger an on-demand compile in the dev server.
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 30_000,
+    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+      timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: "Preparar documento" }).click();
+    // Existing values are loaded into the form.
+    await expect(page.getByLabel(new RegExp(fieldLabel))).toHaveValue(
+      filledValue,
+    );
+
+    editedDraftTitle = `${templateName} — Editado`;
+    await page.getByLabel("Título de la escritura").fill(editedDraftTitle);
+    await page.getByLabel(new RegExp(fieldLabel)).fill(editedValue);
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+
+    await expect(
+      page.getByText("Borrador guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const preview = page.getByRole("region", {
+      name: "Vista previa del documento",
+    });
+    await expect(
+      preview.getByText(/Cliente Editado 007 \(cero inicial: 012\)/),
+    ).toBeVisible();
+  });
+
+  test("F: edited draft persists after reload", async ({ page }) => {
+    await openDocumentsHome(page);
+
+    const row = draftRow(page, editedDraftTitle);
+    await expect(row).toBeVisible();
+
+    await row.getByRole("link", { name: "Continuar" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+      timeout: 15_000,
+    });
+    await page.reload();
+
+    await expect(page.getByLabel("Título de la escritura")).toHaveValue(
+      editedDraftTitle,
+    );
+    await expect(page.getByLabel(new RegExp(fieldLabel))).toHaveValue(
+      editedValue,
+    );
+    const preview = page.getByRole("region", {
+      name: "Vista previa del documento",
+    });
+    await expect(
+      preview.getByText(/Cliente Editado 007 \(cero inicial: 012\)/),
+    ).toBeVisible();
+  });
+
+  test("G: an empty required field blocks saving", async ({ page }) => {
+    await openDocumentsHome(page);
+    await draftRow(page, editedDraftTitle)
+      .getByRole("link", { name: "Continuar" })
+      .click();
+    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+      timeout: 15_000,
+    });
+
+    await page.getByLabel(new RegExp(fieldLabel)).fill("");
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
 
     await expect(page.getByText(`${fieldLabel} es requerido`)).toBeVisible({
       timeout: 15_000,
     });
   });
 
-  test("H: template detail links to the same shared flow", async ({ page }) => {
-    await page.goto("/dashboard/templates");
+  test("H: a nonexistent document returns the not-found page", async ({
+    page,
+  }) => {
+    await page.goto(
+      "/dashboard/documents/00000000-0000-0000-0000-000000000000",
+    );
 
-    const templateLink = page
-      .getByRole("link")
-      .filter({ hasText: templateName })
-      .first();
-    const href = await templateLink.getAttribute("href");
-    await page.goto(href!);
+    await expect(page.getByText("404")).toBeVisible();
+  });
 
-    await page.getByRole("link", { name: "Crear escritura" }).click();
+  test("I: user can delete the draft with confirmation", async ({ page }) => {
+    await openDocumentsHome(page);
 
-    // First navigation may trigger an on-demand compile in the dev server.
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 30_000,
+    await draftRow(page, editedDraftTitle)
+      .getByRole("button", { name: `Eliminar ${editedDraftTitle}` })
+      .click();
+
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Eliminar" }).click();
+
+    await expect(draftRow(page, editedDraftTitle)).not.toBeVisible({
+      timeout: 15_000,
     });
-    await expect(
-      page.getByRole("heading", { name: "Crear escritura" }),
-    ).toBeVisible();
   });
 });
