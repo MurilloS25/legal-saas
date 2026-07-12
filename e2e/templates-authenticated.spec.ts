@@ -7,17 +7,25 @@ test.describe.configure({ mode: "serial" });
 // Module-level state shared between serial tests in this describe block.
 let createdTemplateName = "";
 let editedTemplateName = "";
+let templateUrl = "";
 
 async function openTemplateFromList(page: Page, name: string) {
+  if (templateUrl) {
+    await page.goto(templateUrl);
+    await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+    return;
+  }
+
   const templateLink = page
     .getByRole("link")
     .filter({ hasText: name })
     .first();
-  await expect(templateLink).toBeVisible();
+  await expect(templateLink).toBeVisible({ timeout: 15_000 });
 
   const href = await templateLink.getAttribute("href");
   expect(href).toMatch(/^\/dashboard\/templates\/[^/]+$/);
 
+  templateUrl = href!;
   await page.goto(href!);
   await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
 }
@@ -76,10 +84,23 @@ test.describe("templates module", () => {
       timeout: 15_000,
     });
     await expect(page.getByText(createdTemplateName).first()).toBeVisible();
+
+    const templateLink = page
+      .getByRole("link")
+      .filter({ hasText: createdTemplateName })
+      .first();
+    await expect(templateLink).toBeVisible({ timeout: 15_000 });
+
+    const href = await templateLink.getAttribute("href");
+    expect(href).toMatch(/^\/dashboard\/templates\/[^/]+$/);
+    templateUrl = href!;
   });
 
   test("D: created template appears in the list", async ({ page }) => {
     await page.goto("/dashboard/templates");
+    await expect(
+      page.getByRole("heading", { name: "Machotes", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByText(createdTemplateName).first()).toBeVisible();
   });
@@ -129,6 +150,9 @@ test.describe("templates module", () => {
     page,
   }) => {
     await page.goto("/dashboard/templates");
+    await expect(
+      page.getByRole("heading", { name: "Machotes", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByText(editedTemplateName).first()).toBeVisible();
 

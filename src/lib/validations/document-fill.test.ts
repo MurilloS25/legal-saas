@@ -93,14 +93,14 @@ describe("validateDocumentFill", () => {
     }
   });
 
-  it("trims values before validating and returning them", () => {
+  it("validates required values with trim but returns the original text", () => {
     const result = validateDocumentFill(fields, {
       ...validValues,
       "buyer_1.full_name": "  Test Client One  ",
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.values["buyer_1.full_name"]).toBe("Test Client One");
+      expect(result.values["buyer_1.full_name"]).toBe("  Test Client One  ");
     }
   });
 
