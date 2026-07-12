@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   CleanupRegistry,
+  formatCleanupFailures,
   type CleanupResource,
 } from "./cleanup-registry";
 
@@ -106,5 +107,34 @@ describe("CleanupRegistry", () => {
     registry.register("documents", "d1");
     await registry.cleanup(async () => "deleted");
     expect(registry.pending).toHaveLength(0);
+  });
+
+  it("formats cleanup failures with the spec slug and resource details", () => {
+    const message = formatCleanupFailures(
+      {
+        deleted: 0,
+        missing: 0,
+        failures: [
+          {
+            resource: { table: "documents", id: "d1" },
+            error: "network down",
+          },
+        ],
+      },
+      "documents",
+    );
+
+    expect(message).toContain("[e2e-cleanup:documents]");
+    expect(message).toContain("documents/d1");
+    expect(message).toContain("network down");
+  });
+
+  it("does not format a cleanup failure message when cleanup succeeds", () => {
+    expect(
+      formatCleanupFailures(
+        { deleted: 1, missing: 1, failures: [] },
+        "documents",
+      ),
+    ).toBeNull();
   });
 });

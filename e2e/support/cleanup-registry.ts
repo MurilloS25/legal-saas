@@ -36,6 +36,22 @@ export type CleanupReport = {
   failures: { resource: CleanupResource; error: string }[];
 };
 
+export function formatCleanupFailures(
+  report: CleanupReport,
+  specSlug: string,
+): string | null {
+  if (report.failures.length === 0) return null;
+
+  const details = report.failures
+    .map(
+      (failure) =>
+        `${failure.resource.table}/${failure.resource.id}: ${failure.error}`,
+    )
+    .join("; ");
+
+  return `[e2e-cleanup:${specSlug}] failed to delete ${report.failures.length} resource(s): ${details}`;
+}
+
 export class CleanupRegistry {
   private resources: CleanupResource[] = [];
 

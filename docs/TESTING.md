@@ -518,7 +518,7 @@ E2E data factories live in `e2e/support/` (`factories.ts`, `cleanup-registry.ts`
 - Names use the `e2e-<spec>-<label>-<uuid>` convention, unique even under parallel runs.
 - Every created resource is registered and deleted in FK-safe order (`documents` → `template_fields` → `templates` → `clients`) in `afterAll`, tolerating rows the test already deleted.
 - Rows created through the UI are registered for cleanup with `registerCreatedViaUi` (lookup by unique name).
-- Cleanup failures are logged with an `[e2e-cleanup:*]` prefix and never mask the main test results.
+- Cleanup failures are logged with an `[e2e-cleanup:*]` prefix and fail the suite so E2E data accumulation does not become silent.
 - The registry logic is covered by vitest (`e2e/support/cleanup-registry.test.ts`).
 
 ## TODO

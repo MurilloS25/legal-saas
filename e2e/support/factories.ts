@@ -8,7 +8,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { CleanupRegistry, type CleanupTable } from "./cleanup-registry";
+import {
+  CleanupRegistry,
+  formatCleanupFailures,
+  type CleanupTable,
+} from "./cleanup-registry";
 import {
   getTestUserAuth,
   restDelete,
@@ -142,20 +146,19 @@ export async function registerCreatedViaUi(
 // ------------------------------------------------------------------ cleanup
 
 /**
- * Ejecuta el cleanup del spec. Los fallos se reportan con console.warn y no
- * se lanzan: la limpieza nunca debe enmascarar el resultado de las pruebas.
+ * Ejecuta el cleanup del spec. Las filas ya eliminadas por la UI son válidas,
+ * pero los errores reales hacen fallar la suite para evitar acumulación
+ * silenciosa de datos E2E.
  */
 export async function runCleanup(
   registry: CleanupRegistry,
   specSlug: string,
 ): Promise<void> {
   const report = await registry.cleanup(restDelete);
+  const failureMessage = formatCleanupFailures(report, specSlug);
 
-  if (report.failures.length > 0) {
-    for (const failure of report.failures) {
-      console.warn(
-        `[e2e-cleanup:${specSlug}] FAILED to delete ${failure.resource.table}/${failure.resource.id}: ${failure.error}`,
-      );
-    }
+  if (failureMessage) {
+    console.warn(failureMessage);
+    throw new Error(failureMessage);
   }
 }
