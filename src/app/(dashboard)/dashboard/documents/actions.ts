@@ -12,7 +12,13 @@ import {
   TemplateIdSchema,
 } from "@/lib/validations/documents";
 import { validateDocumentFill } from "@/lib/validations/document-fill";
-import { renderTemplateContent } from "@/lib/templates/render";
+import {
+  buildFillableFields,
+  type FillableTemplateField,
+} from "@/lib/templates/fillable-fields";
+import { resolveTemplateContent } from "@/lib/editor/content";
+import { renderStructuredTemplate } from "@/lib/editor/render";
+import type { TemplateDocument } from "@/lib/editor/types";
 
 // ------------------------------------------------------------------ types
 
@@ -61,14 +67,24 @@ async function loadOwnedTemplateWithFields(
 
   if (error) return null;
 
-  const content = (template.content_json as { text?: string })?.text ?? "";
-  return { template, fields: fields ?? [], content };
+  // Capa compartida: contenido estructurado si existe, o legacy convertido.
+  const { document, templateText } = resolveTemplateContent(
+    template.content_json,
+  );
+
+  // Los campos llenables incluyen las variables del contenido sin campo
+  // configurado: un machote sin campos ya no bloquea la creación.
+  return {
+    template,
+    fields: buildFillableFields(fields ?? [], templateText),
+    document,
+  };
 }
 
 function validateDraftInput(
   formData: FormData,
-  fields: { field_key: string; label: string; required: boolean }[],
-  content: string,
+  fields: FillableTemplateField[],
+  document: TemplateDocument,
   existingValues?: Record<string, string>,
 ): { state: DocumentDraftState } | {
   title: string;
@@ -116,7 +132,7 @@ function validateDraftInput(
     };
   }
 
-  const rendered = renderTemplateContent(content, valuesResult.data);
+  const rendered = renderStructuredTemplate(document, valuesResult.data);
   const renderedResult = DocumentRenderedContentSchema.safeParse(rendered);
   if (!renderedResult.success) {
     return {
@@ -157,7 +173,7 @@ export async function createDocumentDraftAction(
     return { message: "No se encontró el machote." };
   }
 
-  const result = validateDraftInput(formData, loaded.fields, loaded.content);
+  const result = validateDraftInput(formData, loaded.fields, loaded.document);
   if ("state" in result) return result.state;
 
   const { data, error } = await supabase
@@ -229,7 +245,7 @@ export async function updateDocumentDraftAction(
   const result = validateDraftInput(
     formData,
     loaded.fields,
-    loaded.content,
+    loaded.document,
     existingValuesResult.data,
   );
   if ("state" in result) return result.state;

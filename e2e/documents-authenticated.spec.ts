@@ -218,6 +218,45 @@ test.describe("document drafts workspace", () => {
     await expect(page.getByText("404")).toBeVisible();
   });
 
+  test("J: regression — a template without configured fields still creates a draft", async ({
+    page,
+  }) => {
+    // Antes de la corrección, esta pantalla bloqueaba con "Este machote no
+    // tiene campos definidos" y el usuario no podía crear la escritura.
+    const bareTemplateName = uniqueName("documents", "sin-campos");
+    const bareDraftTitle = `${bareTemplateName} — Borrador`;
+    const bareTemplate = await createTestTemplate(registry, {
+      name: bareTemplateName,
+      content: "PODER ESPECIAL. Otorgado por {{poderdante.nombre}} en {{lugar}}.",
+    });
+
+    await page.goto(`/dashboard/documents/new/${bareTemplate.id}`);
+
+    // El formulario aparece con las variables del contenido como campos
+    // opcionales etiquetados por su clave, en lugar del bloqueo.
+    await expect(
+      page.getByText(/no tiene campos definidos/),
+    ).not.toBeVisible();
+    await page.getByLabel(/poderdante\.nombre/).fill("Poderdante de Prueba");
+
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+
+    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByText("Borrador guardado.", { exact: true }),
+    ).toBeVisible();
+    await registerCreatedViaUi(registry, "documents", "title", bareDraftTitle);
+
+    const preview = page.getByRole("region", {
+      name: "Vista previa del documento",
+    });
+    await expect(preview.getByText(/Poderdante de Prueba/)).toBeVisible();
+    // La variable sin valor sigue visible como placeholder.
+    await expect(preview.getByText(/\{\{lugar\}\}/).first()).toBeVisible();
+  });
+
   test("I: user can delete the draft with confirmation", async ({ page }) => {
     await openDocumentsHome(page);
 

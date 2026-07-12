@@ -6,6 +6,7 @@ import {
   getTemplateById,
   listTemplateFields,
 } from "../../../templates/queries";
+import { buildFillableFields } from "@/lib/templates/fillable-fields";
 import { DocumentDraftForm } from "../../_components/DocumentDraftForm";
 
 export const metadata = {
@@ -22,7 +23,10 @@ export default async function NewDocumentPage({ params }: Props) {
 
   if (!template) notFound();
 
-  const fields = await listTemplateFields(template.id);
+  const content = extractContent(template);
+  // Unión de campos configurados y variables del contenido: un machote sin
+  // campos configurados ya no bloquea la creación de la escritura.
+  const fields = buildFillableFields(await listTemplateFields(template.id), content);
 
   return (
     <PageContainer>
@@ -59,28 +63,27 @@ export default async function NewDocumentPage({ params }: Props) {
         </p>
       </div>
 
-      {fields.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-6 py-8 text-center">
-          <p className="text-sm text-slate-600 mb-4">
-            Este machote no tiene campos definidos. Configura sus campos antes
-            de crear una escritura.
-          </p>
+      {fields.some((field) => field.derived) && (
+        <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          Algunas variables del machote no tienen un campo configurado y se
+          muestran con su clave. Puedes llenarlas igual, o{" "}
           <Link
             href={`/dashboard/templates/${template.id}`}
-            className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+            className="font-medium text-teal-700 underline hover:text-teal-800"
           >
-            Configurar machote
-          </Link>
+            configurar el machote
+          </Link>{" "}
+          para darles etiqueta y validación.
         </div>
-      ) : (
-        <DocumentDraftForm
-          mode="create"
-          templateId={template.id}
-          defaultTitle={`${template.name} — Borrador`}
-          fields={fields}
-          content={extractContent(template)}
-        />
       )}
+
+      <DocumentDraftForm
+        mode="create"
+        templateId={template.id}
+        defaultTitle={`${template.name} — Borrador`}
+        fields={fields}
+        content={content}
+      />
     </PageContainer>
   );
 }

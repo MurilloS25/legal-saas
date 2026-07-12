@@ -8,7 +8,7 @@ import {
   type DocumentDraftState,
 } from "../actions";
 import type { DocumentRow } from "../queries";
-import type { TemplateFieldRow } from "../../templates/queries";
+import type { FillableTemplateField } from "@/lib/templates/fillable-fields";
 import { FieldError } from "@/components/forms/FieldError";
 import { findUnresolvedVariables } from "@/lib/templates/render";
 
@@ -28,7 +28,7 @@ const requiredMark = (
 // ------------------------------------------------------------------ field input
 
 type FieldInputProps = {
-  field: TemplateFieldRow;
+  field: FillableTemplateField;
   defaultValue: string;
   error?: string;
 };
@@ -70,7 +70,7 @@ function FieldInput({ field, defaultValue, error }: FieldInputProps) {
 // ------------------------------------------------------------------ props
 
 type Props = {
-  fields: TemplateFieldRow[];
+  fields: FillableTemplateField[];
   /** Contenido del machote con placeholders (para variables sin valor). */
   content: string;
 } & (
@@ -158,7 +158,7 @@ export function DocumentDraftForm(props: Props) {
 
             {fields.map((field) => (
               <FieldInput
-                key={field.id}
+                key={field.field_key}
                 field={field}
                 defaultValue={savedValues[field.field_key] ?? ""}
                 error={state.errors?.[field.field_key]}
