@@ -35,7 +35,7 @@ export function TemplateVariablesInspector({
   return (
     <section
       aria-labelledby="template-variables-heading"
-      className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+      className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
     >
       <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
         <h2

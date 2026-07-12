@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -21,12 +22,6 @@ type ModuleCard = {
 
 const MODULE_CARDS: ModuleCard[] = [
   {
-    label: "Configuración",
-    description: "Perfil del abogado, fuente, márgenes e interlineado.",
-    href: "/dashboard/settings",
-    active: true,
-  },
-  {
     label: "Clientes",
     description: "Gestión de datos reutilizables de clientes.",
     href: "/dashboard/clients",
@@ -35,7 +30,20 @@ const MODULE_CARDS: ModuleCard[] = [
   {
     label: "Machotes",
     description: "Plantillas reutilizables de documentos legales.",
-    active: false,
+    href: "/dashboard/templates",
+    active: true,
+  },
+  {
+    label: "Escrituras",
+    description: "Crea documentos a partir de tus machotes.",
+    href: "/dashboard/documents",
+    active: true,
+  },
+  {
+    label: "Configuración",
+    description: "Perfil del abogado, fuente, márgenes e interlineado.",
+    href: "/dashboard/settings",
+    active: true,
   },
   {
     label: "Índice Notarial",
@@ -80,7 +88,7 @@ export default async function DashboardPage() {
   const firstName = profile?.full_name?.split(" ")[0] ?? null;
 
   return (
-    <div className="px-6 py-8 max-w-4xl mx-auto">
+    <PageContainer>
       {/* Welcome header */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-slate-900">
@@ -171,7 +179,7 @@ export default async function DashboardPage() {
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
             Módulos
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {MODULE_CARDS.map((card) =>
               card.active ? (
                 <Link
@@ -208,6 +216,6 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

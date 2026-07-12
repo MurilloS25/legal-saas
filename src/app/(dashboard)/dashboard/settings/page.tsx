@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "./_components/ProfileForm";
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="px-6 py-8 max-w-3xl mx-auto">
+    <PageContainer width="form">
       {/* Page header */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-slate-900">
@@ -48,6 +49,6 @@ export default async function SettingsPage() {
         <ProfileForm initialData={profileResult.data} />
         <DocumentSettingsForm initialData={settingsResult.data} />
       </div>
-    </div>
+    </PageContainer>
   );
 }

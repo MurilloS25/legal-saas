@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { listTemplates } from "./queries";
 
@@ -49,7 +50,7 @@ export default async function TemplatesPage() {
   const templates = await listTemplates();
 
   return (
-    <div className="px-6 py-8 max-w-5xl mx-auto">
+    <PageContainer>
       {/* ---- header ---- */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -208,6 +209,6 @@ export default async function TemplatesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

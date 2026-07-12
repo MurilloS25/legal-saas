@@ -46,24 +46,6 @@ export default defineConfig({
       testMatch: /auth-smoke\.spec\.ts/,
     },
 
-    // Authenticated tests (settings) — must run last because test F logs
-    // the user out, which would invalidate the shared session for any
-    // still-running authenticated project.
-    {
-      name: "chromium-authenticated",
-      use: {
-        ...devices["Desktop Chrome"],
-        storageState: "playwright/.auth/user.json",
-      },
-      testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: [
-        "setup",
-        "chromium-clients",
-        "chromium-templates",
-        "chromium-template-fields",
-      ],
-    },
-
     // Clients module — authenticated.
     {
       name: "chromium-clients",
@@ -83,7 +65,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /templates-authenticated\.spec\.ts/,
-      dependencies: ["setup"],
+      dependencies: ["chromium-clients"],
     },
 
     // Template fields module — authenticated.
@@ -94,7 +76,30 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-fields-authenticated\.spec\.ts/,
-      dependencies: ["setup"],
+      dependencies: ["chromium-templates"],
+    },
+
+    // Documents (Escrituras) workspace — authenticated.
+    {
+      name: "chromium-documents",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /documents-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-fields"],
+    },
+
+    // Authenticated tests (settings) — must run last because test F logs
+    // the user out, which would invalidate the shared session.
+    {
+      name: "chromium-authenticated",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /settings-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents"],
     },
   ],
   webServer: {

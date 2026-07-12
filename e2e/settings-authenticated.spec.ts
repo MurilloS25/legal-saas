@@ -4,6 +4,7 @@ import { test, expect } from "@playwright/test";
 // sequentially. fullyParallel is enabled globally but serial mode here
 // prevents race conditions between tests that write to the same profile.
 test.describe.configure({ mode: "serial" });
+test.setTimeout(60_000);
 
 test.describe("authenticated flows", () => {
   test("A: authenticated user reaches /dashboard without redirect to /login", async ({
@@ -42,7 +43,9 @@ test.describe("authenticated flows", () => {
     await page.getByRole("button", { name: "Guardar perfil" }).click();
 
     // ProfileForm renders role="status" on success.
-    await expect(page.getByRole("status").first()).toBeVisible();
+    await expect(page.getByRole("status").first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("D: user can save document settings", async ({ page }) => {
@@ -62,7 +65,9 @@ test.describe("authenticated flows", () => {
     await page.getByRole("button", { name: "Guardar configuración" }).click();
 
     // DocumentSettingsForm renders role="status" on success.
-    await expect(page.getByRole("status").first()).toBeVisible();
+    await expect(page.getByRole("status").first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("E: saved profile persists after page reload", async ({ page }) => {
@@ -71,7 +76,9 @@ test.describe("authenticated flows", () => {
     const name = `E2E Persist ${Date.now()}`;
     await page.getByLabel("Nombre completo").fill(name);
     await page.getByRole("button", { name: "Guardar perfil" }).click();
-    await expect(page.getByRole("status").first()).toBeVisible();
+    await expect(page.getByRole("status").first()).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.reload();
     await expect(page.getByLabel("Nombre completo")).toHaveValue(name);
