@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientById } from "../queries";
@@ -49,7 +50,7 @@ export default async function ClientDetailPage({ params }: Props) {
   const avatarColor = getAvatarColor(client.full_name);
 
   return (
-    <div className="px-6 py-8 max-w-2xl mx-auto">
+    <PageContainer width="form">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -92,6 +93,6 @@ export default async function ClientDetailPage({ params }: Props) {
 
       {/* Edit form (delete icon lives in the card header) */}
       <ClientForm mode="edit" client={client} />
-    </div>
+    </PageContainer>
   );
 }

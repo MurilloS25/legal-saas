@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTemplateById, listTemplateFields } from "../../queries";
@@ -20,7 +21,7 @@ export default async function FillTemplatePage({ params }: Props) {
   const fields = await listTemplateFields(template.id);
 
   return (
-    <div className="px-6 py-8 max-w-3xl mx-auto">
+    <PageContainer width="form">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -68,6 +69,6 @@ export default async function FillTemplatePage({ params }: Props) {
       ) : (
         <DocumentFillForm templateId={template.id} fields={fields} />
       )}
-    </div>
+    </PageContainer>
   );
 }

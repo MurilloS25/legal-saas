@@ -204,7 +204,7 @@ export function TemplateFieldsSection({ templateId, fields }: Props) {
   return (
     <section
       aria-labelledby="template-fields-heading"
-      className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+      className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
     >
       {/* ---- Section header ---- */}
       <div className="flex items-center justify-between gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">

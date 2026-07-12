@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { extractContent, getTemplateById, listTemplateFields } from "../queries";
@@ -42,7 +43,7 @@ export default async function TemplateDetailPage({ params }: Props) {
   const unusedFields = findUnusedTemplateFields(variables, definedFieldKeys);
 
   return (
-    <div className="px-6 py-8 max-w-4xl mx-auto">
+    <PageContainer>
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -101,13 +102,17 @@ export default async function TemplateDetailPage({ params }: Props) {
 
       <TemplateForm mode="edit" template={template} />
 
-      <TemplateFieldsSection templateId={template.id} fields={fields} />
+      {/* Configuración (campos) y diagnóstico (variables) lado a lado en
+          pantallas anchas; apilados en pantallas pequeñas. */}
+      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <TemplateFieldsSection templateId={template.id} fields={fields} />
 
-      <TemplateVariablesInspector
-        variables={variables}
-        missingFields={missingFields}
-        unusedFields={unusedFields}
-      />
-    </div>
+        <TemplateVariablesInspector
+          variables={variables}
+          missingFields={missingFields}
+          unusedFields={unusedFields}
+        />
+      </div>
+    </PageContainer>
   );
 }

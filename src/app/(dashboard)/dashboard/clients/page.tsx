@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { listClients } from "./queries";
 
@@ -37,7 +38,7 @@ export default async function ClientsPage() {
   const clients = await listClients();
 
   return (
-    <div className="px-6 py-8 max-w-5xl mx-auto">
+    <PageContainer>
       {/* ---- header ---- */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -213,6 +214,6 @@ export default async function ClientsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
