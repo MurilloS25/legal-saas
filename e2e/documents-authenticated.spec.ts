@@ -1,13 +1,23 @@
 import { test, expect, type Page } from "@playwright/test";
+import {
+  CleanupRegistry,
+  createTestTemplate,
+  createTestTemplateField,
+  registerCreatedViaUi,
+  runCleanup,
+  uniqueName,
+} from "./support/factories";
 
 // Tests share the same user account, template and draft. Serial mode keeps
 // the workflow consistent between tests.
 test.describe.configure({ mode: "serial" });
 test.setTimeout(60_000);
 
+const registry = new CleanupRegistry();
+
 // Module-level state shared between serial tests.
-let templateName = "";
-let draftTitle = "";
+const templateName = uniqueName("documents", "machote");
+const draftTitle = `${templateName} — Borrador`;
 let editedDraftTitle = "";
 
 const fieldLabel = "Comprador 1 - Nombre completo";
@@ -27,43 +37,27 @@ function draftRow(page: Page, title: string) {
 }
 
 test.describe("document drafts workspace", () => {
-  test("A: create a template with content and one field", async ({ page }) => {
-    templateName = `E2E Borrador ${Date.now()}`;
-    draftTitle = `${templateName} — Borrador`;
+  test.afterAll(async () => {
+    await runCleanup(registry, "documents");
+  });
 
-    await page.goto("/dashboard/templates/new");
-    await page.getByLabel("Nombre del machote").fill(templateName);
-    await page
-      .getByLabel("Contenido")
-      .fill(
+  test("A: seed a template with one field via factories", async ({ page }) => {
+    const template = await createTestTemplate(registry, {
+      name: templateName,
+      content:
         "ESCRITURA DE PRUEBA. Comparece {{buyer_1.full_name}}, placa {{vehicle.plate}}.",
-      );
-    await page.getByRole("button", { name: "Crear machote" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
-      timeout: 15_000,
+    });
+    await createTestTemplateField(registry, template.id, {
+      field_key: fieldKey,
+      label: fieldLabel,
+      required: true,
     });
 
-    const templateLink = page
-      .getByRole("link")
-      .filter({ hasText: templateName })
-      .first();
-    const href = await templateLink.getAttribute("href");
-    await page.goto(href!);
-
-    const fieldsSection = page.getByRole("region", {
-      name: "Campos del machote",
-    });
-    await fieldsSection.getByRole("button", { name: "Agregar campo" }).click();
-    await fieldsSection.getByLabel("Etiqueta").fill(fieldLabel);
-    await fieldsSection.getByLabel("Variable").fill(fieldKey);
-    await fieldsSection.getByLabel("Campo obligatorio").check();
-    await fieldsSection
-      .getByRole("button", { name: "Guardar campo" })
-      .click();
-
+    // Sanity check: the seeded template is visible in the picker.
+    await page.goto("/dashboard/documents/new");
     await expect(
-      fieldsSection.locator("li").filter({ hasText: fieldLabel }),
-    ).toBeVisible({ timeout: 15_000 });
+      page.locator("li").filter({ hasText: templateName }),
+    ).toBeVisible();
   });
 
   test("B: documents home offers the new-document action", async ({ page }) => {
@@ -114,6 +108,9 @@ test.describe("document drafts workspace", () => {
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible();
+
+    // Register the persisted draft for cleanup (its id survives edits).
+    await registerCreatedViaUi(registry, "documents", "title", draftTitle);
 
     const preview = page.getByRole("region", {
       name: "Vista previa del documento",

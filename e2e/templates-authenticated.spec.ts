@@ -1,8 +1,16 @@
 import { test, expect, type Page } from "@playwright/test";
+import {
+  CleanupRegistry,
+  registerCreatedViaUi,
+  runCleanup,
+  uniqueName,
+} from "./support/factories";
 
 // Tests share the same user account. Serial mode prevents race conditions
 // between tests that write to the same template records.
 test.describe.configure({ mode: "serial" });
+
+const registry = new CleanupRegistry();
 
 // Module-level state shared between serial tests in this describe block.
 let createdTemplateName = "";
@@ -31,6 +39,16 @@ async function openTemplateFromList(page: Page, name: string) {
 }
 
 test.describe("templates module", () => {
+  test.afterAll(async () => {
+    // La creación se hace vía UI (es lo que prueba el spec); aquí se busca
+    // el registro por su nombre único y se elimina.
+    const finalName = editedTemplateName || createdTemplateName;
+    if (finalName) {
+      await registerCreatedViaUi(registry, "templates", "name", finalName);
+    }
+    await runCleanup(registry, "templates");
+  });
+
   test("A: templates list page is accessible from the sidebar", async ({
     page,
   }) => {
@@ -64,7 +82,7 @@ test.describe("templates module", () => {
   });
 
   test("C: user can create a new template", async ({ page }) => {
-    createdTemplateName = `E2E Machote ${Date.now()}`;
+    createdTemplateName = uniqueName("templates", "machote");
 
     await page.goto("/dashboard/templates/new");
 

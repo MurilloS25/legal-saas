@@ -1,11 +1,20 @@
 import { test, expect, type Page } from "@playwright/test";
+import {
+  CleanupRegistry,
+  createTestTemplate,
+  runCleanup,
+  uniqueName,
+} from "./support/factories";
 
 // Tests share the same user account and the same template record.
 // Serial mode prevents race conditions between tests that write to it.
 test.describe.configure({ mode: "serial" });
 
+const registry = new CleanupRegistry();
+
 // Module-level state shared between serial tests in this describe block.
-let templateName = "";
+// Los campos creados vía UI se limpian en cascada al borrar el machote.
+const templateName = uniqueName("template-fields", "machote");
 let templateUrl = "";
 
 const fieldLabel = "Comprador 1 - Nombre completo";
@@ -27,34 +36,20 @@ function fieldsSection(page: Page) {
 }
 
 test.describe("template fields module", () => {
-  test("A: create a template to attach fields to", async ({ page }) => {
-    templateName = `E2E Campos ${Date.now()}`;
+  test.afterAll(async () => {
+    await runCleanup(registry, "template-fields");
+  });
 
-    await page.goto("/dashboard/templates/new");
-
-    await page.getByLabel("Nombre del machote").fill(templateName);
-    await page
-      .getByLabel("Contenido")
-      .fill(
+  test("A: seed a template to attach fields to", async ({ page }) => {
+    const template = await createTestTemplate(registry, {
+      name: templateName,
+      content:
         "COMPRAVENTA DE PRUEBA. El comprador {{buyer_1.full_name}} acepta las condiciones del presente instrumento.",
-      );
-
-    await page.getByRole("button", { name: "Crear machote" }).click();
-
-    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
-      timeout: 15_000,
     });
+    templateUrl = `/dashboard/templates/${template.id}`;
 
-    // Open the detail page and remember its URL for the rest of the suite.
-    const templateLink = page
-      .getByRole("link")
-      .filter({ hasText: templateName })
-      .first();
-    await expect(templateLink).toBeVisible();
-
-    const href = await templateLink.getAttribute("href");
-    expect(href).toMatch(/^\/dashboard\/templates\/(?!new)[^/]+$/);
-    templateUrl = href!;
+    // Sanity check: the seeded template's detail page renders.
+    await gotoTemplateDetail(page);
   });
 
   test("B: template detail shows the empty fields state", async ({ page }) => {
