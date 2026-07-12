@@ -58,6 +58,26 @@ export const DocumentValuesSchema = z
 
 export type DocumentValues = z.infer<typeof DocumentValuesSchema>;
 
+export function mergeDocumentDraftValues(
+  existingValues: DocumentValues,
+  currentValues: DocumentValues,
+  currentFieldKeys: string[],
+): DocumentValues {
+  const currentFieldKeySet = new Set(currentFieldKeys);
+  const mergedValues: DocumentValues = {};
+
+  for (const [key, value] of Object.entries(existingValues)) {
+    if (!currentFieldKeySet.has(key)) {
+      mergedValues[key] = value;
+    }
+  }
+
+  return {
+    ...mergedValues,
+    ...currentValues,
+  };
+}
+
 export const DocumentRenderedContentSchema = z
   .string()
   .max(MAX_RENDERED_LENGTH, "El contenido del documento es demasiado largo");

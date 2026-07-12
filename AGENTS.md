@@ -55,8 +55,8 @@ The MVP must help the lawyer work faster, but it must not replace the lawyer's p
 
 The application must not:
 
-- Store generated legal documents.
-- Store full sensitive escritura content.
+- Store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Store full escritura content outside the explicitly approved persistent draft workflow.
 - Handle digital signatures.
 - Submit official legal documents.
 - Submit official notarial index information.
@@ -68,6 +68,7 @@ The application may store only structured metadata required for:
 
 - Client reuse.
 - Template management.
+- Persistent draft escrituras, limited to validated `field_values` and server-rendered text snapshots.
 - Notarial index preparation.
 - Accounts receivable tracking.
 - Basic audit and operational traceability.
@@ -98,8 +99,9 @@ These rules apply to all tasks:
 - Do not implement features outside MVP scope.
 - Do not create database tables until the schema task is approved.
 - Do not add document-generation logic until the template model is approved.
-- Do not store generated legal documents.
-- Do not store full sensitive escritura content.
+- Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Do not store full escritura content outside the explicitly approved persistent draft workflow.
+- Treat persistent draft text as sensitive user-owned data: validate it, protect it with RLS, and never log it.
 - Do not expose `SUPABASE_SERVICE_ROLE_KEY` to client-side code.
 - Do not commit real `.env` files.
 - Do not add dependencies without explaining why.
@@ -263,7 +265,8 @@ For database changes:
 2. Update documentation when decisions change.
 3. Add or update RLS tests.
 4. Run local Supabase validation.
-5. Keep generated legal documents, PDFs, Word files, full escritura text, and storage paths out of the database.
+5. Keep generated Word/PDF files, signed documents, official submission payloads, and generated document storage paths out of the database.
+6. Persist draft escritura text only through the approved `documents` draft model, protected by owner-based RLS and safe logging rules.
 
 ## Worktree Rule
 

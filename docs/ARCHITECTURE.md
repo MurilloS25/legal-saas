@@ -237,8 +237,9 @@ Policies must be tested with positive and negative cases.
 The data model must follow these principles:
 
 - Store only what is required.
-- Avoid storing generated legal documents.
-- Avoid storing full sensitive escritura content.
+- Avoid storing generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Store full escritura text only through the approved persistent draft workflow.
+- Treat draft `field_values` and `rendered_content` as sensitive user-owned data protected by RLS and safe logging rules.
 - Separate templates from generated document metadata.
 - Separate notarial index metadata from accounts receivable.
 - Keep client metadata reusable but minimal.
@@ -253,11 +254,15 @@ Template definition
   ↓
 Template fields
   ↓
-Generation form
+Draft form
   ↓
 Validated input
   ↓
-Resolved document data
+Persisted draft field_values
+  ↓
+Server-rendered text snapshot
+  ↓
+Future DOCX export request
   ↓
 DOCX generation adapter
   ↓
@@ -266,7 +271,7 @@ Download
 Discard generated file from application memory/storage
 ```
 
-Generated legal documents are not stored by the application.
+Persistent drafts may store validated field values and a plain-text rendered snapshot for continuation and preview. Generated Word/PDF files are not stored by the application.
 
 The initial required output is editable Word format.
 
@@ -368,7 +373,8 @@ Required principles:
 - RLS from the first production schema.
 - Server-side authorization checks.
 - No service role key in browser code.
-- No generated document storage.
+- No generated Word/PDF file storage.
+- Persistent draft text protected as sensitive user-owned data.
 - Input validation.
 - Safe logging.
 - OWASP Top 10 review mindset.
