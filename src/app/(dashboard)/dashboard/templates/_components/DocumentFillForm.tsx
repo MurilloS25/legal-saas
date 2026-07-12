@@ -51,12 +51,11 @@ function FieldInput({ field, defaultValue, error }: FieldInputProps) {
           <span className="text-slate-400 font-normal"> (opcional)</span>
         )}
       </label>
+      {/* Todos los valores se escriben como texto (montos en palabras,
+          fechas jurídicas, etc.). Los campos legados de tipo textarea
+          conservan el área de texto; el resto usa input de texto. */}
       {field.field_type === "textarea" ? (
         <textarea {...shared} rows={4} className={inputClass + " resize-y"} />
-      ) : field.field_type === "number" ? (
-        <input {...shared} type="number" step="any" />
-      ) : field.field_type === "date" ? (
-        <input {...shared} type="date" />
       ) : (
         <input {...shared} type="text" />
       )}

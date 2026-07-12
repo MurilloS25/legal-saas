@@ -11,19 +11,6 @@ import type { TemplateFieldRow } from "../queries";
 import { FieldError } from "@/components/forms/FieldError";
 import { DeleteTemplateFieldButton } from "./DeleteTemplateFieldButton";
 
-// ------------------------------------------------------------------ field type labels
-
-const FIELD_TYPE_OPTIONS = [
-  { value: "text", label: "Texto" },
-  { value: "textarea", label: "Área de texto" },
-  { value: "number", label: "Número" },
-  { value: "date", label: "Fecha" },
-] as const;
-
-const FIELD_TYPE_LABEL: Record<string, string> = Object.fromEntries(
-  FIELD_TYPE_OPTIONS.map(({ value, label }) => [value, label]),
-);
-
 // ------------------------------------------------------------------ styles
 
 const inputClass =
@@ -124,30 +111,6 @@ function TemplateFieldForm({ templateId, field, onClose }: FieldFormProps) {
           </p>
         </div>
 
-        <div>
-          <label htmlFor="field-type" className={labelClass}>
-            Tipo de campo{requiredMark}
-          </label>
-          <select
-            id="field-type"
-            name="field_type"
-            required
-            defaultValue={field?.field_type ?? "text"}
-            className={inputClass}
-            aria-describedby={
-              state.errors?.field_type ? "field-type-error" : undefined
-            }
-            aria-invalid={!!state.errors?.field_type}
-          >
-            {FIELD_TYPE_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <FieldError id="field-type-error" message={state.errors?.field_type} />
-        </div>
-
         <div className="flex items-end pb-2.5">
           <label
             htmlFor="field-required"
@@ -216,7 +179,8 @@ export function TemplateFieldsSection({ templateId, fields }: Props) {
             Campos del machote
           </h2>
           <p className="text-xs text-slate-500">
-            Variables que se pedirán al llenar un documento con este machote.
+            Define los datos que se solicitarán al crear una escritura con
+            este machote. Todos los valores se escriben como texto.
           </p>
         </div>
         {fields.length > 0 && !activeForm && (
@@ -272,9 +236,6 @@ export function TemplateFieldsSection({ templateId, fields }: Props) {
                       <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700">
                         {`{{${field.field_key}}}`}
                       </code>
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                        {FIELD_TYPE_LABEL[field.field_type] ?? field.field_type}
-                      </span>
                       {field.required && (
                         <span className="inline-flex items-center rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">
                           Obligatorio

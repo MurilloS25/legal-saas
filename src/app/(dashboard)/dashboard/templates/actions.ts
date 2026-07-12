@@ -128,7 +128,6 @@ export type TemplateFieldState = {
   errors?: {
     field_key?: string;
     label?: string;
-    field_type?: string;
   };
   message?: string;
   success?: boolean;
@@ -146,7 +145,6 @@ function parseFieldFormData(formData: FormData, sortOrder: number) {
   return {
     field_key: String(formData.get("field_key") ?? ""),
     label: String(formData.get("label") ?? ""),
-    field_type: String(formData.get("field_type") ?? ""),
     required: formData.get("required") === "on",
     sort_order: sortOrder,
   };
@@ -161,7 +159,6 @@ function fieldFormErrors(
     errors: {
       field_key: fe.field_key?.[0],
       label: fe.label?.[0],
-      field_type: fe.field_type?.[0],
     },
   };
 }
@@ -221,6 +218,9 @@ export async function createTemplateFieldAction(
     owner_id: user.id,
     template_id: templateId,
     ...result.data,
+    // Todos los campos se tratan como texto; la columna se conserva por
+    // compatibilidad con el esquema existente.
+    field_type: "text",
     source: "manual",
   });
 
@@ -276,11 +276,13 @@ export async function updateTemplateFieldAction(
   );
   if (!result.success) return fieldFormErrors(result);
 
-  const { field_key, label, field_type, required } = result.data;
+  const { field_key, label, required } = result.data;
 
   const { error } = await supabase
     .from("template_fields")
-    .update({ field_key, label, field_type, required })
+    // Al editar, los campos legados con tipo número/fecha se normalizan a
+    // texto — el valor final siempre se inserta textualmente.
+    .update({ field_key, label, required, field_type: "text" })
     .eq("id", fieldId)
     .eq("template_id", templateId)
     .eq("owner_id", user.id);

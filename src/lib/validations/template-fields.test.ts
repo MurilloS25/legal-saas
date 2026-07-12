@@ -4,7 +4,6 @@ import { TemplateFieldSchema } from "./template-fields";
 const valid = {
   field_key: "buyer_1.full_name",
   label: "Comprador 1 - Nombre completo",
-  field_type: "text" as const,
   required: true,
   sort_order: 0,
 };
@@ -34,10 +33,19 @@ describe("TemplateFieldSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts every allowed field_type", () => {
-    for (const field_type of ["text", "textarea", "number", "date"]) {
-      const result = TemplateFieldSchema.safeParse({ ...valid, field_type });
-      expect(result.success).toBe(true);
+  it("accepts a payload without field_type — all fields are text now", () => {
+    const result = TemplateFieldSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+  });
+
+  it("ignores a legacy field_type sent by an old form", () => {
+    const result = TemplateFieldSchema.safeParse({
+      ...valid,
+      field_type: "number",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("field_type");
     }
   });
 
@@ -142,16 +150,6 @@ describe("TemplateFieldSchema", () => {
     if (result.success) expect(result.data.label).toBe("Precio");
   });
 
-  it("rejects a field_type outside the allowed set", () => {
-    const result = TemplateFieldSchema.safeParse({ ...valid, field_type: "select" });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects another invalid field_type", () => {
-    const result = TemplateFieldSchema.safeParse({ ...valid, field_type: "email" });
-    expect(result.success).toBe(false);
-  });
-
   it("rejects a non-boolean required", () => {
     const result = TemplateFieldSchema.safeParse({ ...valid, required: "yes" });
     expect(result.success).toBe(false);
@@ -173,9 +171,5 @@ describe("TemplateFieldSchema", () => {
 
   it("rejects when label is missing", () => {
     expect(TemplateFieldSchema.safeParse(omit("label")).success).toBe(false);
-  });
-
-  it("rejects when field_type is missing", () => {
-    expect(TemplateFieldSchema.safeParse(omit("field_type")).success).toBe(false);
   });
 });

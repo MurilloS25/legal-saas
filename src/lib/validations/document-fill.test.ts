@@ -104,53 +104,42 @@ describe("validateDocumentFill", () => {
     }
   });
 
-  it("rejects a non-numeric value for a number field", () => {
+  it("accepts free text for a legacy number field — no numeric parsing", () => {
     const result = validateDocumentFill(fields, {
       ...validValues,
-      "sale.price": "un millón",
+      "sale.price": "un millón de colones exactos",
     });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.errors["sale.price"]).toBeTruthy();
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.values["sale.price"]).toBe("un millón de colones exactos");
     }
   });
 
-  it("accepts a decimal value for a number field", () => {
+  it("accepts free text for a legacy date field — no date parsing", () => {
     const result = validateDocumentFill(fields, {
       ...validValues,
-      "sale.price": "1000000.50",
+      "sale.date": "veinte de mayo del año dos mil veintiséis",
     });
     expect(result.success).toBe(true);
-  });
-
-  it("rejects an invalid date for a date field", () => {
-    const result = validateDocumentFill(fields, {
-      ...validValues,
-      "sale.date": "20/05/2026",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.errors["sale.date"]).toBeTruthy();
+    if (result.success) {
+      expect(result.values["sale.date"]).toBe(
+        "veinte de mayo del año dos mil veintiséis",
+      );
     }
   });
 
-  it("rejects an impossible calendar date", () => {
+  it("preserves numeric-looking text exactly as written", () => {
     const result = validateDocumentFill(fields, {
       ...validValues,
-      "sale.date": "2026-02-31",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts a valid ISO date for a date field", () => {
-    const result = validateDocumentFill(fields, {
-      ...validValues,
-      "sale.date": "2026-12-01",
+      "sale.price": "1.000.000,50",
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.values["sale.price"]).toBe("1.000.000,50");
+    }
   });
 
-  it("collects errors for multiple invalid fields at once", () => {
+  it("only reports errors for empty required fields", () => {
     const result = validateDocumentFill(fields, {
       "buyer_1.full_name": "",
       "sale.price": "abc",
@@ -158,9 +147,7 @@ describe("validateDocumentFill", () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(Object.keys(result.errors)).toEqual(
-        expect.arrayContaining(["buyer_1.full_name", "sale.price", "sale.date"]),
-      );
+      expect(Object.keys(result.errors)).toEqual(["buyer_1.full_name"]);
     }
   });
 
