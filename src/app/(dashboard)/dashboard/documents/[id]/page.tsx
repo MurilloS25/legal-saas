@@ -2,13 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { getDocumentById } from "../queries";
-import {
-  extractContent,
-  getTemplateById,
-  listTemplateFields,
-} from "../../templates/queries";
+import { getTemplateById, listTemplateFields } from "../../templates/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
-import { DocumentDraftForm } from "../_components/DocumentDraftForm";
+import { resolveTemplateContent } from "@/lib/editor/content";
+import { applyVariableLabels } from "@/lib/editor/variables";
+import { DocumentComposer } from "../_components/DocumentComposer";
 
 export const metadata = {
   title: "Escritura — LexCR",
@@ -29,12 +27,6 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   if (!document) notFound();
 
   const template = await getTemplateById(document.template_id);
-  const content = template ? extractContent(template) : "";
-  // La misma derivación que al crear: variables sin campo configurado
-  // también son llenables al editar el borrador.
-  const fields = template
-    ? buildFillableFields(await listTemplateFields(template.id), content)
-    : [];
 
   return (
     <PageContainer>
@@ -70,11 +62,6 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           Borrador
         </span>
       </div>
-      {template && (
-        <p className="-mt-4 mb-6 text-sm text-slate-500">
-          Machote: {template.name}
-        </p>
-      )}
 
       {!template ? (
         <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">
@@ -90,14 +77,53 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           </pre>
         </div>
       ) : (
-        <DocumentDraftForm
-          mode="edit"
+        <DocumentComposerLoader
+          templateId={template.id}
+          templateName={template.name}
+          contentJson={template.content_json}
           document={document}
           savedJustNow={saved === "1"}
-          fields={fields}
-          content={content}
         />
       )}
     </PageContainer>
+  );
+}
+
+// Carga de campos y documento etiquetado para el compositor en modo edit.
+async function DocumentComposerLoader({
+  templateId,
+  templateName,
+  contentJson,
+  document,
+  savedJustNow,
+}: {
+  templateId: string;
+  templateName: string;
+  contentJson: unknown;
+  document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
+  savedJustNow: boolean;
+}) {
+  // La misma derivación que al crear: variables sin campo configurado
+  // también son llenables al editar el borrador.
+  const { document: templateDocument, templateText } =
+    resolveTemplateContent(contentJson);
+  const fields = buildFillableFields(
+    await listTemplateFields(templateId),
+    templateText,
+  );
+  const labeledDocument = applyVariableLabels(
+    templateDocument,
+    Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
+  );
+
+  return (
+    <DocumentComposer
+      mode="edit"
+      draft={document}
+      savedJustNow={savedJustNow}
+      templateName={templateName}
+      document={labeledDocument}
+      fields={fields}
+    />
   );
 }

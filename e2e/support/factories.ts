@@ -18,6 +18,7 @@ import {
   restDelete,
   restFindIdBy,
   restInsert,
+  restUpdate,
 } from "./supabase-api";
 
 export { CleanupRegistry };
@@ -35,6 +36,12 @@ export async function createTestTemplate(
     content: string;
     description?: string;
     status?: "draft" | "active" | "archived";
+    /**
+     * Documento estructurado opcional (formato Tiptap JSON). Cuando se
+     * pasa, content_json queda como { text: content, doc } — la misma
+     * forma que persiste el workspace.
+     */
+    doc?: unknown;
   },
 ): Promise<{ id: string; name: string }> {
   const { userId } = getTestUserAuth();
@@ -43,11 +50,27 @@ export async function createTestTemplate(
     name: options.name,
     description: options.description ?? null,
     status: options.status ?? "draft",
-    content_json: { text: options.content },
+    content_json: options.doc
+      ? { text: options.content, doc: options.doc }
+      : { text: options.content },
     text_preview: options.content.slice(0, 300),
   });
   registry.register("templates", id);
   return { id, name: options.name };
+}
+
+/**
+ * Reemplaza el contenido legacy de un machote de prueba. Útil para simular
+ * que el machote cambió después de crear borradores (valores históricos).
+ */
+export async function updateTestTemplateContent(
+  templateId: string,
+  content: string,
+): Promise<void> {
+  await restUpdate("templates", templateId, {
+    content_json: { text: content },
+    text_preview: content.slice(0, 300),
+  });
 }
 
 export async function createTestTemplateField(

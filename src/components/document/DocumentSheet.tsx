@@ -25,6 +25,13 @@ type Props = {
   emptyMessage?: string;
   /** Id de encabezado para aria-labelledby del contenedor con scroll. */
   "aria-labelledby"?: string;
+  /** Variable a resaltar (p. ej. el campo enfocado en el panel). */
+  highlightKey?: string;
+  /**
+   * Si se define, las variables pendientes se vuelven botones que invocan
+   * este callback (p. ej. para enfocar su campo en el panel).
+   */
+  onVariableClick?: (key: string) => void;
 };
 
 function runText(run: DocumentRun, display: "label" | "placeholder"): string {
@@ -50,6 +57,8 @@ export function DocumentSheet({
   pendingVariableDisplay = "label",
   emptyMessage = "El documento aún no tiene contenido.",
   "aria-labelledby": ariaLabelledBy,
+  highlightKey,
+  onVariableClick,
 }: Props) {
   return (
     <div
@@ -74,15 +83,40 @@ export function DocumentSheet({
                     return <br key={runIndex} />;
                   }
 
+                  const highlighted =
+                    run.kind === "variable" && run.key === highlightKey;
+
                   if (run.kind === "variable" && !run.resolved) {
+                    const pendingClass = `rounded border px-1 py-0.5 font-sans text-[0.85em] ${
+                      highlighted
+                        ? "border-teal-500 bg-teal-50 text-teal-900 ring-2 ring-teal-300"
+                        : "border-amber-300 bg-amber-50 text-amber-900"
+                    }`;
+                    const pendingText = runText(run, pendingVariableDisplay);
+
+                    if (onVariableClick) {
+                      return (
+                        <button
+                          key={runIndex}
+                          type="button"
+                          data-variable-key={run.key}
+                          onClick={() => onVariableClick(run.key)}
+                          aria-label={`Variable pendiente ${run.key}: ir a su campo`}
+                          className={`${pendingClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                        >
+                          {pendingText}
+                        </button>
+                      );
+                    }
+
                     return (
                       <mark
                         key={runIndex}
                         data-variable-key={run.key}
-                        className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-amber-900 font-sans text-[0.85em]"
+                        className={pendingClass}
                         title={`Variable pendiente: ${run.key}`}
                       >
-                        {runText(run, pendingVariableDisplay)}
+                        {pendingText}
                       </mark>
                     );
                   }
@@ -91,7 +125,15 @@ export function DocumentSheet({
                   if (run.kind === "variable") {
                     // Valor resuelto: parte natural del texto del documento.
                     return (
-                      <span key={runIndex} data-variable-key={run.key}>
+                      <span
+                        key={runIndex}
+                        data-variable-key={run.key}
+                        className={
+                          highlighted
+                            ? "rounded bg-teal-100 ring-2 ring-teal-300"
+                            : undefined
+                        }
+                      >
                         {text}
                       </span>
                     );
