@@ -9,6 +9,7 @@ import {
 // Tests share the same user account. Serial mode prevents race conditions
 // between tests that write to the same template records.
 test.describe.configure({ mode: "serial" });
+test.setTimeout(60_000);
 
 const registry = new CleanupRegistry();
 
@@ -17,34 +18,44 @@ let createdTemplateName = "";
 let editedTemplateName = "";
 let templateUrl = "";
 
-async function openTemplateFromList(page: Page, name: string) {
-  if (templateUrl) {
-    await page.goto(templateUrl);
-    await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
-    return;
-  }
+const variableLabel = "Nombre del arrendatario";
+const variableKey = "arrendatario.nombre";
 
-  const templateLink = page
-    .getByRole("link")
-    .filter({ hasText: name })
-    .first();
-  await expect(templateLink).toBeVisible({ timeout: 15_000 });
+function contentEditor(page: Page) {
+  return page.getByRole("textbox", { name: "Contenido del machote" });
+}
 
-  const href = await templateLink.getAttribute("href");
-  expect(href).toMatch(/^\/dashboard\/templates\/[^/]+$/);
+function previewRegion(page: Page) {
+  return page.getByRole("region", { name: "Vista previa" });
+}
 
-  templateUrl = href!;
-  await page.goto(href!);
-  await expect(page).toHaveURL(/\/dashboard\/templates\/[^/]+$/);
+function variablesRegion(page: Page) {
+  return page.getByRole("region", { name: "Variables del machote" });
+}
+
+/**
+ * Espera a que el workspace esté hidratado: el editor Tiptap solo se monta
+ * en cliente, así que su visibilidad garantiza que React ya responde.
+ */
+async function waitForWorkspace(page: Page) {
+  await expect(contentEditor(page)).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe("templates module", () => {
   test.afterAll(async () => {
     // La creación se hace vía UI (es lo que prueba el spec); aquí se busca
-    // el registro por su nombre único y se elimina.
+    // el registro por su nombre único y se elimina junto a sus campos.
     const finalName = editedTemplateName || createdTemplateName;
     if (finalName) {
-      await registerCreatedViaUi(registry, "templates", "name", finalName);
+      const id = await registerCreatedViaUi(
+        registry,
+        "templates",
+        "name",
+        finalName,
+      );
+      if (id) {
+        // template_fields se elimina en cascada con el machote.
+      }
     }
     await runCleanup(registry, "templates");
   });
@@ -67,7 +78,9 @@ test.describe("templates module", () => {
     ).toBeVisible();
   });
 
-  test("B: new template page is reachable", async ({ page }) => {
+  test("B: new template workspace is reachable and unified", async ({
+    page,
+  }) => {
     await page.goto("/dashboard/templates");
 
     await page
@@ -79,88 +92,152 @@ test.describe("templates module", () => {
     await expect(
       page.getByRole("heading", { name: "Nuevo machote", exact: true }),
     ).toBeVisible();
+
+    // El workspace completo está presente desde la creación: información
+    // básica, editor con toolbar, variables y vista previa.
+    await expect(page.getByLabel("Nombre del machote")).toBeVisible();
+    await expect(
+      page.getByRole("toolbar", { name: "Formato del contenido" }),
+    ).toBeVisible();
+    await expect(contentEditor(page)).toBeVisible();
+    await expect(variablesRegion(page)).toBeVisible();
+    await expect(previewRegion(page)).toBeVisible();
   });
 
-  test("C: user can create a new template", async ({ page }) => {
+  test("C: user can create a template with formatting and a variable", async ({
+    page,
+  }) => {
     createdTemplateName = uniqueName("templates", "machote");
 
     await page.goto("/dashboard/templates/new");
+    await waitForWorkspace(page);
 
     await page.getByLabel("Nombre del machote").fill(createdTemplateName);
     await page.getByLabel(/[Dd]escripción/).fill("Plantilla de prueba E2E");
-    await page
-      .getByLabel("Contenido")
-      .fill(
-        "CONTRATO DE PRUEBA. Las partes acuerdan lo siguiente: el arrendatario acepta las condiciones del presente instrumento.",
-      );
-    // status defaults to "draft" — no change needed
 
+    // ---- contenido con formato ----
+    await contentEditor(page).click();
+    await page.keyboard.type("CONTRATO DE ARRENDAMIENTO. ");
+
+    const boldButton = page.getByRole("button", { name: "Negrita" });
+    await boldButton.click();
+    await expect(boldButton).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.type("PRIMERO.");
+    await boldButton.click();
+
+    const italicButton = page.getByRole("button", { name: "Cursiva" });
+    await italicButton.click();
+    await page.keyboard.type(" En la ciudad de San José ");
+    await italicButton.click();
+
+    const underlineButton = page.getByRole("button", { name: "Subrayado" });
+    await underlineButton.click();
+    await page.keyboard.type("comparece");
+    await underlineButton.click();
+    await page.keyboard.type(" el arrendatario ");
+
+    // ---- insertar una variable nueva desde el diálogo ----
+    await page.getByRole("button", { name: "Insertar variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Etiqueta").fill(variableLabel);
+    await dialog.getByLabel("Clave").fill(variableKey);
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // La variable queda como ficha en el editor y configurada en el panel.
+    await expect(
+      contentEditor(page).getByText(variableLabel),
+    ).toBeVisible();
+    const variableRow = variablesRegion(page)
+      .locator("li")
+      .filter({ hasText: variableKey });
+    await expect(variableRow.getByText("Configurada")).toBeVisible();
+
+    // ---- marcarla obligatoria ----
+    await variableRow
+      .getByRole("button", { name: `Editar variable ${variableKey}` })
+      .click();
+    await page.getByLabel("Variable obligatoria").check();
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+    await expect(variableRow.getByText("Obligatoria")).toBeVisible();
+
+    // ---- preview documental ----
+    await expect(
+      previewRegion(page).getByText(/CONTRATO DE ARRENDAMIENTO/),
+    ).toBeVisible();
+    await expect(previewRegion(page).getByText(variableLabel)).toBeVisible();
+
+    // ---- guardar ----
+    await expect(page.getByText("Cambios sin guardar")).toBeVisible();
     await page.getByRole("button", { name: "Crear machote" }).click();
 
-    // Successful create redirects to /dashboard/templates (the list).
-    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
-      timeout: 15_000,
+    await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/?]+/, {
+      timeout: 30_000,
     });
-    await expect(page.getByText(createdTemplateName).first()).toBeVisible();
-
-    const templateLink = page
-      .getByRole("link")
-      .filter({ hasText: createdTemplateName })
-      .first();
-    await expect(templateLink).toBeVisible({ timeout: 15_000 });
-
-    const href = await templateLink.getAttribute("href");
-    expect(href).toMatch(/^\/dashboard\/templates\/[^/]+$/);
-    templateUrl = href!;
-  });
-
-  test("D: created template appears in the list", async ({ page }) => {
-    await page.goto("/dashboard/templates");
     await expect(
-      page.getByRole("heading", { name: "Machotes", exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
-
-    await expect(page.getByText(createdTemplateName).first()).toBeVisible();
+      page.getByText("Machote creado.", { exact: true }),
+    ).toBeVisible();
+    templateUrl = new URL(page.url()).pathname;
   });
 
-  test("E: user can edit an existing template", async ({ page }) => {
-    await page.goto("/dashboard/templates");
+  test("D: created template persists after reload with its variable", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await page.reload();
+    await waitForWorkspace(page);
 
-    await openTemplateFromList(page, createdTemplateName);
+    await expect(page.getByLabel("Nombre del machote")).toHaveValue(
+      createdTemplateName,
+    );
+    await expect(contentEditor(page)).toContainText(
+      "CONTRATO DE ARRENDAMIENTO",
+    );
+    await expect(contentEditor(page).getByText(variableLabel)).toBeVisible();
+
+    const variableRow = variablesRegion(page)
+      .locator("li")
+      .filter({ hasText: variableKey });
+    await expect(variableRow.getByText("Configurada")).toBeVisible();
+    await expect(variableRow.getByText("Obligatoria")).toBeVisible();
+  });
+
+  test("E: user can edit the template from the same workspace", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
 
     editedTemplateName = `${createdTemplateName} Editado`;
 
     await page.getByLabel("Nombre del machote").fill(editedTemplateName);
-    await page
-      .getByLabel("Contenido")
-      .fill(
-        "CONTRATO ACTUALIZADO. Versión editada. El arrendatario acepta las condiciones revisadas del presente instrumento.",
-      );
     await page.getByLabel("Estado").selectOption("active");
 
+    await contentEditor(page).click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" acepta las condiciones revisadas.");
+
+    await expect(page.getByText("Cambios sin guardar")).toBeVisible();
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    // After save, redirects back to the list.
-    await expect(page).toHaveURL(/\/dashboard\/templates$/, {
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Guardado", { exact: true })).toBeVisible();
   });
 
-  test("F: edited template fields persist after page reload", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard/templates");
-
-    await openTemplateFromList(page, editedTemplateName);
-
+  test("F: edited template persists after page reload", async ({ page }) => {
+    await page.goto(templateUrl);
     await page.reload();
+    await waitForWorkspace(page);
 
     await expect(page.getByLabel("Nombre del machote")).toHaveValue(
       editedTemplateName,
     );
     await expect(page.getByLabel("Estado")).toHaveValue("active");
-    await expect(page.getByLabel("Contenido")).toHaveValue(
-      /CONTRATO ACTUALIZADO/,
+    await expect(contentEditor(page)).toContainText(
+      "acepta las condiciones revisadas.",
     );
   });
 
@@ -174,10 +251,37 @@ test.describe("templates module", () => {
 
     await expect(page.getByText(editedTemplateName).first()).toBeVisible();
 
-    // The Activo badge (span, exact text) should be visible within the row.
     const templateRow = page
       .locator("li")
       .filter({ hasText: editedTemplateName });
-    await expect(templateRow.getByText("Activo", { exact: true }).first()).toBeVisible();
+    await expect(
+      templateRow.getByText("Activo", { exact: true }).first(),
+    ).toBeVisible();
+  });
+
+  test("H: mobile viewport switches between edit and preview", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
+
+    // En móvil solo se muestra una zona a la vez.
+    await expect(contentEditor(page)).toBeVisible();
+    await expect(previewRegion(page)).not.toBeVisible();
+
+    await page.getByRole("button", { name: "Vista previa" }).click();
+    await expect(previewRegion(page)).toBeVisible();
+    await expect(contentEditor(page)).not.toBeVisible();
+
+    await page.getByRole("button", { name: "Editar", exact: true }).click();
+    await expect(contentEditor(page)).toBeVisible();
+  });
+
+  test("I: a nonexistent template returns the not-found page", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/templates/00000000-0000-0000-0000-000000000000");
+    await expect(page.getByText("404")).toBeVisible();
   });
 });

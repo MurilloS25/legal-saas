@@ -2,153 +2,194 @@ import { test, expect, type Page } from "@playwright/test";
 import {
   CleanupRegistry,
   createTestTemplate,
+  createTestTemplateField,
   runCleanup,
   uniqueName,
 } from "./support/factories";
 
-// Tests share the same user account and the same template record.
-// Serial mode prevents race conditions between tests that write to it.
+/**
+ * Variables del machote en el workspace unificado.
+ *
+ * Cubre la carga de machotes legacy (texto con {{variables}}), los estados
+ * Configurada / Pendiente de configurar / No utilizada y la administración
+ * de la configuración desde el panel.
+ */
+
 test.describe.configure({ mode: "serial" });
+test.setTimeout(60_000);
 
 const registry = new CleanupRegistry();
 
-// Module-level state shared between serial tests in this describe block.
-// Los campos creados vía UI se limpian en cascada al borrar el machote.
 const templateName = uniqueName("template-fields", "machote");
 let templateUrl = "";
 
-const fieldLabel = "Comprador 1 - Nombre completo";
-const editedFieldLabel = "Comprador 1 - Nombre y apellidos";
-const fieldKey = "buyer_1.full_name";
+const configuredKey = "buyer_1.full_name";
+const configuredLabel = "Comprador 1 - Nombre completo";
+const pendingKey = "vehicle.plate";
+const pendingLabel = "Placa del vehículo";
 
-async function gotoTemplateDetail(page: Page) {
+function contentEditor(page: Page) {
+  return page.getByRole("textbox", { name: "Contenido del machote" });
+}
+
+function variablesRegion(page: Page) {
+  return page.getByRole("region", { name: "Variables del machote" });
+}
+
+function variableRow(page: Page, key: string) {
+  return variablesRegion(page).locator("li").filter({ hasText: key });
+}
+
+/**
+ * Abre el workspace y espera a que esté hidratado: el editor Tiptap solo se
+ * monta en cliente, así que su visibilidad garantiza que los handlers de
+ * React ya responden.
+ */
+async function openWorkspace(page: Page) {
   await page.goto(templateUrl);
-  await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/]+$/);
-  await expect(
-    page.getByRole("heading", { name: "Campos del machote" }),
-  ).toBeVisible();
+  await expect(contentEditor(page)).toBeVisible({ timeout: 15_000 });
 }
 
-// La sección de campos como región accesible. Evita colisiones de strict mode
-// con el textarea de contenido del machote, que también menciona la variable.
-function fieldsSection(page: Page) {
-  return page.getByRole("region", { name: "Campos del machote" });
-}
-
-test.describe("template fields module", () => {
+test.describe("template variables workspace", () => {
   test.afterAll(async () => {
     await runCleanup(registry, "template-fields");
   });
 
-  test("A: seed a template to attach fields to", async ({ page }) => {
+  test("A: a legacy template loads converted with unified variable states", async ({
+    page,
+  }) => {
     const template = await createTestTemplate(registry, {
       name: templateName,
       content:
-        "COMPRAVENTA DE PRUEBA. El comprador {{buyer_1.full_name}} acepta las condiciones del presente instrumento.",
+        "COMPRAVENTA DE PRUEBA. El comprador {{buyer_1.full_name}} adquiere el vehículo placa {{vehicle.plate}}.",
+    });
+    await createTestTemplateField(registry, template.id, {
+      field_key: configuredKey,
+      label: configuredLabel,
+      required: true,
     });
     templateUrl = `/dashboard/templates/${template.id}`;
 
-    // Sanity check: the seeded template's detail page renders.
-    await gotoTemplateDetail(page);
-  });
+    await openWorkspace(page);
 
-  test("B: template detail shows the empty fields state", async ({ page }) => {
-    await gotoTemplateDetail(page);
-
+    // El contenido legacy se convierte: el texto y las fichas de variables
+    // aparecen en el editor enriquecido.
+    await expect(contentEditor(page)).toContainText("COMPRAVENTA DE PRUEBA");
     await expect(
-      page.getByText("Este machote aún no tiene campos definidos."),
+      contentEditor(page).getByText(configuredLabel),
+    ).toBeVisible();
+
+    // Estados unificados: configurada y usada vs. pendiente de configurar.
+    await expect(
+      variableRow(page, configuredKey).getByText("Configurada"),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Agregar campo" }),
+      variableRow(page, pendingKey).getByText("Pendiente de configurar"),
     ).toBeVisible();
   });
 
-  test("C: user can add a field to the template", async ({ page }) => {
-    await gotoTemplateDetail(page);
-
-    await page.getByRole("button", { name: "Agregar campo" }).click();
-
-    const section = fieldsSection(page);
-    await section.getByLabel("Etiqueta").fill(fieldLabel);
-    await section.getByLabel("Variable").fill(fieldKey);
-    // No type selector anymore — every field is stored as text.
-    await expect(section.getByLabel("Tipo de campo")).toHaveCount(0);
-    await section.getByLabel("Campo obligatorio").check();
-
-    await page.getByRole("button", { name: "Guardar campo" }).click();
-
-    // The new field appears in the list once the server action succeeds.
-    const fieldRow = fieldsSection(page)
-      .locator("li")
-      .filter({ hasText: fieldLabel });
-    await expect(fieldRow).toBeVisible({ timeout: 15_000 });
-    await expect(fieldRow.getByText(`{{${fieldKey}}}`)).toBeVisible();
-    await expect(fieldRow.getByText("Obligatorio", { exact: true })).toBeVisible();
-  });
-
-  test("D: invalid field_key shows a visible validation error", async ({
+  test("B: a pending variable can be configured and persists", async ({
     page,
   }) => {
-    await gotoTemplateDetail(page);
+    await openWorkspace(page);
 
-    await page.getByRole("button", { name: "Agregar campo" }).click();
-
-    const section = fieldsSection(page);
-    await section.getByLabel("Etiqueta").fill("Campo inválido");
-    await section.getByLabel("Variable").fill("Comprador 1 nombre");
-
-    await page.getByRole("button", { name: "Guardar campo" }).click();
+    await variableRow(page, pendingKey)
+      .getByRole("button", { name: `Configurar variable ${pendingKey}` })
+      .click();
+    await page.getByLabel("Etiqueta").fill(pendingLabel);
+    await page.getByLabel("Variable obligatoria").check();
+    await page.getByRole("button", { name: "Guardar variable" }).click();
 
     await expect(
-      page.getByText(/minúsculas, números, guion bajo/),
+      variableRow(page, pendingKey).getByText("Configurada"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
-
-    await page.getByRole("button", { name: "Cancelar" }).click();
-  });
-
-  test("E: user can edit an existing field", async ({ page }) => {
-    await gotoTemplateDetail(page);
-
-    await page.getByRole("button", { name: `Editar ${fieldLabel}` }).click();
-
-    await page.getByLabel("Etiqueta").fill(editedFieldLabel);
-
-    await page.getByRole("button", { name: "Guardar campo" }).click();
-
-    const fieldRow = fieldsSection(page)
-      .locator("li")
-      .filter({ hasText: editedFieldLabel });
-    await expect(fieldRow).toBeVisible({ timeout: 15_000 });
-    await expect(fieldRow.getByText(`{{${fieldKey}}}`)).toBeVisible();
-  });
-
-  test("F: edited field persists after page reload", async ({ page }) => {
-    await gotoTemplateDetail(page);
 
     await page.reload();
-
-    const fieldRow = fieldsSection(page)
-      .locator("li")
-      .filter({ hasText: editedFieldLabel });
-    await expect(fieldRow).toBeVisible();
-    await expect(fieldRow.getByText(`{{${fieldKey}}}`)).toBeVisible();
+    const row = variableRow(page, pendingKey);
+    await expect(row.getByText(pendingLabel)).toBeVisible();
+    await expect(row.getByText("Configurada")).toBeVisible();
+    await expect(row.getByText("Obligatoria")).toBeVisible();
   });
 
-  test("G: user can delete a field with confirmation", async ({ page }) => {
-    await gotoTemplateDetail(page);
+  test("C: an invalid variable key shows a visible validation error", async ({
+    page,
+  }) => {
+    await openWorkspace(page);
 
-    await page
-      .getByRole("button", { name: `Eliminar ${editedFieldLabel}` })
+    await page.getByRole("button", { name: "Insertar variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await dialog.getByLabel("Etiqueta").fill("Clave inválida");
+    await dialog.getByLabel("Clave").fill("Clave Con Espacios");
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+
+    await expect(
+      dialog.getByText(/Usa minúsculas, números, guion bajo/),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+  });
+
+  test("D: removing a variable from the content keeps its configuration", async ({
+    page,
+  }) => {
+    await openWorkspace(page);
+
+    // Reemplaza todo el contenido por texto sin la variable configurada.
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type(
+      "COMPRAVENTA ACTUALIZADA sin variables en el texto.",
+    );
+
+    // La configuración no se borra: la variable pasa a "No utilizada".
+    await expect(
+      variableRow(page, configuredKey).getByText("No utilizada"),
+    ).toBeVisible();
+    await expect(
+      variableRow(page, pendingKey).getByText("No utilizada"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await expect(
+      variableRow(page, configuredKey).getByText("No utilizada"),
+    ).toBeVisible();
+    await expect(
+      variableRow(page, configuredKey).getByText(configuredLabel),
+    ).toBeVisible();
+  });
+
+  test("E: the user can explicitly remove a variable configuration", async ({
+    page,
+  }) => {
+    await openWorkspace(page);
+
+    await variableRow(page, pendingKey)
+      .getByRole("button", {
+        name: `Quitar configuración de ${pendingKey}`,
+      })
       .click();
 
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Eliminar" }).click();
+    await expect(variableRow(page, pendingKey)).not.toBeVisible();
 
-    // Back to the empty state once the field is gone.
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
-      page.getByText("Este machote aún no tiene campos definidos."),
+      page.getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(editedFieldLabel)).not.toBeVisible();
+
+    await page.reload();
+    await expect(variableRow(page, pendingKey)).not.toBeVisible();
+    // La otra configuración sigue intacta.
+    await expect(
+      variableRow(page, configuredKey).getByText(configuredLabel),
+    ).toBeVisible();
   });
 });

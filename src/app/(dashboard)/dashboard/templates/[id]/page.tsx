@@ -1,46 +1,37 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { extractContent, getTemplateById, listTemplateFields } from "../queries";
-import { TemplateForm } from "../_components/TemplateForm";
-import { TemplateFieldsSection } from "../_components/TemplateFieldsSection";
-import { TemplateVariablesInspector } from "../_components/TemplateVariablesInspector";
-import {
-  extractTemplateVariables,
-  findMissingTemplateFields,
-  findUnusedTemplateFields,
-} from "@/lib/templates/variables";
+import { getTemplateById, listTemplateFields } from "../queries";
+import { TemplateWorkspace } from "../_components/TemplateWorkspace";
+import { resolveTemplateContent } from "@/lib/editor/content";
+import { applyVariableLabels } from "@/lib/editor/variables";
 
 export const metadata = {
   title: "Machote — LexCR",
 };
 
-// ------------------------------------------------------------------ status badge (server-side)
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Borrador",
-  active: "Activo",
-  archived: "Archivado",
-};
-
-// ------------------------------------------------------------------ page
-
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string }>;
 };
 
-export default async function TemplateDetailPage({ params }: Props) {
+export default async function TemplateDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { created } = await searchParams;
   const template = await getTemplateById(id);
 
   if (!template) notFound();
 
   const fields = await listTemplateFields(template.id);
-
-  const variables = extractTemplateVariables(extractContent(template));
-  const definedFieldKeys = fields.map((field) => field.field_key);
-  const missingFields = findMissingTemplateFields(variables, definedFieldKeys);
-  const unusedFields = findUnusedTemplateFields(variables, definedFieldKeys);
+  // Contenido estructurado si existe; machotes legacy se convierten al
+  // cargar (sin tocar el registro hasta que el usuario guarde). Las
+  // etiquetas configuradas se aplican a las variables convertidas para que
+  // las fichas del editor muestren nombres amigables.
+  const { document } = resolveTemplateContent(template.content_json);
+  const labeledDocument = applyVariableLabels(
+    document,
+    Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
+  );
 
   return (
     <PageContainer>
@@ -68,30 +59,15 @@ export default async function TemplateDetailPage({ params }: Props) {
         </Link>
       </nav>
 
-      {/* Template header */}
+      {/* Encabezado */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-semibold text-slate-900">
-              {template.name}
-            </h1>
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                template.status === "active"
-                  ? "bg-teal-50 text-teal-700"
-                  : template.status === "archived"
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {STATUS_LABEL[template.status] ?? template.status}
-            </span>
-          </div>
-          {template.description && (
-            <p className="mt-1 text-sm text-slate-500">
-              {template.description}
-            </p>
-          )}
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {template.name}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Edita el contenido, las variables y la configuración del machote.
+          </p>
         </div>
 
         {/* Acceso rápido secundario: el flujo principal vive en Escrituras. */}
@@ -103,19 +79,22 @@ export default async function TemplateDetailPage({ params }: Props) {
         </Link>
       </div>
 
-      <TemplateForm mode="edit" template={template} />
-
-      {/* Configuración (campos) y diagnóstico (variables) lado a lado en
-          pantallas anchas; apilados en pantallas pequeñas. */}
-      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <TemplateFieldsSection templateId={template.id} fields={fields} />
-
-        <TemplateVariablesInspector
-          variables={variables}
-          missingFields={missingFields}
-          unusedFields={unusedFields}
-        />
-      </div>
+      <TemplateWorkspace
+        mode="edit"
+        template={{
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          status: template.status,
+        }}
+        createdJustNow={created === "1"}
+        initialDocument={labeledDocument}
+        initialVariables={fields.map((field) => ({
+          field_key: field.field_key,
+          label: field.label,
+          required: field.required,
+        }))}
+      />
     </PageContainer>
   );
 }

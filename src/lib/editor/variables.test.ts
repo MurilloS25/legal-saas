@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyVariableLabels,
   extractTemplateVariablesFromDocument,
   findUnresolvedDocumentVariables,
 } from "./variables";
@@ -33,6 +34,47 @@ describe("extractTemplateVariablesFromDocument", () => {
     expect(extractTemplateVariablesFromDocument(legacyTextToDocument(""))).toEqual(
       [],
     );
+  });
+});
+
+describe("applyVariableLabels", () => {
+  it("applies configured labels to variables without label", () => {
+    const doc = legacyTextToDocument("Hola {{a}} y {{b}}");
+    const labeled = applyVariableLabels(doc, { a: "Etiqueta A" });
+
+    expect(labeled.content[0].content).toEqual([
+      { type: "text", text: "Hola " },
+      { type: "templateVariable", attrs: { key: "a", label: "Etiqueta A" } },
+      { type: "text", text: " y " },
+      { type: "templateVariable", attrs: { key: "b" } },
+    ]);
+    // El documento original no se muta.
+    expect(doc.content[0].content?.[1]).toEqual({
+      type: "templateVariable",
+      attrs: { key: "a" },
+    });
+  });
+
+  it("does not overwrite labels already present in the document", () => {
+    const doc = {
+      type: "doc" as const,
+      content: [
+        {
+          type: "paragraph" as const,
+          content: [
+            {
+              type: "templateVariable" as const,
+              attrs: { key: "a", label: "Original" },
+            },
+          ],
+        },
+      ],
+    };
+    const labeled = applyVariableLabels(doc, { a: "Nueva" });
+    expect(labeled.content[0].content?.[0]).toEqual({
+      type: "templateVariable",
+      attrs: { key: "a", label: "Original" },
+    });
   });
 });
 

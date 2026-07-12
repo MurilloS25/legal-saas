@@ -470,8 +470,8 @@ pnpm e2e:headed   # headed browser
 | Playwright project | Test file | Covers |
 |---|---|---|
 | `chromium-clients` | `e2e/clients-authenticated.spec.ts` | Create, edit, delete client; persistence after reload |
-| `chromium-templates` | `e2e/templates-authenticated.spec.ts` | Create, edit template; status change; persistence after reload |
-| `chromium-template-fields` | `e2e/template-fields-authenticated.spec.ts` | Add, edit, delete template fields; validation error; persistence after reload |
+| `chromium-templates` | `e2e/templates-authenticated.spec.ts` | Template workspace: create/edit with rich editor (bold/italic/underline), insert variable, preview, mobile edit/preview switch, persistence after reload |
+| `chromium-template-fields` | `e2e/template-fields-authenticated.spec.ts` | Template variables in the workspace: legacy conversion, Configurada/Pendiente/No utilizada states, configure/remove configuration, key validation |
 | `chromium-documents` | `e2e/documents-authenticated.spec.ts` | Documents (Escrituras) workspace: navigation, create-document flow, fill form, textual preview, required validation |
 | `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
 
