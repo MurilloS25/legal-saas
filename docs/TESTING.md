@@ -509,10 +509,21 @@ Playwright saves session cookies/tokens to `playwright/.auth/user.json` after th
 - Full workflow flows: generate document from template + client data.
 - CI integration with a Supabase test environment.
 
+## E2E Data Factories
+
+E2E data factories live in `e2e/support/` (`factories.ts`, `cleanup-registry.ts`, `supabase-api.ts`):
+
+- They create rows through the local REST API using the test user's own JWT, so RLS applies exactly as in the app. No service role is used.
+- Names use the `e2e-<spec>-<label>-<uuid>` convention, unique even under parallel runs.
+- Every created resource is registered and deleted in FK-safe order (`documents` → `template_fields` → `templates` → `clients`) in `afterAll`, tolerating rows the test already deleted.
+- Rows created through the UI are registered for cleanup with `registerCreatedViaUi` (lookup by unique name).
+- Cleanup failures are logged with an `[e2e-cleanup:*]` prefix and never mask the main test results.
+- The registry logic is covered by vitest (`e2e/support/cleanup-registry.test.ts`).
+
 ## TODO
 
 - Decide between centralized tests or feature-local tests.
-- Add test factories for fake users, clients, templates, and receivables.
+- Extend E2E factories to receivables and notarial records when those modules exist.
 - Add RLS testing strategy after Supabase schema exists.
 - Phase 3: extend authenticated E2E tests to cover document generation workflows.
 - Phase 3: add E2E to CI pipeline with a dedicated Supabase test environment.
