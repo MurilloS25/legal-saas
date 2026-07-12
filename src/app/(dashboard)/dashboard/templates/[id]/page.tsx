@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { extractContent, getTemplateById, listTemplateFields } from "../queries";
@@ -42,7 +43,7 @@ export default async function TemplateDetailPage({ params }: Props) {
   const unusedFields = findUnusedTemplateFields(variables, definedFieldKeys);
 
   return (
-    <div className="px-6 py-8 max-w-4xl mx-auto">
+    <PageContainer>
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -70,25 +71,27 @@ export default async function TemplateDetailPage({ params }: Props) {
       {/* Template header */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {template.name}
-          </h1>
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              template.status === "active"
-                ? "bg-teal-50 text-teal-700"
-                : template.status === "archived"
-                  ? "bg-amber-50 text-amber-700"
-                  : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            {STATUS_LABEL[template.status] ?? template.status}
-          </span>
-        </div>
-        {template.description && (
-          <p className="mt-1 text-sm text-slate-500">{template.description}</p>
-        )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {template.name}
+            </h1>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                template.status === "active"
+                  ? "bg-teal-50 text-teal-700"
+                  : template.status === "archived"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {STATUS_LABEL[template.status] ?? template.status}
+            </span>
+          </div>
+          {template.description && (
+            <p className="mt-1 text-sm text-slate-500">
+              {template.description}
+            </p>
+          )}
         </div>
 
         {/* Acceso rápido secundario: el flujo principal vive en Escrituras. */}
@@ -102,13 +105,17 @@ export default async function TemplateDetailPage({ params }: Props) {
 
       <TemplateForm mode="edit" template={template} />
 
-      <TemplateFieldsSection templateId={template.id} fields={fields} />
+      {/* Configuración (campos) y diagnóstico (variables) lado a lado en
+          pantallas anchas; apilados en pantallas pequeñas. */}
+      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <TemplateFieldsSection templateId={template.id} fields={fields} />
 
-      <TemplateVariablesInspector
-        variables={variables}
-        missingFields={missingFields}
-        unusedFields={unusedFields}
-      />
-    </div>
+        <TemplateVariablesInspector
+          variables={variables}
+          missingFields={missingFields}
+          unusedFields={unusedFields}
+        />
+      </div>
+    </PageContainer>
   );
 }

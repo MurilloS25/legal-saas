@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { PageContainer } from "@/components/layout/PageContainer";
 import {
   extractContent,
   getTemplateById,
@@ -24,7 +25,7 @@ export default async function NewDocumentPage({ params }: Props) {
   const fields = await listTemplateFields(template.id);
 
   return (
-    <div className="px-6 py-8 max-w-3xl mx-auto">
+    <PageContainer width="form">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -79,6 +80,6 @@ export default async function NewDocumentPage({ params }: Props) {
           cancelHref="/dashboard/documents"
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

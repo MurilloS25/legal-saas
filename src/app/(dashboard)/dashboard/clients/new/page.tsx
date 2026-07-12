@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { ClientForm } from "../_components/ClientForm";
 
@@ -7,7 +8,7 @@ export const metadata = {
 
 export default function NewClientPage() {
   return (
-    <div className="px-6 py-8 max-w-2xl mx-auto">
+    <PageContainer width="form">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -40,6 +41,6 @@ export default function NewClientPage() {
       </div>
 
       <ClientForm mode="create" />
-    </div>
+    </PageContainer>
   );
 }

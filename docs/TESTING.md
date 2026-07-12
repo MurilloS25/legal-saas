@@ -461,7 +461,7 @@ pnpm e2e:headed   # headed browser
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
 - Not included in CI yet (requires a live Supabase local instance and test credentials).
-- Project execution order: `setup` → `chromium-clients` + `chromium-templates` + `chromium-template-fields` + `chromium-documents` (parallel) → `chromium-authenticated` (last, logs out).
+- Project execution order: `setup` → `chromium-clients` → `chromium-templates` → `chromium-template-fields` → `chromium-documents` → `chromium-authenticated` (last, logs out). Authenticated module projects run sequentially to avoid local Supabase/dev-server contention while several flows create or update records.
 
 | Playwright project | Test file | Covers |
 |---|---|---|

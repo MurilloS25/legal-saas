@@ -123,7 +123,7 @@ test.describe("documents workspace", () => {
 
     // First navigation may trigger an on-demand compile in the dev server.
     await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 15_000,
+      timeout: 30_000,
     });
     await expect(
       page.getByRole("heading", { name: "Crear escritura" }),
@@ -142,7 +142,7 @@ test.describe("documents workspace", () => {
       .click();
     // First navigation may trigger an on-demand compile in the dev server.
     await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 15_000,
+      timeout: 30_000,
     });
 
     await page.getByLabel(new RegExp(fieldLabel)).fill(filledValue);
@@ -171,7 +171,7 @@ test.describe("documents workspace", () => {
       .click();
     // First navigation may trigger an on-demand compile in the dev server.
     await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 15_000,
+      timeout: 30_000,
     });
 
     await page.getByRole("button", { name: "Preparar documento" }).click();
@@ -195,7 +195,7 @@ test.describe("documents workspace", () => {
 
     // First navigation may trigger an on-demand compile in the dev server.
     await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
-      timeout: 15_000,
+      timeout: 30_000,
     });
     await expect(
       page.getByRole("heading", { name: "Crear escritura" }),

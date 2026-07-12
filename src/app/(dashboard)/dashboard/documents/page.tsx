@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { listTemplates } from "../templates/queries";
 
 export const metadata = {
@@ -27,7 +28,7 @@ export default async function DocumentsPage() {
   const templates = await listTemplates();
 
   return (
-    <div className="px-6 py-8 max-w-5xl mx-auto">
+    <PageContainer>
       {/* ---- header ---- */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-slate-900">Escrituras</h1>
@@ -93,6 +94,6 @@ export default async function DocumentsPage() {
           ))}
         </ul>
       )}
-    </div>
+    </PageContainer>
   );
 }
