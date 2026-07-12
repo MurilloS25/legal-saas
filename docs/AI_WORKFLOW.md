@@ -40,8 +40,9 @@ AI agents must understand:
 
 - This is a legal productivity SaaS MVP.
 - The primary users are independent lawyers in Costa Rica.
-- The app helps with templates, Word generation, client reuse, notarial index metadata, and receivables.
-- The app does not store generated legal documents.
+- The app helps with templates, persistent draft escrituras, Word generation, client reuse, notarial index metadata, and receivables.
+- The app may store validated draft `field_values` and server-rendered text snapshots.
+- The app does not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - The app does not provide legal advice.
 - The app does not submit official legal documents.
 - The app does not include AI product features in the MVP.
@@ -164,7 +165,8 @@ For database changes:
 2. Update database/security documentation when decisions change.
 3. Add or update RLS tests for ownership and access-control behavior.
 4. Run local Supabase validation.
-5. Do not store generated legal documents, Word files, PDFs, full escritura text, or generated document storage paths.
+5. Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+6. Persist draft escritura text only through the approved user-owned `documents` draft model, protected by RLS and no-content logging rules.
 
 ## Prompting Rules
 
@@ -197,7 +199,8 @@ AI must not:
 
 - Add features outside MVP scope.
 - Create database tables without approved schema.
-- Store generated documents.
+- Store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Store draft text outside the approved `documents` draft model.
 - Add digital signature flows.
 - Add official submission flows.
 - Add AI legal advice features.
@@ -218,7 +221,7 @@ Before accepting AI-generated changes, verify:
 4. Did it expose secrets?
 5. Did it bypass architecture boundaries?
 6. Did it add direct Supabase calls in UI components?
-7. Did it introduce generated document storage?
+7. Did it introduce generated file storage or draft text outside the approved `documents` model?
 8. Did it affect RLS or auth?
 9. Did it include or update tests when needed?
 10. Did it keep accessibility in mind?

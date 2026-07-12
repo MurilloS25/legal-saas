@@ -16,8 +16,9 @@ These rules are strict for the MVP foundation and future product work.
 - Use Supabase anon keys only for public client initialization.
 - Use server-only code for privileged operations.
 - Require RLS for every user-owned table before real user data is stored.
-- Store generated documents nowhere in the application.
-- Store full sensitive escritura content nowhere in the application.
+- Store generated Word/PDF files, signed documents, official submissions, and generated document storage paths nowhere in the application.
+- Store full escritura content only through the explicitly approved persistent draft workflow.
+- Treat draft `field_values` and `rendered_content` as sensitive user-owned data: validate it, protect it with RLS, and never log it.
 - Keep structured metadata minimal and purpose-bound.
 
 ## Architecture
