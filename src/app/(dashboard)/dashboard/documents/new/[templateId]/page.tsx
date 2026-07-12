@@ -6,7 +6,7 @@ import {
   getTemplateById,
   listTemplateFields,
 } from "../../../templates/queries";
-import { DocumentFillForm } from "../../../templates/_components/DocumentFillForm";
+import { DocumentDraftForm } from "../../_components/DocumentDraftForm";
 
 export const metadata = {
   title: "Crear escritura — LexCR",
@@ -25,11 +25,11 @@ export default async function NewDocumentPage({ params }: Props) {
   const fields = await listTemplateFields(template.id);
 
   return (
-    <PageContainer width="form">
+    <PageContainer>
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
-          href="/dashboard/documents"
+          href="/dashboard/documents/new"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
         >
           <svg
@@ -46,7 +46,7 @@ export default async function NewDocumentPage({ params }: Props) {
           >
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Escrituras
+          Nueva escritura
         </Link>
       </nav>
 
@@ -73,11 +73,12 @@ export default async function NewDocumentPage({ params }: Props) {
           </Link>
         </div>
       ) : (
-        <DocumentFillForm
+        <DocumentDraftForm
+          mode="create"
           templateId={template.id}
+          defaultTitle={`${template.name} — Borrador`}
           fields={fields}
           content={extractContent(template)}
-          cancelHref="/dashboard/documents"
         />
       )}
     </PageContainer>
