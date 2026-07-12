@@ -9,7 +9,7 @@
  * activos, foco visible y el diálogo de inserción de variables.
  */
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
 import type { TemplateDocument } from "@/lib/editor/types";
@@ -45,6 +45,7 @@ function InsertVariableDialog({
   onInsertNew,
   onClose,
 }: InsertVariableDialogProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
   const keyId = useId();
   const labelId = useId();
@@ -90,9 +91,34 @@ function InsertVariableDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        ref={dialogRef}
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
+          if (event.key === "Escape") {
+            onClose();
+            return;
+          }
+
+          if (event.key !== "Tab") return;
+
+          const focusable = Array.from(
+            dialogRef.current?.querySelectorAll<HTMLElement>(
+              'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+            ) ?? [],
+          );
+          if (focusable.length === 0) return;
+
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (!last) return;
+
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
         }}
       >
         <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl">
@@ -266,6 +292,7 @@ export function TemplateEditor({
   "aria-label": ariaLabel = "Contenido del machote",
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const insertButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const editor = useEditor({
     extensions: buildEditorExtensions(),
@@ -301,6 +328,11 @@ export function TemplateEditor({
   function insertVariable(key: string, label?: string) {
     editor?.chain().focus().insertTemplateVariable({ key, label }).run();
     setDialogOpen(false);
+  }
+
+  function closeDialog() {
+    setDialogOpen(false);
+    window.setTimeout(() => insertButtonRef.current?.focus(), 0);
   }
 
   return (
@@ -371,6 +403,7 @@ export function TemplateEditor({
 
         <button
           type="button"
+          ref={insertButtonRef}
           disabled={!editor}
           onClick={() => setDialogOpen(true)}
           className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-40 transition-colors"
@@ -395,7 +428,7 @@ export function TemplateEditor({
             onCreateVariable({ field_key: key, label, required: false });
             insertVariable(key, label);
           }}
-          onClose={() => setDialogOpen(false)}
+          onClose={closeDialog}
         />
       )}
     </div>
