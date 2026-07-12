@@ -8,6 +8,7 @@ import {
   DocumentRenderedContentSchema,
   DocumentTitleSchema,
   DocumentValuesSchema,
+  mergeDocumentDraftValues,
   TemplateIdSchema,
 } from "@/lib/validations/documents";
 import { validateDocumentFill } from "@/lib/validations/document-fill";
@@ -68,6 +69,7 @@ function validateDraftInput(
   formData: FormData,
   fields: { field_key: string; label: string; required: boolean }[],
   content: string,
+  existingValues?: Record<string, string>,
 ): { state: DocumentDraftState } | {
   title: string;
   values: Record<string, string>;
@@ -96,7 +98,15 @@ function validateDraftInput(
 
   // Defensa en profundidad: aunque las keys provienen de campos propios,
   // se validan formato, tamaño y claves reservadas antes de persistir.
-  const valuesResult = DocumentValuesSchema.safeParse(fillResult.values);
+  const valuesToPersist = existingValues
+    ? mergeDocumentDraftValues(
+        existingValues,
+        fillResult.values,
+        fields.map((field) => field.field_key),
+      )
+    : fillResult.values;
+
+  const valuesResult = DocumentValuesSchema.safeParse(valuesToPersist);
   if (!valuesResult.success) {
     return {
       state: {
@@ -191,7 +201,7 @@ export async function updateDocumentDraftAction(
 
   const { data: existing } = await supabase
     .from("documents")
-    .select("id, template_id")
+    .select("id, template_id, field_values")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -209,7 +219,19 @@ export async function updateDocumentDraftAction(
     return { message: "El machote de esta escritura ya no está disponible." };
   }
 
-  const result = validateDraftInput(formData, loaded.fields, loaded.content);
+  const existingValuesResult = DocumentValuesSchema.safeParse(
+    existing.field_values ?? {},
+  );
+  if (!existingValuesResult.success) {
+    return { message: "No fue posible guardar el borrador. Intenta de nuevo." };
+  }
+
+  const result = validateDraftInput(
+    formData,
+    loaded.fields,
+    loaded.content,
+    existingValuesResult.data,
+  );
   if ("state" in result) return result.state;
 
   const { error } = await supabase

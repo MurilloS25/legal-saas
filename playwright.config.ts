@@ -1,6 +1,21 @@
 import fs from "fs";
 import { defineConfig, devices } from "@playwright/test";
 
+function parseEnvValue(rawValue: string) {
+  const value = rawValue.trim();
+  const quote = value[0];
+
+  if (
+    (quote === "\"" || quote === "'") &&
+    value.endsWith(quote) &&
+    value.length >= 2
+  ) {
+    return value.slice(1, -1).trim();
+  }
+
+  return value;
+}
+
 // Load .env.local so E2E credentials are available to Playwright worker processes.
 // Next.js loads .env.local for the dev server but not for the Playwright process itself.
 try {
@@ -9,7 +24,7 @@ try {
     const idx = line.indexOf("=");
     if (idx > 0) {
       const key = line.slice(0, idx).trim();
-      const val = line.slice(idx + 1).trim();
+      const val = parseEnvValue(line.slice(idx + 1));
       if (key && !key.startsWith("#") && !process.env[key]) {
         process.env[key] = val;
       }
@@ -105,7 +120,9 @@ export default defineConfig({
   webServer: {
     command: "pnpm dev",
     url: "http://localhost:3000",
-    reuseExistingServer: true,
+    reuseExistingServer:
+      !process.env.CI &&
+      process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "true",
     timeout: 120 * 1000,
   },
 });

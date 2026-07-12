@@ -2,7 +2,7 @@
 
 MVP foundation for a legal productivity SaaS for independent lawyers in Costa Rica.
 
-The product will help lawyers manage reusable legal document templates ("machotes") and structured metadata for clients, notarial index preparation, and accounts receivable. The MVP must not store generated legal documents or full sensitive escritura content.
+The product helps lawyers manage reusable legal document templates ("machotes"), persistent draft escrituras, and structured metadata for clients, notarial index preparation, and accounts receivable. The MVP may store user-owned draft text snapshots while a lawyer is preparing an escritura, but it must not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 
 ## Stack
 
@@ -66,8 +66,8 @@ This repository is intentionally at foundation stage. Product screens, database 
 
 ## Non-Negotiables
 
-- Do not store generated legal documents.
-- Do not store full sensitive escritura content.
+- Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Treat persistent draft text (`field_values` and `rendered_content`) as sensitive user-owned data: protect it with RLS, avoid logs, and store only what is needed for the draft workflow.
 - Do not expose Supabase service role keys to client-side code.
 - Enforce per-user authorization with Supabase RLS before handling real user data.
 - Keep security, accessibility, and data minimization visible in every feature review.

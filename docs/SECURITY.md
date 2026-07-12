@@ -6,7 +6,7 @@ Security and data minimization are mandatory because the product supports legal 
 
 Treat all user data as sensitive by default.
 
-The product must help lawyers work faster without becoming a risky storage system for generated legal documents or unnecessary sensitive legal content.
+The product must help lawyers work faster without becoming a risky storage system for generated Word/PDF files, signed documents, official submissions, or unnecessary sensitive legal content.
 
 ## Core Security Principles
 
@@ -27,9 +27,11 @@ The MVP follows these principles:
 
 The application must not store:
 
-- Generated legal documents.
+- Generated Word/PDF files.
 - Signed documents.
-- Full sensitive escritura content.
+- Official submission payloads.
+- Generated document storage paths.
+- Full sensitive escritura content outside the approved persistent draft workflow.
 - Unnecessary details about legal transactions.
 - Secrets.
 - Credentials.
@@ -40,6 +42,8 @@ The application may store:
 - Lawyer profile data.
 - Template definitions.
 - Template field definitions.
+- Persistent draft `field_values`.
+- Persistent draft `rendered_content` text snapshots.
 - Client metadata.
 - Minimal document metadata.
 - Minimal notarial index metadata.
@@ -114,7 +118,7 @@ Required controls:
 - Use managed HTTPS in production.
 - Do not implement custom cryptography.
 - Do not store unnecessary sensitive legal content.
-- Do not store generated legal documents.
+- Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - Protect secrets and environment variables.
 - Avoid logging sensitive data.
 
@@ -188,7 +192,8 @@ Required controls:
 Required controls:
 
 - Log important security-relevant events without sensitive legal content.
-- Do not log generated document content.
+- Do not log generated document file content.
+- Do not log persistent draft `field_values` or `rendered_content`.
 - Do not log full escritura text.
 - Do not log secrets.
 - Capture enough operational context to investigate failures safely.
@@ -230,14 +235,15 @@ Rules:
 
 ## Document Generation Security
 
-Generated documents must be handled carefully.
+Generated documents and persistent draft text must be handled carefully.
 
 Rules:
 
 - Generate files for immediate download.
-- Do not persist generated legal documents by default.
+- Persist draft `field_values` and server-rendered text snapshots only in the approved user-owned `documents` draft model.
+- Do not persist generated Word/PDF files.
 - Avoid writing generated files to permanent storage.
-- Avoid logging generated content.
+- Avoid logging draft values, rendered snapshots, or generated content.
 - Keep export adapters server-side.
 - Validate all input before export.
 
@@ -245,7 +251,8 @@ Rules:
 
 Logs must not include:
 
-- Generated legal document content.
+- Generated Word/PDF document content.
+- Persistent draft `field_values` or `rendered_content`.
 - Full escritura content.
 - Secrets.
 - Credentials.

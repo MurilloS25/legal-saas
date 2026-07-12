@@ -4,7 +4,7 @@
 
 Build a legal productivity SaaS MVP for independent lawyers in Costa Rica.
 
-The product helps lawyers create and manage reusable legal document templates called "machotes", generate editable Word documents, reuse client metadata, prepare notarial index metadata, and track basic accounts receivable.
+The product helps lawyers create and manage reusable legal document templates called "machotes", prepare persistent draft escrituras, generate editable Word documents, reuse client metadata, prepare notarial index metadata, and track basic accounts receivable.
 
 The system supports the lawyer's workflow, but it does not replace the lawyer's legal judgment, official responsibilities, digital signature process, document custody, or official submissions.
 
@@ -84,11 +84,13 @@ Templates may include:
 
 ### Document Generation
 
-The MVP generates editable Word documents from approved templates and user-provided data.
+The MVP lets lawyers save draft escrituras while they work, using validated field values and a server-rendered text snapshot.
 
-Generated documents are downloaded by the lawyer and discarded by the application.
+When Word export is implemented, generated Word documents are downloaded by the lawyer and discarded by the application.
 
-The application must not store generated legal documents.
+The application may store draft `field_values` and `rendered_content` for the user's own persistent drafts.
+
+The application must not store generated Word/PDF files, signed documents, official submission payloads, or storage paths for generated legal documents.
 
 PDF generation is not mandatory for the MVP. It may be added later after Word generation is stable.
 
@@ -131,8 +133,9 @@ The MVP must include:
 - Supabase RLS for user-owned data.
 - Input validation.
 - Data minimization.
-- No storage of generated legal documents.
-- No storage of unnecessary sensitive escritura details.
+- No storage of generated Word/PDF files.
+- Persistent draft escritura text is sensitive user-owned data and must stay protected by validation, RLS, and safe logging rules.
+- No storage of unnecessary sensitive legal details outside the draft workflow.
 
 ### Accessibility
 
@@ -152,8 +155,11 @@ Required principles:
 
 The following features are intentionally excluded:
 
-- Storing generated legal documents.
-- Storing full sensitive escritura content.
+- Storing generated Word/PDF files.
+- Storing signed documents.
+- Storing official submission payloads.
+- Storing generated document storage paths.
+- Storing full sensitive escritura content outside the approved persistent draft workflow.
 - Digital signatures.
 - Official legal submissions.
 - Official notarial index submission.
@@ -188,6 +194,8 @@ The application may store:
 - User profile data.
 - Template definitions.
 - Template field definitions.
+- Persistent draft `field_values`.
+- Persistent draft `rendered_content` text snapshots.
 - Client metadata.
 - Minimal document metadata.
 - Minimal notarial index metadata.
@@ -197,8 +205,11 @@ The application may store:
 The application must not store:
 
 - Final generated Word documents.
+- Generated PDF files.
 - Signed documents.
-- Full escritura text generated for a specific case.
+- Official submission payloads.
+- Storage paths for generated legal documents.
+- Full escritura text outside the approved persistent draft workflow.
 - Complete sensitive details that are not required by the workflow.
 - Secrets or credentials in application data.
 
@@ -213,7 +224,7 @@ The MVP is successful if an independent lawyer can:
 5. Download the generated Word file.
 6. Register minimal metadata for index preparation.
 7. Track whether the related work has been paid.
-8. Use the system without generated legal documents being stored by the application.
+8. Use the system without generated Word/PDF files or signed legal documents being stored by the application.
 
 ## First Implementation Priorities
 
