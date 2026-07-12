@@ -76,7 +76,8 @@ test.describe("template fields module", () => {
     const section = fieldsSection(page);
     await section.getByLabel("Etiqueta").fill(fieldLabel);
     await section.getByLabel("Variable").fill(fieldKey);
-    await section.getByLabel("Tipo de campo").selectOption("text");
+    // No type selector anymore — every field is stored as text.
+    await expect(section.getByLabel("Tipo de campo")).toHaveCount(0);
     await section.getByLabel("Campo obligatorio").check();
 
     await page.getByRole("button", { name: "Guardar campo" }).click();
@@ -116,7 +117,6 @@ test.describe("template fields module", () => {
     await page.getByRole("button", { name: `Editar ${fieldLabel}` }).click();
 
     await page.getByLabel("Etiqueta").fill(editedFieldLabel);
-    await page.getByLabel("Tipo de campo").selectOption("textarea");
 
     await page.getByRole("button", { name: "Guardar campo" }).click();
 
@@ -124,7 +124,7 @@ test.describe("template fields module", () => {
       .locator("li")
       .filter({ hasText: editedFieldLabel });
     await expect(fieldRow).toBeVisible({ timeout: 15_000 });
-    await expect(fieldRow.getByText("Área de texto")).toBeVisible();
+    await expect(fieldRow.getByText(`{{${fieldKey}}}`)).toBeVisible();
   });
 
   test("F: edited field persists after page reload", async ({ page }) => {
@@ -137,7 +137,6 @@ test.describe("template fields module", () => {
       .filter({ hasText: editedFieldLabel });
     await expect(fieldRow).toBeVisible();
     await expect(fieldRow.getByText(`{{${fieldKey}}}`)).toBeVisible();
-    await expect(fieldRow.getByText("Área de texto")).toBeVisible();
   });
 
   test("G: user can delete a field with confirmation", async ({ page }) => {
