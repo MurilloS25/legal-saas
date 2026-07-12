@@ -3,136 +3,23 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { TemplateSchema } from "@/lib/validations/templates";
-import { TemplateFieldSchema } from "@/lib/validations/template-fields";
+import {
+  parseTemplateWorkspacePayload,
+  type TemplateWorkspaceVariable,
+} from "@/lib/validations/template-workspace";
+import { buildTemplateContentJson } from "@/lib/editor/content";
+import { TemplateIdSchema } from "@/lib/validations/documents";
 
 // ------------------------------------------------------------------ types
 
-export type TemplateState = {
+export type TemplateWorkspaceState = {
   errors?: {
     name?: string;
     description?: string;
-    content?: string;
     status?: string;
+    document?: string;
+    variables?: string;
   };
-  message?: string;
-};
-
-// ------------------------------------------------------------------ helpers
-
-function parseFormData(formData: FormData) {
-  return {
-    name: String(formData.get("name") ?? ""),
-    description: String(formData.get("description") ?? "") || undefined,
-    content: String(formData.get("content") ?? ""),
-    status: String(formData.get("status") ?? ""),
-  };
-}
-
-function fieldErrors(result: ReturnType<typeof TemplateSchema.safeParse>): TemplateState {
-  if (result.success) return {};
-  const fe = result.error.flatten().fieldErrors;
-  return {
-    errors: {
-      name: fe.name?.[0],
-      description: fe.description?.[0],
-      content: fe.content?.[0],
-      status: fe.status?.[0],
-    },
-  };
-}
-
-// ------------------------------------------------------------------ create
-
-export async function createTemplateAction(
-  _prevState: TemplateState,
-  formData: FormData,
-): Promise<TemplateState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const result = TemplateSchema.safeParse(parseFormData(formData));
-  if (!result.success) return fieldErrors(result);
-
-  const { name, description, content, status } = result.data;
-
-  const { data, error } = await supabase
-    .from("templates")
-    .insert({
-      owner_id: user.id,
-      name,
-      description: description ?? null,
-      content_json: { text: content },
-      text_preview: content.slice(0, 300),
-      status,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    return { message: "No fue posible crear el machote. Intenta de nuevo." };
-  }
-
-  revalidatePath("/dashboard/templates");
-  redirect("/dashboard/templates");
-}
-
-// ------------------------------------------------------------------ update
-
-export async function updateTemplateAction(
-  id: string,
-  _prevState: TemplateState,
-  formData: FormData,
-): Promise<TemplateState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const result = TemplateSchema.safeParse(parseFormData(formData));
-  if (!result.success) return fieldErrors(result);
-
-  const { name, description, content, status } = result.data;
-
-  const { error } = await supabase
-    .from("templates")
-    .update({
-      name,
-      description: description ?? null,
-      content_json: { text: content },
-      text_preview: content.slice(0, 300),
-      status,
-    })
-    .eq("id", id)
-    .eq("owner_id", user.id);
-
-  if (error) {
-    return { message: "No fue posible actualizar el machote. Intenta de nuevo." };
-  }
-
-  revalidatePath(`/dashboard/templates/${id}`);
-  revalidatePath("/dashboard/templates");
-  redirect("/dashboard/templates");
-}
-
-// ================================================================== template fields
-
-export type TemplateFieldState = {
-  errors?: {
-    field_key?: string;
-    label?: string;
-  };
-  message?: string;
-  success?: boolean;
-};
-
-export type DeleteTemplateFieldState = {
   message?: string;
   success?: boolean;
 };
@@ -140,198 +27,231 @@ export type DeleteTemplateFieldState = {
 // Postgres unique_violation — el machote ya tiene un campo con ese field_key.
 const UNIQUE_VIOLATION = "23505";
 
-function parseFieldFormData(formData: FormData, sortOrder: number) {
-  return {
-    field_key: String(formData.get("field_key") ?? ""),
-    label: String(formData.get("label") ?? ""),
-    required: formData.get("required") === "on",
-    sort_order: sortOrder,
-  };
-}
+const GENERIC_SAVE_ERROR =
+  "No fue posible guardar el machote. Intenta de nuevo.";
 
-function fieldFormErrors(
-  result: ReturnType<typeof TemplateFieldSchema.safeParse>,
-): TemplateFieldState {
-  if (result.success) return {};
-  const fe = result.error.flatten().fieldErrors;
-  return {
-    errors: {
-      field_key: fe.field_key?.[0],
-      label: fe.label?.[0],
-    },
-  };
-}
+type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-/** El template debe pertenecer al usuario autenticado antes de operar sus campos. */
-async function userOwnsTemplate(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+// ------------------------------------------------------------------ helpers
+
+/**
+ * Sincroniza template_fields con la configuración deseada del workspace.
+ *
+ * - actualiza los campos existentes (etiqueta, obligatoriedad, orden);
+ * - inserta las variables nuevas;
+ * - elimina solo los campos que el usuario quitó explícitamente de la
+ *   configuración (la UI nunca los quita de forma automática).
+ *
+ * Supabase REST no ofrece transacciones multi-tabla; si una operación
+ * falla a mitad, se devuelve un error visible y el usuario puede volver a
+ * guardar: la reconciliación es idempotente respecto al estado deseado.
+ */
+async function reconcileTemplateFields(
+  supabase: Supabase,
   templateId: string,
   userId: string,
-): Promise<boolean> {
-  const { data } = await supabase
+  desired: TemplateWorkspaceVariable[],
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data: existingRows, error: listError } = await supabase
+    .from("template_fields")
+    .select("id, field_key, label, required, sort_order")
+    .eq("template_id", templateId)
+    .eq("owner_id", userId);
+
+  if (listError) return { ok: false, message: GENERIC_SAVE_ERROR };
+
+  const existingByKey = new Map(
+    (existingRows ?? []).map((row) => [row.field_key as string, row]),
+  );
+  const desiredKeys = new Set(desired.map((variable) => variable.field_key));
+
+  // Eliminaciones explícitas del usuario.
+  const toDelete = (existingRows ?? []).filter(
+    (row) => !desiredKeys.has(row.field_key as string),
+  );
+  if (toDelete.length > 0) {
+    const { error } = await supabase
+      .from("template_fields")
+      .delete()
+      .eq("template_id", templateId)
+      .eq("owner_id", userId)
+      .in(
+        "id",
+        toDelete.map((row) => row.id as string),
+      );
+    if (error) return { ok: false, message: GENERIC_SAVE_ERROR };
+  }
+
+  for (const [index, variable] of desired.entries()) {
+    const existing = existingByKey.get(variable.field_key);
+
+    if (existing) {
+      const unchanged =
+        existing.label === variable.label &&
+        existing.required === variable.required &&
+        existing.sort_order === index;
+      if (unchanged) continue;
+
+      const { error } = await supabase
+        .from("template_fields")
+        .update({
+          label: variable.label,
+          required: variable.required,
+          sort_order: index,
+          field_type: "text",
+        })
+        .eq("id", existing.id as string)
+        .eq("template_id", templateId)
+        .eq("owner_id", userId);
+      if (error) return { ok: false, message: GENERIC_SAVE_ERROR };
+      continue;
+    }
+
+    const { error } = await supabase.from("template_fields").insert({
+      owner_id: userId,
+      template_id: templateId,
+      field_key: variable.field_key,
+      label: variable.label,
+      required: variable.required,
+      sort_order: index,
+      field_type: "text",
+      source: "manual",
+    });
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        return {
+          ok: false,
+          message: `Ya existe un campo con la variable ${variable.field_key}.`,
+        };
+      }
+      return { ok: false, message: GENERIC_SAVE_ERROR };
+    }
+  }
+
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ create
+
+export async function createTemplateWorkspaceAction(
+  _prevState: TemplateWorkspaceState,
+  formData: FormData,
+): Promise<TemplateWorkspaceState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const result = parseTemplateWorkspacePayload(formData);
+  if (!result.success) return { errors: result.errors };
+
+  const { name, description, status, document, variables } = result.payload;
+  const contentJson = buildTemplateContentJson(document);
+
+  const { data: created, error: createError } = await supabase
+    .from("templates")
+    .insert({
+      owner_id: user.id,
+      name,
+      description: description ?? null,
+      status,
+      content_json: contentJson,
+      text_preview: contentJson.text.slice(0, 300),
+    })
+    .select("id")
+    .single();
+
+  if (createError || !created) {
+    return { message: GENERIC_SAVE_ERROR };
+  }
+
+  const fieldsResult = await reconcileTemplateFields(
+    supabase,
+    created.id,
+    user.id,
+    variables,
+  );
+
+  if (!fieldsResult.ok) {
+    // Compensación: Supabase REST no permite crear machote + campos en una
+    // transacción, así que ante un fallo se elimina el machote recién
+    // creado para no dejarlo a medias sin avisar.
+    await supabase
+      .from("templates")
+      .delete()
+      .eq("id", created.id)
+      .eq("owner_id", user.id);
+    return { message: fieldsResult.message };
+  }
+
+  revalidatePath("/dashboard/templates");
+  redirect(`/dashboard/templates/${created.id}?created=1`);
+}
+
+// ------------------------------------------------------------------ update
+
+export async function updateTemplateWorkspaceAction(
+  templateId: string,
+  _prevState: TemplateWorkspaceState,
+  formData: FormData,
+): Promise<TemplateWorkspaceState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  if (!TemplateIdSchema.safeParse(templateId).success) {
+    return { message: "No se encontró el machote." };
+  }
+
+  const { data: existing } = await supabase
     .from("templates")
     .select("id")
     .eq("id", templateId)
-    .eq("owner_id", userId)
-    .maybeSingle();
-
-  return !!data;
-}
-
-// ------------------------------------------------------------------ create field
-
-export async function createTemplateFieldAction(
-  templateId: string,
-  _prevState: TemplateFieldState,
-  formData: FormData,
-): Promise<TemplateFieldState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  if (!(await userOwnsTemplate(supabase, templateId, user.id))) {
-    return { message: "No se encontró el machote." };
-  }
-
-  // Siguiente posición al final del listado.
-  const { data: lastField } = await supabase
-    .from("template_fields")
-    .select("sort_order")
-    .eq("template_id", templateId)
-    .eq("owner_id", user.id)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const nextSortOrder = (lastField?.sort_order ?? -1) + 1;
-
-  const result = TemplateFieldSchema.safeParse(
-    parseFieldFormData(formData, nextSortOrder),
-  );
-  if (!result.success) return fieldFormErrors(result);
-
-  const { error } = await supabase.from("template_fields").insert({
-    owner_id: user.id,
-    template_id: templateId,
-    ...result.data,
-    // Todos los campos se tratan como texto; la columna se conserva por
-    // compatibilidad con el esquema existente.
-    field_type: "text",
-    source: "manual",
-  });
-
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
-      return {
-        errors: {
-          field_key: "Ya existe un campo con esa variable en este machote.",
-        },
-      };
-    }
-    return { message: "No fue posible agregar el campo. Intenta de nuevo." };
-  }
-
-  revalidatePath(`/dashboard/templates/${templateId}`);
-  return { success: true };
-}
-
-// ------------------------------------------------------------------ update field
-
-export async function updateTemplateFieldAction(
-  fieldId: string,
-  templateId: string,
-  _prevState: TemplateFieldState,
-  formData: FormData,
-): Promise<TemplateFieldState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  if (!(await userOwnsTemplate(supabase, templateId, user.id))) {
-    return { message: "No se encontró el machote." };
-  }
-
-  // El campo debe existir bajo este machote y usuario; conserva su sort_order.
-  const { data: existing } = await supabase
-    .from("template_fields")
-    .select("id, sort_order")
-    .eq("id", fieldId)
-    .eq("template_id", templateId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
   if (!existing) {
-    return { message: "No se encontró el campo." };
+    return { message: "No se encontró el machote." };
   }
 
-  const result = TemplateFieldSchema.safeParse(
-    parseFieldFormData(formData, existing.sort_order),
-  );
-  if (!result.success) return fieldFormErrors(result);
+  const result = parseTemplateWorkspacePayload(formData);
+  if (!result.success) return { errors: result.errors };
 
-  const { field_key, label, required } = result.data;
+  const { name, description, status, document, variables } = result.payload;
+  const contentJson = buildTemplateContentJson(document);
 
-  const { error } = await supabase
-    .from("template_fields")
-    // Al editar, los campos legados con tipo número/fecha se normalizan a
-    // texto — el valor final siempre se inserta textualmente.
-    .update({ field_key, label, required, field_type: "text" })
-    .eq("id", fieldId)
-    .eq("template_id", templateId)
+  const { error: updateError } = await supabase
+    .from("templates")
+    .update({
+      name,
+      description: description ?? null,
+      status,
+      content_json: contentJson,
+      text_preview: contentJson.text.slice(0, 300),
+    })
+    .eq("id", templateId)
     .eq("owner_id", user.id);
 
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
-      return {
-        errors: {
-          field_key: "Ya existe un campo con esa variable en este machote.",
-        },
-      };
-    }
-    return { message: "No fue posible actualizar el campo. Intenta de nuevo." };
+  if (updateError) {
+    return { message: GENERIC_SAVE_ERROR };
   }
 
-  revalidatePath(`/dashboard/templates/${templateId}`);
-  return { success: true };
-}
-
-// ------------------------------------------------------------------ delete field
-
-export async function deleteTemplateFieldAction(
-  fieldId: string,
-  templateId: string,
-  _prevState: DeleteTemplateFieldState,
-  _formData: FormData,
-): Promise<DeleteTemplateFieldState> {
-  void _prevState;
-  void _formData;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const { data, error } = await supabase
-    .from("template_fields")
-    .delete()
-    .eq("id", fieldId)
-    .eq("template_id", templateId)
-    .eq("owner_id", user.id)
-    .select("id")
-    .maybeSingle();
-
-  if (error || !data) {
-    return { message: "No se pudo eliminar el campo. Intenta de nuevo." };
+  const fieldsResult = await reconcileTemplateFields(
+    supabase,
+    templateId,
+    user.id,
+    variables,
+  );
+  if (!fieldsResult.ok) {
+    return { message: fieldsResult.message };
   }
 
+  revalidatePath("/dashboard/templates");
   revalidatePath(`/dashboard/templates/${templateId}`);
   return { success: true };
 }

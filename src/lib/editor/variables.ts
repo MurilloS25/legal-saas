@@ -5,7 +5,7 @@
  * llaves, sin duplicados y en orden de aparición.
  */
 
-import type { TemplateDocument } from "./types";
+import type { TemplateDocument, TemplateParagraphNode } from "./types";
 
 export function extractTemplateVariablesFromDocument(
   document: TemplateDocument,
@@ -21,6 +21,33 @@ export function extractTemplateVariablesFromDocument(
   }
 
   return [...seen];
+}
+
+/**
+ * Devuelve una copia del documento con las etiquetas configuradas aplicadas
+ * a las variables. Útil al cargar machotes legacy, cuya conversión conoce
+ * las claves pero no las etiquetas de los campos configurados. Las
+ * etiquetas ya presentes en el documento no se sobreescriben.
+ */
+export function applyVariableLabels(
+  document: TemplateDocument,
+  labels: Record<string, string>,
+): TemplateDocument {
+  const content: TemplateParagraphNode[] = document.content.map((paragraph) => {
+    if (!paragraph.content) return paragraph;
+    return {
+      ...paragraph,
+      content: paragraph.content.map((node) => {
+        if (node.type !== "templateVariable" || node.attrs.label) return node;
+        const label = labels[node.attrs.key];
+        return label === undefined
+          ? node
+          : { ...node, attrs: { ...node.attrs, label } };
+      }),
+    };
+  });
+
+  return { type: "doc", content };
 }
 
 /**
