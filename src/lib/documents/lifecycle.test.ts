@@ -56,11 +56,10 @@ describe("isActionAllowed", () => {
     expect(isActionAllowed("ready", "mark_final")).toBe(true);
     expect(isActionAllowed("ready", "return_to_draft")).toBe(true);
     expect(isActionAllowed("final", "reopen")).toBe(true);
-    expect(isActionAllowed("final", "mark_ready")).toBe(true);
-    // reopen apunta a "ready", alcanzable también desde draft; la UI solo
-    // ofrece reopen en final, pero como transición pura draft→ready es válida.
-    expect(isActionAllowed("draft", "reopen")).toBe(true);
-    // return_to_draft (target draft) NO es válido desde draft ni desde final.
+    // Cada action tiene un origen específico: no basta con que el destino sea
+    // una transición válida. Esto protege llamadas directas a Server Actions.
+    expect(isActionAllowed("final", "mark_ready")).toBe(false);
+    expect(isActionAllowed("draft", "reopen")).toBe(false);
     expect(isActionAllowed("final", "return_to_draft")).toBe(false);
   });
 

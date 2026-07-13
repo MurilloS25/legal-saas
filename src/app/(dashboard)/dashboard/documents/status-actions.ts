@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DocumentIdSchema } from "@/lib/validations/documents";
 import {
   ACTION_TARGET,
-  canTransition,
+  isActionAllowed,
   isDocumentStatus,
   type DocumentAction,
 } from "@/lib/documents/lifecycle";
@@ -55,7 +55,7 @@ async function transitionDocument(
   }
 
   const target = ACTION_TARGET[action];
-  if (!canTransition(doc.status, target)) {
+  if (!isActionAllowed(doc.status, action)) {
     return { message: "Esa transición de estado no está permitida." };
   }
 
@@ -88,14 +88,23 @@ async function transitionDocument(
     }
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("documents")
     .update({ status: target })
     .eq("id", documentId)
-    .eq("owner_id", user.id);
+    .eq("owner_id", user.id)
+    .eq("status", doc.status)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return { message: "No fue posible cambiar el estado. Intenta de nuevo." };
+  }
+  if (!updated) {
+    return {
+      message:
+        "El estado cambió en otra pestaña. Recarga la escritura e intenta de nuevo.",
+    };
   }
 
   revalidatePath("/dashboard/documents");

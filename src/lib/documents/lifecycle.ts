@@ -49,9 +49,17 @@ export const ACTION_TARGET: Record<DocumentAction, DocumentStatus> = {
   reopen: "ready",
 };
 
+const ACTION_ALLOWED_FROM: Record<DocumentAction, DocumentStatus> = {
+  mark_ready: "draft",
+  return_to_draft: "ready",
+  mark_final: "ready",
+  reopen: "final",
+};
+
 export function isActionAllowed(
   status: DocumentStatus,
   action: DocumentAction,
 ): boolean {
-  return canTransition(status, ACTION_TARGET[action]);
+  return status === ACTION_ALLOWED_FROM[action] &&
+    canTransition(status, ACTION_TARGET[action]);
 }
