@@ -94,6 +94,16 @@ export function notarialSearchTerm(search: string): string {
   return sanitizeSearchTermForPostgrest(search);
 }
 
+/**
+ * Distingue entre "sin búsqueda" y "el usuario escribió algo, pero todo fue
+ * eliminado por el saneamiento". En el segundo caso no debe devolverse todo el
+ * índice, porque eso haría que búsquedas como `%_(),'` funcionen como filtro
+ * amplio accidental.
+ */
+export function notarialSearchHasNoSafeTerm(search: string): boolean {
+  return search.trim() !== "" && notarialSearchTerm(search) === "";
+}
+
 /** Rango [desde, hasta] en ISO UTC a partir de las fechas CR (o null). */
 export function notarialDateRangeIso(query: NotarialQuery): {
   fromIso: string | null;

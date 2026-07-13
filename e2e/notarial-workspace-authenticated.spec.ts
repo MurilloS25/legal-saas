@@ -151,7 +151,23 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, missingId)).toHaveCount(0);
   });
 
-  test("I: invalid query params are handled safely", async ({ page }) => {
+  test("I: special-character-only search does not broaden results", async ({
+    page,
+  }) => {
+    await search(page, "%_(),'\"\\");
+    await expect(
+      page.getByText("No hay escrituras finalizadas con esos filtros"),
+    ).toBeVisible();
+    await expect(rowFor(page, completeId)).toHaveCount(0);
+  });
+
+  test("J: out-of-range page redirects to a valid page", async ({ page }) => {
+    await search(page, token, "&page=999999");
+    await expect(page).not.toHaveURL(/page=999999/);
+    await expect(rowFor(page, completeId)).toBeVisible();
+  });
+
+  test("K: invalid query params are handled safely", async ({ page }) => {
     await page.goto(
       "/dashboard/notarial-index?from=bad&to=%25%28%29&completeness=x&sort=hack&page=-1",
     );
@@ -160,7 +176,7 @@ test.describe("notarial index workspace", () => {
     ).toBeVisible();
   });
 
-  test("J: the sidebar link opens the index", async ({ page }) => {
+  test("L: the sidebar link opens the index", async ({ page }) => {
     await page.goto("/dashboard");
     await page
       .getByRole("navigation", { name: "Navegación principal" })
@@ -171,7 +187,7 @@ test.describe("notarial index workspace", () => {
     });
   });
 
-  test("K: the toolbar is usable on mobile", async ({ page }) => {
+  test("M: the toolbar is usable on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/dashboard/notarial-index");
     await expect(page.getByLabel("Buscar")).toBeVisible();

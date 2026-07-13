@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   NOTARIAL_PAGE_SIZE,
   notarialDateRangeIso,
+  notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
   notarialSortAscending,
   type NotarialQuery,
@@ -41,6 +42,10 @@ export async function listNotarialIndex(
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (notarialSearchHasNoSafeTerm(query.search)) {
+    return { rows: [], total: 0, pageCount: 1 };
+  }
 
   let request = supabase
     .from("notarial_index_entries")
