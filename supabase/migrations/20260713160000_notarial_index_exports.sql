@@ -27,7 +27,14 @@ create policy "nie_select_own"
 on public.notarial_index_exports
 for select to authenticated
 using (owner_id = auth.uid());
--- Sin políticas INSERT/UPDATE/DELETE: la escritura ocurre vía RPC definer.
+
+-- Sin INSERT/UPDATE directos: la escritura ocurre solo vía RPC definer. Se
+-- permite DELETE del propio registro (el usuario puede depurar su historial de
+-- exportaciones; no es un registro legal, solo una conveniencia interna).
+create policy "nie_delete_own"
+on public.notarial_index_exports
+for delete to authenticated
+using (owner_id = auth.uid());
 
 create or replace function public.log_notarial_index_export(
   p_format text,

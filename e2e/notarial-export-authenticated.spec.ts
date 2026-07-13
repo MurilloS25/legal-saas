@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   CleanupRegistry,
+  cleanupNotarialExports,
   createTestDocument,
   createTestNotarialMetadata,
   createTestTemplate,
@@ -24,6 +25,8 @@ const secretNote = `SECRETO-${token}`;
 
 test.describe("notarial index CSV export", () => {
   test.afterAll(async () => {
+    // Las filas de auditoría de exportación no cascadean con documents.
+    await cleanupNotarialExports();
     await runCleanup(registry, "nix");
   });
 
