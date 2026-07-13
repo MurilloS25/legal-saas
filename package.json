@@ -21,9 +21,11 @@
     "@tiptap/pm": "3.27.3",
     "@tiptap/react": "3.27.3",
     "@tiptap/starter-kit": "3.27.3",
+    "docx": "9.7.1",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
+    "server-only": "^0.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -36,6 +38,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "jszip": "^3.10.1",
     "playwright": "^1.60.0",
     "supabase": "^2.100.1",
     "tailwindcss": "^4",

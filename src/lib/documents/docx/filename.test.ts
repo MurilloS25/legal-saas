@@ -1,0 +1,66 @@
+import { describe, expect, it } from "vitest";
+import { buildDocxFilename } from "./filename";
+
+describe("buildDocxFilename", () => {
+  it("always ends in .docx", () => {
+    expect(buildDocxFilename("Escritura de compraventa")).toBe(
+      "Escritura de compraventa.docx",
+    );
+  });
+
+  it("falls back for reserved Windows device names", () => {
+    for (const reserved of ["CON", "PRN", "NUL", "AUX", "COM1", "LPT9", "con"]) {
+      expect(buildDocxFilename(reserved)).toBe("Escritura.docx");
+    }
+  });
+
+  it("falls back for a reserved name even with an extension", () => {
+    expect(buildDocxFilename("nul.txt")).toBe("Escritura.docx");
+  });
+
+  it("strips path traversal segments", () => {
+    expect(buildDocxFilename("../../archivo")).toBe("archivo.docx");
+    expect(buildDocxFilename("..\\..\\secreto")).toBe("secreto.docx");
+  });
+
+  it("removes characters invalid on Windows", () => {
+    expect(buildDocxFilename("escritura: prueba")).toBe("escritura prueba.docx");
+    expect(buildDocxFilename('"documento"')).toBe("documento.docx");
+    expect(buildDocxFilename("a<b>c|d?e*f")).toBe("a b c d e f.docx");
+  });
+
+  it("collapses runs of whitespace", () => {
+    expect(buildDocxFilename("título con   espacios")).toBe(
+      "título con espacios.docx",
+    );
+  });
+
+  it("preserves accents", () => {
+    expect(buildDocxFilename("Escritura Pública Notarial")).toBe(
+      "Escritura Pública Notarial.docx",
+    );
+  });
+
+  it("strips control characters (incl. CR/LF that could inject headers)", () => {
+    expect(buildDocxFilename("linea1\r\nlinea2")).toBe("linea1 linea2.docx");
+    expect(buildDocxFilename("a\tb\0c")).toBe("a b c.docx");
+  });
+
+  it("truncates very long titles but keeps the extension", () => {
+    const result = buildDocxFilename("t".repeat(500));
+    expect(result.endsWith(".docx")).toBe(true);
+    // 120 de base + ".docx".
+    expect(result.length).toBeLessThanOrEqual(125);
+  });
+
+  it("uses the fallback for empty or whitespace-only titles", () => {
+    expect(buildDocxFilename("")).toBe("Escritura.docx");
+    expect(buildDocxFilename("   ")).toBe("Escritura.docx");
+    expect(buildDocxFilename("///")).toBe("Escritura.docx");
+  });
+
+  it("trims trailing dots and spaces (Windows strips them)", () => {
+    expect(buildDocxFilename("documento...")).toBe("documento.docx");
+    expect(buildDocxFilename("documento   ")).toBe("documento.docx");
+  });
+});
