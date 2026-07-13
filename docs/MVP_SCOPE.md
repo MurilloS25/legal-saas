@@ -90,6 +90,12 @@ Word (`.docx`) export is implemented: the lawyer downloads the saved draft as an
 
 The application may store draft `field_values` and `rendered_content` for the user's own persistent drafts.
 
+An escritura may optionally be associated with a single principal client (`documents.client_id`, nullable); the association is never required and the escritura survives if the client is later deleted (`client_id` becomes NULL).
+
+Escrituras have a basic lifecycle: `draft` (Borrador) → `ready` (Listo para revisar) → `final` (Finalizado). Transitions are `draft↔ready` and `ready↔final`; a draft cannot jump straight to final. Finalizing is blocked while variables are pending. A finalized escritura is read-only until reopened. `final` does not mean signed, submitted, or officially filed — no signature or submission is implied.
+
+The `/dashboard/documents` workspace supports server-side search (title, client, template), filters (status, client, template), sort, and pagination, all reflected in shareable query params.
+
 The application must not store generated Word/PDF files, signed documents, official submission payloads, or storage paths for generated legal documents.
 
 PDF generation is not mandatory for the MVP. It may be added later after Word generation is stable.

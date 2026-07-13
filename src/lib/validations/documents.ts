@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { FIELD_KEY_PATTERN } from "./template-fields";
+import {
+  DOCUMENT_STATUSES,
+  type DocumentStatus,
+} from "@/lib/documents/lifecycle";
 
 /**
  * Validaciones de escrituras (documents).
@@ -8,10 +12,12 @@ import { FIELD_KEY_PATTERN } from "./template-fields";
  * son strings: el texto exacto que escribió el usuario, sin parsing. El
  * contenido renderizado se genera del lado servidor a partir del machote y
  * de estos valores — nunca se acepta desde el cliente.
+ *
+ * Los estados válidos viven en `@/lib/documents/lifecycle` (fuente única).
  */
 
-export const DOCUMENT_STATUSES = ["draft"] as const;
-export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+export { DOCUMENT_STATUSES };
+export type { DocumentStatus };
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_KEY_LENGTH = 120;

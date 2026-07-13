@@ -29,6 +29,12 @@ import { buildDocumentModel } from "@/lib/editor/render";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
 import { DownloadDocxButton } from "./DownloadDocxButton";
+import { DocumentStatusControls } from "./DocumentStatusControls";
+import {
+  isDocumentStatus,
+  isReadOnlyStatus,
+  type DocumentStatus,
+} from "@/lib/documents/lifecycle";
 import { FieldError } from "@/components/forms/FieldError";
 
 // ------------------------------------------------------------------ styles
@@ -73,6 +79,11 @@ export function DocumentComposer(props: Props) {
   const { document, fields, templateName, clients } = props;
   const isEdit = props.mode === "edit";
   const draft = isEdit ? props.draft : null;
+
+  // Estado del ciclo de vida. Finalizado (final) es de solo lectura.
+  const status: DocumentStatus =
+    draft && isDocumentStatus(draft.status) ? draft.status : "draft";
+  const readOnly = isEdit && isReadOnlyStatus(status);
 
   const action = isEdit
     ? updateDocumentDraftAction.bind(null, props.draft.id)
@@ -293,6 +304,7 @@ export function DocumentComposer(props: Props) {
                 type="text"
                 required
                 value={title}
+                disabled={readOnly}
                 onChange={(event) => {
                   setTitle(event.target.value);
                   setDirty(true);
@@ -319,6 +331,7 @@ export function DocumentComposer(props: Props) {
                 id="composer-client"
                 name="client_id"
                 value={clientId}
+                disabled={readOnly}
                 onChange={(event) => {
                   setClientId(event.target.value);
                   setDirty(true);
@@ -414,6 +427,7 @@ export function DocumentComposer(props: Props) {
                       type="text"
                       required={field.required}
                       value={values[field.field_key] ?? ""}
+                      disabled={readOnly}
                       onChange={(event) => {
                         setValues((current) => ({
                           ...current,
@@ -436,25 +450,43 @@ export function DocumentComposer(props: Props) {
 
           {/* ---- guardado ---- */}
           <div className="border-t border-slate-100 px-6 py-4 space-y-3">
-            <p
-              role="status"
-              className={`text-xs ${
-                dirty && !pending
-                  ? "text-amber-700 font-medium"
-                  : "text-slate-500"
-              }`}
-            >
-              {saveStatusText}
-            </p>
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {pending ? "Guardando…" : "Guardar borrador"}
-            </button>
+            {readOnly ? (
+              <p role="status" className="text-xs text-slate-500">
+                Esta escritura está finalizada (solo lectura). Reábrela para
+                editarla de nuevo.
+              </p>
+            ) : (
+              <>
+                <p
+                  role="status"
+                  className={`text-xs ${
+                    dirty && !pending
+                      ? "text-amber-700 font-medium"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {saveStatusText}
+                </p>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="w-full rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {pending ? "Guardando…" : "Guardar borrador"}
+                </button>
+              </>
+            )}
 
-            {/* Descarga Word: solo en escrituras ya guardadas; usa siempre la
+            {/* Controles del ciclo de vida (solo escrituras guardadas). */}
+            {isEdit && (
+              <DocumentStatusControls
+                documentId={draft!.id}
+                status={status}
+                dirty={dirty}
+              />
+            )}
+
+            {/* Descarga Word: disponible en los tres estados; usa siempre la
                 última versión persistida, por eso se bloquea si hay cambios. */}
             {isEdit && (
               <DownloadDocxButton
