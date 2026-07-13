@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { DocumentIdSchema } from "@/lib/validations/documents";
 import {
   buildEscrituraDocx,
+  contentDispositionAttachment,
+  DOCX_MIME,
   DocxGenerationError,
 } from "@/lib/documents/docx";
 
@@ -17,28 +19,12 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DOCX_MIME =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
 function genericError(status: number): NextResponse {
   // Mensaje genérico, sin SQL, stack ni contenido del documento.
   return NextResponse.json(
     { error: "No fue posible generar el documento." },
     { status },
   );
-}
-
-/**
- * Content-Disposition `attachment` con filename ASCII seguro y variante
- * RFC 5987 para tildes. El filename ya viene saneado (sin comillas, CR/LF ni
- * caracteres de control); esto es una segunda barrera.
- */
-function contentDisposition(filename: string): string {
-  const asciiFallback = filename
-    .replace(/[^ -~]/g, "_")
-    .replace(/["\\]/g, "_");
-  const encoded = encodeURIComponent(filename);
-  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
 
 export async function GET(
@@ -107,7 +93,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": DOCX_MIME,
-      "Content-Disposition": contentDisposition(result.filename),
+      "Content-Disposition": contentDispositionAttachment(result.filename),
       "Content-Length": String(body.byteLength),
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",

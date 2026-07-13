@@ -247,14 +247,14 @@ The data model must follow these principles:
 
 ## Document Generation Architecture
 
-The intended flow is:
+The flow is:
 
 ```txt
 Template definition
   ↓
 Template fields
   ↓
-Draft form
+Draft form (composer)
   ↓
 Validated input
   ↓
@@ -262,18 +262,18 @@ Persisted draft field_values
   ↓
 Server-rendered text snapshot
   ↓
-Future DOCX export request
+DOCX export request (GET /api/documents/[id]/docx)
   ↓
-DOCX generation adapter
+DOCX generation adapter (src/lib/documents/docx, server-only)
   ↓
-Download
+Download (in-memory buffer)
   ↓
 Discard generated file from application memory/storage
 ```
 
 Persistent drafts may store validated field values and a plain-text rendered snapshot for continuation and preview. Generated Word/PDF files are not stored by the application.
 
-The initial required output is editable Word format.
+DOCX export is implemented and reuses the neutral document model (`buildDocumentModel`) and the shared conversion layer (`resolveTemplateContent`) — there is no second variable renderer. The generator (`src/lib/documents/docx/`) is server-only, builds the file in memory with the `docx` library, and never writes to disk, Supabase Storage or the database. See `docs/DOCX_EXPORT.md`.
 
 PDF export is deferred unless explicitly approved later.
 

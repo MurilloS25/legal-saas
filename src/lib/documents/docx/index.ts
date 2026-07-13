@@ -10,3 +10,4 @@ export { generateDocumentDocx, DocxGenerationError } from "./generate";
 export type { DocxErrorCode } from "./generate";
 export { buildDocxFilename } from "./filename";
 export { DOCX_LIMITS } from "./limits";
+export { DOCX_MIME, contentDispositionAttachment } from "./http";
