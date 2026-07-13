@@ -7,8 +7,10 @@ export type DocumentListRow = {
   title: string;
   status: string;
   template_id: string;
+  client_id: string | null;
   updated_at: string;
   templates: { name: string } | null;
+  clients: { id: string; full_name: string } | null;
 };
 
 export type DocumentRow = {
@@ -16,10 +18,21 @@ export type DocumentRow = {
   title: string;
   status: string;
   template_id: string;
+  client_id: string | null;
   field_values: Record<string, string>;
   rendered_content: string;
   created_at: string;
   updated_at: string;
+  clients: { id: string; full_name: string } | null;
+};
+
+/** Escritura asociada a un cliente, para la sección del detalle de cliente. */
+export type ClientDocumentRow = {
+  id: string;
+  title: string;
+  status: string;
+  updated_at: string;
+  templates: { name: string } | null;
 };
 
 /** Borradores del usuario, el modificado más recientemente primero. */
@@ -33,7 +46,9 @@ export async function listDocuments(): Promise<DocumentListRow[]> {
 
   const { data, error } = await supabase
     .from("documents")
-    .select("id, title, status, template_id, updated_at, templates(name)")
+    .select(
+      "id, title, status, template_id, client_id, updated_at, templates(name), clients(id, full_name)",
+    )
     .eq("owner_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -58,11 +73,38 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, title, status, template_id, field_values, rendered_content, created_at, updated_at",
+      "id, title, status, template_id, client_id, field_values, rendered_content, created_at, updated_at, clients(id, full_name)",
     )
     .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  return (data as DocumentRow | null) ?? null;
+  return (data as unknown as DocumentRow | null) ?? null;
+}
+
+/**
+ * Escrituras asociadas a un cliente propio, la más reciente primero. Solo
+ * del usuario autenticado; el cliente ajeno no devuelve nada.
+ */
+export async function listDocumentsByClient(
+  clientId: string,
+): Promise<ClientDocumentRow[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  if (!DocumentIdSchema.safeParse(clientId).success) return [];
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, title, status, updated_at, templates(name)")
+    .eq("owner_id", user.id)
+    .eq("client_id", clientId)
+    .order("updated_at", { ascending: false });
+
+  if (error) return [];
+  return (data ?? []) as unknown as ClientDocumentRow[];
 }

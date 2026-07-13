@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listDocuments } from "./queries";
+import {
+  documentStatusBadgeClass,
+  documentStatusLabel,
+} from "@/lib/documents/status";
 import { DeleteDocumentButton } from "./_components/DeleteDocumentButton";
 
 export const metadata = {
@@ -61,9 +65,12 @@ export default async function DocumentsPage() {
       ) : (
         /* ---- drafts list ---- */
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="hidden sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-3 px-6 py-3 border-b border-slate-100 bg-slate-50">
+          <div className="hidden sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-3 px-6 py-3 border-b border-slate-100 bg-slate-50">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Escritura
+            </span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Cliente
             </span>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Machote
@@ -81,18 +88,26 @@ export default async function DocumentsPage() {
             {documents.map((doc) => (
               <li
                 key={doc.id}
-                className="flex flex-col gap-2 px-6 py-4 sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-3 hover:bg-slate-50 transition-colors"
+                className="flex flex-col gap-2 px-6 py-4 sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-3 hover:bg-slate-50 transition-colors"
               >
                 <p className="text-sm font-medium text-slate-900 truncate">
                   {doc.title}
                 </p>
 
                 <p className="text-sm text-slate-500 truncate">
+                  {doc.clients?.full_name ?? (
+                    <span className="text-slate-400">Sin cliente</span>
+                  )}
+                </p>
+
+                <p className="text-sm text-slate-500 truncate">
                   {doc.templates?.name ?? "—"}
                 </p>
 
-                <span className="inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                  Borrador
+                <span
+                  className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(doc.status)}`}
+                >
+                  {documentStatusLabel(doc.status)}
                 </span>
 
                 <p className="text-sm text-slate-500">
@@ -104,7 +119,7 @@ export default async function DocumentsPage() {
                     href={`/dashboard/documents/${doc.id}`}
                     className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
                   >
-                    Continuar
+                    {doc.status === "final" ? "Ver" : "Continuar"}
                   </Link>
                   <DeleteDocumentButton
                     documentId={doc.id}

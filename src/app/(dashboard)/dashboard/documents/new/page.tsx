@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listTemplates } from "../../templates/queries";
+import { listClients } from "../../clients/queries";
 
 export const metadata = {
   title: "Nueva escritura — LexCR",
@@ -24,8 +25,30 @@ function formatDate(iso: string): string {
 
 // ------------------------------------------------------------------ page
 
-export default async function NewDocumentTemplatePickerPage() {
-  const templates = await listTemplates();
+type Props = {
+  searchParams: Promise<{ client?: string }>;
+};
+
+export default async function NewDocumentTemplatePickerPage({
+  searchParams,
+}: Props) {
+  const { client: clientParam } = await searchParams;
+  const [templates, clients] = await Promise.all([
+    listTemplates(),
+    listClients(),
+  ]);
+
+  // Solo se conserva un cliente preseleccionado si es propio.
+  const selectedClient =
+    clientParam != null
+      ? (clients.find((c) => c.id === clientParam) ?? null)
+      : null;
+
+  // El cliente elegido se propaga al siguiente paso por query param.
+  const templateHref = (templateId: string) =>
+    selectedClient
+      ? `/dashboard/documents/new/${templateId}?client=${selectedClient.id}`
+      : `/dashboard/documents/new/${templateId}`;
 
   return (
     <PageContainer>
@@ -62,6 +85,14 @@ export default async function NewDocumentTemplatePickerPage() {
           Selecciona el machote que servirá de base para la escritura.
         </p>
       </div>
+
+      {selectedClient && (
+        <div className="mb-6 rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3 text-sm text-teal-800">
+          Cliente principal:{" "}
+          <span className="font-semibold">{selectedClient.full_name}</span>. Se
+          asociará a la escritura; podrás cambiarlo antes de guardar.
+        </div>
+      )}
 
       {/* ---- empty state ---- */}
       {templates.length === 0 ? (
@@ -109,7 +140,7 @@ export default async function NewDocumentTemplatePickerPage() {
 
               <div className="mt-auto">
                 <Link
-                  href={`/dashboard/documents/new/${template.id}`}
+                  href={templateHref(template.id)}
                   className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
                 >
                   Usar este machote

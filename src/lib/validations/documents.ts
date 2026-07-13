@@ -94,6 +94,18 @@ export const TemplateIdSchema = z
   .string()
   .regex(UUID_PATTERN, "El identificador no es válido");
 
+/**
+ * client_id opcional del formulario. La cadena vacía (opción "Sin cliente")
+ * se normaliza a null. Cualquier otro valor debe ser un UUID válido.
+ */
+export const OptionalClientIdSchema = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? null : value))
+  .refine((value) => value === null || UUID_PATTERN.test(value), {
+    message: "El cliente seleccionado no es válido",
+  });
+
 export const DocumentStatusSchema = z.enum(DOCUMENT_STATUSES, {
   error: "El estado no es válido",
 });

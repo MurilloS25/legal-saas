@@ -5,6 +5,7 @@ import {
   DocumentRenderedContentSchema,
   DocumentIdSchema,
   DocumentStatusSchema,
+  OptionalClientIdSchema,
   mergeDocumentDraftValues,
 } from "./documents";
 
@@ -193,6 +194,33 @@ describe("DocumentIdSchema", () => {
 
   it("rejects an empty string", () => {
     expect(DocumentIdSchema.safeParse("").success).toBe(false);
+  });
+});
+
+describe("OptionalClientIdSchema", () => {
+  it("normalizes an empty string to null (Sin cliente)", () => {
+    const result = OptionalClientIdSchema.safeParse("");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBeNull();
+  });
+
+  it("trims whitespace-only input to null", () => {
+    const result = OptionalClientIdSchema.safeParse("   ");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBeNull();
+  });
+
+  it("accepts a valid UUID", () => {
+    const uuid = "41111111-c000-0000-0000-000000000001";
+    const result = OptionalClientIdSchema.safeParse(uuid);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe(uuid);
+  });
+
+  it("rejects a non-UUID value", () => {
+    for (const value of ["not-a-uuid", "123", "'; drop table"]) {
+      expect(OptionalClientIdSchema.safeParse(value).success).toBe(false);
+    }
   });
 });
 

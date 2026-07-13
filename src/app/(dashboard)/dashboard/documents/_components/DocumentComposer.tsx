@@ -56,6 +56,10 @@ type Props = {
   document: TemplateDocument;
   fields: FillableTemplateField[];
   templateName: string;
+  /** Clientes propios para el selector "Cliente principal (opcional)". */
+  clients: { id: string; full_name: string }[];
+  /** Cliente preseleccionado (create) o asociado actual (edit). */
+  initialClientId: string | null;
 } & (
   | { mode: "create"; templateId: string; defaultTitle: string }
   | { mode: "edit"; draft: DocumentRow; savedJustNow?: boolean }
@@ -66,7 +70,7 @@ const initialState: DocumentDraftState = {};
 // ------------------------------------------------------------------ component
 
 export function DocumentComposer(props: Props) {
-  const { document, fields, templateName } = props;
+  const { document, fields, templateName, clients } = props;
   const isEdit = props.mode === "edit";
   const draft = isEdit ? props.draft : null;
 
@@ -85,6 +89,7 @@ export function DocumentComposer(props: Props) {
     }
     return initial;
   });
+  const [clientId, setClientId] = useState(props.initialClientId ?? "");
   const [dirty, setDirty] = useState(false);
   const [focusedKey, setFocusedKey] = useState<string | undefined>();
   const [mobileView, setMobileView] = useState<"data" | "document">("data");
@@ -302,6 +307,31 @@ export function DocumentComposer(props: Props) {
                 id="composer-title-error"
                 message={state.titleError}
               />
+            </div>
+
+            {/* ---- cliente principal (opcional) ---- */}
+            <div>
+              <label htmlFor="composer-client" className={labelClass}>
+                Cliente principal{" "}
+                <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <select
+                id="composer-client"
+                name="client_id"
+                value={clientId}
+                onChange={(event) => {
+                  setClientId(event.target.value);
+                  setDirty(true);
+                }}
+                className={inputClass}
+              >
+                <option value="">Sin cliente</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.full_name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* ---- progreso ---- */}
