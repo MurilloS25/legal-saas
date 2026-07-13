@@ -6,6 +6,7 @@ Lawyers can download a saved escritura draft as an editable Word (`.docx`) file.
 
 - Generation is **on demand** and **server-only**. Nothing is stored: no Supabase Storage, no disk, no database blob, no external service.
 - The file always reflects the **last saved draft**. The download button is disabled while there are unsaved changes (`Guarda los cambios antes de descargar el Word`).
+- If the template changes after a draft was saved, export falls back to the persisted `rendered_content` snapshot so the Word file still represents the saved draft, not the newer template text.
 - **Pending variables stay visible.** A variable without a value appears in the Word as `{{clave}}`; it is never dropped or emptied. If the saved draft has pending variables, an accessible confirmation dialog is shown before downloading (count + cancel + "Descargar de todas formas").
 - No Microsoft Graph, Office APIs, LibreOffice, external conversion, or Tiptap Cloud is used.
 
@@ -28,7 +29,7 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
 ## Modules
 
 - `src/lib/documents/docx/` — server-only generation layer:
-  - `document.ts` — `buildEscrituraDocx({ contentJson, fieldValues, title })` → `{ buffer, filename, pendingVariables }`.
+  - `document.ts` — `buildEscrituraDocx({ contentJson, fieldValues, renderedContent?, title })` → `{ buffer, filename, pendingVariables }`.
   - `generate.ts` — `generateDocumentDocx(model)` (neutral `DocumentModel` → in-memory Buffer).
   - `config.ts` / `limits.ts` — central format and size limits.
   - `filename.ts` — safe filename (no path traversal, no reserved Windows names, no control chars/CRLF, accents kept, bounded length, fallback).
@@ -36,7 +37,7 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
 - `src/app/api/documents/[id]/docx/route.ts` — the Route Handler.
 - `src/app/(dashboard)/dashboard/documents/_components/DownloadDocxButton.tsx` — the client button, unsaved-changes gate and pending-variables dialog.
 
-Compatibility: works for structured `content_json.doc` and legacy text-only machotes (converted via the shared layer), and preserves historical `field_values`.
+Compatibility: works for structured `content_json.doc` and legacy text-only machotes (converted via the shared layer), preserves historical `field_values`, and keeps export stable against later template edits through the saved `rendered_content` snapshot.
 
 ## Privacy
 
@@ -46,11 +47,11 @@ Legal content may be sensitive. The feature sends nothing to third parties, adds
 
 - [`docx`](https://www.npmjs.com/package/docx) `9.7.1` — MIT, actively maintained, pure JS, no external services. Chosen over alternatives: `html-docx-js` (unmaintained, HTML-based), `officegen` (older, less typed), `mammoth` (converts docx→HTML, wrong direction), and Pandoc/LibreOffice (external binaries, out of scope).
 - `server-only` — MIT, marks the generation modules so they cannot be bundled into client code.
-- `jszip` (devDependency) — MIT, used only in tests to inspect the generated `.docx` as a ZIP without Microsoft Word.
+- `jszip` (devDependency) — dual licensed `(MIT OR GPL-3.0-or-later)`, used under its MIT-compatible option only in tests to inspect the generated `.docx` as a ZIP without Microsoft Word.
 
 `pnpm audit --prod` reports no advisories introduced by these packages.
 
 ## Tests
 
 - Unit (`src/lib/documents/docx/*.test.ts`): filename safety, generation and OOXML structure (inspected as ZIP: `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`), marks, variable substitution, pending placeholders, Unicode, limits, `Content-Disposition` header safety (CRLF/quotes/RFC 5987), and basic performance (small/medium/near-limit).
-- E2E (`e2e/documents-docx-authenticated.spec.ts`, project `chromium-documents-docx`): button visibility, unsaved-changes gate, download + ZIP inspection, MIME/headers, pending-variables confirmation, cancel / download anyway, `404` for missing/foreign, invalid id, anonymous `401`, and mobile.
+- E2E (`e2e/documents-docx-authenticated.spec.ts`, project `chromium-documents-docx`): button visibility, unsaved-changes gate, download + ZIP inspection, saved-snapshot regression after a later template edit, MIME/headers, pending-variables confirmation, cancel / download anyway, `404` for missing/foreign, invalid id, anonymous `401`, and mobile.
