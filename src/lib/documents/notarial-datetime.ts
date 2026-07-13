@@ -50,6 +50,24 @@ export function isoToCostaRicaLocal(iso: string | null): string {
   return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Inicio del día (00:00 CR) de una fecha YYYY-MM-DD como ISO UTC, o null. */
+export function costaRicaDayStartIso(date: string): string | null {
+  const trimmed = date.trim();
+  if (!DATE_RE.test(trimmed)) return null;
+  const d = new Date(`${trimmed}T00:00:00${CR_OFFSET}`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Fin del día (23:59:59.999 CR) de una fecha YYYY-MM-DD como ISO UTC, o null. */
+export function costaRicaDayEndIso(date: string): string | null {
+  const trimmed = date.trim();
+  if (!DATE_RE.test(trimmed)) return null;
+  const d = new Date(`${trimmed}T23:59:59.999${CR_OFFSET}`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 /** Fecha legible (solo día) en America/Costa_Rica. */
 export function formatCostaRicaDate(iso: string | null): string {
   if (!iso) return "";
