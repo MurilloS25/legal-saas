@@ -2,7 +2,16 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(6);
+select plan(8);
+
+select ok(
+  'security_invoker=on' = any(coalesce(
+    (select reloptions from pg_class
+      where oid = 'public.notarial_index_entries'::regclass),
+    array[]::text[]
+  )),
+  'notarial_index_entries uses security_invoker=true'
+);
 
 -- seed
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -60,6 +69,14 @@ select is((select count(*) from public.notarial_index_entries),
 select ok((select not has_metadata from public.notarial_index_entries
   where document_id = '82222222-d000-0000-0000-000000000001'),
   'A finalized document without metadata shows has_metadata false (not hidden)');
+
+-- ------------------------------------------------------------------ anon
+reset role;
+select set_config('request.jwt.claim.sub','', true);
+set local role anon;
+
+select is((select count(*) from public.notarial_index_entries),
+  0::bigint, 'Anonymous users cannot read notarial index entries');
 
 reset role;
 select * from finish();

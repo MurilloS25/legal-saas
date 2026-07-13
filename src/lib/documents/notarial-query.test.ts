@@ -3,6 +3,8 @@ import {
   NOTARIAL_PAGE_SIZE,
   notarialDateRangeIso,
   notarialQueryToParams,
+  notarialSearchHasNoSafeTerm,
+  notarialSearchTerm,
   notarialSortAscending,
   parseNotarialQuery,
 } from "./notarial-query";
@@ -71,6 +73,14 @@ describe("notarialDateRangeIso", () => {
 });
 
 describe("helpers", () => {
+  it("detects searches that sanitize to an empty PostgREST term", () => {
+    expect(notarialSearchHasNoSafeTerm("%_(),'\"\\")).toBe(true);
+    expect(notarialSearchHasNoSafeTerm("   % _ ( )   ")).toBe(true);
+    expect(notarialSearchHasNoSafeTerm("")).toBe(false);
+    expect(notarialSearchHasNoSafeTerm("Compraventa %")).toBe(false);
+    expect(notarialSearchTerm("Compraventa %")).toBe("Compraventa");
+  });
+
   it("maps sort to ascending", () => {
     expect(notarialSortAscending("recent")).toBe(false);
     expect(notarialSortAscending("oldest")).toBe(true);

@@ -487,7 +487,7 @@ pnpm e2e:headed   # headed browser
    pnpm supabase start
    ```
 
-2. Create a dedicated test user via the Supabase local dashboard (http://localhost:54323) or by signing up through the app at http://localhost:3000/signup. Use a clearly fake address — for example `e2e-test@example.com`.
+2. Create a dedicated test user via the Supabase local dashboard (http://127.0.0.1:55323) or by signing up through the app at http://localhost:3000/signup. Use a clearly fake address — for example `e2e-test@example.com`.
 
 3. Add the credentials to `.env.local` (never commit this file):
    ```

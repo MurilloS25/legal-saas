@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(15);
+select plan(20);
 
 create schema rls_dnm_test;
 grant usage on schema rls_dnm_test to public;
@@ -45,6 +45,7 @@ insert into public.templates (id, owner_id, name, status, content_json) values
 
 insert into public.documents (id, owner_id, template_id, title, field_values, rendered_content) values
   ('71111111-d000-0000-0000-000000000001','71111111-1111-1111-1111-111111111111','71111111-0000-0000-0000-000000000001','Doc A','{}'::jsonb,''),
+  ('71111111-d000-0000-0000-000000000002','71111111-1111-1111-1111-111111111111','71111111-0000-0000-0000-000000000001','Doc A 2','{}'::jsonb,''),
   ('72222222-d000-0000-0000-000000000001','72222222-2222-2222-2222-222222222222','72222222-0000-0000-0000-000000000001','Doc B','{}'::jsonb,'');
 
 -- ------------------------------------------------------------------ user A
@@ -93,6 +94,36 @@ $$), 1::bigint, 'A no-op update still touches the row');
 -- no agrega un tercero.
 select is(rls_dnm_test.event_count('71111111-d000-0000-0000-000000000001','notarial_metadata_updated'),
   2::bigint, 'A no-op update records no additional updated event');
+
+select ok(rls_dnm_test.statement_fails($$
+  update public.document_notarial_metadata
+     set act_type = repeat('x', 201)
+   where document_id = '71111111-d000-0000-0000-000000000001'
+$$), 'Database constraints reject oversized notarial metadata fields');
+
+select ok(rls_dnm_test.statement_fails($$
+  update public.document_notarial_metadata
+     set document_id = '71111111-d000-0000-0000-000000000002'
+   where document_id = '71111111-d000-0000-0000-000000000001'
+$$), 'Notarial metadata cannot be moved to another document');
+
+select ok(rls_dnm_test.statement_fails($$
+  update public.document_notarial_metadata
+     set owner_id = '72222222-2222-2222-2222-222222222222'
+   where document_id = '71111111-d000-0000-0000-000000000001'
+$$), 'Notarial metadata owner_id cannot be changed');
+
+select ok(not has_function_privilege(
+  'authenticated',
+  'public.enforce_notarial_metadata_editable()',
+  'EXECUTE'
+), 'Authenticated users cannot execute the internal editable trigger function');
+
+select ok(not has_function_privilege(
+  'authenticated',
+  'public.record_notarial_metadata_activity()',
+  'EXECUTE'
+), 'Authenticated users cannot execute the internal activity trigger function');
 
 -- Bloqueo cuando la escritura está final.
 update public.documents set status = 'ready' where id = '71111111-d000-0000-0000-000000000001';

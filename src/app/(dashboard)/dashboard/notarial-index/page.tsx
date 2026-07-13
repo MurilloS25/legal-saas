@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
   listNotarialIndex,
@@ -50,6 +51,12 @@ export default async function NotarialIndexPage({ searchParams }: Props) {
     listNotarialActTypes(),
     getLatestNotarialExportAt(),
   ]);
+
+  if (page.total > 0 && query.page > page.pageCount) {
+    const params = notarialQueryToParams({ ...query, page: page.pageCount });
+    const qs = new URLSearchParams(params).toString();
+    redirect(qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index");
+  }
 
   const exportParams = notarialQueryToParams({ ...query, page: 1 });
   const exportQs = new URLSearchParams(exportParams).toString();
