@@ -35,7 +35,19 @@ create table public.document_notarial_metadata (
     references public.documents(id, owner_id)
     on delete cascade,
   constraint dnm_document_id_key unique (document_id),
-  constraint dnm_id_owner_id_key unique (id, owner_id)
+  constraint dnm_id_owner_id_key unique (id, owner_id),
+  constraint dnm_instrument_number_length_check
+    check (instrument_number is null or char_length(btrim(instrument_number)) <= 120),
+  constraint dnm_act_type_length_check
+    check (act_type is null or char_length(btrim(act_type)) <= 200),
+  constraint dnm_book_reference_length_check
+    check (book_reference is null or char_length(btrim(book_reference)) <= 120),
+  constraint dnm_folio_reference_length_check
+    check (folio_reference is null or char_length(btrim(folio_reference)) <= 120),
+  constraint dnm_appearing_parties_summary_length_check
+    check (appearing_parties_summary is null or char_length(btrim(appearing_parties_summary)) <= 2000),
+  constraint dnm_notes_length_check
+    check (notes is null or char_length(btrim(notes)) <= 2000)
 );
 
 comment on table public.document_notarial_metadata is
@@ -53,11 +65,21 @@ create or replace function public.enforce_notarial_metadata_editable()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_status text;
 begin
+  if tg_op = 'UPDATE'
+    and (
+      new.document_id is distinct from old.document_id
+      or new.owner_id is distinct from old.owner_id
+    )
+  then
+    raise exception 'notarial metadata ownership and document link cannot be changed'
+      using errcode = 'check_violation';
+  end if;
+
   select status into v_status
     from public.documents
    where id = new.document_id and owner_id = new.owner_id;
@@ -71,6 +93,9 @@ begin
 end;
 $$;
 
+revoke all on function public.enforce_notarial_metadata_editable()
+  from public, anon, authenticated;
+
 create trigger dnm_enforce_editable
 before insert or update on public.document_notarial_metadata
 for each row execute function public.enforce_notarial_metadata_editable();
@@ -81,7 +106,7 @@ create or replace function public.record_notarial_metadata_activity()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_actor uuid := coalesce(auth.uid(), new.owner_id);
@@ -158,6 +183,9 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function public.record_notarial_metadata_activity()
+  from public, anon, authenticated;
 
 create trigger dnm_record_activity
 after insert or update on public.document_notarial_metadata
