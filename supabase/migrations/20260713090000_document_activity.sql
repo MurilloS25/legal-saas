@@ -143,6 +143,8 @@ create trigger documents_record_activity
 after insert or update on public.documents
 for each row execute function public.record_document_activity();
 
+revoke all on function public.record_document_activity() from public, anon, authenticated;
+
 -- ------------------------------------------------------------------ word rpc
 
 create or replace function public.log_document_word_generated(p_document_id uuid)
@@ -171,7 +173,7 @@ begin
 end;
 $$;
 
-revoke all on function public.log_document_word_generated(uuid) from public;
+revoke all on function public.log_document_word_generated(uuid) from public, anon;
 grant execute on function public.log_document_word_generated(uuid) to authenticated;
 
 -- ------------------------------------------------------------------ rls

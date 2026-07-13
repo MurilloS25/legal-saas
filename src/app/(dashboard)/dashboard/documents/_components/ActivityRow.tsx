@@ -14,7 +14,7 @@ export function ActivityRow({ item }: { item: ActivityListItem }) {
   const formatted = formatActivityEvent(item);
   return (
     <li className="px-6 py-4">
-      <p className="text-sm font-medium text-slate-900">{formatted.title}</p>
+      <h3 className="text-sm font-medium text-slate-900">{formatted.title}</h3>
       {formatted.lines.map((line, index) => (
         <p key={index} className="text-sm text-slate-500">
           {line}

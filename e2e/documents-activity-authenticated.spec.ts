@@ -115,7 +115,7 @@ test.describe("document activity history", () => {
   test("E: the timeline shows the most recent event first", async ({ page }) => {
     await openDocument(page);
     const titles = await activitySection(page)
-      .locator("li p.font-medium")
+      .getByRole("heading", { level: 3 })
       .allInnerTexts();
     // El evento de estado es el más reciente; la creación, el más antiguo.
     expect(titles[0]).toBe("Estado actualizado");
@@ -128,7 +128,6 @@ test.describe("document activity history", () => {
     await page.getByRole("button", { name: "Descargar Word" }).click();
     await downloadPromise;
 
-    await page.reload();
     await expect(
       activitySection(page).getByText("Documento Word generado"),
     ).toBeVisible({ timeout: 15_000 });
@@ -136,6 +135,11 @@ test.describe("document activity history", () => {
 
   test("G: a failed operation records no activity", async ({ page }) => {
     await openDocument(page);
+    const contentEvents = activitySection(page).getByRole("heading", {
+      name: "Contenido de la escritura actualizado",
+    });
+    const beforeContentEventCount = await contentEvents.count();
+
     // Vaciar un campo requerido bloquea el guardado (operación fallida).
     await panelField(page, new RegExp(fieldLabel)).fill("");
     await page.getByRole("button", { name: "Guardar borrador" }).click();
@@ -147,8 +151,10 @@ test.describe("document activity history", () => {
     // No debe existir un evento espurio: el conteo de "Contenido..." no crece
     // por un guardado que falló la validación.
     await expect(
-      activitySection(page).getByText("Documento Word generado"),
-    ).toBeVisible();
+      activitySection(page).getByRole("heading", {
+        name: "Contenido de la escritura actualizado",
+      }),
+    ).toHaveCount(beforeContentEventCount);
   });
 
   test("H: a second context cannot read the activity via the API", async ({

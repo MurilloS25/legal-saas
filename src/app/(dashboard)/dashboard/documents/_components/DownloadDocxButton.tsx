@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useId } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   documentId: string;
@@ -54,6 +55,7 @@ export function DownloadDocxButton({
   variant = "full",
   ariaLabel,
 }: Props) {
+  const router = useRouter();
   const compact = variant === "compact";
   const [status, setStatus] = useState<Status>("idle");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -101,6 +103,7 @@ export function DownloadDocxButton({
       anchor.remove();
       URL.revokeObjectURL(url);
 
+      router.refresh();
       setStatus("idle");
     } catch {
       setStatus("error");

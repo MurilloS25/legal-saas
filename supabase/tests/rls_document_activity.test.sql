@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(20);
+select plan(25);
 
 create schema rls_act_test;
 grant usage on schema rls_act_test to public;
@@ -30,6 +30,21 @@ begin
   execute statement;
   get diagnostics affected_rows = row_count;
   return affected_rows;
+end;
+$$;
+
+create function rls_act_test.statement_does_not_mutate(statement text)
+returns boolean
+language plpgsql
+as $$
+declare
+  affected_rows bigint;
+begin
+  execute statement;
+  get diagnostics affected_rows = row_count;
+  return affected_rows = 0;
+exception when others then
+  return true;
 end;
 $$;
 
@@ -101,6 +116,16 @@ select is(
   (select actor_user_id from public.document_activity where document_id = '61111111-d000-0000-0000-000000000001'),
   '61111111-1111-1111-1111-111111111111'::uuid,
   'The actor is derived from the authenticated session'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.record_document_activity()',
+    'EXECUTE'
+  ),
+  false,
+  'The trigger function is not directly executable by authenticated users'
 );
 
 update public.documents set status = 'ready' where id = '61111111-d000-0000-0000-000000000001';
@@ -226,6 +251,23 @@ select ok(
   'Direct arbitrary INSERT into document_activity is blocked'
 );
 
+select ok(
+  rls_act_test.statement_does_not_mutate($$
+    update public.document_activity
+       set event_type = 'forged'
+     where document_id = '61111111-d000-0000-0000-000000000001'
+  $$),
+  'Direct UPDATE into document_activity cannot mutate rows'
+);
+
+select ok(
+  rls_act_test.statement_does_not_mutate($$
+    delete from public.document_activity
+     where document_id = '61111111-d000-0000-0000-000000000001'
+  $$),
+  'Direct DELETE from document_activity cannot mutate rows'
+);
+
 -- ------------------------------------------------------------------ user B
 reset role;
 select set_config('request.jwt.claim.sub', '62222222-2222-2222-2222-222222222222', true);
@@ -235,6 +277,27 @@ select is(
   (select count(*) from public.document_activity where document_id = '61111111-d000-0000-0000-000000000001'),
   0::bigint,
   'User B cannot see User A activity'
+);
+
+-- ------------------------------------------------------------------ anonymous
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+set local role anon;
+
+select is(
+  (select count(*) from public.document_activity where document_id = '61111111-d000-0000-0000-000000000001'),
+  0::bigint,
+  'Anonymous users cannot read document activity'
+);
+
+select is(
+  has_function_privilege(
+    'anon',
+    'public.log_document_word_generated(uuid)',
+    'EXECUTE'
+  ),
+  false,
+  'Anonymous users cannot execute the word-generated RPC'
 );
 
 reset role;
