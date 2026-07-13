@@ -182,6 +182,17 @@ export default defineConfig({
       dependencies: ["chromium-notarial-metadata"],
     },
 
+    // Notarial index CSV export — authenticated.
+    {
+      name: "chromium-notarial-export",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-export-authenticated\.spec\.ts/,
+      dependencies: ["chromium-notarial-workspace"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -191,7 +202,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-workspace"],
+      dependencies: ["chromium-notarial-export"],
     },
   ],
   webServer: {
