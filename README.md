@@ -54,6 +54,7 @@ pnpm build
 - [Security](docs/SECURITY.md)
 - [Database](docs/DATABASE.md)
 - [Accessibility](docs/ACCESSIBILITY.md)
+- [Word (.docx) export](docs/DOCX_EXPORT.md)
 - [Testing](docs/TESTING.md)
 - [CI/CD](docs/CI_CD.md)
 - [Docker](docs/DOCKER.md)

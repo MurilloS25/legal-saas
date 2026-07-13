@@ -34,6 +34,7 @@ Use this guide before starting any task:
 | Security, OWASP, secrets, logging, RLS | `docs/SECURITY.md` |
 | Accessibility, forms, keyboard navigation, focus, errors | `docs/ACCESSIBILITY.md` |
 | UI implementation, visual design, app layout, components | `docs/UI_GUIDELINES.md`, `docs/design/DESIGN.md` |
+| Word (`.docx`) export: generation, download endpoint, privacy | `docs/DOCX_EXPORT.md`, `docs/SECURITY.md` |
 | Testing, TDD rules, unit tests, E2E tests | `docs/TESTING.md` |
 | CI/CD, GitHub Actions, Dependabot, deployment flow | `docs/CI_CD.md` |
 | Docker usage and local development strategy | `docs/DOCKER.md` |

@@ -465,7 +465,7 @@ pnpm e2e:headed   # headed browser
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
 - Not included in CI yet (requires a live Supabase local instance and test credentials).
-- Project execution order: `setup` → `chromium-clients` → `chromium-templates` → `chromium-template-fields` → `chromium-documents` → `chromium-authenticated` (last, logs out). Authenticated module projects run sequentially to avoid local Supabase/dev-server contention while several flows create or update records.
+- Project execution order: `setup` → `chromium-clients` → `chromium-templates` → `chromium-template-fields` → `chromium-documents` → `chromium-documents-docx` → `chromium-authenticated` (last, logs out). Authenticated module projects run sequentially to avoid local Supabase/dev-server contention while several flows create or update records.
 
 | Playwright project | Test file | Covers |
 |---|---|---|
@@ -473,6 +473,7 @@ pnpm e2e:headed   # headed browser
 | `chromium-templates` | `e2e/templates-authenticated.spec.ts` | Template workspace: create/edit with rich editor (bold/italic/underline), insert variable, preview, mobile edit/preview switch, persistence after reload |
 | `chromium-template-fields` | `e2e/template-fields-authenticated.spec.ts` | Template variables in the workspace: legacy conversion, Configurada/Pendiente/No utilizada states, configure/remove configuration, key validation |
 | `chromium-documents` | `e2e/documents-authenticated.spec.ts` | Document composer: create/edit drafts with live document sheet, formatting (bold/italic/underline), progress, historical values, required validation, mobile data/document switch |
+| `chromium-documents-docx` | `e2e/documents-docx-authenticated.spec.ts` | Word download: button visibility, unsaved-changes gate, `.docx` download + ZIP inspection, MIME/headers, pending-variables confirmation, 404/invalid-id/anonymous, mobile |
 | `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
 
 **Setting up authenticated E2E tests:**

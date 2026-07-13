@@ -86,7 +86,7 @@ Templates may include:
 
 The MVP lets lawyers save draft escrituras while they work, using validated field values and a server-rendered text snapshot.
 
-When Word export is implemented, generated Word documents are downloaded by the lawyer and discarded by the application.
+Word (`.docx`) export is implemented: the lawyer downloads the saved draft as an editable Word file generated on demand in server memory and discarded immediately — never stored. See `docs/DOCX_EXPORT.md`.
 
 The application may store draft `field_values` and `rendered_content` for the user's own persistent drafts.
 
