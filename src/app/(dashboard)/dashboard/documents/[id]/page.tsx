@@ -12,8 +12,10 @@ import {
   documentStatusLabel,
 } from "@/lib/documents/status";
 import { listDocumentActivity } from "../activity";
+import { getNotarialMetadata } from "../notarial-queries";
 import { DocumentComposer } from "../_components/DocumentComposer";
 import { DocumentActivity } from "../_components/DocumentActivity";
+import { NotarialMetadataSection } from "../_components/NotarialMetadataSection";
 
 export const metadata = {
   title: "Escritura — LexCR",
@@ -35,6 +37,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
 
   const template = await getTemplateById(document.template_id);
   const activity = await listDocumentActivity(document.id);
+  const notarialMetadata = await getNotarialMetadata(document.id);
 
   return (
     <PageContainer>
@@ -98,6 +101,12 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           savedJustNow={saved === "1"}
         />
       )}
+
+      <NotarialMetadataSection
+        documentId={document.id}
+        metadata={notarialMetadata}
+        readOnly={document.status === "final"}
+      />
 
       {/* key = updated_at: al cambiar la escritura (guardar, cambio de estado)
           la sección se remonta con la actividad recién revalidada. */}

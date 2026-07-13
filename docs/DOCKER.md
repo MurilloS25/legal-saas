@@ -75,8 +75,13 @@ pnpm supabase stop
 
 Local service URLs:
 
-- Supabase Studio: `http://127.0.0.1:54323`
-- Local project API URL: `http://127.0.0.1:54321`
+- Supabase Studio: `http://127.0.0.1:55323`
+- Local project API URL: `http://127.0.0.1:55321`
+- Local Postgres port: `55432`
+
+The local ports are configured in `supabase/config.toml` to avoid collisions
+with other local Postgres/Supabase services. Do not override them ad hoc during
+validation; update the config and docs together if they ever need to change.
 
 Do not paste or commit local anon keys, service role keys, JWT secrets, database passwords, or other secrets from `pnpm supabase status`.
 
