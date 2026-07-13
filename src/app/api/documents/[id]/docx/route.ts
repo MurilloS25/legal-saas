@@ -87,6 +87,14 @@ export async function GET(
     return genericError(500);
   }
 
+  // Registra el evento de auditoría de forma best-effort: la descarga no debe
+  // fallar si el registro falla. El RPC (SECURITY DEFINER) valida ownership.
+  try {
+    await supabase.rpc("log_document_word_generated", { p_document_id: id });
+  } catch {
+    console.error("[docx] activity logging failed");
+  }
+
   const body = new Uint8Array(result.buffer);
 
   return new NextResponse(body, {

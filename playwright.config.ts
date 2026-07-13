@@ -149,6 +149,17 @@ export default defineConfig({
       dependencies: ["chromium-documents-workspace"],
     },
 
+    // Document activity history — authenticated.
+    {
+      name: "chromium-documents-activity",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /documents-activity-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents-lifecycle"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -158,7 +169,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-lifecycle"],
+      dependencies: ["chromium-documents-activity"],
     },
   ],
   webServer: {

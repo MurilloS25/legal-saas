@@ -106,14 +106,19 @@ test.describe("document docx download", () => {
   }) => {
     await openComposer(page, completeDocId);
 
-    // Provoca un cambio local sin guardar.
-    await page
-      .getByRole("region", { name: "Datos de la escritura" })
-      .getByLabel(new RegExp(fieldLabel))
-      .fill("Cliente Uno Editado");
-
     const button = page.getByRole("button", { name: "Descargar Word" });
-    await expect(button).toBeDisabled();
+    const field = page
+      .getByRole("region", { name: "Datos de la escritura" })
+      .getByLabel(new RegExp(fieldLabel));
+
+    // Provoca un cambio local sin guardar. Se reintenta el fill hasta que el
+    // botón quede deshabilitado: si el primer fill ocurre antes de la
+    // hidratación de React, el onChange (dirty) no se dispara.
+    await expect(async () => {
+      await field.fill("Cliente Uno Editado");
+      await expect(button).toBeDisabled({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+
     await expect(
       page.getByText("Guarda los cambios antes de descargar el Word."),
     ).toBeVisible();

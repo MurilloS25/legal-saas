@@ -136,17 +136,24 @@ test.describe("document lifecycle statuses", () => {
 
   test("F: unsaved changes block a status change", async ({ page }) => {
     await open(page, completeId);
-    await page
+    const field = page
       .getByRole("region", { name: "Datos de la escritura" })
-      .getByLabel(new RegExp(fieldLabel))
-      .fill("Persona Editada");
+      .getByLabel(new RegExp(fieldLabel));
+    const readyButton = page.getByRole("button", {
+      name: "Marcar como listo para revisar",
+    });
+
+    // Reintenta el fill hasta que el gate se active, por si el primer intento
+    // ocurre antes de la hidratación (dirty no se dispararía).
+    await expect(async () => {
+      await field.fill("Persona Editada");
+      await expect(readyButton).toBeDisabled({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
 
     await expect(
       page.getByText("Guarda los cambios antes de cambiar el estado."),
     ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Marcar como listo para revisar" }),
-    ).toBeDisabled();
+    await expect(readyButton).toBeDisabled();
   });
 
   test("G: pending variables block finalizing (server-side)", async ({
