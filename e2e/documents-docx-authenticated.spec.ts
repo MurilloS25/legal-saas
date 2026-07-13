@@ -7,6 +7,7 @@ import {
   createTestTemplate,
   createTestTemplateField,
   runCleanup,
+  updateTestTemplateContent,
   uniqueName,
 } from "./support/factories";
 
@@ -141,6 +142,34 @@ test.describe("document docx download", () => {
     const text = await docxText(buffer);
     expect(text).toContain("Cliente Uno Editado");
     expect(text).toContain("ABC-123");
+  });
+
+  test("D2: exports the saved snapshot if the template changed later", async ({
+    page,
+  }) => {
+    const snapshotTemplate = await createTestTemplate(registry, {
+      name: uniqueName("docx-snapshot", "machote"),
+      content: "VERSION GUARDADA {{parte.nombre}}.",
+    });
+    const snapshotDoc = await createTestDocument(registry, snapshotTemplate.id, {
+      title: uniqueName("docx-snapshot", "documento"),
+      field_values: { "parte.nombre": "Cliente Snapshot" },
+      rendered_content: "VERSION GUARDADA Cliente Snapshot.",
+    });
+
+    await updateTestTemplateContent(
+      snapshotTemplate.id,
+      "VERSION CAMBIADA {{parte.nombre}}.",
+    );
+
+    const response = await page.request.get(
+      `/api/documents/${snapshotDoc.id}/docx`,
+    );
+    expect(response.status()).toBe(200);
+
+    const text = await docxText(await response.body());
+    expect(text).toContain("VERSION GUARDADA Cliente Snapshot.");
+    expect(text).not.toContain("VERSION CAMBIADA Cliente Snapshot.");
   });
 
   test("E: the endpoint returns the correct MIME and disposition", async ({
