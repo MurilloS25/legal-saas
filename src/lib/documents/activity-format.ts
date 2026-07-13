@@ -96,6 +96,18 @@ export function formatActivityEvent(event: ActivityEvent): FormattedActivity {
     case "document_word_generated":
       return { title: "Documento Word generado", lines: [] };
 
+    case "notarial_metadata_created":
+      return { title: "Datos para índice creados", lines: [] };
+
+    case "notarial_metadata_updated":
+      return { title: "Datos para índice actualizados", lines: [] };
+
+    case "notarial_metadata_completed":
+      return { title: "Datos para índice completos", lines: [] };
+
+    case "notarial_metadata_marked_incomplete":
+      return { title: "Datos para índice marcados como incompletos", lines: [] };
+
     default:
       return {
         title: event.summary?.trim() || "Actividad registrada",

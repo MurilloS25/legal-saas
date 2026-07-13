@@ -443,11 +443,12 @@ test.describe("document composer workspace", () => {
     await expect(page.getByLabel("Título de la escritura")).toBeVisible();
     await expect(documentRegion(page)).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Documento" }).click();
+    await page.getByRole("button", { name: "Documento", exact: true }).click();
     await expect(documentRegion(page)).toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Datos" }).click();
+    // exact: "Datos" es substring de "Guardar datos del índice" (sección notarial).
+    await page.getByRole("button", { name: "Datos", exact: true }).click();
     await expect(page.getByLabel("Título de la escritura")).toBeVisible();
   });
 

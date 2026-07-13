@@ -160,6 +160,17 @@ export default defineConfig({
       dependencies: ["chromium-documents-lifecycle"],
     },
 
+    // Notarial index metadata — authenticated.
+    {
+      name: "chromium-notarial-metadata",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-metadata-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents-activity"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -169,7 +180,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-activity"],
+      dependencies: ["chromium-notarial-metadata"],
     },
   ],
   webServer: {
