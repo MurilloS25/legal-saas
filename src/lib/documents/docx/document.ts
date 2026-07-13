@@ -10,11 +10,18 @@ import "server-only";
  *   modelo  --generateDocumentDocx-->  Buffer
  *
  * Funciona igual para machotes con `content_json.doc` y para machotes legacy
- * con solo texto (la conversión ocurre en `resolveTemplateContent`).
+ * con solo texto (la conversión ocurre en `resolveTemplateContent`). Si el
+ * machote cambió después de guardar el borrador, se usa el snapshot
+ * persistido (`rendered_content`) para que el Word represente la última
+ * versión guardada.
  */
 
 import { resolveTemplateContent } from "@/lib/editor/content";
-import { buildDocumentModel } from "@/lib/editor/render";
+import { legacyTextToDocument } from "@/lib/editor/convert";
+import {
+  buildDocumentModel,
+  renderStructuredTemplate,
+} from "@/lib/editor/render";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 import { buildDocxFilename } from "./filename";
 import { generateDocumentDocx } from "./generate";
@@ -24,6 +31,12 @@ export type EscrituraDocxInput = {
   contentJson: unknown;
   /** `documents.field_values` persistidos. */
   fieldValues: Record<string, string>;
+  /**
+   * Snapshot server-side persistido en `documents.rendered_content`.
+   * Se usa como fallback estable si el machote actual ya no genera el mismo
+   * texto que el último borrador guardado.
+   */
+  renderedContent?: string;
   /** Título persistido de la escritura (fuente del nombre de archivo). */
   title: string;
 };
@@ -39,15 +52,23 @@ export async function buildEscrituraDocx(
   input: EscrituraDocxInput,
 ): Promise<EscrituraDocxResult> {
   const { document } = resolveTemplateContent(input.contentJson);
-  const model = buildDocumentModel(document, input.fieldValues);
+  const currentRendered = renderStructuredTemplate(document, input.fieldValues);
+  const usePersistedSnapshot =
+    typeof input.renderedContent === "string" &&
+    input.renderedContent !== currentRendered;
+  const sourceDocument = usePersistedSnapshot
+    ? legacyTextToDocument(input.renderedContent ?? "")
+    : document;
+  const sourceValues = usePersistedSnapshot ? {} : input.fieldValues;
+  const model = buildDocumentModel(sourceDocument, sourceValues);
   const buffer = await generateDocumentDocx(model);
 
   return {
     buffer,
     filename: buildDocxFilename(input.title),
     pendingVariables: findUnresolvedDocumentVariables(
-      document,
-      input.fieldValues,
+      sourceDocument,
+      sourceValues,
     ),
   };
 }
