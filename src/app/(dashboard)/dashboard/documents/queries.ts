@@ -4,6 +4,7 @@ import { DocumentIdSchema } from "@/lib/validations/documents";
 import { extractTemplateVariables } from "@/lib/templates/variables";
 import {
   DOCUMENTS_PAGE_SIZE,
+  sanitizeSearchTermForPostgrest,
   sortColumnFor,
   type DocumentsQuery,
 } from "@/lib/documents/workspace-query";
@@ -135,14 +136,6 @@ export type DocumentsPage = {
   pageCount: number;
 };
 
-/** Neutraliza los metacaracteres del lenguaje de filtros de PostgREST. */
-function sanitizeSearchTerm(search: string): string {
-  return search
-    .replace(/[,()*%\\:]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /**
  * Página de escrituras del usuario con búsqueda, filtros y orden server-side.
  * La búsqueda cubre título (columna base) y nombre de cliente/machote
@@ -160,7 +153,11 @@ export async function listDocumentsPage(
 
   // Cláusula OR de búsqueda: título + ids de clientes/machotes que coinciden.
   let orClause: string | null = null;
-  const term = sanitizeSearchTerm(query.search);
+  const term = sanitizeSearchTermForPostgrest(query.search);
+  if (query.search !== "" && term === "") {
+    return { rows: [], total: 0, pageCount: 1 };
+  }
+
   if (term !== "") {
     const like = `%${term}%`;
     const [clientMatches, templateMatches] = await Promise.all([
