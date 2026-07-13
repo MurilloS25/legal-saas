@@ -142,6 +142,40 @@ export async function createTestDocument(
   return { id };
 }
 
+/**
+ * Crea metadata notarial para una Escritura (aún editable). Cascada con el
+ * documento, así que no necesita registro de cleanup propio.
+ */
+export async function createTestNotarialMetadata(
+  documentId: string,
+  options: {
+    instrument_number?: string;
+    authorized_at?: string;
+    act_type?: string;
+    appearing_parties_summary?: string;
+    notes?: string;
+  },
+): Promise<void> {
+  const { userId } = getTestUserAuth();
+  await restInsert("document_notarial_metadata", {
+    owner_id: userId,
+    document_id: documentId,
+    instrument_number: options.instrument_number ?? null,
+    authorized_at: options.authorized_at ?? null,
+    act_type: options.act_type ?? null,
+    appearing_parties_summary: options.appearing_parties_summary ?? null,
+    notes: options.notes ?? null,
+  });
+}
+
+/** Cambia el estado de una Escritura de prueba (p. ej. finalizarla). */
+export async function setTestDocumentStatus(
+  documentId: string,
+  status: "draft" | "ready" | "final",
+): Promise<void> {
+  await restUpdate("documents", documentId, { status });
+}
+
 // ------------------------------------------------------------------ UI-created rows
 
 /**

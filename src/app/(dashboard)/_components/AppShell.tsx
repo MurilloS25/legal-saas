@@ -55,13 +55,11 @@ const ACTIVE_LINKS = [
   { label: "Clientes", href: "/dashboard/clients" },
   { label: "Machotes", href: "/dashboard/templates" },
   { label: "Escrituras", href: "/dashboard/documents" },
+  { label: "Índice Notarial", href: "/dashboard/notarial-index" },
   { label: "Configuración", href: "/dashboard/settings" },
 ] as const;
 
-const FUTURE_LABELS = [
-  "Índice Notarial",
-  "Cuentas por Cobrar",
-] as const;
+const FUTURE_LABELS = ["Cuentas por Cobrar"] as const;
 
 // ------------------------------------------------------------------ SidebarNav
 
