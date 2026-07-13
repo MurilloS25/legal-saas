@@ -96,6 +96,8 @@ Escrituras have a basic lifecycle: `draft` (Borrador) → `ready` (Listo para re
 
 The `/dashboard/documents` workspace supports server-side search (title, client, template), filters (status, client, template), sort, and pagination, all reflected in shareable query params.
 
+Each escritura has a read-only activity history (`document_activity`) shown in its detail: creation, title/client/status changes, finalization/reopening, and Word generation. Events are written server-side only — document mutations record them atomically via a trigger, Word generation via a `SECURITY DEFINER` RPC — never from arbitrary client input, and never surface UUIDs or raw content. Events are immutable (no update/delete) and cascade-deleted with their escritura. It is designed as reusable infrastructure for future modules (notarial index, receivables, notes, versioning).
+
 The application must not store generated Word/PDF files, signed documents, official submission payloads, or storage paths for generated legal documents.
 
 PDF generation is not mandatory for the MVP. It may be added later after Word generation is stable.

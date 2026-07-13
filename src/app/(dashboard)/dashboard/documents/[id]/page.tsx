@@ -11,7 +11,9 @@ import {
   documentStatusBadgeClass,
   documentStatusLabel,
 } from "@/lib/documents/status";
+import { listDocumentActivity } from "../activity";
 import { DocumentComposer } from "../_components/DocumentComposer";
+import { DocumentActivity } from "../_components/DocumentActivity";
 
 export const metadata = {
   title: "Escritura — LexCR",
@@ -32,6 +34,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   if (!document) notFound();
 
   const template = await getTemplateById(document.template_id);
+  const activity = await listDocumentActivity(document.id);
 
   return (
     <PageContainer>
@@ -95,6 +98,16 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           savedJustNow={saved === "1"}
         />
       )}
+
+      {/* key = updated_at: al cambiar la escritura (guardar, cambio de estado)
+          la sección se remonta con la actividad recién revalidada. */}
+      <DocumentActivity
+        key={document.updated_at}
+        documentId={document.id}
+        initialItems={activity.items}
+        initialHasMore={activity.hasMore}
+        initialNextOffset={activity.nextOffset}
+      />
     </PageContainer>
   );
 }
