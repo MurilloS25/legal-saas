@@ -20,7 +20,7 @@ const token = uniqueName("nix", "t").split("-").pop() as string;
 const templateName = uniqueName("nix", "machote");
 const instrument = `=HACK-${token}`; // prefijo de fórmula para probar la mitigación
 const actType = `Poder ${token}`;
-const parties = `Partes ${token}`;
+const parties = ` =PARTES-${token}`;
 const secretNote = `SECRETO-${token}`;
 
 test.describe("notarial index CSV export", () => {
@@ -76,6 +76,7 @@ test.describe("notarial index CSV export", () => {
     expect(body).toContain(parties);
     // CSV injection neutralizada: la celda con '=' se antepone con apóstrofo.
     expect(body).toContain(`'=HACK-${token}`);
+    expect(body).toContain(`' =PARTES-${token}`);
     // Las notas internas NO se exportan.
     expect(body).not.toContain(secretNote);
     // No se exponen UUIDs.

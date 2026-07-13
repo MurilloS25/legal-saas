@@ -12,7 +12,7 @@
 export const CSV_BOM = "﻿";
 
 const NEEDS_QUOTING = /[",\r\n]/;
-const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+const FORMULA_PREFIX = /^(?:[ \t\r\n]*[=+\-@]|[\t\r\n])/;
 
 /** Escapa una celda: neutraliza fórmulas y entrecomilla si es necesario. */
 export function escapeCsvCell(value: string): string {

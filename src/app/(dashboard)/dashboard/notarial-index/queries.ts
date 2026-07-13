@@ -113,6 +113,10 @@ export async function listNotarialIndexForExport(
 
   if (!user) redirect("/login");
 
+  if (notarialSearchHasNoSafeTerm(query.search)) {
+    return [];
+  }
+
   let request = supabase
     .from("notarial_index_entries")
     .select(SELECT)

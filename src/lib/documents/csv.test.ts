@@ -17,6 +17,8 @@ describe("escapeCsvCell", () => {
     expect(escapeCsvCell("+1")).toBe("'+1");
     expect(escapeCsvCell("-1")).toBe("'-1");
     expect(escapeCsvCell("@cmd")).toBe("'@cmd");
+    expect(escapeCsvCell(" =SUM(A1)")).toBe("' =SUM(A1)");
+    expect(escapeCsvCell("  +1")).toBe("'  +1");
   });
 
   it("both neutralizes and quotes when needed", () => {
@@ -26,6 +28,8 @@ describe("escapeCsvCell", () => {
 
   it("neutralizes tab/CR-led cells", () => {
     expect(escapeCsvCell("\t=1").startsWith("'")).toBe(true);
+    expect(escapeCsvCell("\r=1")).toBe("\"'\r=1\"");
+    expect(escapeCsvCell("\n=1")).toBe("\"'\n=1\"");
   });
 });
 

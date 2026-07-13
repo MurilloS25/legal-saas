@@ -1,10 +1,11 @@
--- Auditoría de exportaciones del índice notarial interno.
+-- Historial operativo de exportaciones del índice notarial interno.
 --
 -- Una exportación abarca varias Escrituras, así que no encaja en
 -- document_activity (que es por documento). Se registra en su propia tabla,
--- de solo lectura para el dueño, escrita solo por una función SECURITY
--- DEFINER (sin INSERT directo desde el navegador). No guarda datos sensibles:
--- solo formato, rango de fechas y cantidad de filas.
+-- escrita solo por una función SECURITY DEFINER (sin INSERT directo desde el
+-- navegador). No guarda datos sensibles: solo formato, rango de fechas y
+-- cantidad de filas. No es auditoría legal ni constancia oficial; el usuario
+-- puede depurar su propio historial operativo.
 
 create table public.notarial_index_exports (
   id uuid primary key default gen_random_uuid(),
@@ -45,7 +46,7 @@ create or replace function public.log_notarial_index_export(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 begin
   if auth.uid() is null then
@@ -61,5 +62,6 @@ begin
 end;
 $$;
 
-revoke all on function public.log_notarial_index_export(text, date, date, integer) from public;
+revoke all on function public.log_notarial_index_export(text, date, date, integer)
+  from public, anon, authenticated;
 grant execute on function public.log_notarial_index_export(text, date, date, integer) to authenticated;
