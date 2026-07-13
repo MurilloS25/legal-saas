@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // `server-only` lanza al resolverse fuera de un bundler RSC; en las
+      // pruebas se reemplaza por un stub vacío para poder ejercitar los
+      // módulos server-only puros (generación DOCX) bajo Node.
+      "server-only": path.resolve(__dirname, "./test/support/server-only-stub.ts"),
     },
   },
 });
