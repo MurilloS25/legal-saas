@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listDocumentsPage } from "./queries";
 import { listClients } from "../clients/queries";
@@ -68,6 +69,10 @@ export default async function DocumentsPage({ searchParams }: Props) {
     const qs = new URLSearchParams(params).toString();
     return qs ? `/dashboard/documents?${qs}` : "/dashboard/documents";
   };
+
+  if (page.total > 0 && query.page > page.pageCount) {
+    redirect(pageHref(page.pageCount));
+  }
 
   const rangeStart =
     page.total === 0 ? 0 : (query.page - 1) * DOCUMENTS_PAGE_SIZE + 1;

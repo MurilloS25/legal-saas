@@ -4,6 +4,7 @@ import {
   MAX_SEARCH_LENGTH,
   documentsQueryToParams,
   parseDocumentsQuery,
+  sanitizeSearchTermForPostgrest,
   sortColumnFor,
 } from "./workspace-query";
 
@@ -64,6 +65,20 @@ describe("sortColumnFor", () => {
     expect(sortColumnFor("oldest")).toEqual({ column: "updated_at", ascending: true });
     expect(sortColumnFor("title_az")).toEqual({ column: "title", ascending: true });
     expect(sortColumnFor("title_za")).toEqual({ column: "title", ascending: false });
+  });
+});
+
+describe("sanitizeSearchTermForPostgrest", () => {
+  it("removes PostgREST filter punctuation while keeping normal text", () => {
+    expect(
+      sanitizeSearchTermForPostgrest(
+        `  Cliente, "Ana" (VIP). 100%_ seguro: O'Connor  `,
+      ),
+    ).toBe("Cliente Ana VIP 100 seguro O Connor");
+  });
+
+  it("returns an empty string when the search only contains filter syntax", () => {
+    expect(sanitizeSearchTermForPostgrest(`%,._()'"\\`)).toBe("");
   });
 });
 

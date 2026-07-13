@@ -98,6 +98,20 @@ export function sortColumnFor(sort: DocumentSortValue): {
 }
 
 /**
+ * Reduce la búsqueda a caracteres seguros para expresiones PostgREST `.or()`.
+ *
+ * La búsqueda sigue siendo flexible para texto normal (incluye letras Unicode,
+ * números, espacios y guiones), pero descarta puntuación que puede alterar la
+ * sintaxis del filtro (`.`, `,`, `(`, `)`, `%`, `_`, comillas, etc.).
+ */
+export function sanitizeSearchTermForPostgrest(search: string): string {
+  return search
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Serializa la query a un objeto de searchParams (omitiendo defaults) para
  * construir URLs compartibles y preservar filtros entre navegaciones.
  */
