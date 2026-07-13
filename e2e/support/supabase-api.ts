@@ -127,6 +127,25 @@ export async function restInsert(
   return created.id;
 }
 
+/** Actualiza columnas de una fila por id. Sujeto a RLS del usuario de prueba. */
+export async function restUpdate(
+  table: string,
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const response = await fetch(`${restUrl(table)}?id=eq.${id}`, {
+    method: "PATCH",
+    headers: restHeaders(),
+    body: JSON.stringify(patch),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Update of ${table} failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
 /** Busca el id de una fila por igualdad de columna (para filas creadas vía UI). */
 export async function restFindIdBy(
   table: string,

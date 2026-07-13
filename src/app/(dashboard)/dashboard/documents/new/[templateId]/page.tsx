@@ -1,13 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
-import {
-  extractContent,
-  getTemplateById,
-  listTemplateFields,
-} from "../../../templates/queries";
+import { getTemplateById, listTemplateFields } from "../../../templates/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
-import { DocumentDraftForm } from "../../_components/DocumentDraftForm";
+import { resolveTemplateContent } from "@/lib/editor/content";
+import { applyVariableLabels } from "@/lib/editor/variables";
+import { DocumentComposer } from "../../_components/DocumentComposer";
 
 export const metadata = {
   title: "Crear escritura — LexCR",
@@ -23,10 +21,20 @@ export default async function NewDocumentPage({ params }: Props) {
 
   if (!template) notFound();
 
-  const content = extractContent(template);
+  // Capa compartida: contenido estructurado si existe, o legacy convertido.
+  const { document, templateText } = resolveTemplateContent(
+    template.content_json,
+  );
   // Unión de campos configurados y variables del contenido: un machote sin
-  // campos configurados ya no bloquea la creación de la escritura.
-  const fields = buildFillableFields(await listTemplateFields(template.id), content);
+  // campos configurados no bloquea la creación de la escritura.
+  const fields = buildFillableFields(
+    await listTemplateFields(template.id),
+    templateText,
+  );
+  const labeledDocument = applyVariableLabels(
+    document,
+    Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
+  );
 
   return (
     <PageContainer>
@@ -59,7 +67,8 @@ export default async function NewDocumentPage({ params }: Props) {
           Crear escritura
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Machote: {template.name}
+          Completa los datos en el panel; el documento se actualiza al
+          instante.
         </p>
       </div>
 
@@ -77,12 +86,13 @@ export default async function NewDocumentPage({ params }: Props) {
         </div>
       )}
 
-      <DocumentDraftForm
+      <DocumentComposer
         mode="create"
         templateId={template.id}
+        templateName={template.name}
         defaultTitle={`${template.name} — Borrador`}
+        document={labeledDocument}
         fields={fields}
-        content={content}
       />
     </PageContainer>
   );
