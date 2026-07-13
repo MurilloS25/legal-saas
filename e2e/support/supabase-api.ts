@@ -127,6 +127,23 @@ export async function restInsert(
   return created.id;
 }
 
+/**
+ * Elimina todas las filas del usuario de prueba en una tabla (RLS acota al
+ * propio owner). Útil para tablas de auditoría que no se limpian en cascada.
+ */
+export async function restDeleteOwnRows(table: string): Promise<void> {
+  const { userId } = getTestUserAuth();
+  const response = await fetch(`${restUrl(table)}?owner_id=eq.${userId}`, {
+    method: "DELETE",
+    headers: restHeaders(),
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(
+      `Delete from ${table} failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
 /** Actualiza columnas de una fila por id. Sujeto a RLS del usuario de prueba. */
 export async function restUpdate(
   table: string,

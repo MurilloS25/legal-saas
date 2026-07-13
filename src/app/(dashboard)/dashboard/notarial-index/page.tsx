@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { listNotarialIndex, listNotarialActTypes } from "./queries";
+import {
+  listNotarialIndex,
+  listNotarialActTypes,
+  getLatestNotarialExportAt,
+} from "./queries";
 import { NotarialToolbar } from "./_components/NotarialToolbar";
 import {
   NOTARIAL_PAGE_SIZE,
@@ -42,9 +46,10 @@ type Props = {
 
 export default async function NotarialIndexPage({ searchParams }: Props) {
   const query = parseNotarialQuery(await searchParams);
-  const [page, actTypes] = await Promise.all([
+  const [page, actTypes, lastExportAt] = await Promise.all([
     listNotarialIndex(query),
     listNotarialActTypes(),
+    getLatestNotarialExportAt(),
   ]);
 
   if (page.total > 0 && query.page > page.pageCount) {
@@ -52,6 +57,12 @@ export default async function NotarialIndexPage({ searchParams }: Props) {
     const qs = new URLSearchParams(params).toString();
     redirect(qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index");
   }
+
+  const exportParams = notarialQueryToParams({ ...query, page: 1 });
+  const exportQs = new URLSearchParams(exportParams).toString();
+  const exportHref = exportQs
+    ? `/api/notarial-index/export?${exportQs}`
+    : "/api/notarial-index/export";
 
   const pageHref = (targetPage: number) => {
     const params = notarialQueryToParams({ ...query, page: targetPage });
@@ -64,11 +75,26 @@ export default async function NotarialIndexPage({ searchParams }: Props) {
 
   return (
     <PageContainer>
-      <div className="mb-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Índice notarial</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Escrituras finalizadas y sus datos para el índice.
-        </p>
+      <div className="mb-2 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Índice notarial
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Escrituras finalizadas y sus datos para el índice.
+          </p>
+          {lastExportAt && (
+            <p className="mt-1 text-xs text-slate-400">
+              Última exportación: {formatCostaRicaDate(lastExportAt)}
+            </p>
+          )}
+        </div>
+        <a
+          href={exportHref}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+        >
+          Exportar CSV
+        </a>
       </div>
 
       <div

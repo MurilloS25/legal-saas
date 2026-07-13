@@ -47,9 +47,116 @@ export async function listNotarialIndex(
     return { rows: [], total: 0, pageCount: 1 };
   }
 
+  const { fromIso, toIso } = notarialDateRangeIso(query);
+  const term = notarialSearchTerm(query.search);
+  const ascending = notarialSortAscending(query.sort);
+
+  let countRequest = supabase
+    .from("notarial_index_entries")
+    .select("document_id", { count: "exact", head: true })
+    .eq("owner_id", user.id);
+
+  if (query.completeness === "complete") {
+    countRequest = countRequest.eq("has_metadata", true).eq("is_complete", true);
+  } else if (query.completeness === "incomplete") {
+    countRequest = countRequest.eq("has_metadata", true).eq("is_complete", false);
+  } else if (query.completeness === "missing") {
+    countRequest = countRequest.eq("has_metadata", false);
+  }
+  if (query.actType) countRequest = countRequest.eq("act_type", query.actType);
+  if (fromIso) countRequest = countRequest.gte("authorized_at", fromIso);
+  if (toIso) countRequest = countRequest.lte("authorized_at", toIso);
+  if (term !== "") {
+    const like = `%${term}%`;
+    countRequest = countRequest.or(
+      [
+        `title.ilike.${like}`,
+        `instrument_number.ilike.${like}`,
+        `act_type.ilike.${like}`,
+        `appearing_parties_summary.ilike.${like}`,
+        `client_name.ilike.${like}`,
+      ].join(","),
+    );
+  }
+
+  const { count, error: countError } = await countRequest;
+  if (countError) return { rows: [], total: 0, pageCount: 0 };
+
+  const total = count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / NOTARIAL_PAGE_SIZE));
+  if (total > 0 && query.page > pageCount) {
+    return { rows: [], total, pageCount };
+  }
+
   let request = supabase
     .from("notarial_index_entries")
-    .select(SELECT, { count: "exact" })
+    .select(SELECT)
+    .eq("owner_id", user.id);
+
+  if (query.completeness === "complete") {
+    request = request.eq("has_metadata", true).eq("is_complete", true);
+  } else if (query.completeness === "incomplete") {
+    request = request.eq("has_metadata", true).eq("is_complete", false);
+  } else if (query.completeness === "missing") {
+    request = request.eq("has_metadata", false);
+  }
+  if (query.actType) request = request.eq("act_type", query.actType);
+
+  if (fromIso) request = request.gte("authorized_at", fromIso);
+  if (toIso) request = request.lte("authorized_at", toIso);
+
+  if (term !== "") {
+    const like = `%${term}%`;
+    request = request.or(
+      [
+        `title.ilike.${like}`,
+        `instrument_number.ilike.${like}`,
+        `act_type.ilike.${like}`,
+        `appearing_parties_summary.ilike.${like}`,
+        `client_name.ilike.${like}`,
+      ].join(","),
+    );
+  }
+
+  const from = (query.page - 1) * NOTARIAL_PAGE_SIZE;
+
+  const { data, error } = await request
+    .order("authorized_at", { ascending, nullsFirst: false })
+    .order("document_id", { ascending: true })
+    .range(from, from + NOTARIAL_PAGE_SIZE - 1);
+
+  if (error) return { rows: [], total: 0, pageCount: 0 };
+
+  return {
+    rows: (data ?? []) as unknown as NotarialIndexRow[],
+    total,
+    pageCount,
+  };
+}
+
+export const NOTARIAL_EXPORT_LIMIT = 5000;
+
+/**
+ * Todas las filas que coinciden con el filtro (hasta un límite), para la
+ * exportación CSV. Respeta los mismos filtros y orden que el workspace.
+ */
+export async function listNotarialIndexForExport(
+  query: NotarialQuery,
+): Promise<NotarialIndexRow[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  if (notarialSearchHasNoSafeTerm(query.search)) {
+    return [];
+  }
+
+  let request = supabase
+    .from("notarial_index_entries")
+    .select(SELECT)
     .eq("owner_id", user.id);
 
   if (query.completeness === "complete") {
@@ -80,21 +187,33 @@ export async function listNotarialIndex(
   }
 
   const ascending = notarialSortAscending(query.sort);
-  const from = (query.page - 1) * NOTARIAL_PAGE_SIZE;
-
-  const { data, count, error } = await request
+  const { data, error } = await request
     .order("authorized_at", { ascending, nullsFirst: false })
     .order("document_id", { ascending: true })
-    .range(from, from + NOTARIAL_PAGE_SIZE - 1);
+    .range(0, NOTARIAL_EXPORT_LIMIT - 1);
 
-  if (error) return { rows: [], total: 0, pageCount: 0 };
+  if (error) return [];
+  return (data ?? []) as unknown as NotarialIndexRow[];
+}
 
-  const total = count ?? 0;
-  return {
-    rows: (data ?? []) as unknown as NotarialIndexRow[],
-    total,
-    pageCount: Math.max(1, Math.ceil(total / NOTARIAL_PAGE_SIZE)),
-  };
+/** Fecha de la última exportación del usuario, o null. */
+export async function getLatestNotarialExportAt(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data } = await supabase
+    .from("notarial_index_exports")
+    .select("created_at")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (data as { created_at: string } | null)?.created_at ?? null;
 }
 
 /** Tipos de acto distintos del usuario, para el filtro. */

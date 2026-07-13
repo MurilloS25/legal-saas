@@ -16,6 +16,7 @@ import {
 import {
   getTestUserAuth,
   restDelete,
+  restDeleteOwnRows,
   restFindIdBy,
   restInsert,
   restUpdate,
@@ -174,6 +175,14 @@ export async function setTestDocumentStatus(
   status: "draft" | "ready" | "final",
 ): Promise<void> {
   await restUpdate("documents", documentId, { status });
+}
+
+/**
+ * Limpia las filas de auditoría de exportaciones del índice del usuario de
+ * prueba (no se eliminan en cascada con documents).
+ */
+export async function cleanupNotarialExports(): Promise<void> {
+  await restDeleteOwnRows("notarial_index_exports");
 }
 
 // ------------------------------------------------------------------ UI-created rows
