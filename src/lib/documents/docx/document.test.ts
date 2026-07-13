@@ -53,6 +53,21 @@ describe("buildEscrituraDocx", () => {
     expect(body).not.toContain("Dos histórico");
   });
 
+  it("uses the persisted rendered snapshot when the template changed after save", async () => {
+    const result = await buildEscrituraDocx({
+      contentJson: { text: "Texto NUEVO con {{nombre}}." },
+      fieldValues: { nombre: "Ana Tester" },
+      renderedContent: "Texto guardado con Ana Tester.",
+      title: "Snapshot estable",
+    });
+
+    const parts = await readDocx(result.buffer);
+    const body = extractDocxText(parts.documentXml);
+    expect(body).toContain("Texto guardado con Ana Tester.");
+    expect(body).not.toContain("Texto NUEVO con Ana Tester.");
+    expect(result.pendingVariables).toEqual([]);
+  });
+
   it("uses the safe filename fallback for an empty title", async () => {
     const result = await buildEscrituraDocx({
       contentJson: { text: "Texto." },
