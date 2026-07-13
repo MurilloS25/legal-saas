@@ -19,6 +19,13 @@ type Props = {
   disabled: boolean;
   /** Variables sin valor del estado PERSISTIDO (no del estado local). */
   pendingVariableCount: number;
+  /**
+   * "full" (compositor): botón ancho con textos de ayuda.
+   * "compact" (listado): botón pequeño sin ayuda, misma lógica de descarga.
+   */
+  variant?: "full" | "compact";
+  /** Nombre accesible cuando conviene distinguir varias filas. */
+  ariaLabel?: string;
 };
 
 type Status = "idle" | "preparing" | "error" | "auth-error";
@@ -44,7 +51,10 @@ export function DownloadDocxButton({
   documentId,
   disabled,
   pendingVariableCount,
+  variant = "full",
+  ariaLabel,
 }: Props) {
+  const compact = variant === "compact";
   const [status, setStatus] = useState<Status>("idle");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -113,28 +123,40 @@ export function DownloadDocxButton({
 
   const preparing = status === "preparing";
 
+  const buttonClass = compact
+    ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+
   return (
-    <div>
+    <div className={compact ? "inline-block" : undefined}>
       <button
         ref={triggerRef}
         type="button"
         onClick={onClick}
         disabled={disabled || preparing}
-        aria-describedby={disabled ? `${titleId}-hint` : undefined}
-        className="w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        aria-label={ariaLabel}
+        aria-describedby={!compact && disabled ? `${titleId}-hint` : undefined}
+        className={buttonClass}
       >
-        {preparing ? "Preparando Word…" : "Descargar Word"}
+        {preparing
+          ? compact
+            ? "Preparando…"
+            : "Preparando Word…"
+          : compact
+            ? "Descargar Word"
+            : "Descargar Word"}
       </button>
 
-      {disabled ? (
-        <p id={`${titleId}-hint`} className="mt-1.5 text-xs text-slate-500">
-          Guarda los cambios antes de descargar el Word.
-        </p>
-      ) : (
-        <p className="mt-1.5 text-xs text-slate-500">
-          El archivo se genera con la última versión guardada.
-        </p>
-      )}
+      {!compact &&
+        (disabled ? (
+          <p id={`${titleId}-hint`} className="mt-1.5 text-xs text-slate-500">
+            Guarda los cambios antes de descargar el Word.
+          </p>
+        ) : (
+          <p className="mt-1.5 text-xs text-slate-500">
+            El archivo se genera con la última versión guardada.
+          </p>
+        ))}
 
       {status === "error" && (
         <p role="alert" className="mt-1.5 text-xs text-red-700">
