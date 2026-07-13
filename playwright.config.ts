@@ -105,6 +105,17 @@ export default defineConfig({
       dependencies: ["chromium-template-fields"],
     },
 
+    // Document DOCX download — authenticated.
+    {
+      name: "chromium-documents-docx",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /documents-docx-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -114,7 +125,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents"],
+      dependencies: ["chromium-documents-docx"],
     },
   ],
   webServer: {
