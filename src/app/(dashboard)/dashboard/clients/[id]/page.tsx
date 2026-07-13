@@ -2,7 +2,20 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientById } from "../queries";
+import { listDocumentsByClient } from "../../documents/queries";
+import {
+  documentStatusBadgeClass,
+  documentStatusLabel,
+} from "@/lib/documents/status";
 import { ClientForm } from "../_components/ClientForm";
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-CR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export const metadata = {
   title: "Cliente — LexCR",
@@ -46,6 +59,7 @@ export default async function ClientDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
+  const documents = await listDocumentsByClient(client.id);
   const initials = getInitials(client.full_name);
   const avatarColor = getAvatarColor(client.full_name);
 
@@ -76,23 +90,87 @@ export default async function ClientDetailPage({ params }: Props) {
       </nav>
 
       {/* Client header with avatar */}
-      <div className="flex items-center gap-4 mb-6">
-        <div
-          className={`${avatarColor} flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white select-none`}
-          aria-hidden="true"
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex items-center gap-4">
+          <div
+            className={`${avatarColor} flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white select-none`}
+            aria-hidden="true"
+          >
+            {initials}
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {client.full_name}
+            </h1>
+            <p className="text-sm text-slate-500">
+              {client.identification_number}
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href={`/dashboard/documents/new?client=${client.id}`}
+          className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
         >
-          {initials}
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {client.full_name}
-          </h1>
-          <p className="text-sm text-slate-500">{client.identification_number}</p>
-        </div>
+          Nueva escritura
+        </Link>
       </div>
 
       {/* Edit form (delete icon lives in the card header) */}
       <ClientForm mode="edit" client={client} />
+
+      {/* Escrituras asociadas */}
+      <section aria-labelledby="client-documents-heading" className="mt-8">
+        <h2
+          id="client-documents-heading"
+          className="text-sm font-semibold text-slate-900 mb-3"
+        >
+          Escrituras
+        </h2>
+
+        {documents.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
+            <p className="text-sm text-slate-500">
+              Este cliente todavía no tiene escrituras asociadas.
+            </p>
+          </div>
+        ) : (
+          <ul
+            role="list"
+            className="rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100 overflow-hidden"
+          >
+            {documents.map((doc) => (
+              <li
+                key={doc.id}
+                className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
+                    {doc.title}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {doc.templates?.name ?? "—"} · Actualizada el{" "}
+                    {formatDate(doc.updated_at)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(doc.status)}`}
+                  >
+                    {documentStatusLabel(doc.status)}
+                  </span>
+                  <Link
+                    href={`/dashboard/documents/${doc.id}`}
+                    className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+                  >
+                    {doc.status === "final" ? "Ver" : "Continuar"}
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </PageContainer>
   );
 }

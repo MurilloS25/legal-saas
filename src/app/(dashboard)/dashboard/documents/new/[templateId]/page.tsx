@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { getTemplateById, listTemplateFields } from "../../../templates/queries";
+import { listClients } from "../../../clients/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
@@ -13,20 +14,19 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ templateId: string }>;
+  searchParams: Promise<{ client?: string }>;
 };
 
-export default async function NewDocumentPage({ params }: Props) {
+export default async function NewDocumentPage({ params, searchParams }: Props) {
   const { templateId } = await params;
+  const { client: clientParam } = await searchParams;
   const template = await getTemplateById(templateId);
 
   if (!template) notFound();
 
-  // Capa compartida: contenido estructurado si existe, o legacy convertido.
   const { document, templateText } = resolveTemplateContent(
     template.content_json,
   );
-  // Unión de campos configurados y variables del contenido: un machote sin
-  // campos configurados no bloquea la creación de la escritura.
   const fields = buildFillableFields(
     await listTemplateFields(template.id),
     templateText,
@@ -35,6 +35,18 @@ export default async function NewDocumentPage({ params }: Props) {
     document,
     Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
   );
+
+  // Solo clientes propios; un `client` preseleccionado ajeno o inexistente
+  // simplemente se ignora (no aparece en la lista → initialClientId null).
+  const clients = await listClients();
+  const clientOptions = clients.map((client) => ({
+    id: client.id,
+    full_name: client.full_name,
+  }));
+  const initialClientId =
+    clientParam && clientOptions.some((c) => c.id === clientParam)
+      ? clientParam
+      : null;
 
   return (
     <PageContainer>
@@ -93,6 +105,8 @@ export default async function NewDocumentPage({ params }: Props) {
         defaultTitle={`${template.name} — Borrador`}
         document={labeledDocument}
         fields={fields}
+        clients={clientOptions}
+        initialClientId={initialClientId}
       />
     </PageContainer>
   );

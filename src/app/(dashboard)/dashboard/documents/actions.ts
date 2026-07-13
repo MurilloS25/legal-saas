@@ -9,6 +9,7 @@ import {
   DocumentTitleSchema,
   DocumentValuesSchema,
   mergeDocumentDraftValues,
+  OptionalClientIdSchema,
   TemplateIdSchema,
 } from "@/lib/validations/documents";
 import { validateDocumentFill } from "@/lib/validations/document-fill";
@@ -150,6 +151,38 @@ function validateDraftInput(
   };
 }
 
+/**
+ * Resuelve el `client_id` opcional del formulario, verificando que el cliente
+ * pertenezca al usuario. Devuelve `{ clientId }` (posible null) o un error
+ * visible. No revela la existencia de clientes ajenos: un cliente que no sea
+ * del usuario se trata como "no disponible".
+ */
+async function resolveOptionalClientId(
+  supabase: Supabase,
+  formData: FormData,
+  userId: string,
+): Promise<{ clientId: string | null } | { error: string }> {
+  const parsed = OptionalClientIdSchema.safeParse(
+    String(formData.get("client_id") ?? ""),
+  );
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "El cliente no es válido." };
+  }
+  if (parsed.data === null) return { clientId: null };
+
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", parsed.data)
+    .eq("owner_id", userId)
+    .maybeSingle();
+
+  if (!client) {
+    return { error: "El cliente seleccionado no está disponible." };
+  }
+  return { clientId: parsed.data };
+}
+
 // ------------------------------------------------------------------ create draft
 
 export async function createDocumentDraftAction(
@@ -176,11 +209,15 @@ export async function createDocumentDraftAction(
   const result = validateDraftInput(formData, loaded.fields, loaded.document);
   if ("state" in result) return result.state;
 
+  const client = await resolveOptionalClientId(supabase, formData, user.id);
+  if ("error" in client) return { message: client.error };
+
   const { data, error } = await supabase
     .from("documents")
     .insert({
       owner_id: user.id,
       template_id: templateId,
+      client_id: client.clientId,
       title: result.title,
       status: "draft",
       field_values: result.values,
@@ -250,9 +287,13 @@ export async function updateDocumentDraftAction(
   );
   if ("state" in result) return result.state;
 
+  const client = await resolveOptionalClientId(supabase, formData, user.id);
+  if ("error" in client) return { message: client.error };
+
   const { error } = await supabase
     .from("documents")
     .update({
+      client_id: client.clientId,
       title: result.title,
       field_values: result.values,
       rendered_content: result.rendered,

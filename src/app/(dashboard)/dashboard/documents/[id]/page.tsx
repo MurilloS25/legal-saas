@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { getDocumentById } from "../queries";
 import { getTemplateById, listTemplateFields } from "../../templates/queries";
+import { listClients } from "../../clients/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
@@ -62,6 +63,9 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           Borrador
         </span>
       </div>
+      <p className="-mt-4 mb-6 text-sm text-slate-500">
+        Cliente: {document.clients?.full_name ?? "Sin cliente"}
+      </p>
 
       {!template ? (
         <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">
@@ -89,7 +93,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   );
 }
 
-// Carga de campos y documento etiquetado para el compositor en modo edit.
+// Carga de campos, clientes y documento etiquetado para el compositor.
 async function DocumentComposerLoader({
   templateId,
   templateName,
@@ -103,8 +107,6 @@ async function DocumentComposerLoader({
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   savedJustNow: boolean;
 }) {
-  // La misma derivación que al crear: variables sin campo configurado
-  // también son llenables al editar el borrador.
   const { document: templateDocument, templateText } =
     resolveTemplateContent(contentJson);
   const fields = buildFillableFields(
@@ -116,6 +118,12 @@ async function DocumentComposerLoader({
     Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
   );
 
+  const clients = await listClients();
+  const clientOptions = clients.map((client) => ({
+    id: client.id,
+    full_name: client.full_name,
+  }));
+
   return (
     <DocumentComposer
       mode="edit"
@@ -124,6 +132,8 @@ async function DocumentComposerLoader({
       templateName={templateName}
       document={labeledDocument}
       fields={fields}
+      clients={clientOptions}
+      initialClientId={document.client_id}
     />
   );
 }

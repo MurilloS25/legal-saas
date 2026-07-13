@@ -124,14 +124,17 @@ export async function createTestDocument(
     title: string;
     field_values?: Record<string, string>;
     rendered_content?: string;
+    client_id?: string;
+    status?: "draft" | "ready" | "final";
   },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
   const id = await restInsert("documents", {
     owner_id: userId,
     template_id: templateId,
+    client_id: options.client_id ?? null,
     title: options.title,
-    status: "draft",
+    status: options.status ?? "draft",
     field_values: options.field_values ?? {},
     rendered_content: options.rendered_content ?? "",
   });

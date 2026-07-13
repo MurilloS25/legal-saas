@@ -116,6 +116,17 @@ export default defineConfig({
       dependencies: ["chromium-documents"],
     },
 
+    // Document ↔ client relationship — authenticated.
+    {
+      name: "chromium-documents-client",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /documents-client-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents-docx"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -125,7 +136,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-docx"],
+      dependencies: ["chromium-documents-client"],
     },
   ],
   webServer: {
