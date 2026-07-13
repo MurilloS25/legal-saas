@@ -21,7 +21,7 @@ type Props = {
   pendingVariableCount: number;
 };
 
-type Status = "idle" | "preparing" | "error";
+type Status = "idle" | "preparing" | "error" | "auth-error";
 
 function filenameFromDisposition(
   header: string | null,
@@ -72,7 +72,7 @@ export function DownloadDocxButton({
       });
 
       if (!response.ok) {
-        setStatus("error");
+        setStatus(response.status === 401 ? "auth-error" : "error");
         return;
       }
 
@@ -146,6 +146,12 @@ export function DownloadDocxButton({
           >
             Reintentar
           </button>
+        </p>
+      )}
+
+      {status === "auth-error" && (
+        <p role="alert" className="mt-1.5 text-xs text-red-700">
+          Tu sesión expiró. Inicia sesión de nuevo para descargar el Word.
         </p>
       )}
 

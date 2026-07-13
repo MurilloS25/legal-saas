@@ -62,7 +62,7 @@ export async function GET(
   // Documento propio. Devuelve null tanto si no existe como si es ajeno.
   const { data: document } = await supabase
     .from("documents")
-    .select("id, title, template_id, field_values")
+    .select("id, title, template_id, field_values, rendered_content")
     .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -87,6 +87,7 @@ export async function GET(
     result = await buildEscrituraDocx({
       contentJson: template.content_json,
       fieldValues: (document.field_values ?? {}) as Record<string, string>,
+      renderedContent: document.rendered_content,
       title: document.title,
     });
   } catch (error) {
