@@ -465,7 +465,7 @@ pnpm e2e:headed   # headed browser
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
 - Not included in CI yet (requires a live Supabase local instance and test credentials).
-- Project execution order: `setup` → `chromium-clients` → `chromium-templates` → `chromium-template-fields` → `chromium-documents` → `chromium-documents-docx` → `chromium-authenticated` (last, logs out). Authenticated module projects run sequentially to avoid local Supabase/dev-server contention while several flows create or update records.
+- Project execution order: `setup` → `chromium-clients` → `chromium-templates` → `chromium-template-fields` → `chromium-documents` → `chromium-documents-docx` → `chromium-documents-client` → `chromium-documents-workspace` → `chromium-documents-lifecycle` → `chromium-authenticated` (last, logs out). Authenticated module projects run sequentially to avoid local Supabase/dev-server contention while several flows create or update records.
 
 | Playwright project | Test file | Covers |
 |---|---|---|
@@ -474,6 +474,9 @@ pnpm e2e:headed   # headed browser
 | `chromium-template-fields` | `e2e/template-fields-authenticated.spec.ts` | Template variables in the workspace: legacy conversion, Configurada/Pendiente/No utilizada states, configure/remove configuration, key validation |
 | `chromium-documents` | `e2e/documents-authenticated.spec.ts` | Document composer: create/edit drafts with live document sheet, formatting (bold/italic/underline), progress, historical values, required validation, mobile data/document switch |
 | `chromium-documents-docx` | `e2e/documents-docx-authenticated.spec.ts` | Word download: button visibility, unsaved-changes gate, `.docx` download + ZIP inspection, MIME/headers, pending-variables confirmation, 404/invalid-id/anonymous, mobile |
+| `chromium-documents-client` | `e2e/documents-client-authenticated.spec.ts` | Optional client association: start from client, preselection, client detail escrituras section, remove/change association, client shown in list |
+| `chromium-documents-workspace` | `e2e/documents-workspace-authenticated.spec.ts` | Workspace: search (title/client/template), filters, sort, clear, invalid params, no-results, list download, mobile |
+| `chromium-documents-lifecycle` | `e2e/documents-lifecycle-authenticated.spec.ts` | Status lifecycle: draft↔ready↔final transitions, finalize blocked by pending variables, read-only final, reopen, unsaved-changes gate, status filter, mobile |
 | `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
 
 **Setting up authenticated E2E tests:**

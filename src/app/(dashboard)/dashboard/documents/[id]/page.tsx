@@ -7,6 +7,10 @@ import { listClients } from "../../clients/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
+import {
+  documentStatusBadgeClass,
+  documentStatusLabel,
+} from "@/lib/documents/status";
 import { DocumentComposer } from "../_components/DocumentComposer";
 
 export const metadata = {
@@ -59,8 +63,10 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         <h1 className="text-2xl font-semibold text-slate-900">
           {document.title}
         </h1>
-        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-          Borrador
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(document.status)}`}
+        >
+          {documentStatusLabel(document.status)}
         </span>
       </div>
       <p className="-mt-4 mb-6 text-sm text-slate-500">

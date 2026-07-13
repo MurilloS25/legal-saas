@@ -20,6 +20,7 @@ import {
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { renderStructuredTemplate } from "@/lib/editor/render";
 import type { TemplateDocument } from "@/lib/editor/types";
+import { isReadOnlyStatus } from "@/lib/documents/lifecycle";
 
 // ------------------------------------------------------------------ types
 
@@ -254,13 +255,18 @@ export async function updateDocumentDraftAction(
 
   const { data: existing } = await supabase
     .from("documents")
-    .select("id, template_id, field_values")
+    .select("id, template_id, field_values, status")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
   if (!existing) {
     return { message: "No se encontró la escritura." };
+  }
+  if (isReadOnlyStatus(existing.status)) {
+    return {
+      message: "Esta escritura está finalizada. Reábrela antes de editarla.",
+    };
   }
 
   const loaded = await loadOwnedTemplateWithFields(
@@ -290,7 +296,7 @@ export async function updateDocumentDraftAction(
   const client = await resolveOptionalClientId(supabase, formData, user.id);
   if ("error" in client) return { message: client.error };
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("documents")
     .update({
       client_id: client.clientId,
@@ -299,10 +305,18 @@ export async function updateDocumentDraftAction(
       rendered_content: result.rendered,
     })
     .eq("id", documentId)
-    .eq("owner_id", user.id);
+    .eq("owner_id", user.id)
+    .neq("status", "final")
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return { message: "No fue posible guardar el borrador. Intenta de nuevo." };
+  }
+  if (!updated) {
+    return {
+      message: "Esta escritura está finalizada. Reábrela antes de editarla.",
+    };
   }
 
   revalidatePath("/dashboard/documents");
