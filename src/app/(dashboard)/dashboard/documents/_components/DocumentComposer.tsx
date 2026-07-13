@@ -26,7 +26,9 @@ import type { DocumentRow } from "../queries";
 import type { FillableTemplateField } from "@/lib/templates/fillable-fields";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { buildDocumentModel } from "@/lib/editor/render";
+import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
+import { DownloadDocxButton } from "./DownloadDocxButton";
 import { FieldError } from "@/components/forms/FieldError";
 
 // ------------------------------------------------------------------ styles
@@ -102,6 +104,13 @@ export function DocumentComposer(props: Props) {
     () => buildDocumentModel(document, values),
     [document, values],
   );
+
+  // Variables pendientes del estado PERSISTIDO (no del local): el Word usa
+  // siempre el último borrador guardado, así que la confirmación de descarga
+  // se calcula sobre draft.field_values, no sobre lo que se está escribiendo.
+  const persistedPendingCount = draft
+    ? findUnresolvedDocumentVariables(document, draft.field_values).length
+    : 0;
 
   const completedCount = fields.filter(
     (field) => (values[field.field_key] ?? "").trim() !== "",
@@ -414,6 +423,17 @@ export function DocumentComposer(props: Props) {
             >
               {pending ? "Guardando…" : "Guardar borrador"}
             </button>
+
+            {/* Descarga Word: solo en escrituras ya guardadas; usa siempre la
+                última versión persistida, por eso se bloquea si hay cambios. */}
+            {isEdit && (
+              <DownloadDocxButton
+                documentId={draft!.id}
+                disabled={dirty}
+                pendingVariableCount={persistedPendingCount}
+              />
+            )}
+
             <Link
               href="/dashboard/documents"
               className="block w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
