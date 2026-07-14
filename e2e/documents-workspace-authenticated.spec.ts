@@ -33,10 +33,14 @@ function row(page: Page, title: string) {
 }
 
 async function search(page: Page, term: string) {
-  await page.goto("/dashboard/documents");
-  await page.getByLabel("Buscar").fill(term);
-  await page.getByRole("button", { name: "Buscar" }).click();
-  await expect(page).toHaveURL(/search=/, { timeout: 15_000 });
+  await expect(async () => {
+    await page.goto("/dashboard/documents");
+    const searchbox = page.getByRole("searchbox", { name: "Buscar" });
+    await searchbox.fill(term);
+    await expect(searchbox).toHaveValue(term);
+    await page.getByRole("button", { name: "Buscar" }).click();
+    await expect(page).toHaveURL(/search=/, { timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test.describe("documents workspace management", () => {

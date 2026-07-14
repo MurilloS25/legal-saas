@@ -13,9 +13,11 @@ import {
 } from "@/lib/documents/status";
 import { listDocumentActivity } from "../activity";
 import { getNotarialMetadata } from "../notarial-queries";
+import { listReceivablesByDocument } from "../../receivables/queries";
 import { DocumentComposer } from "../_components/DocumentComposer";
 import { DocumentActivity } from "../_components/DocumentActivity";
 import { NotarialMetadataSection } from "../_components/NotarialMetadataSection";
+import { ReceivableMiniList } from "../../receivables/_components/ReceivableMiniList";
 
 export const metadata = {
   title: "Escritura — LexCR",
@@ -38,6 +40,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   const template = await getTemplateById(document.template_id);
   const activity = await listDocumentActivity(document.id);
   const notarialMetadata = await getNotarialMetadata(document.id);
+  const receivables = await listReceivablesByDocument(document.id);
 
   return (
     <PageContainer>
@@ -107,6 +110,15 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         metadata={notarialMetadata}
         readOnly={document.status === "final"}
       />
+
+      {/* Cuentas por cobrar vinculadas a esta escritura */}
+      <section aria-label="Cuentas por cobrar de la escritura" className="mt-8">
+        <ReceivableMiniList
+          receivables={receivables}
+          newHref={`/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`}
+          emptyText="Esta escritura todavía no tiene cuentas por cobrar."
+        />
+      </section>
 
       {/* key = updated_at: al cambiar la escritura (guardar, cambio de estado)
           la sección se remonta con la actividad recién revalidada. */}

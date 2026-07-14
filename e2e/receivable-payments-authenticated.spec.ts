@@ -62,11 +62,14 @@ test.describe("receivable payments", () => {
     await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
-    // Saldo y estado derivados reflejan el abono parcial.
+    // Saldo y estado derivados reflejan el abono parcial. La URL de detalle no
+    // cambia al guardar, así que se espera al re-render con un timeout amplio.
     await expect(
       page.getByText("₡60.000,00 CRC", { exact: true }).first(),
-    ).toBeVisible();
-    await expect(page.getByText("Parcial", { exact: true })).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Parcial", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(
       page.getByText("₡40.000,00 CRC", { exact: true }).first(),
     ).toBeVisible();
@@ -103,7 +106,9 @@ test.describe("receivable payments", () => {
     await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
-    await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
+    await expect(page.getByText("Pagada", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
     // Ya no se ofrece registrar pagos.
     await expect(
       page.getByText("Esta cuenta está saldada.", { exact: false }),
@@ -123,11 +128,12 @@ test.describe("receivable payments", () => {
     await dialog.getByLabel(/Motivo de la anulación/).fill("Pago revertido");
     await dialog.getByRole("button", { name: "Anular pago" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+    // El diálogo se cierra al completarse la anulación y re-renderizar.
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+    // La cuenta vuelve a tener saldo y estado parcial.
+    await expect(page.getByText("Parcial", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
-    // La cuenta vuelve a tener saldo y estado parcial.
-    await expect(page.getByText("Parcial", { exact: true })).toBeVisible();
     await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
     await expect(
       page.getByText("Cuenta reabierta tras anulación", { exact: true }),
