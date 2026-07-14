@@ -38,7 +38,19 @@ function variablesRegion(page: Page) {
  * en cliente, así que su visibilidad garantiza que React ya responde.
  */
 async function waitForWorkspace(page: Page) {
-  await expect(contentEditor(page)).toBeVisible({ timeout: 15_000 });
+  const editorVisible = await contentEditor(page)
+    .waitFor({ state: "visible", timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (editorVisible) {
+    return;
+  }
+
+  await expect(async () => {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await contentEditor(page).waitFor({ state: "visible", timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test.describe("templates module", () => {

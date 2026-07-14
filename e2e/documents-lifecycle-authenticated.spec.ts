@@ -77,9 +77,12 @@ test.describe("document lifecycle statuses", () => {
     await page
       .getByRole("button", { name: "Marcar como listo para revisar" })
       .click();
+    // El server action + revalidación puede tardar más de 5 s en frío (dev):
+    // se espera el estado derivado con el mismo timeout que el resto de
+    // transiciones de este spec (C/D/E/G).
     await expect(
       page.getByText("Listo para revisar", { exact: true }).first(),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("C: ready can be finalized with confirmation", async ({ page }) => {
