@@ -1,18 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Tables } from "@/lib/supabase/database.types";
 import { redirect } from "next/navigation";
 
-export type ClientRow = {
-  id: string;
-  full_name: string;
-  identification_type: string;
-  identification_number: string;
-  marital_status: string;
-  nationality: string;
-  occupation: string;
-  exact_address: string;
-  created_at: string;
-  updated_at: string;
-};
+export type ClientRow = Pick<
+  Tables<"clients">,
+  | "id"
+  | "full_name"
+  | "identification_type"
+  | "identification_number"
+  | "marital_status"
+  | "nationality"
+  | "occupation"
+  | "exact_address"
+  | "created_at"
+  | "updated_at"
+>;
 
 export async function listClients(): Promise<ClientRow[]> {
   const supabase = await createClient();

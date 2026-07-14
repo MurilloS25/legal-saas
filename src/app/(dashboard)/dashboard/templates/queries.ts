@@ -1,20 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Tables } from "@/lib/supabase/database.types";
 import { redirect } from "next/navigation";
 
-export type TemplateRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-  content_json: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-};
+export type TemplateRow = Pick<
+  Tables<"templates">,
+  | "id"
+  | "name"
+  | "description"
+  | "status"
+  | "content_json"
+  | "created_at"
+  | "updated_at"
+>;
 
 export function extractContent(row: TemplateRow): string {
-  if (!row.content_json) return "";
-  const json = row.content_json as { text?: string };
-  return json.text ?? "";
+  const json = row.content_json;
+  if (!json || typeof json !== "object" || Array.isArray(json)) return "";
+  return typeof json.text === "string" ? json.text : "";
 }
 
 export async function listTemplates(): Promise<TemplateRow[]> {
@@ -32,7 +34,7 @@ export async function listTemplates(): Promise<TemplateRow[]> {
     .order("updated_at", { ascending: false });
 
   if (error) return [];
-  return (data ?? []) as TemplateRow[];
+  return data ?? [];
 }
 
 export async function getTemplateById(id: string): Promise<TemplateRow | null> {
@@ -50,20 +52,21 @@ export async function getTemplateById(id: string): Promise<TemplateRow | null> {
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  return (data as TemplateRow | null) ?? null;
+  return data ?? null;
 }
 
 // ------------------------------------------------------------------ template fields
 
-export type TemplateFieldRow = {
-  id: string;
-  template_id: string;
-  field_key: string;
-  label: string;
-  field_type: string;
-  required: boolean;
-  sort_order: number;
-};
+export type TemplateFieldRow = Pick<
+  Tables<"template_fields">,
+  | "id"
+  | "template_id"
+  | "field_key"
+  | "label"
+  | "field_type"
+  | "required"
+  | "sort_order"
+>;
 
 export async function listTemplateFields(
   templateId: string,
@@ -84,5 +87,5 @@ export async function listTemplateFields(
     .order("created_at", { ascending: true });
 
   if (error) return [];
-  return (data ?? []) as TemplateFieldRow[];
+  return data ?? [];
 }
