@@ -26,6 +26,30 @@ async function gotoWorkspace(page: Page, params = "") {
   ).toBeVisible();
 }
 
+async function selectFilter(
+  page: Page,
+  params: string,
+  label: string,
+  value: string,
+  expectedParam: RegExp,
+) {
+  await expect(async () => {
+    await gotoWorkspace(page, params);
+    await page.getByLabel(label, { exact: true }).selectOption(value);
+    await expect(page).toHaveURL(expectedParam, { timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
+async function searchWorkspace(page: Page, term: string) {
+  await expect(async () => {
+    const searchbox = page.getByRole("searchbox", { name: "Buscar" });
+    await searchbox.fill(term);
+    await expect(searchbox).toHaveValue(term);
+    await page.getByRole("button", { name: "Buscar" }).click();
+    await expect(page).toHaveURL(/search=/, { timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 test.describe("receivables workspace", () => {
   test.afterAll(async () => {
     await runCleanup(registry, "rec-ws");
@@ -75,10 +99,13 @@ test.describe("receivables workspace", () => {
   });
 
   test("C: the currency filter narrows results and totals", async ({ page }) => {
-    await gotoWorkspace(page, `?client=${clientId}`);
-    await page.getByLabel("Moneda", { exact: true }).selectOption("USD");
-
-    await expect(page).toHaveURL(/currency=USD/, { timeout: 15_000 });
+    await selectFilter(
+      page,
+      `?client=${clientId}`,
+      "Moneda",
+      "USD",
+      /currency=USD/,
+    );
     await expect(page.getByText(conceptUsd).first()).toBeVisible();
     await expect(page.getByText(conceptCrc)).toHaveCount(0);
 
@@ -89,8 +116,7 @@ test.describe("receivables workspace", () => {
 
   test("D: the search filter matches the concept", async ({ page }) => {
     await gotoWorkspace(page, `?client=${clientId}`);
-    await page.getByLabel("Buscar").fill(conceptCrc);
-    await page.getByRole("button", { name: "Buscar" }).click();
+    await searchWorkspace(page, conceptCrc);
 
     await expect(page.getByText(conceptCrc).first()).toBeVisible();
     await expect(page.getByText(conceptUsd)).toHaveCount(0);
@@ -120,10 +146,14 @@ test.describe("receivables workspace", () => {
   test("G: the 'without document' filter excludes linked receivables", async ({
     page,
   }) => {
-    await gotoWorkspace(page, `?client=${clientId}`);
-    await page.getByLabel("Escritura", { exact: true }).selectOption("without");
+    await selectFilter(
+      page,
+      `?client=${clientId}`,
+      "Escritura",
+      "without",
+      /doc=without/,
+    );
 
-    await expect(page).toHaveURL(/doc=without/, { timeout: 15_000 });
     // El de CRC no tiene escritura; el de USD sí.
     await expect(page.getByText(conceptCrc).first()).toBeVisible();
     await expect(page.getByText(conceptUsd)).toHaveCount(0);
