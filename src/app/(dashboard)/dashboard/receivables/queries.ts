@@ -2,6 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { ReceivableStatus } from "@/lib/receivables/status";
 import type { ReceivableActivityEvent } from "@/lib/receivables/activity-format";
+import {
+  RECEIVABLES_PAGE_SIZE,
+  sanitizeSearchTermForPostgrest,
+  sortColumnFor,
+  type ReceivablesQuery,
+} from "@/lib/receivables/workspace-query";
 
 /**
  * Lecturas de cuentas por cobrar. Todas parten de la vista
@@ -113,6 +119,115 @@ export async function listReceivables(): Promise<ReceivableEntry[]> {
 
   if (error) return [];
   return (data as ReceivableEntry[] | null) ?? [];
+}
+
+// --------------------------------------------------------------- workspace
+
+export type CurrencyTotal = {
+  currency: string;
+  count: number;
+  total: string;
+  paid: string;
+  balance: string;
+};
+
+export type ReceivablesWorkspacePage = {
+  rows: ReceivableEntry[];
+  totalCount: number;
+  page: number;
+  pageCount: number;
+  totals: CurrencyTotal[];
+};
+
+/**
+ * Listado paginado del workspace con filtros server-side y totales por moneda
+ * sobre TODOS los resultados filtrados (vía la función receivables_summary).
+ */
+export async function listReceivablesWorkspace(
+  query: ReceivablesQuery,
+): Promise<ReceivablesWorkspacePage> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { column, ascending } = sortColumnFor(query.sort);
+  const from = (query.page - 1) * RECEIVABLES_PAGE_SIZE;
+  const to = from + RECEIVABLES_PAGE_SIZE - 1;
+
+  let builder = supabase
+    .from("receivable_entries")
+    .select(ENTRY_COLUMNS, { count: "exact" })
+    .eq("owner_id", user.id);
+
+  if (query.status) builder = builder.eq("status", query.status);
+  if (query.clientId) builder = builder.eq("client_id", query.clientId);
+  if (query.documentId) builder = builder.eq("document_id", query.documentId);
+  if (query.currency) builder = builder.eq("currency", query.currency);
+  if (query.docPresence === "with") {
+    builder = builder.not("document_id", "is", null);
+  } else if (query.docPresence === "without") {
+    builder = builder.is("document_id", null);
+  }
+  if (query.issuedFrom) builder = builder.gte("issued_at", query.issuedFrom);
+  if (query.issuedTo) builder = builder.lte("issued_at", query.issuedTo);
+  if (query.dueFrom) builder = builder.gte("due_at", query.dueFrom);
+  if (query.dueTo) builder = builder.lte("due_at", query.dueTo);
+
+  const term = sanitizeSearchTermForPostgrest(query.search);
+  if (term) {
+    builder = builder.or(
+      `concept.ilike.%${term}%,client_name.ilike.%${term}%,document_title.ilike.%${term}%`,
+    );
+  }
+
+  // Orden estable: columna elegida + id como desempate determinista.
+  const { data, count } = await builder
+    .order(column, { ascending, nullsFirst: false })
+    .order("id", { ascending: true })
+    .range(from, to);
+
+  const rows = (data as ReceivableEntry[] | null) ?? [];
+  const totalCount = count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / RECEIVABLES_PAGE_SIZE));
+
+  const totals = await getReceivablesSummary(query);
+
+  return { rows, totalCount, page: query.page, pageCount, totals };
+}
+
+/** Totales por moneda (sobre todos los resultados filtrados). */
+export async function getReceivablesSummary(
+  query: ReceivablesQuery,
+): Promise<CurrencyTotal[]> {
+  const supabase = await createClient();
+  const term = sanitizeSearchTermForPostgrest(query.search);
+
+  const { data, error } = await supabase.rpc("receivables_summary", {
+    p_search: term || null,
+    p_status: query.status,
+    p_client: query.clientId,
+    p_document: query.documentId,
+    p_doc_presence: query.docPresence,
+    p_currency: query.currency,
+    p_issued_from: query.issuedFrom,
+    p_issued_to: query.issuedTo,
+    p_due_from: query.dueFrom,
+    p_due_to: query.dueTo,
+  });
+
+  if (error || !data) return [];
+  return (data as { currency: string; count: number; total: string; paid: string; balance: string }[]).map(
+    (r) => ({
+      currency: r.currency,
+      count: Number(r.count),
+      total: String(r.total),
+      paid: String(r.paid),
+      balance: String(r.balance),
+    }),
+  );
 }
 
 export async function listReceivablesByClient(

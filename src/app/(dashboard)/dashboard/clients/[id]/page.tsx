@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientById } from "../queries";
 import { listDocumentsByClient } from "../../documents/queries";
+import { listReceivablesByClient } from "../../receivables/queries";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
 } from "@/lib/documents/status";
 import { ClientForm } from "../_components/ClientForm";
+import { ReceivableMiniList } from "../../receivables/_components/ReceivableMiniList";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-CR", {
@@ -59,7 +61,10 @@ export default async function ClientDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
-  const documents = await listDocumentsByClient(client.id);
+  const [documents, receivables] = await Promise.all([
+    listDocumentsByClient(client.id),
+    listReceivablesByClient(client.id),
+  ]);
   const initials = getInitials(client.full_name);
   const avatarColor = getAvatarColor(client.full_name);
 
@@ -170,6 +175,15 @@ export default async function ClientDetailPage({ params }: Props) {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Cuentas por cobrar del cliente */}
+      <section aria-label="Cuentas por cobrar del cliente" className="mt-8">
+        <ReceivableMiniList
+          receivables={receivables}
+          newHref={`/dashboard/receivables/new?client=${client.id}`}
+          emptyText="Este cliente todavía no tiene cuentas por cobrar."
+        />
       </section>
     </PageContainer>
   );

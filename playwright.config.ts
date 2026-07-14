@@ -215,6 +215,17 @@ export default defineConfig({
       dependencies: ["chromium-receivables"],
     },
 
+    // Receivables workspace (filters, totals) — authenticated.
+    {
+      name: "chromium-receivables-workspace",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /receivables-workspace-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivable-payments"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -224,7 +235,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivable-payments"],
+      dependencies: ["chromium-receivables-workspace"],
     },
   ],
   webServer: {
