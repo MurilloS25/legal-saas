@@ -265,40 +265,28 @@ Run:
 
 Agents must explain which commands were skipped and why.
 
-## Temporary Foundation Phase
+## Test Script Behavior
 
-During the foundation phase, the test script may use:
-
-```bash
-vitest run --passWithNoTests
-```
-
-This is acceptable only while no real features exist.
-
-Once critical business logic is added, the project should include real tests.
-
-The long-term goal is to remove reliance on passing with no tests.
+The test script currently keeps `--passWithNoTests` as a harmless fallback for
+isolated branches, but the repository contains a substantial unit test suite.
+New or changed critical behavior still requires focused tests; the fallback is
+not evidence that an untested feature is acceptable.
 
 ## Recommended Test Structure
 
-```txt
-tests/
-├─ unit/
-│  ├─ domain/
-│  ├─ application/
-│  └─ lib/
-├─ integration/
-└─ e2e/
-```
-
-Alternative feature-local tests are also acceptable if they improve maintainability:
+Prefer tests colocated with the code they verify. Feature-local and shared-lib
+tests follow the modular structure documented in `docs/ARCHITECTURE.md`:
 
 ```txt
-src/features/clients/__tests__/
-src/domain/templates/__tests__/
+src/features/clients/model/client-schema.test.ts
+src/features/receivables/model/status.test.ts
+src/lib/editor/variables.test.ts
+supabase/tests/rls_initial_schema.test.sql
+e2e/clients-authenticated.spec.ts
 ```
 
-The project should choose one convention and stay consistent.
+Do not create global `domain` or `application` test trees solely to imitate a
+layered architecture.
 
 ## Naming Convention
 
