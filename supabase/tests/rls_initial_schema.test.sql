@@ -247,21 +247,17 @@ insert into public.receivables (
   id,
   owner_id,
   client_id,
-  document_metadata_id,
-  description,
-  amount,
+  concept,
   currency,
-  status
+  amount_total
 )
 values (
   '22222222-0000-0000-0000-000000000008',
   '22222222-2222-2222-2222-222222222222',
   '22222222-0000-0000-0000-000000000003',
-  '22222222-0000-0000-0000-000000000006',
   'Fake receivable B',
-  100,
   'CRC',
-  'pending'
+  100
 );
 
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
@@ -493,24 +489,20 @@ select ok(
       id,
       owner_id,
       client_id,
-      document_metadata_id,
-      description,
-      amount,
+      concept,
       currency,
-      status
+      amount_total
     )
     values (
       '11111111-0000-0000-0000-000000000008',
       '11111111-1111-1111-1111-111111111111',
       '11111111-0000-0000-0000-000000000003',
-      '11111111-0000-0000-0000-000000000006',
       'Fake receivable A',
-      100,
       'CRC',
-      'pending'
+      100
     )
   $$),
-  'User A can create a receivable under their own client and metadata'
+  'User A can create a receivable under their own client'
 );
 
 select is((select count(*) from public.lawyer_profiles), 1::bigint, 'User A sees only their own lawyer profile');
@@ -577,24 +569,20 @@ select ok(
       id,
       owner_id,
       client_id,
-      document_metadata_id,
-      description,
-      amount,
+      concept,
       currency,
-      status
+      amount_total
     )
     values (
       'aaaaaaaa-0000-0000-0000-000000000003',
       '11111111-1111-1111-1111-111111111111',
       '22222222-0000-0000-0000-000000000003',
-      '22222222-0000-0000-0000-000000000006',
       'Invalid cross owner receivable',
-      100,
       'CRC',
-      'pending'
+      100
     )
   $$),
-  'User A cannot create a receivable under User B client or metadata'
+  'User A cannot create a receivable under User B client'
 );
 
 select ok(

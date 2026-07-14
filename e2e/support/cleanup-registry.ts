@@ -7,6 +7,7 @@
  */
 
 export type CleanupTable =
+  | "receivables"
   | "documents"
   | "template_fields"
   | "templates"
@@ -14,6 +15,7 @@ export type CleanupTable =
 
 /** Orden seguro según claves foráneas: hijos antes que padres. */
 export const CLEANUP_ORDER: readonly CleanupTable[] = [
+  "receivables",
   "documents",
   "template_fields",
   "templates",
