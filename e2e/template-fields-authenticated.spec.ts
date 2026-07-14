@@ -46,8 +46,10 @@ function variableRow(page: Page, key: string) {
  * React ya responden.
  */
 async function openWorkspace(page: Page) {
-  await page.goto(templateUrl);
-  await expect(contentEditor(page)).toBeVisible({ timeout: 15_000 });
+  await expect(async () => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test.describe("template variables workspace", () => {

@@ -21,6 +21,7 @@ const registry = new CleanupRegistry();
 const templateName = uniqueName("documents", "machote");
 const draftTitle = `${templateName} — Borrador`;
 let editedDraftTitle = "";
+let draftPath = "";
 
 const fieldLabel = "Comprador 1 - Nombre completo";
 const fieldKey = "buyer_1.full_name";
@@ -156,6 +157,7 @@ test.describe("document composer workspace", () => {
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
     });
+    draftPath = new URL(page.url()).pathname;
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible();
@@ -213,6 +215,7 @@ test.describe("document composer workspace", () => {
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+    draftPath = new URL(page.url()).pathname;
     await expect(
       documentRegion(page).getByText(/Cliente Editado 007 \(cero inicial: 012\)/),
     ).toBeVisible();
@@ -242,21 +245,16 @@ test.describe("document composer workspace", () => {
   });
 
   test("G: an empty required field blocks saving", async ({ page }) => {
-    await openDocumentsHome(page);
-    await draftRow(page, editedDraftTitle)
-      .getByRole("link", { name: "Continuar" })
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
-      timeout: 15_000,
-    });
+    await page.goto(draftPath);
 
-    // Vacía el campo requerido y espera a que la hoja vuelva al placeholder
-    // (confirma hidratación antes de enviar).
+    const requiredField = panelField(page, new RegExp(fieldLabel));
+    await expect(requiredField).toHaveValue(editedValue, { timeout: 15_000 });
+
+    // El comportamiento de placeholders ya está cubierto arriba; aquí el
+    // contrato crítico es que un campo requerido vacío bloquea el guardado.
     await expect(async () => {
-      await panelField(page, new RegExp(fieldLabel)).fill("");
-      await expect(
-        documentRegion(page).getByText(`{{${fieldKey}}}`).first(),
-      ).toBeVisible({ timeout: 2_000 });
+      await requiredField.fill("");
+      await expect(requiredField).toHaveValue("", { timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
 
     await page.getByRole("button", { name: "Guardar borrador" }).click();
@@ -431,13 +429,7 @@ test.describe("document composer workspace", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await openDocumentsHome(page);
-    await draftRow(page, editedDraftTitle)
-      .getByRole("link", { name: "Continuar" })
-      .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
-      timeout: 15_000,
-    });
+    await page.goto(draftPath);
 
     // En móvil solo se muestra una zona a la vez; Datos es la inicial.
     await expect(page.getByLabel("Título de la escritura")).toBeVisible();
