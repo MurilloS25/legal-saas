@@ -152,7 +152,7 @@ export async function deleteReceivableAction(
     return {
       message:
         error?.code === "23514"
-          ? "No se pudo eliminar la cuenta porque tiene pagos registrados."
+          ? "No se pudo eliminar la cuenta porque tiene pagos activos registrados."
           : "No se pudo eliminar la cuenta por cobrar. Intenta de nuevo.",
     };
   }
