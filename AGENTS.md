@@ -87,7 +87,11 @@ Use the following stack and project direction:
 - Supabase for Auth, Postgres, and RLS-based authorization.
 - Vercel plus Supabase Cloud as the intended MVP production target.
 - Docker for local development support only, mainly for the Supabase local stack.
-- Modular monolith with Clean Architecture-inspired boundaries.
+- Modular monolith organized pragmatically by feature.
+
+The project does not use strict Clean Architecture. `docs/ARCHITECTURE.md` is
+the source of truth for feature boundaries, imports, and the gradual migration
+away from unused global layer placeholders.
 
 For detailed architecture rules, read `docs/ARCHITECTURE.md`.
 

@@ -7,12 +7,12 @@ The product helps lawyers manage reusable legal document templates ("machotes"),
 ## Stack
 
 - Next.js App Router with TypeScript, Tailwind CSS, ESLint, and `src/`
-- Supabase for Auth, Postgres, and future RLS-based authorization
+- Supabase for Auth, Postgres, and RLS-based authorization
 - Vercel for production hosting
 - Docker only for local development support, mainly alongside the Supabase local stack
-- Modular monolith with Clean Architecture-inspired boundaries
+- Modular monolith organized pragmatically by feature
 - GitHub Actions CI and Dependabot updates
-- Vitest and Playwright reserved for focused tests as features are added
+- Vitest, Supabase SQL/RLS tests, and Playwright for focused automated coverage
 
 ## Getting Started
 
@@ -63,7 +63,7 @@ pnpm build
 
 ## Current Status
 
-This repository is intentionally at foundation stage. Product screens, database tables, document-generation logic, and production deployment configuration are deferred.
+The local MVP currently includes Auth, lawyer settings, clients, reusable templates, persistent draft escrituras, in-memory Word export, document lifecycle and activity, internal notarial index preparation, accounts receivable, payments, RLS, and E2E coverage. Production deployment remains deferred.
 
 ## Non-Negotiables
 
@@ -73,9 +73,14 @@ This repository is intentionally at foundation stage. Product screens, database 
 - Enforce per-user authorization with Supabase RLS before handling real user data.
 - Keep security, accessibility, and data minimization visible in every feature review.
 
+## Architecture
+
+The current architecture and incremental modularization plan are documented in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Structural refactors must remain
+behavior-preserving and must not introduce strict Clean Architecture layers by
+default.
+
 ## TODO
 
-- Define the first database schema and RLS policies.
-- Add Supabase client/server helpers.
-- Add Vitest and Playwright configurations when the first testable behavior exists.
-- Add Vercel project and environment configuration.
+- Apply the documented modular-by-feature refactor incrementally.
+- Add Vercel project and production environment configuration when explicitly approved.

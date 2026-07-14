@@ -23,10 +23,11 @@ These rules are strict for the MVP foundation and future product work.
 
 ## Architecture
 
-- Keep domain logic independent of Next.js, React, Supabase, and browser APIs.
-- Keep use cases in `src/application/*`.
-- Keep Supabase and external adapters in `src/infrastructure/*`.
-- Keep route-level composition in `src/app/*` and feature composition in `src/features/*`.
+- Follow the modular-by-feature architecture in `docs/ARCHITECTURE.md`.
+- Keep pure business logic independent of Next.js, React, Supabase, and browser APIs.
+- Keep route-level composition in `src/app/*` and reusable feature implementation in `src/features/*`.
+- Access another feature through its intentional `index.ts` exports; avoid deep imports into route or feature internals.
+- Do not create mandatory global layers, generic repositories, interfaces, or dependency injection containers without a concrete need.
 - Prefer clear modules over generic abstractions.
 - Use `@/*` imports for source modules.
 
