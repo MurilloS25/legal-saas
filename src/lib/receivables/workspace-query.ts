@@ -172,6 +172,10 @@ export function sanitizeSearchTermForPostgrest(search: string): string {
     .trim();
 }
 
+export function searchHasNoSafeTerm(search: string): boolean {
+  return search.trim() !== "" && sanitizeSearchTermForPostgrest(search) === "";
+}
+
 export function receivablesQueryToParams(
   query: Partial<ReceivablesQuery>,
 ): Record<string, string> {

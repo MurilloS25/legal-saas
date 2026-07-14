@@ -1,5 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { listReceivablesWorkspace } from "./queries";
 import { listClients } from "../clients/queries";
 import {
@@ -57,6 +58,12 @@ export default async function ReceivablesPage({ searchParams }: Props) {
     listReceivablesWorkspace(query),
     listClients(),
   ]);
+
+  if (page.totalCount > 0 && query.page > page.pageCount) {
+    const params = receivablesQueryToParams({ ...query, page: page.pageCount });
+    const qs = new URLSearchParams(params).toString();
+    redirect(qs ? `/dashboard/receivables?${qs}` : "/dashboard/receivables");
+  }
 
   function pageHref(n: number): string {
     const params = receivablesQueryToParams({ ...query, page: n });

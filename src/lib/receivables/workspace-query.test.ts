@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseReceivablesQuery,
   receivablesQueryToParams,
+  searchHasNoSafeTerm,
   sanitizeSearchTermForPostgrest,
 } from "./workspace-query";
 
@@ -80,5 +81,12 @@ describe("sanitizeSearchTermForPostgrest", () => {
     expect(sanitizeSearchTermForPostgrest("  Honorarios  2026 ")).toBe(
       "Honorarios 2026",
     );
+  });
+
+  it("detects searches that sanitize to an empty term", () => {
+    expect(searchHasNoSafeTerm("%_(),'\"\\")).toBe(true);
+    expect(searchHasNoSafeTerm("   % _ ( )   ")).toBe(true);
+    expect(searchHasNoSafeTerm("")).toBe(false);
+    expect(searchHasNoSafeTerm("Honorarios %")).toBe(false);
   });
 });

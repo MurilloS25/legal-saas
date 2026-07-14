@@ -96,7 +96,28 @@ test.describe("receivables workspace", () => {
     await expect(page.getByText(conceptUsd)).toHaveCount(0);
   });
 
-  test("E: the 'without document' filter excludes linked receivables", async ({
+  test("E: special-character-only search does not broaden results", async ({
+    page,
+  }) => {
+    await gotoWorkspace(
+      page,
+      `?client=${clientId}&search=${encodeURIComponent("%_(),'\"\\")}`,
+    );
+    await expect(
+      page.getByText("Ninguna cuenta coincide con los filtros"),
+    ).toBeVisible();
+    await expect(page.getByText(conceptCrc)).toHaveCount(0);
+    await expect(page.getByText(conceptUsd)).toHaveCount(0);
+  });
+
+  test("F: out-of-range page redirects to a valid page", async ({ page }) => {
+    await gotoWorkspace(page, `?client=${clientId}&page=999999`);
+    await expect(page).not.toHaveURL(/page=999999/);
+    await expect(page.getByText(conceptCrc).first()).toBeVisible();
+    await expect(page.getByText(conceptUsd).first()).toBeVisible();
+  });
+
+  test("G: the 'without document' filter excludes linked receivables", async ({
     page,
   }) => {
     await gotoWorkspace(page, `?client=${clientId}`);
@@ -108,7 +129,7 @@ test.describe("receivables workspace", () => {
     await expect(page.getByText(conceptUsd)).toHaveCount(0);
   });
 
-  test("F: the client detail lists its receivables", async ({ page }) => {
+  test("H: the client detail lists its receivables", async ({ page }) => {
     await page.goto(`/dashboard/clients/${clientId}`);
     const section = page.getByRole("region", {
       name: "Cuentas por cobrar del cliente",

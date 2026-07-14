@@ -4,6 +4,7 @@ import type { ReceivableStatus } from "@/lib/receivables/status";
 import type { ReceivableActivityEvent } from "@/lib/receivables/activity-format";
 import {
   RECEIVABLES_PAGE_SIZE,
+  searchHasNoSafeTerm,
   sanitizeSearchTermForPostgrest,
   sortColumnFor,
   type ReceivablesQuery,
@@ -154,12 +155,68 @@ export async function listReceivablesWorkspace(
   if (!user) redirect("/login");
 
   const { column, ascending } = sortColumnFor(query.sort);
+  const term = sanitizeSearchTermForPostgrest(query.search);
+
+  if (searchHasNoSafeTerm(query.search)) {
+    return {
+      rows: [],
+      totalCount: 0,
+      page: query.page,
+      pageCount: 1,
+      totals: [],
+    };
+  }
+
+  let countBuilder = supabase
+    .from("receivable_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", user.id);
+
+  if (query.status) countBuilder = countBuilder.eq("status", query.status);
+  if (query.clientId) countBuilder = countBuilder.eq("client_id", query.clientId);
+  if (query.documentId) countBuilder = countBuilder.eq("document_id", query.documentId);
+  if (query.currency) countBuilder = countBuilder.eq("currency", query.currency);
+  if (query.docPresence === "with") {
+    countBuilder = countBuilder.not("document_id", "is", null);
+  } else if (query.docPresence === "without") {
+    countBuilder = countBuilder.is("document_id", null);
+  }
+  if (query.issuedFrom) countBuilder = countBuilder.gte("issued_at", query.issuedFrom);
+  if (query.issuedTo) countBuilder = countBuilder.lte("issued_at", query.issuedTo);
+  if (query.dueFrom) countBuilder = countBuilder.gte("due_at", query.dueFrom);
+  if (query.dueTo) countBuilder = countBuilder.lte("due_at", query.dueTo);
+
+  if (term) {
+    countBuilder = countBuilder.or(
+      `concept.ilike.%${term}%,client_name.ilike.%${term}%,document_title.ilike.%${term}%`,
+    );
+  }
+
+  const { count, error: countError } = await countBuilder;
+  if (countError) {
+    return {
+      rows: [],
+      totalCount: 0,
+      page: query.page,
+      pageCount: 1,
+      totals: [],
+    };
+  }
+
+  const totalCount = count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / RECEIVABLES_PAGE_SIZE));
+  const totals = await getReceivablesSummary(query);
+
+  if (totalCount > 0 && query.page > pageCount) {
+    return { rows: [], totalCount, page: query.page, pageCount, totals };
+  }
+
   const from = (query.page - 1) * RECEIVABLES_PAGE_SIZE;
   const to = from + RECEIVABLES_PAGE_SIZE - 1;
 
   let builder = supabase
     .from("receivable_entries")
-    .select(ENTRY_COLUMNS, { count: "exact" })
+    .select(ENTRY_COLUMNS)
     .eq("owner_id", user.id);
 
   if (query.status) builder = builder.eq("status", query.status);
@@ -175,8 +232,6 @@ export async function listReceivablesWorkspace(
   if (query.issuedTo) builder = builder.lte("issued_at", query.issuedTo);
   if (query.dueFrom) builder = builder.gte("due_at", query.dueFrom);
   if (query.dueTo) builder = builder.lte("due_at", query.dueTo);
-
-  const term = sanitizeSearchTermForPostgrest(query.search);
   if (term) {
     builder = builder.or(
       `concept.ilike.%${term}%,client_name.ilike.%${term}%,document_title.ilike.%${term}%`,
@@ -184,16 +239,12 @@ export async function listReceivablesWorkspace(
   }
 
   // Orden estable: columna elegida + id como desempate determinista.
-  const { data, count } = await builder
+  const { data } = await builder
     .order(column, { ascending, nullsFirst: false })
     .order("id", { ascending: true })
     .range(from, to);
 
   const rows = (data as ReceivableEntry[] | null) ?? [];
-  const totalCount = count ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / RECEIVABLES_PAGE_SIZE));
-
-  const totals = await getReceivablesSummary(query);
 
   return { rows, totalCount, page: query.page, pageCount, totals };
 }
@@ -204,6 +255,8 @@ export async function getReceivablesSummary(
 ): Promise<CurrencyTotal[]> {
   const supabase = await createClient();
   const term = sanitizeSearchTermForPostgrest(query.search);
+
+  if (searchHasNoSafeTerm(query.search)) return [];
 
   const { data, error } = await supabase.rpc("receivables_summary", {
     p_search: term || null,
