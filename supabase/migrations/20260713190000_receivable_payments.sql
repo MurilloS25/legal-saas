@@ -80,10 +80,11 @@ begin
   if (tg_op = 'DELETE') then
     select count(*) into v_payment_count
       from public.receivable_payments
-     where receivable_id = old.id;
+     where receivable_id = old.id
+       and status = 'active';
 
     if v_payment_count > 0 then
-      raise exception 'receivable with payments cannot be deleted'
+      raise exception 'receivable with active payments cannot be deleted'
         using errcode = '23514';
     end if;
 

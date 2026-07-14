@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(34);
+select plan(36);
 
 create schema rls_rp_test;
 grant usage on schema rls_rp_test to public;
@@ -157,7 +157,19 @@ $$), 'Receivable currency cannot change after payments exist');
 select ok(rls_rp_test.statement_fails($$
   delete from public.receivables
    where id = '91111111-a000-0000-0000-000000000001'
-$$), 'Receivables with payments cannot be deleted');
+$$), 'Receivables with active payments cannot be deleted');
+
+select ok(rls_rp_test.statement_succeeds($$
+  select public.void_receivable_payment(
+    (select id from public.receivable_payments
+      where receivable_id = '91111111-a000-0000-0000-000000000001' and amount = 60000 and status = 'active'),
+    'cleanup de prueba')
+$$), 'User A can void the remaining active payment before deletion');
+
+select is(rls_rp_test.statement_row_count($$
+  delete from public.receivables
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 1::bigint, 'Receivables with only voided payments can be deleted');
 
 select ok(not has_function_privilege('authenticated',
   'public.enforce_receivable_payment_consistency()', 'EXECUTE'),

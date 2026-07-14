@@ -5,6 +5,7 @@ import {
   createTestReceivable,
   runCleanup,
   uniqueName,
+  voidActiveTestReceivablePayments,
 } from "./support/factories";
 
 // Serial: los tests comparten una cuenta por cobrar y sus pagos.
@@ -28,6 +29,9 @@ function paymentsSection(page: Page) {
 
 test.describe("receivable payments", () => {
   test.afterAll(async () => {
+    if (receivableId) {
+      await voidActiveTestReceivablePayments(receivableId);
+    }
     await runCleanup(registry, "payments");
   });
 
