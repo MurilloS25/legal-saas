@@ -55,6 +55,7 @@ const ACTIVE_LINKS = [
   { label: "Clientes", href: "/dashboard/clients" },
   { label: "Machotes", href: "/dashboard/templates" },
   { label: "Escrituras", href: "/dashboard/documents" },
+  { label: "Cuentas por cobrar", href: "/dashboard/receivables" },
   { label: "Índice Notarial", href: "/dashboard/notarial-index" },
   { label: "Configuración", href: "/dashboard/settings" },
 ] as const;

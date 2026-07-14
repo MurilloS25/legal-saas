@@ -143,6 +143,33 @@ export async function createTestDocument(
   return { id };
 }
 
+export async function createTestReceivable(
+  registry: CleanupRegistry,
+  options: {
+    client_id: string;
+    concept: string;
+    currency?: "CRC" | "USD";
+    amount_total?: string;
+    issued_at?: string;
+    due_at?: string;
+    document_id?: string;
+  },
+): Promise<{ id: string }> {
+  const { userId } = getTestUserAuth();
+  const id = await restInsert("receivables", {
+    owner_id: userId,
+    client_id: options.client_id,
+    document_id: options.document_id ?? null,
+    concept: options.concept,
+    currency: options.currency ?? "CRC",
+    amount_total: options.amount_total ?? "100000.00",
+    issued_at: options.issued_at ?? "2026-07-13",
+    due_at: options.due_at ?? null,
+  });
+  registry.register("receivables", id);
+  return { id };
+}
+
 /**
  * Crea metadata notarial para una Escritura (aún editable). Cascada con el
  * documento, así que no necesita registro de cleanup propio.

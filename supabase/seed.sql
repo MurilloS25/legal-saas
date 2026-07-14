@@ -1,0 +1,7 @@
+-- Seed local de Supabase.
+--
+-- Intencionalmente vacío: el proyecto no siembra datos de demostración y NO
+-- debe contener credenciales ni datos reales. Existe para que
+-- `supabase db reset` no emita un warning por el archivo configurado en
+-- `[db.seed] sql_paths` de config.toml. Los datos de prueba de E2E se crean en
+-- tiempo de ejecución vía las factories (e2e/support), nunca desde este seed.
