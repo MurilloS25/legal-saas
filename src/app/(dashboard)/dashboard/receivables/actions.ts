@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/server/auth";
 import {
   ReceivableSchema,
   parseReceivableFormData,
@@ -63,12 +63,7 @@ export async function createReceivableAction(
   _prevState: ReceivableState,
   formData: FormData,
 ): Promise<ReceivableState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
@@ -101,12 +96,7 @@ export async function updateReceivableAction(
   _prevState: ReceivableState,
   formData: FormData,
 ): Promise<ReceivableState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
@@ -143,12 +133,7 @@ export async function deleteReceivableAction(
   void _prevState;
   void _formData;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("receivables")

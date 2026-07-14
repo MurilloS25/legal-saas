@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireApiUser } from "@/lib/server/auth";
+import { UnauthorizedError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "@/lib/validations/documents";
 import {
   buildEscrituraDocx,
@@ -33,12 +34,13 @@ export async function GET(
 ): Promise<NextResponse> {
   const { id } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return genericError(401);
+  let auth: Awaited<ReturnType<typeof requireApiUser>>;
+  try {
+    auth = await requireApiUser();
+  } catch (error) {
+    return genericError(error instanceof UnauthorizedError ? 401 : 500);
+  }
+  const { supabase, user } = auth;
 
   if (!DocumentIdSchema.safeParse(id).success) {
     // ID malformado: mismo 404 genérico que un documento inexistente.

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireApiUser } from "@/lib/server/auth";
+import { publicErrorDetails } from "@/lib/server/errors";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   parseNotarialQuery,
@@ -36,17 +37,17 @@ function readParams(request: NextRequest): RawNotarialQuery {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  let auth: Awaited<ReturnType<typeof requireApiUser>>;
+  try {
+    auth = await requireApiUser();
+  } catch (error) {
+    const details = publicErrorDetails(error);
     return NextResponse.json(
-      { error: "No autorizado." },
-      { status: 401 },
+      { error: details.message },
+      { status: details.status },
     );
   }
+  const { supabase } = auth;
 
   const query = parseNotarialQuery(readParams(request));
 
