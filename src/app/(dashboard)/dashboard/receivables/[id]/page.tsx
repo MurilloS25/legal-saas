@@ -5,11 +5,13 @@ import {
   getReceivableEntry,
   getReceivableForEdit,
   listReceivableActivity,
+  listPaymentsByReceivable,
   listClientOptions,
   listDocumentOptions,
 } from "../queries";
 import { ReceivableForm } from "../_components/ReceivableForm";
 import { DeleteReceivableButton } from "../_components/DeleteReceivableButton";
+import { PaymentsSection } from "../_components/PaymentsSection";
 import {
   formatMoney,
   receivableStatusBadgeClass,
@@ -46,10 +48,11 @@ export default async function ReceivableDetailPage({ params }: Props) {
 
   if (!entry || !editable) notFound();
 
-  const [clients, documents, activity] = await Promise.all([
+  const [clients, documents, activity, payments] = await Promise.all([
     listClientOptions(),
     listDocumentOptions(),
     listReceivableActivity(id),
+    listPaymentsByReceivable(id),
   ]);
 
   return (
@@ -140,13 +143,30 @@ export default async function ReceivableDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Formulario de edición */}
-      <ReceivableForm
-        mode="edit"
-        receivable={editable}
-        clients={clients}
-        documents={documents}
+      {/* Pagos */}
+      <PaymentsSection
+        receivableId={entry.id}
+        currency={entry.currency}
+        balanceDue={entry.balance_due}
+        status={entry.status}
+        payments={payments}
       />
+
+      {/* Formulario de edición */}
+      <section aria-labelledby="receivable-edit-heading" className="mt-8">
+        <h2
+          id="receivable-edit-heading"
+          className="text-sm font-semibold text-slate-900 mb-3"
+        >
+          Editar cuenta
+        </h2>
+        <ReceivableForm
+          mode="edit"
+          receivable={editable}
+          clients={clients}
+          documents={documents}
+        />
+      </section>
 
       {/* Historial */}
       <section aria-labelledby="receivable-activity-heading" className="mt-8">

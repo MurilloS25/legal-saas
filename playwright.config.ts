@@ -204,6 +204,17 @@ export default defineConfig({
       dependencies: ["chromium-notarial-export"],
     },
 
+    // Receivable payments — authenticated.
+    {
+      name: "chromium-receivable-payments",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /receivable-payments-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivables"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -213,7 +224,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables"],
+      dependencies: ["chromium-receivable-payments"],
     },
   ],
   webServer: {

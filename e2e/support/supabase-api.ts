@@ -177,6 +177,40 @@ export async function restFindIdBy(
   return rows[0]?.id ?? null;
 }
 
+/** Lee filas vía REST bajo la RLS del usuario de prueba. */
+export async function restSelect<T>(path: string): Promise<T[]> {
+  const response = await fetch(restUrl(path), { headers: restHeaders() });
+
+  if (!response.ok) {
+    throw new Error(
+      `Select from ${path} failed: ${response.status} ${await response.text()}`,
+    );
+  }
+
+  return (await response.json()) as T[];
+}
+
+/** Ejecuta un RPC vía REST bajo la RLS/Auth normal del usuario de prueba. */
+export async function restRpc(
+  functionName: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const response = await fetch(
+    `${requireEnv("NEXT_PUBLIC_SUPABASE_URL")}/rest/v1/rpc/${functionName}`,
+    {
+      method: "POST",
+      headers: restHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `RPC ${functionName} failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
 /** Deleter para CleanupRegistry: borra por id, tolerando filas ya inexistentes. */
 export async function restDelete(
   resource: CleanupResource,

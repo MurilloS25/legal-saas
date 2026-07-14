@@ -50,6 +50,13 @@ function fieldErrors(
   };
 }
 
+function receivableMutationMessage(code: string | undefined): string {
+  if (code === "23514") {
+    return "No fue posible guardar la cuenta. Revisa el monto, la moneda o los pagos registrados.";
+  }
+  return "No fue posible actualizar la cuenta por cobrar. Intenta de nuevo.";
+}
+
 // ------------------------------------------------------------------ create
 
 export async function createReceivableAction(
@@ -107,8 +114,7 @@ export async function updateReceivableAction(
 
   if (error) {
     return {
-      message:
-        "No fue posible actualizar la cuenta por cobrar. Intenta de nuevo.",
+      message: receivableMutationMessage(error.code),
     };
   }
 
@@ -144,7 +150,10 @@ export async function deleteReceivableAction(
 
   if (error || !data) {
     return {
-      message: "No se pudo eliminar la cuenta por cobrar. Intenta de nuevo.",
+      message:
+        error?.code === "23514"
+          ? "No se pudo eliminar la cuenta porque tiene pagos activos registrados."
+          : "No se pudo eliminar la cuenta por cobrar. Intenta de nuevo.",
     };
   }
 

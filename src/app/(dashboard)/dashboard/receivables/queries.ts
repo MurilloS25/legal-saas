@@ -157,6 +157,45 @@ export async function listReceivablesByDocument(
   return (data as ReceivableEntry[] | null) ?? [];
 }
 
+// ----------------------------------------------------------------- payments
+
+export type ReceivablePayment = {
+  id: string;
+  amount: string;
+  currency: string;
+  paid_at: string;
+  method: string;
+  reference: string | null;
+  status: string;
+  voided_at: string | null;
+  void_reason: string | null;
+  created_at: string;
+};
+
+/** Pagos de una cuenta, más reciente primero (incluye anulados). */
+export async function listPaymentsByReceivable(
+  receivableId: string,
+): Promise<ReceivablePayment[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("receivable_payments")
+    .select(
+      "id, amount, currency, paid_at, method, reference, status, voided_at, void_reason, created_at",
+    )
+    .eq("receivable_id", receivableId)
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return (data as ReceivablePayment[] | null) ?? [];
+}
+
 // ----------------------------------------------------------------- activity
 
 const ACTIVITY_LIMIT = 50;

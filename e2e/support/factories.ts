@@ -19,6 +19,8 @@ import {
   restDeleteOwnRows,
   restFindIdBy,
   restInsert,
+  restRpc,
+  restSelect,
   restUpdate,
 } from "./supabase-api";
 
@@ -168,6 +170,21 @@ export async function createTestReceivable(
   });
   registry.register("receivables", id);
   return { id };
+}
+
+export async function voidActiveTestReceivablePayments(
+  receivableId: string,
+): Promise<void> {
+  const payments = await restSelect<{ id: string }>(
+    `receivable_payments?select=id&receivable_id=eq.${receivableId}&status=eq.active`,
+  );
+
+  for (const payment of payments) {
+    await restRpc("void_receivable_payment", {
+      p_payment_id: payment.id,
+      p_reason: "E2E cleanup",
+    });
+  }
 }
 
 /**
