@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(27);
+select plan(34);
 
 create schema rls_rp_test;
 grant usage on schema rls_rp_test to public;
@@ -17,6 +17,10 @@ create function rls_rp_test.statement_fails(statement text)
 returns boolean language plpgsql as $$
 begin execute statement; return false;
 exception when others then return true; end; $$;
+
+create function rls_rp_test.statement_row_count(statement text)
+returns bigint language plpgsql as $$
+declare n bigint; begin execute statement; get diagnostics n = row_count; return n; end; $$;
 
 create function rls_rp_test.event_count(rec uuid, etype text)
 returns bigint language sql as $$
@@ -130,6 +134,35 @@ select ok(rls_rp_test.statement_fails($$
   values ('91111111-a000-0000-0000-000000000001','91111111-1111-1111-1111-111111111111',1,'CRC','cash')
 $$), 'Direct inserts into receivable_payments are blocked');
 
+select is(rls_rp_test.statement_row_count($$
+  update public.receivable_payments set amount = 1
+   where receivable_id = '91111111-a000-0000-0000-000000000001'
+$$), 0::bigint, 'Direct updates to receivable_payments change no rows');
+
+select is(rls_rp_test.statement_row_count($$
+  delete from public.receivable_payments
+   where receivable_id = '91111111-a000-0000-0000-000000000001'
+$$), 0::bigint, 'Direct deletes from receivable_payments change no rows');
+
+select ok(rls_rp_test.statement_fails($$
+  update public.receivables set amount_total = 50000
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Receivable total cannot be reduced below active payments');
+
+select ok(rls_rp_test.statement_fails($$
+  update public.receivables set currency = 'USD'
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Receivable currency cannot change after payments exist');
+
+select ok(rls_rp_test.statement_fails($$
+  delete from public.receivables
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Receivables with payments cannot be deleted');
+
+select ok(not has_function_privilege('authenticated',
+  'public.enforce_receivable_payment_consistency()', 'EXECUTE'),
+  'Authenticated users cannot execute the internal payment consistency trigger');
+
 -- ------------------------------------------------------------------ user B
 reset role;
 select set_config('request.jwt.claim.sub','92222222-2222-2222-2222-222222222222', true);
@@ -155,6 +188,9 @@ select is((select count(*) from public.receivable_payments), 0::bigint,
 select ok(not has_function_privilege('anon',
   'public.register_receivable_payment(uuid, numeric, date, text, text)', 'EXECUTE'),
   'Anonymous users cannot execute the register RPC');
+select ok(not has_function_privilege('anon',
+  'public.void_receivable_payment(uuid, text)', 'EXECUTE'),
+  'Anonymous users cannot execute the void RPC');
 
 reset role;
 select * from finish();

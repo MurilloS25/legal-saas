@@ -65,6 +65,64 @@ create policy "rp_select_own"
 on public.receivable_payments for select to authenticated
 using (owner_id = auth.uid());
 
+-- ------------------------------------------------ receivable consistency guard
+
+create or replace function public.enforce_receivable_payment_consistency()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_active_paid numeric(14, 2);
+  v_payment_count bigint;
+begin
+  if (tg_op = 'DELETE') then
+    select count(*) into v_payment_count
+      from public.receivable_payments
+     where receivable_id = old.id;
+
+    if v_payment_count > 0 then
+      raise exception 'receivable with payments cannot be deleted'
+        using errcode = '23514';
+    end if;
+
+    return old;
+  end if;
+
+  select coalesce(sum(amount), 0), count(*)
+    into v_active_paid, v_payment_count
+    from public.receivable_payments
+   where receivable_id = new.id
+     and status = 'active';
+
+  if new.currency is distinct from old.currency then
+    select count(*) into v_payment_count
+      from public.receivable_payments
+     where receivable_id = new.id;
+
+    if v_payment_count > 0 then
+      raise exception 'receivable currency cannot change after payments exist'
+        using errcode = '23514';
+    end if;
+  end if;
+
+  if v_active_paid > new.amount_total then
+    raise exception 'receivable total cannot be lower than active payments'
+      using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_receivable_payment_consistency()
+  from public, anon, authenticated;
+
+create trigger receivables_enforce_payment_consistency
+before update or delete on public.receivables
+for each row execute function public.enforce_receivable_payment_consistency();
+
 -- ------------------------------------------------------------------ view
 
 -- Se redefine la vista para sumar los pagos activos. Mantiene exactamente las
