@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(25);
+select plan(28);
 
 create schema rls_rec_test;
 grant usage on schema rls_rec_test to public;
@@ -93,6 +93,21 @@ select ok(rls_rec_test.statement_fails($$
   insert into public.receivables (owner_id, client_id, concept, currency, amount_total, issued_at)
   values ('81111111-1111-1111-1111-111111111111','81111111-c000-0000-0000-000000000001','   ','CRC',100,'2026-07-13')
 $$), 'Concept cannot be blank');
+
+select ok(rls_rec_test.statement_fails($$
+  insert into public.receivables (owner_id, client_id, concept, currency, amount_total, issued_at)
+  values ('81111111-1111-1111-1111-111111111111','81111111-c000-0000-0000-000000000001', repeat('x', 201),'CRC',100,'2026-07-13')
+$$), 'Concept cannot exceed the MVP length limit');
+
+select ok(rls_rec_test.statement_fails($$
+  insert into public.receivables (owner_id, client_id, concept, currency, amount_total, issued_at, notes)
+  values ('81111111-1111-1111-1111-111111111111','81111111-c000-0000-0000-000000000001','Notas','CRC',100,'2026-07-13', repeat('x', 2001))
+$$), 'Notes cannot exceed the MVP length limit');
+
+select ok(rls_rec_test.statement_fails($$
+  insert into public.receivables (owner_id, client_id, concept, currency, amount_total, issued_at)
+  values ('81111111-1111-1111-1111-111111111111','81111111-c000-0000-0000-000000000001','Monto enorme','CRC',10000000000,'2026-07-13')
+$$), 'Amount cannot exceed the MVP maximum');
 
 -- Vencimiento anterior a emisión rechazado.
 select ok(rls_rec_test.statement_fails($$

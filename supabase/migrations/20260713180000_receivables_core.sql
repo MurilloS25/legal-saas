@@ -39,8 +39,11 @@ create table public.receivables (
     on delete set null (document_id),
   constraint receivables_id_owner_id_key unique (id, owner_id),
   constraint receivables_amount_positive check (amount_total > 0),
+  constraint receivables_amount_max_check check (amount_total <= 9999999999.99),
   constraint receivables_currency_check check (currency in ('CRC', 'USD')),
   constraint receivables_concept_not_blank check (btrim(concept) <> ''),
+  constraint receivables_concept_length_check check (char_length(btrim(concept)) <= 200),
+  constraint receivables_notes_length_check check (notes is null or char_length(btrim(notes)) <= 2000),
   constraint receivables_due_after_issued check (
     due_at is null or due_at >= issued_at
   )
