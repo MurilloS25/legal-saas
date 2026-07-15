@@ -73,9 +73,14 @@ export async function createReceivableAction(
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
 
+  const mutation = {
+    ...result.data,
+    amount_total: Number(result.data.amount_total),
+  };
+
   const { data, error } = await supabase
     .from("receivables")
-    .insert({ owner_id: user.id, ...result.data })
+    .insert({ owner_id: user.id, ...mutation })
     .select("id")
     .single();
 
@@ -106,9 +111,14 @@ export async function updateReceivableAction(
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
 
+  const mutation = {
+    ...result.data,
+    amount_total: Number(result.data.amount_total),
+  };
+
   const { error } = await supabase
     .from("receivables")
-    .update(result.data)
+    .update(mutation)
     .eq("id", id)
     .eq("owner_id", user.id);
 

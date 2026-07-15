@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import type { ReceivableStatus } from "@/lib/receivables/status";
+import type { Database, Tables } from "@/lib/supabase/database.types";
+import {
+  isReceivableStatus,
+  type ReceivableStatus,
+} from "@/lib/receivables/status";
 import type { ReceivableActivityEvent } from "@/lib/receivables/activity-format";
 import {
   RECEIVABLES_PAGE_SIZE,
@@ -38,6 +42,71 @@ export type ReceivableEntry = {
   status: ReceivableStatus;
 };
 
+type ReceivableEntryView = Pick<
+  Database["public"]["Views"]["receivable_entries"]["Row"],
+  | "id"
+  | "client_id"
+  | "document_id"
+  | "concept"
+  | "currency"
+  | "amount_total"
+  | "issued_at"
+  | "due_at"
+  | "created_at"
+  | "updated_at"
+  | "client_name"
+  | "document_title"
+  | "paid_amount"
+  | "balance_due"
+  | "status"
+>;
+
+function mapReceivableEntry(
+  row: ReceivableEntryView,
+): ReceivableEntry | null {
+  if (
+    !row.id ||
+    !row.client_id ||
+    !row.concept ||
+    !row.currency ||
+    row.amount_total === null ||
+    !row.issued_at ||
+    !row.created_at ||
+    !row.updated_at ||
+    !row.client_name ||
+    row.paid_amount === null ||
+    row.balance_due === null ||
+    !row.status ||
+    !isReceivableStatus(row.status)
+  ) {
+    return null;
+  }
+
+  return {
+    ...row,
+    id: row.id,
+    client_id: row.client_id,
+    concept: row.concept,
+    currency: row.currency,
+    amount_total: String(row.amount_total),
+    issued_at: row.issued_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    client_name: row.client_name,
+    paid_amount: String(row.paid_amount),
+    balance_due: String(row.balance_due),
+    status: row.status,
+  };
+}
+
+function mapReceivableEntries(
+  rows: ReceivableEntryView[] | null,
+): ReceivableEntry[] {
+  return (rows ?? [])
+    .map(mapReceivableEntry)
+    .filter((row): row is ReceivableEntry => row !== null);
+}
+
 /** Cuenta por cobrar en su forma editable (tabla base, sin derivados). */
 export type ReceivableRow = {
   id: string;
@@ -50,6 +119,19 @@ export type ReceivableRow = {
   due_at: string | null;
   notes: string | null;
 };
+
+type ReceivableTableRow = Pick<
+  Tables<"receivables">,
+  | "id"
+  | "client_id"
+  | "document_id"
+  | "concept"
+  | "currency"
+  | "amount_total"
+  | "issued_at"
+  | "due_at"
+  | "notes"
+>;
 
 export async function getReceivableEntry(
   id: string,
@@ -68,7 +150,7 @@ export async function getReceivableEntry(
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  return (data as ReceivableEntry | null) ?? null;
+  return data ? mapReceivableEntry(data) : null;
 }
 
 /** Forma editable, para precargar el formulario (incluye notas internas). */
@@ -92,7 +174,7 @@ export async function getReceivableForEdit(
     .maybeSingle();
 
   if (!data) return null;
-  const row = data as ReceivableRow;
+  const row: ReceivableTableRow = data;
   // El monto puede llegar como número o string según el driver; se normaliza
   // a una cadena con dos decimales para que el formulario sea determinista.
   return { ...row, amount_total: normalizeAmount(row.amount_total) };
@@ -119,7 +201,7 @@ export async function listReceivables(): Promise<ReceivableEntry[]> {
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  return (data as ReceivableEntry[] | null) ?? [];
+  return mapReceivableEntries(data);
 }
 
 // --------------------------------------------------------------- workspace
@@ -244,7 +326,7 @@ export async function listReceivablesWorkspace(
     .order("id", { ascending: true })
     .range(from, to);
 
-  const rows = (data as ReceivableEntry[] | null) ?? [];
+  const rows = mapReceivableEntries(data);
 
   return { rows, totalCount, page: query.page, pageCount, totals };
 }
@@ -259,28 +341,26 @@ export async function getReceivablesSummary(
   if (searchHasNoSafeTerm(query.search)) return [];
 
   const { data, error } = await supabase.rpc("receivables_summary", {
-    p_search: term || null,
-    p_status: query.status,
-    p_client: query.clientId,
-    p_document: query.documentId,
-    p_doc_presence: query.docPresence,
-    p_currency: query.currency,
-    p_issued_from: query.issuedFrom,
-    p_issued_to: query.issuedTo,
-    p_due_from: query.dueFrom,
-    p_due_to: query.dueTo,
+    ...(term ? { p_search: term } : {}),
+    ...(query.status ? { p_status: query.status } : {}),
+    ...(query.clientId ? { p_client: query.clientId } : {}),
+    ...(query.documentId ? { p_document: query.documentId } : {}),
+    ...(query.docPresence ? { p_doc_presence: query.docPresence } : {}),
+    ...(query.currency ? { p_currency: query.currency } : {}),
+    ...(query.issuedFrom ? { p_issued_from: query.issuedFrom } : {}),
+    ...(query.issuedTo ? { p_issued_to: query.issuedTo } : {}),
+    ...(query.dueFrom ? { p_due_from: query.dueFrom } : {}),
+    ...(query.dueTo ? { p_due_to: query.dueTo } : {}),
   });
 
   if (error || !data) return [];
-  return (data as { currency: string; count: number; total: string; paid: string; balance: string }[]).map(
-    (r) => ({
+  return data.map((r) => ({
       currency: r.currency,
       count: Number(r.count),
       total: String(r.total),
       paid: String(r.paid),
       balance: String(r.balance),
-    }),
-  );
+    }));
 }
 
 export async function listReceivablesByClient(
@@ -301,7 +381,7 @@ export async function listReceivablesByClient(
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  return (data as ReceivableEntry[] | null) ?? [];
+  return mapReceivableEntries(data);
 }
 
 export async function listReceivablesByDocument(
@@ -322,7 +402,7 @@ export async function listReceivablesByDocument(
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  return (data as ReceivableEntry[] | null) ?? [];
+  return mapReceivableEntries(data);
 }
 
 // ----------------------------------------------------------------- payments
@@ -361,7 +441,10 @@ export async function listPaymentsByReceivable(
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  return (data as ReceivablePayment[] | null) ?? [];
+  return (data ?? []).map((payment) => ({
+    ...payment,
+    amount: String(payment.amount),
+  }));
 }
 
 // ----------------------------------------------------------------- activity
@@ -416,7 +499,7 @@ export async function listClientOptions(): Promise<ClientOption[]> {
     .order("full_name", { ascending: true });
 
   if (error) return [];
-  return (data as ClientOption[] | null) ?? [];
+  return data ?? [];
 }
 
 /** Escrituras del usuario, para el selector opcional del formulario. */
@@ -435,5 +518,5 @@ export async function listDocumentOptions(): Promise<DocumentOption[]> {
     .order("updated_at", { ascending: false });
 
   if (error) return [];
-  return (data as DocumentOption[] | null) ?? [];
+  return data ?? [];
 }

@@ -854,6 +854,26 @@ Migration files must:
 
 No migrations should be created until this design is approved.
 
+## Generated TypeScript Types
+
+The application versions the Supabase-generated public schema types in
+`src/lib/supabase/database.types.ts`. Browser, server, and proxy clients use the
+generated `Database` type so schema drift is visible during type checking.
+
+Regenerate the file only from the local stack after all local migrations apply:
+
+```bash
+pnpm supabase db reset
+pnpm supabase:types
+pnpm typecheck
+```
+
+Review the generated diff before committing it. A type diff must correspond to
+an intentional versioned migration. The project does not currently enforce
+type regeneration in CI because that would require booting the complete local
+Supabase stack in the standard CI job; this can be reconsidered in a dedicated,
+reliable database CI task.
+
 ## Seed Data Rules
 
 Seed data must be fake.

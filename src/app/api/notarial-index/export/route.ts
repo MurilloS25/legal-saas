@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   parseNotarialQuery,
   type RawNotarialQuery,
@@ -65,12 +66,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Auditoría best-effort: no debe romper la descarga.
   try {
-    await supabase.rpc("log_notarial_index_export", {
+    type LogExportArgs = Database["public"]["Functions"]["log_notarial_index_export"]["Args"];
+    const args = {
       p_format: "csv",
       p_from: query.from,
       p_to: query.to,
       p_row_count: rows.length,
-    });
+    };
+
+    // The SQL function accepts null date filters; generated function argument
+    // types do not encode that parameter nullability.
+    await supabase.rpc("log_notarial_index_export", args as LogExportArgs);
   } catch {
     console.error("[notarial-export] activity logging failed");
   }

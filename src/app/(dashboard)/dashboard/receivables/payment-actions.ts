@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   parseRegisterPaymentFormData,
   parseVoidPaymentFormData,
@@ -67,13 +68,22 @@ export async function registerPaymentAction(
     };
   }
 
-  const { error } = await supabase.rpc("register_receivable_payment", {
+  type RegisterPaymentArgs = Database["public"]["Functions"]["register_receivable_payment"]["Args"];
+
+  const args = {
     p_receivable_id: receivableId,
-    p_amount: result.data.amount,
+    p_amount: Number(result.data.amount),
     p_paid_at: result.data.paid_at,
     p_method: result.data.method,
     p_reference: result.data.reference,
-  });
+  };
+
+  // PostgreSQL accepts null for these optional values, but generated function
+  // argument types do not encode parameter nullability.
+  const { error } = await supabase.rpc(
+    "register_receivable_payment",
+    args as RegisterPaymentArgs,
+  );
 
   if (error) {
     return { message: registerErrorMessage(error.code) };
