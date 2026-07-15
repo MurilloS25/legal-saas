@@ -2,27 +2,37 @@
  * Metadata interna del índice notarial (1:1 con una Escritura).
  *
  * La completitud se deriva (no se almacena): una escritura tiene metadata
- * "completa" cuando están presentes número de instrumento, fecha de
- * autorización y tipo de acto. "Completo" significa completo según los campos
- * internos del sistema, no validado legalmente.
+ * "completa" cuando están presentes los ocho valores requeridos por el índice.
+ * "Completo" significa completo según los campos internos del sistema, no
+ * validado legalmente.
  */
 
 export type NotarialMetadata = {
-  instrument_number: string | null;
+  instrument_number: number | null;
   authorized_at: string | null;
-  act_type: string | null;
-  book_reference: string | null;
-  folio_reference: string | null;
-  appearing_parties_summary: string | null;
+  protocol_book: string | null;
+  initial_folio: string | null;
+  final_folio: string | null;
+  act_name_snapshot: string | null;
+  act_name_override: string | null;
+  generated_parties: string | null;
+  parties_override: string | null;
   notes: string | null;
+  version: number;
 };
 
 /** Campos que determinan la completitud interna. */
 export const NOTARIAL_CORE_FIELDS = [
+  "protocol_book",
+  "initial_folio",
+  "final_folio",
   "instrument_number",
   "authorized_at",
-  "act_type",
+  "act_name",
+  "parties",
 ] as const;
+
+export type NotarialMissingField = (typeof NOTARIAL_CORE_FIELDS)[number];
 
 function hasValue(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim() !== "";
@@ -34,10 +44,41 @@ export function isNotarialComplete(
 ): boolean {
   if (!metadata) return false;
   return (
-    hasValue(metadata.instrument_number) &&
+    typeof metadata.instrument_number === "number" &&
+    metadata.instrument_number > 0 &&
     hasValue(metadata.authorized_at) &&
-    hasValue(metadata.act_type)
+    hasValue(metadata.protocol_book) &&
+    hasValue(metadata.initial_folio) &&
+    hasValue(metadata.final_folio) &&
+    hasValue(metadata.act_name_override ?? metadata.act_name_snapshot) &&
+    hasValue(metadata.parties_override ?? metadata.generated_parties)
   );
+}
+
+export function notarialMissingFields(
+  metadata: Partial<NotarialMetadata> | null,
+): NotarialMissingField[] {
+  if (!metadata) return [...NOTARIAL_CORE_FIELDS];
+  const missing: NotarialMissingField[] = [];
+  if (!hasValue(metadata.protocol_book)) missing.push("protocol_book");
+  if (!hasValue(metadata.initial_folio)) missing.push("initial_folio");
+  if (!hasValue(metadata.final_folio)) missing.push("final_folio");
+  if (
+    !(
+      typeof metadata.instrument_number === "number" &&
+      metadata.instrument_number > 0
+    )
+  ) {
+    missing.push("instrument_number");
+  }
+  if (!hasValue(metadata.authorized_at)) missing.push("authorized_at");
+  if (!hasValue(metadata.act_name_override ?? metadata.act_name_snapshot)) {
+    missing.push("act_name");
+  }
+  if (!hasValue(metadata.parties_override ?? metadata.generated_parties)) {
+    missing.push("parties");
+  }
+  return missing;
 }
 
 export type NotarialCompleteness = "complete" | "incomplete" | "missing";

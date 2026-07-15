@@ -158,46 +158,58 @@ export type Database = {
       }
       document_notarial_metadata: {
         Row: {
-          act_type: string | null
-          appearing_parties_summary: string | null
+          act_name_override: string | null
+          act_name_snapshot: string | null
           authorized_at: string | null
-          book_reference: string | null
           created_at: string
           document_id: string
-          folio_reference: string | null
+          final_folio: string | null
+          generated_parties: string | null
           id: string
-          instrument_number: string | null
+          initial_folio: string | null
+          instrument_number: number | null
           notes: string | null
           owner_id: string
+          parties_override: string | null
+          protocol_book: string | null
           updated_at: string
+          version: number
         }
         Insert: {
-          act_type?: string | null
-          appearing_parties_summary?: string | null
+          act_name_override?: string | null
+          act_name_snapshot?: string | null
           authorized_at?: string | null
-          book_reference?: string | null
           created_at?: string
           document_id: string
-          folio_reference?: string | null
+          final_folio?: string | null
+          generated_parties?: string | null
           id?: string
-          instrument_number?: string | null
+          initial_folio?: string | null
+          instrument_number?: number | null
           notes?: string | null
           owner_id: string
+          parties_override?: string | null
+          protocol_book?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
-          act_type?: string | null
-          appearing_parties_summary?: string | null
+          act_name_override?: string | null
+          act_name_snapshot?: string | null
           authorized_at?: string | null
-          book_reference?: string | null
           created_at?: string
           document_id?: string
-          folio_reference?: string | null
+          final_folio?: string | null
+          generated_parties?: string | null
           id?: string
-          instrument_number?: string | null
+          initial_folio?: string | null
+          instrument_number?: number | null
           notes?: string | null
           owner_id?: string
+          parties_override?: string | null
+          protocol_book?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -714,21 +726,39 @@ export type Database = {
     Views: {
       notarial_index_entries: {
         Row: {
-          act_type: string | null
-          appearing_parties_summary: string | null
+          act_name: string | null
+          act_name_override: string | null
+          act_name_snapshot: string | null
           authorized_at: string | null
-          book_reference: string | null
           client_name: string | null
           document_id: string | null
-          folio_reference: string | null
+          final_folio: string | null
+          generated_parties: string | null
           has_metadata: boolean | null
-          instrument_number: string | null
+          initial_folio: string | null
+          instrument_number: number | null
           is_complete: boolean | null
           owner_id: string | null
+          parties: string | null
+          parties_override: string | null
+          period_half: string | null
+          period_month: number | null
+          period_year: number | null
+          protocol_book: string | null
+          template_id: string | null
           title: string | null
           updated_at: string | null
+          version: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_template_owner_fk"
+            columns: ["template_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
       }
       receivable_entries: {
         Row: {

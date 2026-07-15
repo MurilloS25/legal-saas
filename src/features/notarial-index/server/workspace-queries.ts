@@ -49,19 +49,22 @@ export async function listNotarialIndex(
   } else if (query.completeness === "missing") {
     countRequest = countRequest.eq("has_metadata", false);
   }
-  if (query.actType) countRequest = countRequest.eq("act_type", query.actType);
+  if (query.actType) countRequest = countRequest.eq("act_name", query.actType);
   if (fromIso) countRequest = countRequest.gte("authorized_at", fromIso);
   if (toIso) countRequest = countRequest.lte("authorized_at", toIso);
   if (term !== "") {
     const like = `%${term}%`;
+    const filters = [
+      `title.ilike.${like}`,
+      `act_name.ilike.${like}`,
+      `parties.ilike.${like}`,
+      `client_name.ilike.${like}`,
+    ];
+    if (/^[1-9][0-9]*$/.test(term)) {
+      filters.push(`instrument_number.eq.${Number(term)}`);
+    }
     countRequest = countRequest.or(
-      [
-        `title.ilike.${like}`,
-        `instrument_number.ilike.${like}`,
-        `act_type.ilike.${like}`,
-        `appearing_parties_summary.ilike.${like}`,
-        `client_name.ilike.${like}`,
-      ].join(","),
+      filters.join(","),
     );
   }
 
@@ -86,27 +89,31 @@ export async function listNotarialIndex(
   } else if (query.completeness === "missing") {
     request = request.eq("has_metadata", false);
   }
-  if (query.actType) request = request.eq("act_type", query.actType);
+  if (query.actType) request = request.eq("act_name", query.actType);
 
   if (fromIso) request = request.gte("authorized_at", fromIso);
   if (toIso) request = request.lte("authorized_at", toIso);
 
   if (term !== "") {
     const like = `%${term}%`;
+    const filters = [
+      `title.ilike.${like}`,
+      `act_name.ilike.${like}`,
+      `parties.ilike.${like}`,
+      `client_name.ilike.${like}`,
+    ];
+    if (/^[1-9][0-9]*$/.test(term)) {
+      filters.push(`instrument_number.eq.${Number(term)}`);
+    }
     request = request.or(
-      [
-        `title.ilike.${like}`,
-        `instrument_number.ilike.${like}`,
-        `act_type.ilike.${like}`,
-        `appearing_parties_summary.ilike.${like}`,
-        `client_name.ilike.${like}`,
-      ].join(","),
+      filters.join(","),
     );
   }
 
   const from = (query.page - 1) * NOTARIAL_PAGE_SIZE;
 
   const { data, error } = await request
+    .order("instrument_number", { ascending, nullsFirst: false })
     .order("authorized_at", { ascending, nullsFirst: false })
     .order("document_id", { ascending: true })
     .range(from, from + NOTARIAL_PAGE_SIZE - 1);
@@ -126,14 +133,14 @@ export async function listNotarialActTypes(): Promise<string[]> {
 
   const { data, error } = await supabase
     .from("notarial_index_entries")
-    .select("act_type")
+    .select("act_name")
     .eq("owner_id", user.id)
-    .not("act_type", "is", null);
+    .not("act_name", "is", null);
 
   if (error) throwDataAccessError("list notarial act types", error);
   const set = new Set<string>();
   for (const row of data ?? []) {
-    const value = row.act_type;
+    const value = row.act_name;
     if (value && value.trim() !== "") set.add(value);
   }
   return [...set].sort((a, b) => a.localeCompare(b, "es"));

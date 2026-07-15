@@ -14,6 +14,7 @@ test.setTimeout(60_000);
 const registry = new CleanupRegistry();
 
 const templateName = uniqueName("notarial", "machote");
+const instrumentNumber = 100_000 + Math.floor(Math.random() * 100_000);
 let draftId = "";
 let finalId = "";
 
@@ -65,11 +66,17 @@ test.describe("notarial index metadata", () => {
     const section = notarialSection(page);
     await expect(section.getByText("Incompleto", { exact: true })).toBeVisible();
 
-    await section.getByLabel("Número de instrumento").fill("125-2026");
+    await section
+      .getByLabel("Número de instrumento")
+      .fill(String(instrumentNumber));
     await section
       .getByLabel("Fecha y hora de autorización")
       .fill("2026-07-13T10:35");
-    await section.getByLabel("Tipo de acto").fill("Compraventa");
+    await section.getByLabel("Acto o contrato").fill("Compraventa");
+    await section.getByLabel("Tomo").fill("08");
+    await section.getByLabel("Folio inicial").fill("23F");
+    await section.getByLabel("Folio final").fill("23V");
+    await section.getByLabel("Partes").fill("PERSONA UNO Y PERSONA DOS");
 
     // El badge de completitud es en vivo.
     await expect(section.getByText("Completo", { exact: true })).toBeVisible();
@@ -86,9 +93,9 @@ test.describe("notarial index metadata", () => {
     await open(page, draftId);
     const section = notarialSection(page);
     await expect(section.getByLabel("Número de instrumento")).toHaveValue(
-      "125-2026",
+      String(instrumentNumber),
     );
-    await expect(section.getByLabel("Tipo de acto")).toHaveValue("Compraventa");
+    await expect(section.getByLabel("Acto o contrato")).toHaveValue("Compraventa");
     await expect(section.getByLabel("Fecha y hora de autorización")).toHaveValue(
       "2026-07-13T10:35",
     );
@@ -108,17 +115,17 @@ test.describe("notarial index metadata", () => {
     ).toBeVisible();
   });
 
-  test("E: a finalized document locks the notarial section", async ({
+  test("E: a finalized document keeps notarial metadata reviewable", async ({
     page,
   }) => {
     await open(page, finalId);
     const section = notarialSection(page);
-    await expect(section.getByLabel("Número de instrumento")).toBeDisabled();
+    await expect(section.getByLabel("Número de instrumento")).toBeEnabled();
     await expect(
-      section.getByText(/Reábrela para editar los datos del índice/),
+      section.getByText(/Puedes corregir estos datos del índice/),
     ).toBeVisible();
     await expect(
       section.getByRole("button", { name: "Guardar datos del índice" }),
-    ).toHaveCount(0);
+    ).toBeVisible();
   });
 });

@@ -14,9 +14,9 @@ export type NotarialMetadataState = {
 
 /**
  * Guarda (crea o actualiza) la metadata del índice notarial de una Escritura.
- * Bloquea la edición si la Escritura está finalizada (defensa en profundidad:
- * también lo impide un trigger). El registro de actividad y la completitud los
- * derivan el trigger de la tabla.
+ * La metadata sigue siendo corregible después de finalizar la Escritura. El
+ * registro de actividad, la versión y la completitud se derivan en base de
+ * datos.
  */
 export async function saveNotarialMetadataAction(
   documentId: string,
@@ -31,20 +31,15 @@ export async function saveNotarialMetadataAction(
 
   const { data: document, error: documentError } = await supabase
     .from("documents")
-    .select("id, status")
+    .select("id, templates(name)")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (documentError) throwDataAccessError("load document for notarial metadata", documentError);
-  if (!document) return { message: "No se encontró la escritura." };
-
-  if (document.status === "final") {
-    return {
-      message:
-        "La escritura está finalizada. Reábrela para editar los datos del índice.",
-    };
+  if (documentError) {
+    throwDataAccessError("load document for notarial metadata", documentError);
   }
+  if (!document) return { message: "No se encontró la escritura." };
 
   const parsed = parseNotarialFormData(formData);
   if (!parsed.success) {
@@ -58,7 +53,7 @@ export async function saveNotarialMetadataAction(
 
   const { data: existing, error: existingError } = await supabase
     .from("document_notarial_metadata")
-    .select("id")
+    .select("id, version, act_name_snapshot, generated_parties")
     .eq("document_id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -67,23 +62,39 @@ export async function saveNotarialMetadataAction(
     throwDataAccessError("load existing notarial metadata", existingError);
   }
 
-  const values = parsed.data;
+  const { version, ...values } = parsed.data;
+  const actNameSnapshot =
+    existing?.act_name_snapshot ?? document.templates?.name ?? null;
 
-  const { error } = existing
+  const result = existing
     ? await supabase
         .from("document_notarial_metadata")
-        .update(values)
+        .update({ ...values, act_name_snapshot: actNameSnapshot })
         .eq("document_id", documentId)
         .eq("owner_id", user.id)
-    : await supabase.from("document_notarial_metadata").insert({
-        owner_id: user.id,
-        document_id: documentId,
-        ...values,
-      });
+        .eq("version", version)
+        .select("id")
+        .maybeSingle()
+    : await supabase
+        .from("document_notarial_metadata")
+        .insert({
+          owner_id: user.id,
+          document_id: documentId,
+          act_name_snapshot: actNameSnapshot,
+          ...values,
+        })
+        .select("id")
+        .single();
 
-  if (error) {
+  if (result.error) {
     return {
       message: "No fue posible guardar los datos del índice. Intenta de nuevo.",
+    };
+  }
+  if (!result.data) {
+    return {
+      message:
+        "Los datos cambiaron en otra sesión. Recarga la página antes de guardar.",
     };
   }
 

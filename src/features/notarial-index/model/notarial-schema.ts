@@ -7,7 +7,7 @@ import { costaRicaLocalToIso } from "./datetime";
  * la cadena vacía a null. `authorized_at` llega como datetime-local (hora de
  * Costa Rica) y se convierte a ISO UTC.
  *
- * `act_type` es texto libre: no hay catálogo legal inventado.
+ * El acto es texto libre: no hay catálogo legal inventado.
  */
 
 const MAX_SHORT = 120;
@@ -23,12 +23,21 @@ const optionalText = (max: number) =>
     .nullable();
 
 export const NotarialMetadataSchema = z.object({
-  instrument_number: optionalText(MAX_SHORT),
-  act_type: optionalText(MAX_ACT_TYPE),
-  book_reference: optionalText(MAX_SHORT),
-  folio_reference: optionalText(MAX_SHORT),
-  appearing_parties_summary: optionalText(MAX_LONG),
+  instrument_number: z.preprocess(
+    (value) => (value === "" || value === null ? null : Number(value)),
+    z
+      .number()
+      .int("Debe ser un número entero")
+      .positive("Debe ser mayor que cero")
+      .nullable(),
+  ),
+  protocol_book: optionalText(MAX_SHORT),
+  initial_folio: optionalText(MAX_SHORT),
+  final_folio: optionalText(MAX_SHORT),
+  act_name_override: optionalText(MAX_ACT_TYPE),
+  parties_override: optionalText(MAX_LONG),
   notes: optionalText(MAX_LONG),
+  version: z.coerce.number().int().positive(),
   authorized_at: z
     .string()
     .trim()
@@ -52,13 +61,13 @@ export type NotarialMetadataInput = z.infer<typeof NotarialMetadataSchema>;
 export function parseNotarialFormData(formData: FormData) {
   return NotarialMetadataSchema.safeParse({
     instrument_number: String(formData.get("instrument_number") ?? ""),
-    act_type: String(formData.get("act_type") ?? ""),
-    book_reference: String(formData.get("book_reference") ?? ""),
-    folio_reference: String(formData.get("folio_reference") ?? ""),
-    appearing_parties_summary: String(
-      formData.get("appearing_parties_summary") ?? "",
-    ),
+    protocol_book: String(formData.get("protocol_book") ?? ""),
+    initial_folio: String(formData.get("initial_folio") ?? ""),
+    final_folio: String(formData.get("final_folio") ?? ""),
+    act_name_override: String(formData.get("act_name_override") ?? ""),
+    parties_override: String(formData.get("parties_override") ?? ""),
     notes: String(formData.get("notes") ?? ""),
+    version: String(formData.get("version") ?? "1"),
     authorized_at: String(formData.get("authorized_at") ?? ""),
   });
 }

@@ -194,7 +194,7 @@ export async function voidActiveTestReceivablePayments(
 export async function createTestNotarialMetadata(
   documentId: string,
   options: {
-    instrument_number?: string;
+    instrument_number?: number;
     authorized_at?: string;
     act_type?: string;
     appearing_parties_summary?: string;
@@ -207,8 +207,11 @@ export async function createTestNotarialMetadata(
     document_id: documentId,
     instrument_number: options.instrument_number ?? null,
     authorized_at: options.authorized_at ?? null,
-    act_type: options.act_type ?? null,
-    appearing_parties_summary: options.appearing_parties_summary ?? null,
+    protocol_book: "08",
+    initial_folio: "23F",
+    final_folio: "23V",
+    act_name_snapshot: options.act_type ?? null,
+    generated_parties: options.appearing_parties_summary ?? null,
     notes: options.notes ?? null,
   });
 }

@@ -160,7 +160,7 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
                     } ${
                       cell.column.id === "actions" ? "text-right" : ""
                     } ${
-                      cell.column.id === "appearing_parties_summary"
+                      cell.column.id === "parties"
                         ? "max-w-[16rem] truncate"
                         : ""
                     }`}

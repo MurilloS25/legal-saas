@@ -6,7 +6,6 @@ import {
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
-  notarialSortAscending,
   type NotarialQuery,
 } from "../model/query";
 import {
@@ -44,7 +43,7 @@ export async function queryNotarialIndexForExport(
   } else if (query.completeness === "missing") {
     request = request.eq("has_metadata", false);
   }
-  if (query.actType) request = request.eq("act_type", query.actType);
+  if (query.actType) request = request.eq("act_name", query.actType);
 
   const { fromIso, toIso } = notarialDateRangeIso(query);
   if (fromIso) request = request.gte("authorized_at", fromIso);
@@ -53,22 +52,23 @@ export async function queryNotarialIndexForExport(
   const term = notarialSearchTerm(query.search);
   if (term !== "") {
     const like = `%${term}%`;
+    const filters = [
+      `title.ilike.${like}`,
+      `act_name.ilike.${like}`,
+      `parties.ilike.${like}`,
+      `client_name.ilike.${like}`,
+    ];
+    if (/^[1-9][0-9]*$/.test(term)) {
+      filters.push(`instrument_number.eq.${Number(term)}`);
+    }
     request = request.or(
-      [
-        `title.ilike.${like}`,
-        `instrument_number.ilike.${like}`,
-        `act_type.ilike.${like}`,
-        `appearing_parties_summary.ilike.${like}`,
-        `client_name.ilike.${like}`,
-      ].join(","),
+      filters.join(","),
     );
   }
 
   const { data, error } = await request
-    .order("authorized_at", {
-      ascending: notarialSortAscending(query.sort),
-      nullsFirst: false,
-    })
+    .order("instrument_number", { ascending: true, nullsFirst: false })
+    .order("authorized_at", { ascending: true, nullsFirst: false })
     .order("document_id", { ascending: true })
     .range(0, NOTARIAL_EXPORT_LIMIT - 1);
 
