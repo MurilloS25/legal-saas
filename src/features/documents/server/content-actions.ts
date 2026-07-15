@@ -2,14 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/server/auth";
+import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
   DocumentRenderedContentSchema,
   DocumentTitleSchema,
   DocumentValuesSchema,
   mergeDocumentDraftValues,
-  OptionalClientIdSchema,
   TemplateIdSchema,
 } from "../model/document-schema";
 import { validateDocumentFill } from "../model/document-fill";
@@ -21,6 +21,7 @@ import { resolveTemplateContent } from "@/lib/editor/content";
 import { renderStructuredTemplate } from "@/lib/editor/render";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { isReadOnlyStatus } from "../model/lifecycle";
+import { resolveOptionalClientId } from "./client-actions";
 
 // ------------------------------------------------------------------ types
 
@@ -39,7 +40,7 @@ export type DeleteDocumentState = {
 
 // ------------------------------------------------------------------ helpers
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
 
 /**
  * Carga el machote y sus campos, verificando ownership server-side.
@@ -51,13 +52,14 @@ async function loadOwnedTemplateWithFields(
   templateId: string,
   userId: string,
 ) {
-  const { data: template } = await supabase
+  const { data: template, error: templateError } = await supabase
     .from("templates")
     .select("id, name, content_json")
     .eq("id", templateId)
     .eq("owner_id", userId)
     .maybeSingle();
 
+  if (templateError) throwDataAccessError("load document template", templateError);
   if (!template) return null;
 
   const { data: fields, error } = await supabase
@@ -67,7 +69,7 @@ async function loadOwnedTemplateWithFields(
     .eq("owner_id", userId)
     .order("sort_order", { ascending: true });
 
-  if (error) return null;
+  if (error) throwDataAccessError("load document template fields", error);
 
   // Capa compartida: contenido estructurado si existe, o legacy convertido.
   const { document, templateText } = resolveTemplateContent(
@@ -152,38 +154,6 @@ function validateDraftInput(
   };
 }
 
-/**
- * Resuelve el `client_id` opcional del formulario, verificando que el cliente
- * pertenezca al usuario. Devuelve `{ clientId }` (posible null) o un error
- * visible. No revela la existencia de clientes ajenos: un cliente que no sea
- * del usuario se trata como "no disponible".
- */
-async function resolveOptionalClientId(
-  supabase: Supabase,
-  formData: FormData,
-  userId: string,
-): Promise<{ clientId: string | null } | { error: string }> {
-  const parsed = OptionalClientIdSchema.safeParse(
-    String(formData.get("client_id") ?? ""),
-  );
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "El cliente no es válido." };
-  }
-  if (parsed.data === null) return { clientId: null };
-
-  const { data: client } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("id", parsed.data)
-    .eq("owner_id", userId)
-    .maybeSingle();
-
-  if (!client) {
-    return { error: "El cliente seleccionado no está disponible." };
-  }
-  return { clientId: parsed.data };
-}
-
 // ------------------------------------------------------------------ create draft
 
 export async function createDocumentDraftAction(
@@ -191,12 +161,7 @@ export async function createDocumentDraftAction(
   _prevState: DocumentDraftState,
   formData: FormData,
 ): Promise<DocumentDraftState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   if (!TemplateIdSchema.safeParse(templateId).success) {
     return { message: "No se encontró el machote." };
@@ -210,7 +175,11 @@ export async function createDocumentDraftAction(
   const result = validateDraftInput(formData, loaded.fields, loaded.document);
   if ("state" in result) return result.state;
 
-  const client = await resolveOptionalClientId(supabase, formData, user.id);
+  const client = await resolveOptionalClientId(
+    supabase,
+    formData.get("client_id"),
+    user.id,
+  );
   if ("error" in client) return { message: client.error };
 
   const { data, error } = await supabase
@@ -242,24 +211,20 @@ export async function updateDocumentDraftAction(
   _prevState: DocumentDraftState,
   formData: FormData,
 ): Promise<DocumentDraftState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("documents")
     .select("id, template_id, field_values, status")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
+  if (existingError) throwDataAccessError("load document for update", existingError);
   if (!existing) {
     return { message: "No se encontró la escritura." };
   }
@@ -293,7 +258,11 @@ export async function updateDocumentDraftAction(
   );
   if ("state" in result) return result.state;
 
-  const client = await resolveOptionalClientId(supabase, formData, user.id);
+  const client = await resolveOptionalClientId(
+    supabase,
+    formData.get("client_id"),
+    user.id,
+  );
   if ("error" in client) return { message: client.error };
 
   const { data: updated, error } = await supabase
@@ -334,12 +303,7 @@ export async function deleteDocumentDraftAction(
   void _prevState;
   void _formData;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };

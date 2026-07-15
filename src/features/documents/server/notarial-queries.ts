@@ -1,5 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import "server-only";
+
+import { requireUser } from "@/lib/server/auth";
+import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "../model/document-schema";
 import type { NotarialMetadata } from "../model/notarial";
 
@@ -10,20 +12,16 @@ const SELECT =
 export async function getNotarialMetadata(
   documentId: string,
 ): Promise<NotarialMetadata | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
   if (!DocumentIdSchema.safeParse(documentId).success) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("document_notarial_metadata")
     .select(SELECT)
     .eq("document_id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  return (data as NotarialMetadata | null) ?? null;
+  if (error) throwDataAccessError("get document notarial metadata", error);
+  return data ?? null;
 }

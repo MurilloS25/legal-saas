@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { loadDocumentActivityAction } from "../server/activity-actions";
-import type { ActivityListItem } from "../server/activity";
+import type { ActivityListItem } from "../server/activity-queries";
 import { ActivityRow } from "./ActivityRow";
 
 type Props = {

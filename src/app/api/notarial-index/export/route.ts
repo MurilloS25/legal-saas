@@ -1,23 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/server/auth";
 import { publicErrorDetails } from "@/lib/server/errors";
-import type { Database } from "@/lib/supabase/database.types";
-import {
-  parseNotarialQuery,
-  type RawNotarialQuery,
-} from "@/features/documents";
-import { listNotarialIndexForExport } from "@/features/documents/server";
-import {
-  buildNotarialCsv,
-  notarialExportFilename,
-} from "@/features/documents";
-
-// Exportación CSV del índice notarial interno.
-//
-// Server-only: valida sesión, reutiliza los mismos filtros saneados del
-// workspace (nunca columnas ni consultas arbitrarias), genera el CSV en
-// memoria y lo devuelve. No almacena el archivo. Registra un evento de
-// auditoría best-effort (el fallo del log no rompe la descarga).
+import type { RawNotarialQuery } from "@/features/documents";
+import { prepareNotarialCsvExport } from "@/features/documents/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,61 +19,28 @@ function readParams(request: NextRequest): RawNotarialQuery {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  let auth: Awaited<ReturnType<typeof requireApiUser>>;
   try {
-    auth = await requireApiUser();
+    const result = await prepareNotarialCsvExport(readParams(request));
+    return new NextResponse(result.body, {
+      status: 200,
+      headers: {
+        "Content-Type": result.contentType,
+        "Content-Disposition": result.contentDisposition,
+        "Content-Length": String(result.body.byteLength),
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   } catch (error) {
     const details = publicErrorDetails(error);
     return NextResponse.json(
-      { error: details.message },
+      {
+        error:
+          details.status === 401
+            ? details.message
+            : "No fue posible generar el índice.",
+      },
       { status: details.status },
     );
   }
-  const { supabase } = auth;
-
-  const query = parseNotarialQuery(readParams(request));
-
-  let rows;
-  try {
-    rows = await listNotarialIndexForExport(query);
-  } catch {
-    console.error("[notarial-export] query failed");
-    return NextResponse.json(
-      { error: "No fue posible generar el índice." },
-      { status: 500 },
-    );
-  }
-
-  const csv = buildNotarialCsv(rows);
-  const filename = notarialExportFilename(query.from, query.to);
-
-  // Auditoría best-effort: no debe romper la descarga.
-  try {
-    type LogExportArgs = Database["public"]["Functions"]["log_notarial_index_export"]["Args"];
-    const args = {
-      p_format: "csv",
-      p_from: query.from,
-      p_to: query.to,
-      p_row_count: rows.length,
-    };
-
-    // The SQL function accepts null date filters; generated function argument
-    // types do not encode that parameter nullability.
-    await supabase.rpc("log_notarial_index_export", args as LogExportArgs);
-  } catch {
-    console.error("[notarial-export] activity logging failed");
-  }
-
-  const body = new TextEncoder().encode(csv);
-
-  return new NextResponse(body, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Content-Length": String(body.byteLength),
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }

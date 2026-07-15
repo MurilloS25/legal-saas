@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/server/auth";
+import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "../model/document-schema";
 import { parseNotarialFormData } from "../model/notarial-schema";
 
@@ -23,24 +23,20 @@ export async function saveNotarialMetadataAction(
   _prevState: NotarialMetadataState,
   formData: FormData,
 ): Promise<NotarialMetadataState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
 
-  const { data: document } = await supabase
+  const { data: document, error: documentError } = await supabase
     .from("documents")
     .select("id, status")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
+  if (documentError) throwDataAccessError("load document for notarial metadata", documentError);
   if (!document) return { message: "No se encontró la escritura." };
 
   if (document.status === "final") {
@@ -60,12 +56,16 @@ export async function saveNotarialMetadataAction(
     return { errors };
   }
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("document_notarial_metadata")
     .select("id")
     .eq("document_id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
+
+  if (existingError) {
+    throwDataAccessError("load existing notarial metadata", existingError);
+  }
 
   const values = parsed.data;
 

@@ -95,12 +95,21 @@ test.describe("templates module", () => {
   }) => {
     await page.goto("/dashboard/templates");
 
-    await page
+    const newTemplateLink = page
       .getByRole("link", { name: /Nuevo machote|Crear machote/ })
-      .first()
-      .click();
+      .first();
 
-    await expect(page).toHaveURL(/\/dashboard\/templates\/new$/);
+    await expect(newTemplateLink).toHaveAttribute(
+      "href",
+      "/dashboard/templates/new",
+    );
+    await expect(async () => {
+      await newTemplateLink.click();
+      await expect(page).toHaveURL(/\/dashboard\/templates\/new$/, {
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 20_000 });
+
     await expect(
       page.getByRole("heading", { name: "Nuevo machote", exact: true }),
     ).toBeVisible();
