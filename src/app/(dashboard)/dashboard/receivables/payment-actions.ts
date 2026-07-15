@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/server/auth";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   parseRegisterPaymentFormData,
@@ -48,12 +48,7 @@ export async function registerPaymentAction(
   _prevState: PaymentState,
   formData: FormData,
 ): Promise<PaymentState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase } = await requireUser();
 
   const result = parseRegisterPaymentFormData(formData);
   if (!result.success) {
@@ -101,12 +96,7 @@ export async function voidPaymentAction(
   _prevState: VoidPaymentState,
   formData: FormData,
 ): Promise<VoidPaymentState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase } = await requireUser();
 
   const result = parseVoidPaymentFormData(formData);
   if (!result.success) {

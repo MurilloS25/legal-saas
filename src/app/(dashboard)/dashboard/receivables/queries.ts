@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/server/auth";
+import { throwDataAccessError } from "@/lib/server/errors";
 import type { Database, Tables } from "@/lib/supabase/database.types";
 import {
   isReceivableStatus,
@@ -136,20 +136,16 @@ type ReceivableTableRow = Pick<
 export async function getReceivableEntry(
   id: string,
 ): Promise<ReceivableEntry | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireUser();
 
-  if (!user) redirect("/login");
-
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)
     .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
 
+  if (error) throwDataAccessError("get receivable entry", error);
   return data ? mapReceivableEntry(data) : null;
 }
 
@@ -157,14 +153,9 @@ export async function getReceivableEntry(
 export async function getReceivableForEdit(
   id: string,
 ): Promise<ReceivableRow | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireUser();
 
-  if (!user) redirect("/login");
-
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("receivables")
     .select(
       "id, client_id, document_id, concept, currency, amount_total, issued_at, due_at, notes",
@@ -173,6 +164,7 @@ export async function getReceivableForEdit(
     .eq("owner_id", user.id)
     .maybeSingle();
 
+  if (error) throwDataAccessError("get receivable for edit", error);
   if (!data) return null;
   const row: ReceivableTableRow = data;
   // El monto puede llegar como número o string según el driver; se normaliza
@@ -187,12 +179,7 @@ function normalizeAmount(value: string | number): string {
 
 /** Todas las cuentas del usuario, más reciente primero (listado base). */
 export async function listReceivables(): Promise<ReceivableEntry[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("receivable_entries")
@@ -200,7 +187,7 @@ export async function listReceivables(): Promise<ReceivableEntry[]> {
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivables", error);
   return mapReceivableEntries(data);
 }
 
@@ -229,12 +216,7 @@ export type ReceivablesWorkspacePage = {
 export async function listReceivablesWorkspace(
   query: ReceivablesQuery,
 ): Promise<ReceivablesWorkspacePage> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { column, ascending } = sortColumnFor(query.sort);
   const term = sanitizeSearchTermForPostgrest(query.search);
@@ -276,13 +258,7 @@ export async function listReceivablesWorkspace(
 
   const { count, error: countError } = await countBuilder;
   if (countError) {
-    return {
-      rows: [],
-      totalCount: 0,
-      page: query.page,
-      pageCount: 1,
-      totals: [],
-    };
+    throwDataAccessError("count receivables workspace", countError);
   }
 
   const totalCount = count ?? 0;
@@ -321,11 +297,12 @@ export async function listReceivablesWorkspace(
   }
 
   // Orden estable: columna elegida + id como desempate determinista.
-  const { data } = await builder
+  const { data, error } = await builder
     .order(column, { ascending, nullsFirst: false })
     .order("id", { ascending: true })
     .range(from, to);
 
+  if (error) throwDataAccessError("list receivables workspace", error);
   const rows = mapReceivableEntries(data);
 
   return { rows, totalCount, page: query.page, pageCount, totals };
@@ -335,7 +312,7 @@ export async function listReceivablesWorkspace(
 export async function getReceivablesSummary(
   query: ReceivablesQuery,
 ): Promise<CurrencyTotal[]> {
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
   const term = sanitizeSearchTermForPostgrest(query.search);
 
   if (searchHasNoSafeTerm(query.search)) return [];
@@ -353,7 +330,8 @@ export async function getReceivablesSummary(
     ...(query.dueTo ? { p_due_to: query.dueTo } : {}),
   });
 
-  if (error || !data) return [];
+  if (error) throwDataAccessError("summarize receivables", error);
+  if (!data) return [];
   return data.map((r) => ({
       currency: r.currency,
       count: Number(r.count),
@@ -366,12 +344,7 @@ export async function getReceivablesSummary(
 export async function listReceivablesByClient(
   clientId: string,
 ): Promise<ReceivableEntry[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("receivable_entries")
@@ -380,19 +353,14 @@ export async function listReceivablesByClient(
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivables by client", error);
   return mapReceivableEntries(data);
 }
 
 export async function listReceivablesByDocument(
   documentId: string,
 ): Promise<ReceivableEntry[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("receivable_entries")
@@ -401,7 +369,7 @@ export async function listReceivablesByDocument(
     .eq("document_id", documentId)
     .order("created_at", { ascending: false });
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivables by document", error);
   return mapReceivableEntries(data);
 }
 
@@ -424,12 +392,7 @@ export type ReceivablePayment = {
 export async function listPaymentsByReceivable(
   receivableId: string,
 ): Promise<ReceivablePayment[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("receivable_payments")
@@ -440,7 +403,7 @@ export async function listPaymentsByReceivable(
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivable payments", error);
   return (data ?? []).map((payment) => ({
     ...payment,
     amount: String(payment.amount),
@@ -458,12 +421,7 @@ const ACTIVITY_LIMIT = 50;
 export async function listReceivableActivity(
   receivableId: string,
 ): Promise<ReceivableActivityEvent[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("receivable_activity")
@@ -474,7 +432,7 @@ export async function listReceivableActivity(
     .order("id", { ascending: false })
     .limit(ACTIVITY_LIMIT);
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivable activity", error);
   return (data as ReceivableActivityEvent[] | null) ?? [];
 }
 
@@ -485,12 +443,7 @@ export type DocumentOption = { id: string; title: string; client_id: string | nu
 
 /** Clientes del usuario, para el selector del formulario. */
 export async function listClientOptions(): Promise<ClientOption[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("clients")
@@ -498,18 +451,13 @@ export async function listClientOptions(): Promise<ClientOption[]> {
     .eq("owner_id", user.id)
     .order("full_name", { ascending: true });
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivable client options", error);
   return data ?? [];
 }
 
 /** Escrituras del usuario, para el selector opcional del formulario. */
 export async function listDocumentOptions(): Promise<DocumentOption[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("documents")
@@ -517,6 +465,6 @@ export async function listDocumentOptions(): Promise<DocumentOption[]> {
     .eq("owner_id", user.id)
     .order("updated_at", { ascending: false });
 
-  if (error) return [];
+  if (error) throwDataAccessError("list receivable document options", error);
   return data ?? [];
 }
