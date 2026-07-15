@@ -1,8 +1,8 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTemplateById, listTemplateFields } from "../queries";
-import { TemplateWorkspace } from "../_components/TemplateWorkspace";
+import { getTemplateById, listTemplateFields } from "@/features/templates/server";
+import { TemplateWorkspace } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 

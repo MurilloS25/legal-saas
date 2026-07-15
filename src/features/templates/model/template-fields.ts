@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
+
+export { FIELD_KEY_PATTERN };
 
 /**
  * field_key en dot notation: segmentos de minúsculas, números y underscore
  * separados por un solo punto. Ej: `buyer_1.full_name`, `sale.price`, `price`.
  * Excluye espacios, mayúsculas, puntos al inicio/final y puntos dobles.
  */
-export const FIELD_KEY_PATTERN = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/;
-
 /**
  * Todos los campos de machote se tratan como texto: en el dominio notarial
  * el valor final siempre se inserta textualmente (números en palabras,

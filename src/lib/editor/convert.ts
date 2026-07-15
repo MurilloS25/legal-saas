@@ -16,8 +16,7 @@
  *   para texto canónico (LF y placeholders sin espacios).
  */
 
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
-import { PLACEHOLDER_PATTERN } from "@/lib/templates/variables";
+import { FIELD_KEY_PATTERN, PLACEHOLDER_PATTERN } from "./variable-key";
 import type {
   TemplateDocument,
   TemplateInlineNode,

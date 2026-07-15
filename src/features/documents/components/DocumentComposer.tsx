@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
-import type { FillableTemplateField } from "@/lib/templates/fillable-fields";
+import type { FillableTemplateField } from "@/features/templates";
 import {
   createDocumentDraftAction,
   updateDocumentDraftAction,

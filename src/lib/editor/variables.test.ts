@@ -5,7 +5,7 @@ import {
   findUnresolvedDocumentVariables,
 } from "./variables";
 import { legacyTextToDocument } from "./convert";
-import { extractTemplateVariables } from "@/lib/templates/variables";
+import { extractTemplateVariables } from "@/features/templates";
 
 describe("extractTemplateVariablesFromDocument", () => {
   it("returns keys without duplicates in order of appearance", () => {

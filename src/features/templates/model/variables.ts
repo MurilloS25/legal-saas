@@ -1,11 +1,14 @@
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import {
+  FIELD_KEY_PATTERN,
+  PLACEHOLDER_PATTERN,
+} from "@/lib/editor/variable-key";
 
 /**
  * Placeholder de machote: `{{field_key}}`, con espacios opcionales alrededor
  * del key. El contenido interno se valida aparte contra FIELD_KEY_PATTERN,
  * la misma regla de formato que usa `field_key` en template_fields.
  */
-export const PLACEHOLDER_PATTERN = /\{\{([^{}]*)\}\}/g;
+export { PLACEHOLDER_PATTERN };
 
 /**
  * Extrae las variables válidas usadas en el contenido de un machote,

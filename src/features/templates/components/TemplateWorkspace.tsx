@@ -17,8 +17,8 @@ import {
   createTemplateWorkspaceAction,
   updateTemplateWorkspaceAction,
   type TemplateWorkspaceState,
-} from "../actions";
-import type { TemplateWorkspaceVariable } from "@/lib/validations/template-workspace";
+} from "../server/template-actions";
+import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { validateTemplateDocument } from "@/lib/editor/validate";
 import { extractTemplateVariablesFromDocument } from "@/lib/editor/variables";

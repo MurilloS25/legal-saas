@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
 import {
   DOCUMENT_STATUSES,
   type DocumentStatus,
@@ -94,9 +94,6 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const DocumentIdSchema = z
-  .string()
-  .regex(UUID_PATTERN, "El identificador no es válido");
-export const TemplateIdSchema = z
   .string()
   .regex(UUID_PATTERN, "El identificador no es válido");
 

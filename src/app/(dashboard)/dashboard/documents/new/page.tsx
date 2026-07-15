@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { listTemplates } from "../../templates/queries";
+import { listTemplateOptions } from "@/features/templates/server";
 import { listClients } from "../../clients/queries";
 
 export const metadata = {
@@ -34,7 +34,7 @@ export default async function NewDocumentTemplatePickerPage({
 }: Props) {
   const { client: clientParam } = await searchParams;
   const [templates, clients] = await Promise.all([
-    listTemplates(),
+    listTemplateOptions(),
     listClients(),
   ]);
 

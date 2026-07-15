@@ -51,5 +51,4 @@ export type {
 } from "./model/notarial";
 export {
   DocumentIdSchema,
-  TemplateIdSchema,
 } from "./model/document-schema";
