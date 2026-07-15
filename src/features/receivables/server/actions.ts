@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/server/auth";
 import {
   ReceivableSchema,
   parseReceivableFormData,
-} from "@/lib/validations/receivables";
+} from "../model/receivables";
 
 // ------------------------------------------------------------------ types
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PAYMENT_METHODS } from "@/lib/receivables/payments";
+import { PAYMENT_METHODS } from "./payments";
 
 /**
  * Validación del registro y la anulación de pagos. El monto se conserva como

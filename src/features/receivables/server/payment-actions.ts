@@ -7,7 +7,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   parseRegisterPaymentFormData,
   parseVoidPaymentFormData,
-} from "@/lib/validations/receivable-payments";
+} from "../model/receivable-payments";
 
 // ------------------------------------------------------------------ types
 

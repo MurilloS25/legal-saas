@@ -1,11 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { registerPaymentAction, type PaymentState } from "../payment-actions";
+import {
+  registerPaymentAction,
+  type PaymentState,
+} from "../server/payment-actions";
 import { VoidPaymentButton } from "./VoidPaymentButton";
-import type { ReceivablePayment } from "../queries";
-import { formatMoney } from "@/lib/receivables/status";
-import { PAYMENT_METHODS, paymentMethodLabel } from "@/lib/receivables/payments";
+import type { ReceivablePayment } from "../model/types";
+import { formatMoney } from "../model/status";
+import { PAYMENT_METHODS, paymentMethodLabel } from "../model/payments";
 import { FieldError } from "@/components/forms/FieldError";
 
 const inputClass =

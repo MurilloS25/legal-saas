@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { ReceivableEntry } from "../queries";
+import type { ReceivableEntry } from "../model/types";
 import {
   formatMoney,
   receivableStatusBadgeClass,
   receivableStatusLabel,
-} from "@/lib/receivables/status";
+} from "../model/status";
 
 /**
  * Listado compacto de cuentas por cobrar para incrustar en el detalle de un

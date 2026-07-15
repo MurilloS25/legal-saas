@@ -6,13 +6,13 @@ import {
   createReceivableAction,
   updateReceivableAction,
   type ReceivableState,
-} from "../actions";
+} from "../server/actions";
 import type {
   ClientOption,
   DocumentOption,
   ReceivableRow,
-} from "../queries";
-import { RECEIVABLE_CURRENCIES } from "@/lib/receivables/status";
+} from "../model/types";
+import { RECEIVABLE_CURRENCIES } from "../model/status";
 import { FieldError } from "@/components/forms/FieldError";
 
 const inputClass =

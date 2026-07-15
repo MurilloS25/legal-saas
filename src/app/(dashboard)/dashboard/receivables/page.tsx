@@ -1,7 +1,7 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { listReceivablesWorkspace } from "./queries";
+import { listReceivablesWorkspace } from "@/features/receivables/server";
 import { listClients } from "../clients/queries";
 import {
   formatMoney,
@@ -9,14 +9,14 @@ import {
   receivableStatusLabel,
   RECEIVABLE_STATUS_LABEL,
   RECEIVABLE_CURRENCIES,
-} from "@/lib/receivables/status";
+} from "@/features/receivables";
 import {
   parseReceivablesQuery,
   receivablesQueryToParams,
   RECEIVABLE_SORT_OPTIONS,
   type RawReceivablesQuery,
-} from "@/lib/receivables/workspace-query";
-import { ReceivablesToolbar } from "./_components/ReceivablesToolbar";
+} from "@/features/receivables";
+import { ReceivablesToolbar } from "@/features/receivables";
 
 export const metadata = {
   title: "Cuentas por cobrar — LexCR",

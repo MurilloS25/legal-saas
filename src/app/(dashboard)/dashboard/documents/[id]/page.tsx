@@ -13,11 +13,11 @@ import {
 } from "@/lib/documents/status";
 import { listDocumentActivity } from "../activity";
 import { getNotarialMetadata } from "../notarial-queries";
-import { listReceivablesByDocument } from "../../receivables/queries";
+import { listReceivablesByDocument } from "@/features/receivables/server";
 import { DocumentComposer } from "../_components/DocumentComposer";
 import { DocumentActivity } from "../_components/DocumentActivity";
 import { NotarialMetadataSection } from "../_components/NotarialMetadataSection";
-import { ReceivableMiniList } from "../../receivables/_components/ReceivableMiniList";
+import { ReceivableMiniList } from "@/features/receivables";
 
 export const metadata = {
   title: "Escritura — LexCR",

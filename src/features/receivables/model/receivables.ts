@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RECEIVABLE_CURRENCIES } from "@/lib/receivables/status";
+import { RECEIVABLE_CURRENCIES } from "./status";
 
 /**
  * Validación de una cuenta por cobrar. El monto se conserva como string
