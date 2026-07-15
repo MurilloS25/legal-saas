@@ -19,3 +19,4 @@ export {
   notarialCompleteness,
 } from "./model/notarial";
 export type { NotarialCompleteness, NotarialMetadata } from "./model/notarial";
+export type { NotarialIndexRow } from "./model/notarial-index-row";

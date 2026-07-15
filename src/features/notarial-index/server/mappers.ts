@@ -2,23 +2,10 @@ import "server-only";
 
 import type { Database } from "@/lib/supabase/database.types";
 import { throwDataAccessError } from "@/lib/server/errors";
+import type { NotarialIndexRow } from "../model/notarial-index-row";
 
 export const NOTARIAL_INDEX_SELECT =
   "document_id, title, client_name, instrument_number, authorized_at, act_type, book_reference, folio_reference, appearing_parties_summary, has_metadata, is_complete";
-
-export type NotarialIndexRow = {
-  document_id: string;
-  title: string;
-  client_name: string | null;
-  instrument_number: string | null;
-  authorized_at: string | null;
-  act_type: string | null;
-  book_reference: string | null;
-  folio_reference: string | null;
-  appearing_parties_summary: string | null;
-  has_metadata: boolean;
-  is_complete: boolean;
-};
 
 type ViewRow = Pick<
   Database["public"]["Views"]["notarial_index_entries"]["Row"],

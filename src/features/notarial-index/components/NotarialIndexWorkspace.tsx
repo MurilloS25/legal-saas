@@ -1,34 +1,20 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { NotarialToolbar } from "./NotarialToolbar";
+import { NotarialIndexTable } from "./NotarialIndexTable";
 import {
   NOTARIAL_PAGE_SIZE,
   NOTARIAL_SORT_OPTIONS,
   notarialQueryToParams,
   type NotarialQuery,
 } from "../model/query";
-import {
-  formatCostaRicaDate,
-  formatCostaRicaTime,
-} from "../model/datetime";
+import { formatCostaRicaDate } from "../model/datetime";
 import type { NotarialIndexPage } from "../server/workspace-queries";
 
 const SORT_OPTIONS = NOTARIAL_SORT_OPTIONS.map((o) => ({
   value: o.value,
   label: o.label,
 }));
-
-function completenessBadge(row: {
-  has_metadata: boolean;
-  is_complete: boolean;
-}) {
-  if (!row.has_metadata) {
-    return { label: "Sin datos", className: "bg-slate-100 text-slate-500" };
-  }
-  return row.is_complete
-    ? { label: "Completo", className: "bg-teal-50 text-teal-700 border border-teal-200" }
-    : { label: "Incompleto", className: "bg-amber-50 text-amber-800 border border-amber-300" };
-}
 
 type Props = {
   query: NotarialQuery;
@@ -127,66 +113,12 @@ export function NotarialIndexWorkspace({
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-left">
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Número</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha y hora</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo de acto</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Comparecientes</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Completitud</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {page.rows.map((row) => {
-                  const badge = completenessBadge(row);
-                  return (
-                    <tr key={row.document_id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 text-slate-900 whitespace-nowrap">
-                        {row.instrument_number ?? <span className="text-slate-400">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                        {row.authorized_at ? (
-                          <>
-                            {formatCostaRicaDate(row.authorized_at)}
-                            <span className="text-slate-400">
-                              {" · "}
-                              {formatCostaRicaTime(row.authorized_at)}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {row.act_type ?? <span className="text-slate-400">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 max-w-[16rem] truncate">
-                        {row.appearing_parties_summary ?? (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <Link
-                          href={`/dashboard/documents/${row.document_id}`}
-                          className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
-                        >
-                          Ver escritura
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <NotarialIndexTable
+            rows={page.rows}
+            query={query}
+            pageCount={page.pageCount}
+            total={page.total}
+          />
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-3">
             <p className="text-xs text-slate-500">{`${rangeStart}–${rangeEnd} de ${page.total}`}</p>

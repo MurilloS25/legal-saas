@@ -14,4 +14,4 @@ export {
 export type {
   NotarialIndexPage,
 } from "./server/workspace-queries";
-export type { NotarialIndexRow } from "./server/mappers";
+export type { NotarialIndexRow } from "./model/notarial-index-row";

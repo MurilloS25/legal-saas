@@ -14,8 +14,8 @@ import {
 import {
   mapNotarialIndexRows,
   NOTARIAL_INDEX_SELECT,
-  type NotarialIndexRow,
 } from "./mappers";
+import type { NotarialIndexRow } from "../model/notarial-index-row";
 
 export type NotarialIndexPage = {
   rows: NotarialIndexRow[];

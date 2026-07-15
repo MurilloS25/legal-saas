@@ -12,8 +12,8 @@ import {
 import {
   mapNotarialIndexRows,
   NOTARIAL_INDEX_SELECT,
-  type NotarialIndexRow,
 } from "./mappers";
+import type { NotarialIndexRow } from "../model/notarial-index-row";
 
 type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
 export const NOTARIAL_EXPORT_LIMIT = 5000;
