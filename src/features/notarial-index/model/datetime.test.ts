@@ -4,7 +4,7 @@ import {
   formatCostaRicaDate,
   formatCostaRicaTime,
   isoToCostaRicaLocal,
-} from "./notarial-datetime";
+} from "./datetime";
 
 describe("costaRicaLocalToIso", () => {
   it("interprets the wall-clock value as Costa Rica time (UTC-6)", () => {

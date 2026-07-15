@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "../model/document-schema";
+import { DocumentIdSchema } from "@/features/documents";
 import type { NotarialMetadata } from "../model/notarial";
 
 const SELECT =

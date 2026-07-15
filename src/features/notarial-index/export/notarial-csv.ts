@@ -9,7 +9,7 @@ import { toCsv } from "./csv";
 import {
   formatCostaRicaDate,
   formatCostaRicaTime,
-} from "./notarial-datetime";
+} from "../model/datetime";
 
 export type NotarialExportRow = {
   title: string;

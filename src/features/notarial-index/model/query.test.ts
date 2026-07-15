@@ -7,7 +7,7 @@ import {
   notarialSearchTerm,
   notarialSortAscending,
   parseNotarialQuery,
-} from "./notarial-query";
+} from "./query";
 
 describe("parseNotarialQuery", () => {
   it("returns safe defaults", () => {

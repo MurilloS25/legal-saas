@@ -12,10 +12,10 @@ import { useActionState, useId, useState } from "react";
 import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
-} from "../server/notarial-actions";
+} from "../server/metadata-actions";
 import type { NotarialMetadata } from "../model/notarial";
 import { isNotarialComplete } from "../model/notarial";
-import { isoToCostaRicaLocal } from "../model/notarial-datetime";
+import { isoToCostaRicaLocal } from "../model/datetime";
 import { FieldError } from "@/components/forms/FieldError";
 
 const inputClass =

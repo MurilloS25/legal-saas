@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "../model/document-schema";
+import { DocumentIdSchema } from "@/features/documents";
 import { parseNotarialFormData } from "../model/notarial-schema";
 
 export type NotarialMetadataState = {

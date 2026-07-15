@@ -23,21 +23,8 @@ export type {
   ActivityListItem,
   DocumentActivityPage,
 } from "./server/activity-queries";
-export { getNotarialMetadata } from "./server/notarial-queries";
-export {
-  getLatestNotarialExportAt,
-  listNotarialActTypes,
-  listNotarialIndex,
-  listNotarialIndexForExport,
-  NOTARIAL_EXPORT_LIMIT,
-} from "./server/notarial-index-queries";
-export type {
-  NotarialIndexPage,
-  NotarialIndexRow,
-} from "./server/notarial-index-queries";
 export {
   DocumentExportError,
   prepareDocumentDocxExport,
-  prepareNotarialCsvExport,
 } from "./server/export-actions";
 export type { BinaryExport } from "./server/export-actions";
