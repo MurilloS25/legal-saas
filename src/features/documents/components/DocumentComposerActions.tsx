@@ -1,0 +1,79 @@
+"use client";
+
+import Link from "next/link";
+import type { DocumentStatus } from "../model/lifecycle";
+import { DocumentStatusControls } from "./DocumentStatusControls";
+import { DownloadDocxButton } from "./DownloadDocxButton";
+
+type Props = {
+  dirty: boolean;
+  documentId: string | null;
+  pending: boolean;
+  pendingVariableCount: number;
+  readOnly: boolean;
+  saveStatusText: string;
+  status: DocumentStatus;
+};
+
+export function DocumentComposerActions({
+  dirty,
+  documentId,
+  pending,
+  pendingVariableCount,
+  readOnly,
+  saveStatusText,
+  status,
+}: Props) {
+  return (
+    <div className="border-t border-slate-100 px-6 py-4 space-y-3">
+      {readOnly ? (
+        <p role="status" className="text-xs text-slate-500">
+          Esta escritura está finalizada (solo lectura). Reábrela para editarla
+          de nuevo.
+        </p>
+      ) : (
+        <>
+          <p
+            role="status"
+            className={`text-xs ${
+              dirty && !pending
+                ? "text-amber-700 font-medium"
+                : "text-slate-500"
+            }`}
+          >
+            {saveStatusText}
+          </p>
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {pending ? "Guardando…" : "Guardar borrador"}
+          </button>
+        </>
+      )}
+
+      {documentId && (
+        <DocumentStatusControls
+          documentId={documentId}
+          status={status}
+          dirty={dirty}
+        />
+      )}
+      {documentId && (
+        <DownloadDocxButton
+          documentId={documentId}
+          disabled={dirty}
+          pendingVariableCount={pendingVariableCount}
+        />
+      )}
+
+      <Link
+        href="/dashboard/documents"
+        className="block w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+      >
+        Volver a Escrituras
+      </Link>
+    </div>
+  );
+}
