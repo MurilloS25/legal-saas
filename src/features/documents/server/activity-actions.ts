@@ -3,7 +3,7 @@
 import {
   listDocumentActivity,
   type DocumentActivityPage,
-} from "./activity";
+} from "./activity-queries";
 
 /**
  * Carga incremental ("Cargar más") de la actividad de una Escritura. Delega en

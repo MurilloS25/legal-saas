@@ -21,8 +21,8 @@ import {
   createDocumentDraftAction,
   updateDocumentDraftAction,
   type DocumentDraftState,
-} from "../server/actions";
-import type { DocumentRow } from "../server/queries";
+} from "../server/content-actions";
+import type { DocumentRow } from "../server/detail-queries";
 import type { FillableTemplateField } from "@/lib/templates/fillable-fields";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { buildDocumentModel } from "@/lib/editor/render";

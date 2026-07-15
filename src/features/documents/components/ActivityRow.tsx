@@ -4,7 +4,7 @@
  * cliente de "Cargar más".
  */
 
-import type { ActivityListItem } from "../server/activity";
+import type { ActivityListItem } from "../server/activity-queries";
 import {
   formatActivityEvent,
   formatActivityTimestamp,

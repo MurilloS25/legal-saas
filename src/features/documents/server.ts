@@ -4,23 +4,25 @@ export {
   getDocumentById,
   listDocuments,
   listDocumentsByClient,
-  listDocumentsPage,
-} from "./server/queries";
+} from "./server/detail-queries";
 export type {
   ClientDocumentRow,
   DocumentListRow,
   DocumentRow,
+} from "./server/detail-queries";
+export { listDocumentsPage } from "./server/workspace-queries";
+export type {
   DocumentsPage,
   WorkspaceDocumentRow,
-} from "./server/queries";
+} from "./server/workspace-queries";
 export {
   listDocumentActivity,
   ACTIVITY_PAGE_SIZE,
-} from "./server/activity";
+} from "./server/activity-queries";
 export type {
   ActivityListItem,
   DocumentActivityPage,
-} from "./server/activity";
+} from "./server/activity-queries";
 export { getNotarialMetadata } from "./server/notarial-queries";
 export {
   getLatestNotarialExportAt,
@@ -34,8 +36,8 @@ export type {
   NotarialIndexRow,
 } from "./server/notarial-index-queries";
 export {
-  buildEscrituraDocx,
-  contentDispositionAttachment,
-  DOCX_MIME,
-  DocxGenerationError,
-} from "@/lib/documents/docx";
+  DocumentExportError,
+  prepareDocumentDocxExport,
+  prepareNotarialCsvExport,
+} from "./server/export-actions";
+export type { BinaryExport } from "./server/export-actions";

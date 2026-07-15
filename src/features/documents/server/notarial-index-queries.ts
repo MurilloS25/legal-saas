@@ -1,5 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import "server-only";
+
+import { requireUser } from "@/lib/server/auth";
+import { throwDataAccessError } from "@/lib/server/errors";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   NOTARIAL_PAGE_SIZE,
   notarialDateRangeIso,
@@ -8,6 +11,8 @@ import {
   notarialSortAscending,
   type NotarialQuery,
 } from "../model/notarial-query";
+
+type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
 
 export type NotarialIndexRow = {
   document_id: string;
@@ -32,16 +37,55 @@ export type NotarialIndexPage = {
 const SELECT =
   "document_id, title, client_name, instrument_number, authorized_at, act_type, book_reference, folio_reference, appearing_parties_summary, has_metadata, is_complete";
 
+type NotarialIndexViewRow = Pick<
+  Database["public"]["Views"]["notarial_index_entries"]["Row"],
+  | "document_id"
+  | "title"
+  | "client_name"
+  | "instrument_number"
+  | "authorized_at"
+  | "act_type"
+  | "book_reference"
+  | "folio_reference"
+  | "appearing_parties_summary"
+  | "has_metadata"
+  | "is_complete"
+>;
+
+function mapNotarialIndexRows(
+  rows: NotarialIndexViewRow[],
+): NotarialIndexRow[] {
+  return rows.map((row) => {
+    if (
+      !row.document_id ||
+      !row.title ||
+      row.has_metadata === null ||
+      row.is_complete === null
+    ) {
+      throwDataAccessError("map notarial index row", { code: "invalid_view_row" });
+    }
+
+    return {
+      document_id: row.document_id,
+      title: row.title,
+      client_name: row.client_name,
+      instrument_number: row.instrument_number,
+      authorized_at: row.authorized_at,
+      act_type: row.act_type,
+      book_reference: row.book_reference,
+      folio_reference: row.folio_reference,
+      appearing_parties_summary: row.appearing_parties_summary,
+      has_metadata: row.has_metadata,
+      is_complete: row.is_complete,
+    };
+  });
+}
+
 /** Página del índice: Escrituras finalizadas con su metadata, filtradas. */
 export async function listNotarialIndex(
   query: NotarialQuery,
 ): Promise<NotarialIndexPage> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   if (notarialSearchHasNoSafeTerm(query.search)) {
     return { rows: [], total: 0, pageCount: 1 };
@@ -80,7 +124,7 @@ export async function listNotarialIndex(
   }
 
   const { count, error: countError } = await countRequest;
-  if (countError) return { rows: [], total: 0, pageCount: 0 };
+  if (countError) throwDataAccessError("count notarial index", countError);
 
   const total = count ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / NOTARIAL_PAGE_SIZE));
@@ -125,10 +169,10 @@ export async function listNotarialIndex(
     .order("document_id", { ascending: true })
     .range(from, from + NOTARIAL_PAGE_SIZE - 1);
 
-  if (error) return { rows: [], total: 0, pageCount: 0 };
+  if (error) throwDataAccessError("list notarial index", error);
 
   return {
-    rows: (data ?? []) as unknown as NotarialIndexRow[],
+    rows: mapNotarialIndexRows(data ?? []),
     total,
     pageCount,
   };
@@ -143,12 +187,16 @@ export const NOTARIAL_EXPORT_LIMIT = 5000;
 export async function listNotarialIndexForExport(
   query: NotarialQuery,
 ): Promise<NotarialIndexRow[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireUser();
 
-  if (!user) redirect("/login");
+  return queryNotarialIndexForExport(supabase, user.id, query);
+}
+
+export async function queryNotarialIndexForExport(
+  supabase: Supabase,
+  userId: string,
+  query: NotarialQuery,
+): Promise<NotarialIndexRow[]> {
 
   if (notarialSearchHasNoSafeTerm(query.search)) {
     return [];
@@ -157,7 +205,7 @@ export async function listNotarialIndexForExport(
   let request = supabase
     .from("notarial_index_entries")
     .select(SELECT)
-    .eq("owner_id", user.id);
+    .eq("owner_id", userId);
 
   if (query.completeness === "complete") {
     request = request.eq("has_metadata", true).eq("is_complete", true);
@@ -192,20 +240,15 @@ export async function listNotarialIndexForExport(
     .order("document_id", { ascending: true })
     .range(0, NOTARIAL_EXPORT_LIMIT - 1);
 
-  if (error) return [];
-  return (data ?? []) as unknown as NotarialIndexRow[];
+  if (error) throwDataAccessError("export notarial index", error);
+  return mapNotarialIndexRows(data ?? []);
 }
 
 /** Fecha de la última exportación del usuario, o null. */
 export async function getLatestNotarialExportAt(): Promise<string | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireUser();
 
-  if (!user) redirect("/login");
-
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("notarial_index_exports")
     .select("created_at")
     .eq("owner_id", user.id)
@@ -213,17 +256,13 @@ export async function getLatestNotarialExportAt(): Promise<string | null> {
     .limit(1)
     .maybeSingle();
 
-  return (data as { created_at: string } | null)?.created_at ?? null;
+  if (error) throwDataAccessError("load latest notarial export", error);
+  return data?.created_at ?? null;
 }
 
 /** Tipos de acto distintos del usuario, para el filtro. */
 export async function listNotarialActTypes(): Promise<string[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("notarial_index_entries")
@@ -231,10 +270,10 @@ export async function listNotarialActTypes(): Promise<string[]> {
     .eq("owner_id", user.id)
     .not("act_type", "is", null);
 
-  if (error) return [];
+  if (error) throwDataAccessError("list notarial act types", error);
   const set = new Set<string>();
   for (const row of data ?? []) {
-    const value = (row as { act_type: string | null }).act_type;
+    const value = row.act_type;
     if (value && value.trim() !== "") set.add(value);
   }
   return [...set].sort((a, b) => a.localeCompare(b, "es"));

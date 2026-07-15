@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { DocumentIdSchema } from "../model/document-schema";
+import { requireUser } from "@/lib/server/auth";
+import { throwDataAccessError } from "@/lib/server/errors";
+import {
+  DocumentIdSchema,
+  DocumentValuesSchema,
+} from "../model/document-schema";
 import {
   ACTION_TARGET,
   isActionAllowed,
@@ -30,24 +33,20 @@ async function transitionDocument(
   documentId: string,
   action: DocumentAction,
 ): Promise<DocumentStatusState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
 
-  const { data: doc } = await supabase
+  const { data: doc, error: documentError } = await supabase
     .from("documents")
     .select("id, status, template_id, field_values")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
+  if (documentError) throwDataAccessError("load document lifecycle", documentError);
   if (!doc) return { message: "No se encontró la escritura." };
 
   if (!isDocumentStatus(doc.status)) {
@@ -61,21 +60,31 @@ async function transitionDocument(
 
   // Finalizar exige que no queden variables sin valor.
   if (target === "final") {
-    const { data: template } = await supabase
+    const { data: template, error: templateError } = await supabase
       .from("templates")
       .select("content_json")
       .eq("id", doc.template_id)
       .eq("owner_id", user.id)
       .maybeSingle();
 
+    if (templateError) {
+      throwDataAccessError("load lifecycle template", templateError);
+    }
     if (!template) {
       return { message: "El machote de esta escritura ya no está disponible." };
+    }
+
+    const values = DocumentValuesSchema.safeParse(doc.field_values ?? {});
+    if (!values.success) {
+      throwDataAccessError("parse lifecycle field values", {
+        code: "invalid_json",
+      });
     }
 
     const { document } = resolveTemplateContent(template.content_json);
     const pending = findUnresolvedDocumentVariables(
       document,
-      (doc.field_values ?? {}) as Record<string, string>,
+      values.data,
     );
     if (pending.length > 0) {
       return {

@@ -21,7 +21,7 @@ import {
   reopenDocumentAction,
   returnDocumentToDraftAction,
   type DocumentStatusState,
-} from "../server/status-actions";
+} from "../server/lifecycle-actions";
 import type { DocumentStatus } from "../model/lifecycle";
 
 const initialState: DocumentStatusState = {};

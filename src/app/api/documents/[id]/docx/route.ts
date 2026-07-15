@@ -1,27 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/server/auth";
 import { UnauthorizedError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "@/features/documents";
 import {
-  buildEscrituraDocx,
-  contentDispositionAttachment,
-  DOCX_MIME,
-  DocxGenerationError,
+  DocumentExportError,
+  prepareDocumentDocxExport,
 } from "@/features/documents/server";
-
-// Descarga server-only del `.docx` de una escritura.
-//
-// Todos los datos se obtienen en servidor a partir del ID en la ruta: no se
-// acepta contenido, field_values, título, ownership ni filename desde el
-// cliente. Defensa en profundidad: además de RLS, se filtra por owner_id y no
-// se distingue entre documento inexistente y ajeno. El archivo se genera en
-// memoria y no se persiste en ningún lado.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function genericError(status: number): NextResponse {
-  // Mensaje genérico, sin SQL, stack ni contenido del documento.
   return NextResponse.json(
     { error: "No fue posible generar el documento." },
     { status },
@@ -34,79 +21,22 @@ export async function GET(
 ): Promise<NextResponse> {
   const { id } = await params;
 
-  let auth: Awaited<ReturnType<typeof requireApiUser>>;
   try {
-    auth = await requireApiUser();
-  } catch (error) {
-    return genericError(error instanceof UnauthorizedError ? 401 : 500);
-  }
-  const { supabase, user } = auth;
-
-  if (!DocumentIdSchema.safeParse(id).success) {
-    // ID malformado: mismo 404 genérico que un documento inexistente.
-    return genericError(404);
-  }
-
-  // Documento propio. Devuelve null tanto si no existe como si es ajeno.
-  const { data: document } = await supabase
-    .from("documents")
-    .select("id, title, template_id, field_values, rendered_content")
-    .eq("id", id)
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  if (!document) return genericError(404);
-
-  // Machote propio asociado (defensa en profundidad además de RLS).
-  const { data: template } = await supabase
-    .from("templates")
-    .select("content_json")
-    .eq("id", document.template_id)
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  if (!template) {
-    // El machote ya no está disponible: no se puede reconstruir el documento.
-    return genericError(422);
-  }
-
-  let result;
-  try {
-    result = await buildEscrituraDocx({
-      contentJson: template.content_json,
-      fieldValues: (document.field_values ?? {}) as Record<string, string>,
-      renderedContent: document.rendered_content,
-      title: document.title,
+    const result = await prepareDocumentDocxExport(id);
+    return new NextResponse(result.body, {
+      status: 200,
+      headers: {
+        "Content-Type": result.contentType,
+        "Content-Disposition": result.contentDisposition,
+        "Content-Length": String(result.body.byteLength),
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
   } catch (error) {
-    // Solo se registra un código técnico no sensible; nunca field_values,
-    // rendered_content ni texto del machote.
-    if (error instanceof DocxGenerationError) {
-      console.error(`[docx] generation failed: ${error.code}`);
-      return genericError(error.code === "generation_failed" ? 500 : 413);
-    }
-    console.error("[docx] unexpected generation error");
+    if (error instanceof UnauthorizedError) return genericError(401);
+    if (error instanceof DocumentExportError) return genericError(error.status);
+    console.error("[docx] export request failed");
     return genericError(500);
   }
-
-  // Registra el evento de auditoría de forma best-effort: la descarga no debe
-  // fallar si el registro falla. El RPC (SECURITY DEFINER) valida ownership.
-  try {
-    await supabase.rpc("log_document_word_generated", { p_document_id: id });
-  } catch {
-    console.error("[docx] activity logging failed");
-  }
-
-  const body = new Uint8Array(result.buffer);
-
-  return new NextResponse(body, {
-    status: 200,
-    headers: {
-      "Content-Type": DOCX_MIME,
-      "Content-Disposition": contentDispositionAttachment(result.filename),
-      "Content-Length": String(body.byteLength),
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }
