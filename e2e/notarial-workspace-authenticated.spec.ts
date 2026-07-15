@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import {
   CleanupRegistry,
+  createTestClient,
   createTestDocument,
   createTestNotarialMetadata,
   createTestTemplate,
@@ -19,6 +20,7 @@ const token = uniqueName("niw", "t").split("-").pop() as string;
 const templateName = uniqueName("niw", "machote");
 const instrument = `NI-${token}`;
 const actType = `Compraventa ${token}`;
+const clientName = `Cliente ${token}`;
 const authorizedAt = "2026-07-15T16:35:00.000Z"; // 10:35 CR el 2026-07-15
 
 let completeId = "";
@@ -62,6 +64,7 @@ test.describe("notarial index workspace", () => {
   });
 
   test("A: seed finalized documents with varying completeness", async () => {
+    const client = await createTestClient(registry, { full_name: clientName });
     const template = await createTestTemplate(registry, {
       name: templateName,
       content: "ESCRITURA {{parte.nombre}}.",
@@ -72,12 +75,20 @@ test.describe("notarial index workspace", () => {
       required: true,
     });
 
-    completeId = await seedFinal(template.id, `${token} Completo`, {
+    const complete = await createTestDocument(registry, template.id, {
+      title: `${token} Completo`,
+      client_id: client.id,
+      field_values: { "parte.nombre": "Persona" },
+      rendered_content: "x",
+    });
+    await createTestNotarialMetadata(complete.id, {
       instrument_number: instrument,
       authorized_at: authorizedAt,
       act_type: actType,
       appearing_parties_summary: `Comparecientes ${token}`,
     });
+    await setTestDocumentStatus(complete.id, "final");
+    completeId = complete.id;
     incompleteId = await seedFinal(template.id, `${token} Incompleto`, {
       appearing_parties_summary: `Solo partes ${token}`,
     });
@@ -115,6 +126,32 @@ test.describe("notarial index workspace", () => {
     ).toBeVisible();
     await expect(
       rowFor(page, missingId).getByText("Sin datos", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("C2: renders an accessible table with locally visible context columns", async ({
+    page,
+  }) => {
+    await search(page, token);
+
+    const table = page.getByRole("table", {
+      name: "Escrituras finalizadas incluidas en el índice notarial interno",
+    });
+    await expect(table.getByRole("columnheader", { name: "Número" })).toBeVisible();
+    await expect(
+      table.getByRole("columnheader", { name: "Fecha y hora" }),
+    ).toHaveAttribute("aria-sort", "descending");
+    await expect(table.getByRole("columnheader", { name: "Cliente" })).toHaveCount(0);
+
+    await page.getByText("Columnas", { exact: true }).click();
+    await page.getByLabel("Cliente", { exact: true }).check();
+    await page.getByLabel("Escritura", { exact: true }).check();
+
+    await expect(table.getByRole("columnheader", { name: "Cliente" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Escritura" })).toBeVisible();
+    await expect(rowFor(page, completeId).getByText(clientName)).toBeVisible();
+    await expect(
+      rowFor(page, completeId).getByText(`${token} Completo`, { exact: true }),
     ).toBeVisible();
   });
 
@@ -192,5 +229,17 @@ test.describe("notarial index workspace", () => {
     await page.goto("/dashboard/notarial-index");
     await expect(page.getByLabel("Buscar")).toBeVisible();
     await expect(page.getByLabel("Completitud")).toBeVisible();
+    await expect(
+      page.getByRole("table", {
+        name: "Escrituras finalizadas incluidas en el índice notarial interno",
+      }),
+    ).toBeVisible();
+    const tableRegion = page.getByRole("region", {
+      name: "Tabla del índice notarial",
+    });
+    await expect(tableRegion).toBeVisible();
+    const box = await tableRegion.boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375);
   });
 });
