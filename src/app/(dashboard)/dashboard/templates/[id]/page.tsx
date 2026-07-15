@@ -86,6 +86,7 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           name: template.name,
           description: template.description,
           status: template.status,
+          updated_at: template.updated_at,
         }}
         createdJustNow={created === "1"}
         initialDocument={labeledDocument}
