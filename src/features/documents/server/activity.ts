@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { DocumentIdSchema } from "@/lib/validations/documents";
-import type { ActivityEvent } from "@/lib/documents/activity-format";
+import { DocumentIdSchema } from "../model/document-schema";
+import type { ActivityEvent } from "../model/activity-format";
 
 export const ACTIVITY_PAGE_SIZE = 10;
 

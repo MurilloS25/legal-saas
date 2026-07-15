@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { DocumentIdSchema } from "@/lib/validations/documents";
-import type { NotarialMetadata } from "@/lib/documents/notarial";
+import { DocumentIdSchema } from "../model/document-schema";
+import type { NotarialMetadata } from "../model/notarial";
 
 const SELECT =
   "instrument_number, authorized_at, act_type, book_reference, folio_reference, appearing_parties_summary, notes";

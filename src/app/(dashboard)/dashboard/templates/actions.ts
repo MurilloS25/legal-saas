@@ -8,7 +8,7 @@ import {
   type TemplateWorkspaceVariable,
 } from "@/lib/validations/template-workspace";
 import { buildTemplateContentJson } from "@/lib/editor/content";
-import { TemplateIdSchema } from "@/lib/validations/documents";
+import { TemplateIdSchema } from "@/features/documents";
 
 // ------------------------------------------------------------------ types
 

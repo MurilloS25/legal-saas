@@ -1,24 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { listDocumentsPage } from "./queries";
+import { listDocumentsPage } from "@/features/documents/server";
 import { listClients } from "../clients/queries";
 import { listTemplates } from "../templates/queries";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
   DOCUMENT_STATUS_LABEL,
-} from "@/lib/documents/status";
+} from "@/features/documents";
 import {
   DOCUMENT_SORT_OPTIONS,
   DOCUMENTS_PAGE_SIZE,
   documentsQueryToParams,
   parseDocumentsQuery,
   type RawDocumentsQuery,
-} from "@/lib/documents/workspace-query";
-import { DocumentsToolbar } from "./_components/DocumentsToolbar";
-import { DeleteDocumentButton } from "./_components/DeleteDocumentButton";
-import { DownloadDocxButton } from "./_components/DownloadDocxButton";
+  DeleteDocumentButton,
+  DocumentsToolbar,
+  DownloadDocxButton,
+} from "@/features/documents";
 
 export const metadata = {
   title: "Escrituras — LexCR",

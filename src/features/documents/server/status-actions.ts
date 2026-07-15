@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { DocumentIdSchema } from "@/lib/validations/documents";
+import { DocumentIdSchema } from "../model/document-schema";
 import {
   ACTION_TARGET,
   isActionAllowed,
   isDocumentStatus,
   type DocumentAction,
-} from "@/lib/documents/lifecycle";
+} from "../model/lifecycle";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 

@@ -4,7 +4,7 @@
  * servidor (hidratación mínima); "Cargar más" es una isla cliente ligera.
  */
 
-import type { ActivityListItem } from "../activity";
+import type { ActivityListItem } from "../server/activity";
 import { ActivityRow } from "./ActivityRow";
 import { LoadMoreActivity } from "./LoadMoreActivity";
 

@@ -21,8 +21,8 @@ import {
   createDocumentDraftAction,
   updateDocumentDraftAction,
   type DocumentDraftState,
-} from "../actions";
-import type { DocumentRow } from "../queries";
+} from "../server/actions";
+import type { DocumentRow } from "../server/queries";
 import type { FillableTemplateField } from "@/lib/templates/fillable-fields";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { buildDocumentModel } from "@/lib/editor/render";
@@ -34,7 +34,7 @@ import {
   isDocumentStatus,
   isReadOnlyStatus,
   type DocumentStatus,
-} from "@/lib/documents/lifecycle";
+} from "../model/lifecycle";
 import { FieldError } from "@/components/forms/FieldError";
 
 // ------------------------------------------------------------------ styles

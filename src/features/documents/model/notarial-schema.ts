@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { costaRicaLocalToIso } from "@/lib/documents/notarial-datetime";
+import { costaRicaLocalToIso } from "./notarial-datetime";
 
 /**
  * Validación de la metadata del índice notarial. Todos los campos son

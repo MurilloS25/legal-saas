@@ -4,11 +4,11 @@
  * cliente de "Cargar más".
  */
 
-import type { ActivityListItem } from "../activity";
+import type { ActivityListItem } from "../server/activity";
 import {
   formatActivityEvent,
   formatActivityTimestamp,
-} from "@/lib/documents/activity-format";
+} from "../model/activity-format";
 
 export function ActivityRow({ item }: { item: ActivityListItem }) {
   const formatted = formatActivityEvent(item);

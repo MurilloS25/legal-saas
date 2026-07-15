@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { DocumentIdSchema } from "@/lib/validations/documents";
-import { parseNotarialFormData } from "@/lib/validations/notarial";
+import { DocumentIdSchema } from "../model/document-schema";
+import { parseNotarialFormData } from "../model/notarial-schema";
 
 export type NotarialMetadataState = {
   errors?: Partial<Record<string, string>>;

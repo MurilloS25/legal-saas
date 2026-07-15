@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { getDocumentById } from "../queries";
+import {
+  getDocumentById,
+  getNotarialMetadata,
+  listDocumentActivity,
+} from "@/features/documents/server";
 import { getTemplateById, listTemplateFields } from "../../templates/queries";
 import { listClients } from "../../clients/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
@@ -10,13 +14,13 @@ import { applyVariableLabels } from "@/lib/editor/variables";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
-} from "@/lib/documents/status";
-import { listDocumentActivity } from "../activity";
-import { getNotarialMetadata } from "../notarial-queries";
+} from "@/features/documents";
 import { listReceivablesByDocument } from "@/features/receivables/server";
-import { DocumentComposer } from "../_components/DocumentComposer";
-import { DocumentActivity } from "../_components/DocumentActivity";
-import { NotarialMetadataSection } from "../_components/NotarialMetadataSection";
+import {
+  DocumentActivity,
+  DocumentComposer,
+  NotarialMetadataSection,
+} from "@/features/documents";
 import { ReceivableMiniList } from "@/features/receivables";
 
 export const metadata = {

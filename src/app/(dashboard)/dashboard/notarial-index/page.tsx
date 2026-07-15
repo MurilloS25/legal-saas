@@ -5,7 +5,7 @@ import {
   listNotarialIndex,
   listNotarialActTypes,
   getLatestNotarialExportAt,
-} from "./queries";
+} from "@/features/documents/server";
 import { NotarialToolbar } from "./_components/NotarialToolbar";
 import {
   NOTARIAL_PAGE_SIZE,
@@ -13,11 +13,11 @@ import {
   notarialQueryToParams,
   parseNotarialQuery,
   type RawNotarialQuery,
-} from "@/lib/documents/notarial-query";
+} from "@/features/documents";
 import {
   formatCostaRicaDate,
   formatCostaRicaTime,
-} from "@/lib/documents/notarial-datetime";
+} from "@/features/documents";
 
 export const metadata = {
   title: "Índice notarial — LexCR",

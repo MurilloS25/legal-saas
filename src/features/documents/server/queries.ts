@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { DocumentIdSchema } from "@/lib/validations/documents";
+import { DocumentIdSchema } from "../model/document-schema";
 import { extractTemplateVariables } from "@/lib/templates/variables";
 import {
   DOCUMENTS_PAGE_SIZE,
   sanitizeSearchTermForPostgrest,
   sortColumnFor,
   type DocumentsQuery,
-} from "@/lib/documents/workspace-query";
+} from "../model/workspace-query";
 
 export type DocumentListRow = {
   id: string;

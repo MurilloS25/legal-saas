@@ -11,8 +11,8 @@ import {
   mergeDocumentDraftValues,
   OptionalClientIdSchema,
   TemplateIdSchema,
-} from "@/lib/validations/documents";
-import { validateDocumentFill } from "@/lib/validations/document-fill";
+} from "../model/document-schema";
+import { validateDocumentFill } from "../model/document-fill";
 import {
   buildFillableFields,
   type FillableTemplateField,
@@ -20,7 +20,7 @@ import {
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { renderStructuredTemplate } from "@/lib/editor/render";
 import type { TemplateDocument } from "@/lib/editor/types";
-import { isReadOnlyStatus } from "@/lib/documents/lifecycle";
+import { isReadOnlyStatus } from "../model/lifecycle";
 
 // ------------------------------------------------------------------ types
 

@@ -2,12 +2,12 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientById } from "../queries";
-import { listDocumentsByClient } from "../../documents/queries";
+import { listDocumentsByClient } from "@/features/documents/server";
 import { listReceivablesByClient } from "@/features/receivables/server";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
-} from "@/lib/documents/status";
+} from "@/features/documents";
 import { ClientForm } from "../_components/ClientForm";
 import { ReceivableMiniList } from "@/features/receivables";
 
