@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { voidPaymentAction, type VoidPaymentState } from "../payment-actions";
+import {
+  voidPaymentAction,
+  type VoidPaymentState,
+} from "../server/payment-actions";
 
 type Props = {
   receivableId: string;

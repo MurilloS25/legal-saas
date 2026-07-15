@@ -8,19 +8,21 @@ import {
   listPaymentsByReceivable,
   listClientOptions,
   listDocumentOptions,
-} from "../queries";
-import { ReceivableForm } from "../_components/ReceivableForm";
-import { DeleteReceivableButton } from "../_components/DeleteReceivableButton";
-import { PaymentsSection } from "../_components/PaymentsSection";
+} from "@/features/receivables/server";
+import {
+  DeleteReceivableButton,
+  PaymentsSection,
+  ReceivableForm,
+} from "@/features/receivables";
 import {
   formatMoney,
   receivableStatusBadgeClass,
   receivableStatusLabel,
-} from "@/lib/receivables/status";
+} from "@/features/receivables";
 import {
   formatReceivableActivityEvent,
   formatReceivableActivityTimestamp,
-} from "@/lib/receivables/activity-format";
+} from "@/features/receivables";
 
 export const metadata = {
   title: "Cuenta por cobrar — LexCR",

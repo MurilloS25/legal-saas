@@ -1,7 +1,10 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
-import { ReceivableForm } from "../_components/ReceivableForm";
-import { listClientOptions, listDocumentOptions } from "../queries";
+import { ReceivableForm } from "@/features/receivables";
+import {
+  listClientOptions,
+  listDocumentOptions,
+} from "@/features/receivables/server";
 
 export const metadata = {
   title: "Nueva cuenta por cobrar — LexCR",

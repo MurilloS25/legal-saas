@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientById } from "../queries";
 import { listDocumentsByClient } from "../../documents/queries";
-import { listReceivablesByClient } from "../../receivables/queries";
+import { listReceivablesByClient } from "@/features/receivables/server";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
 } from "@/lib/documents/status";
 import { ClientForm } from "../_components/ClientForm";
-import { ReceivableMiniList } from "../../receivables/_components/ReceivableMiniList";
+import { ReceivableMiniList } from "@/features/receivables";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-CR", {
