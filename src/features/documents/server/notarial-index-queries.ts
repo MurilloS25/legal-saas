@@ -7,7 +7,7 @@ import {
   notarialSearchTerm,
   notarialSortAscending,
   type NotarialQuery,
-} from "@/lib/documents/notarial-query";
+} from "../model/notarial-query";
 
 export type NotarialIndexRow = {
   document_id: string;

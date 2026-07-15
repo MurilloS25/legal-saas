@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import {
   deleteDocumentDraftAction,
   type DeleteDocumentState,
-} from "../actions";
+} from "../server/actions";
 
 type Props = {
   documentId: string;

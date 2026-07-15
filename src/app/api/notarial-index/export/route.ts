@@ -5,14 +5,12 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   parseNotarialQuery,
   type RawNotarialQuery,
-} from "@/lib/documents/notarial-query";
-import {
-  listNotarialIndexForExport,
-} from "../../../(dashboard)/dashboard/notarial-index/queries";
+} from "@/features/documents";
+import { listNotarialIndexForExport } from "@/features/documents/server";
 import {
   buildNotarialCsv,
   notarialExportFilename,
-} from "@/lib/documents/notarial-export";
+} from "@/features/documents";
 
 // Exportación CSV del índice notarial interno.
 //

@@ -6,7 +6,7 @@ import { listClients } from "../../../clients/queries";
 import { buildFillableFields } from "@/lib/templates/fillable-fields";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
-import { DocumentComposer } from "../../_components/DocumentComposer";
+import { DocumentComposer } from "@/features/documents";
 
 export const metadata = {
   title: "Crear escritura — LexCR",

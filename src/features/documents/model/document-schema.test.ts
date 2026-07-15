@@ -7,7 +7,7 @@ import {
   DocumentStatusSchema,
   OptionalClientIdSchema,
   mergeDocumentDraftValues,
-} from "./documents";
+} from "./document-schema";
 
 describe("DocumentTitleSchema", () => {
   it("accepts a normal title", () => {

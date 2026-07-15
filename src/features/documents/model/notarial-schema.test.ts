@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NotarialMetadataSchema } from "./notarial";
+import { NotarialMetadataSchema } from "./notarial-schema";
 
 describe("NotarialMetadataSchema", () => {
   it("normalizes empty strings to null and parses the CR date", () => {

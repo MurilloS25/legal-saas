@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { FIELD_KEY_PATTERN } from "./template-fields";
+import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
 import {
   DOCUMENT_STATUSES,
   type DocumentStatus,
-} from "@/lib/documents/lifecycle";
+} from "./lifecycle";
 
 /**
  * Validaciones de escrituras (documents).
@@ -13,7 +13,7 @@ import {
  * contenido renderizado se genera del lado servidor a partir del machote y
  * de estos valores — nunca se acepta desde el cliente.
  *
- * Los estados válidos viven en `@/lib/documents/lifecycle` (fuente única).
+ * Los estados válidos viven en `./lifecycle` (fuente única).
  */
 
 export { DOCUMENT_STATUSES };

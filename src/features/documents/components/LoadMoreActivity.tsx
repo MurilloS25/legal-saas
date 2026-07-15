@@ -8,8 +8,8 @@
  */
 
 import { useState } from "react";
-import { loadDocumentActivityAction } from "../activity-actions";
-import type { ActivityListItem } from "../activity";
+import { loadDocumentActivityAction } from "../server/activity-actions";
+import type { ActivityListItem } from "../server/activity";
 import { ActivityRow } from "./ActivityRow";
 
 type Props = {

@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/server/auth";
 import { UnauthorizedError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "@/lib/validations/documents";
+import { DocumentIdSchema } from "@/features/documents";
 import {
   buildEscrituraDocx,
   contentDispositionAttachment,
   DOCX_MIME,
   DocxGenerationError,
-} from "@/lib/documents/docx";
+} from "@/features/documents/server";
 
 // Descarga server-only del `.docx` de una escritura.
 //
