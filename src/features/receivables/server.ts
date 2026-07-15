@@ -9,7 +9,6 @@ export {
 } from "./server/detail-queries";
 export { listPaymentsByReceivable } from "./server/payment-queries";
 export {
-  listClientOptions,
   listDocumentOptions,
 } from "./server/options-queries";
 export {

@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { deleteClientAction, type DeleteClientState } from "../actions";
+import {
+  deleteClientAction,
+  type DeleteClientState,
+} from "../server/actions";
 
 // ------------------------------------------------------------------ props
 

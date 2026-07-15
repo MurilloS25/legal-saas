@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listDocumentsPage } from "@/features/documents/server";
-import { listClients } from "../clients/queries";
+import { listClients } from "@/features/clients/server";
 import { listTemplateOptions } from "@/features/templates/server";
 import {
   documentStatusBadgeClass,

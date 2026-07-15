@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ClientSchema } from "./clients";
+import { ClientSchema } from "./client-schema";
 
 const valid = {
   full_name: "Test Client One",
