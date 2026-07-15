@@ -114,10 +114,16 @@ test.describe("document docx download", () => {
     // Provoca un cambio local sin guardar. Se reintenta el fill hasta que el
     // botón quede deshabilitado: si el primer fill ocurre antes de la
     // hidratación de React, el onChange (dirty) no se dispara.
+    let attempt = 0;
     await expect(async () => {
-      await field.fill("Cliente Uno Editado");
+      attempt += 1;
+      await field.fill(
+        attempt % 2 === 0 ? "Cliente Uno Editado" : "Cliente Uno Revisado",
+      );
       await expect(button).toBeDisabled({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
+    await field.fill("Cliente Uno Editado");
+    await expect(button).toBeDisabled();
 
     await expect(
       page.getByText("Guarda los cambios antes de descargar el Word."),
