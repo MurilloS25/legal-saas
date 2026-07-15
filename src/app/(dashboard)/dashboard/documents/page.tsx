@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listDocumentsPage } from "@/features/documents/server";
 import { listClients } from "../clients/queries";
-import { listTemplates } from "../templates/queries";
+import { listTemplateOptions } from "@/features/templates/server";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
@@ -58,7 +58,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
   const [page, clients, templates] = await Promise.all([
     listDocumentsPage(query),
     listClients(),
-    listTemplates(),
+    listTemplateOptions(),
   ]);
 
   const clientOptions = clients.map((c) => ({ id: c.id, full_name: c.full_name }));

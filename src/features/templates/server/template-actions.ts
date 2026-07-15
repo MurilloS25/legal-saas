@@ -6,9 +6,9 @@ import { requireUser } from "@/lib/server/auth";
 import {
   parseTemplateWorkspacePayload,
   type TemplateWorkspaceVariable,
-} from "@/lib/validations/template-workspace";
+} from "../model/template-workspace";
 import { buildTemplateContentJson } from "@/lib/editor/content";
-import { TemplateIdSchema } from "@/features/documents";
+import { TemplateIdSchema } from "../model/templates";
 import type { Database } from "@/lib/supabase/database.types";
 
 // ------------------------------------------------------------------ types

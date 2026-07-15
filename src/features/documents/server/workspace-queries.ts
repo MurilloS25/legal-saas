@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { extractTemplateVariables } from "@/lib/templates/variables";
+import { extractTemplateVariables } from "@/features/templates";
 import {
   DOCUMENTS_PAGE_SIZE,
   sanitizeSearchTermForPostgrest,

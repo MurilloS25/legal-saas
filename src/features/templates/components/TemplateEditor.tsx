@@ -13,9 +13,9 @@ import { useId, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
 import type { TemplateDocument } from "@/lib/editor/types";
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import { FIELD_KEY_PATTERN } from "../model/template-fields";
 import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
-import type { TemplateWorkspaceVariable } from "@/lib/validations/template-workspace";
+import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import { FieldError } from "@/components/forms/FieldError";
 
 // ------------------------------------------------------------------ styles

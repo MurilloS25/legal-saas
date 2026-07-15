@@ -1,6 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
-import { listTemplates } from "./queries";
+import { listTemplates } from "@/features/templates/server";
 
 export const metadata = {
   title: "Machotes — LexCR",

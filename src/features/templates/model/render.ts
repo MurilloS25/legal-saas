@@ -8,7 +8,7 @@
  *
  */
 
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
 import { PLACEHOLDER_PATTERN } from "./variables";
 
 function resolvedValue(

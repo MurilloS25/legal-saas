@@ -6,9 +6,9 @@ import {
   getNotarialMetadata,
   listDocumentActivity,
 } from "@/features/documents/server";
-import { getTemplateById, listTemplateFields } from "../../templates/queries";
+import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "../../clients/queries";
-import { buildFillableFields } from "@/lib/templates/fillable-fields";
+import { buildFillableFields } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import {

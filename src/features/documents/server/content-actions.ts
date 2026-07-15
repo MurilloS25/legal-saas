@@ -10,13 +10,10 @@ import {
   DocumentTitleSchema,
   DocumentValuesSchema,
   mergeDocumentDraftValues,
-  TemplateIdSchema,
 } from "../model/document-schema";
+import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
 import { validateDocumentFill } from "../model/document-fill";
-import {
-  buildFillableFields,
-  type FillableTemplateField,
-} from "@/lib/templates/fillable-fields";
+import type { FillableTemplateField } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { renderStructuredTemplate } from "@/lib/editor/render";
 import type { TemplateDocument } from "@/lib/editor/types";

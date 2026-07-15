@@ -1,6 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
-import { TemplateWorkspace } from "../_components/TemplateWorkspace";
+import { TemplateWorkspace } from "@/features/templates";
 import { emptyTemplateDocument } from "@/lib/editor/types";
 
 export const metadata = {

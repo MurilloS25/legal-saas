@@ -12,7 +12,7 @@
  * persistir, aunque el cliente ya la haya ejecutado.
  */
 
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import { FIELD_KEY_PATTERN } from "./variable-key";
 import {
   TEMPLATE_DOC_LIMITS,
   TEMPLATE_DOC_MARKS,

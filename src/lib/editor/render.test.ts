@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDocumentModel, renderStructuredTemplate } from "./render";
 import { legacyTextToDocument } from "./convert";
-import { renderTemplateContent } from "@/lib/templates/render";
+import { renderTemplateContent } from "@/features/templates";
 import type { TemplateDocument } from "./types";
 
 const structuredDoc: TemplateDocument = {

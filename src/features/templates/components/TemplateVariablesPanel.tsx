@@ -17,7 +17,7 @@
  */
 
 import { useId, useState } from "react";
-import type { TemplateWorkspaceVariable } from "@/lib/validations/template-workspace";
+import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 
 export type VariableRowStatus = "configured" | "pending" | "unused";
 

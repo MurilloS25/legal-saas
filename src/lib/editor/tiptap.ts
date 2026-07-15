@@ -13,7 +13,7 @@
 
 import { Node, mergeAttributes, type Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { FIELD_KEY_PATTERN } from "@/lib/validations/template-fields";
+import { FIELD_KEY_PATTERN } from "./variable-key";
 import { TEMPLATE_DOC_LIMITS } from "./types";
 
 export type InsertTemplateVariableOptions = {

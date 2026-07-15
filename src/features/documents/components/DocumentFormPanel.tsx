@@ -1,7 +1,7 @@
 "use client";
 
 import { FieldError } from "@/components/forms/FieldError";
-import type { FillableTemplateField } from "@/lib/templates/fillable-fields";
+import type { FillableTemplateField } from "@/features/templates";
 import type { DocumentDraftState } from "../server/content-actions";
 import type { DocumentStatus } from "../model/lifecycle";
 import { documentFieldInputId } from "../model/composer";
