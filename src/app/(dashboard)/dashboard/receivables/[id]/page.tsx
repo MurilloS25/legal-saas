@@ -6,9 +6,9 @@ import {
   getReceivableForEdit,
   listReceivableActivity,
   listPaymentsByReceivable,
-  listClientOptions,
   listDocumentOptions,
 } from "@/features/receivables/server";
+import { listClientOptions } from "@/features/clients/server";
 import {
   DeleteReceivableButton,
   PaymentsSection,

@@ -6,8 +6,8 @@ import {
   createClientAction,
   updateClientAction,
   type ClientState,
-} from "../actions";
-import type { ClientRow } from "../queries";
+} from "../server/actions";
+import type { ClientRow } from "../model/types";
 import { DeleteClientButton } from "./DeleteClientButton";
 import { FieldError } from "@/components/forms/FieldError";
 

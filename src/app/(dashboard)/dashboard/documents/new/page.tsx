@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listTemplateOptions } from "@/features/templates/server";
-import { listClients } from "../../clients/queries";
+import { listClients } from "@/features/clients/server";
 
 export const metadata = {
   title: "Nueva escritura — LexCR",

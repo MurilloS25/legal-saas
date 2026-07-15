@@ -20,3 +20,4 @@ export {
   RECEIVABLE_SORT_OPTIONS,
 } from "./model/workspace-query";
 export type { RawReceivablesQuery } from "./model/workspace-query";
+export type { ReceivableEntry } from "./model/types";

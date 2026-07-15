@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { ClientSchema } from "@/lib/validations/clients";
+import { requireUser } from "@/lib/server/auth";
+import { ClientSchema } from "../model/client-schema";
 
 // ------------------------------------------------------------------ types
 
@@ -61,12 +61,7 @@ export async function createClientAction(
   _prevState: ClientState,
   formData: FormData,
 ): Promise<ClientState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const result = ClientSchema.safeParse(parseFormData(formData));
   if (!result.success) return fieldErrors(result);
@@ -92,12 +87,7 @@ export async function updateClientAction(
   _prevState: ClientState,
   formData: FormData,
 ): Promise<ClientState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const result = ClientSchema.safeParse(parseFormData(formData));
   if (!result.success) return fieldErrors(result);
@@ -129,12 +119,7 @@ export async function deleteClientAction(
   void _prevState;
   void _formData;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data, error } = await supabase
     .from("clients")

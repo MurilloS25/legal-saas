@@ -7,7 +7,7 @@ import {
   listDocumentActivity,
 } from "@/features/documents/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
-import { listClients } from "../../clients/queries";
+import { listClients } from "@/features/clients/server";
 import { buildFillableFields } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";

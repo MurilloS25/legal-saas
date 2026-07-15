@@ -2,7 +2,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listReceivablesWorkspace } from "@/features/receivables/server";
-import { listClients } from "../clients/queries";
+import { listClients } from "@/features/clients/server";
 import {
   formatMoney,
   receivableStatusBadgeClass,

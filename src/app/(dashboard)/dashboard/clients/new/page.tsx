@@ -1,6 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
-import { ClientForm } from "../_components/ClientForm";
+import { ClientForm } from "@/features/clients";
 
 export const metadata = {
   title: "Nuevo cliente — LexCR",
