@@ -2,7 +2,6 @@ import "server-only";
 
 import { requireApiUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import type { Database } from "@/lib/supabase/database.types";
 import {
   buildEscrituraDocx,
   contentDispositionAttachment,
@@ -10,18 +9,9 @@ import {
   DocxGenerationError,
 } from "@/lib/documents/docx";
 import {
-  buildNotarialCsv,
-  notarialExportFilename,
-} from "../model/notarial-export";
-import {
-  parseNotarialQuery,
-  type RawNotarialQuery,
-} from "../model/notarial-query";
-import {
   DocumentIdSchema,
   DocumentValuesSchema,
 } from "../model/document-schema";
-import { queryNotarialIndexForExport } from "./notarial-index-queries";
 
 export class DocumentExportError extends Error {
   constructor(readonly status: number) {
@@ -103,43 +93,5 @@ export async function prepareDocumentDocxExport(
     body,
     contentType: DOCX_MIME,
     contentDisposition: contentDispositionAttachment(result.filename),
-  };
-}
-
-export async function prepareNotarialCsvExport(
-  rawQuery: RawNotarialQuery,
-): Promise<BinaryExport> {
-  const { supabase, user } = await requireApiUser();
-  const query = parseNotarialQuery(rawQuery);
-  const rows = await queryNotarialIndexForExport(supabase, user.id, query);
-  const csv = buildNotarialCsv(rows);
-  const filename = notarialExportFilename(query.from, query.to);
-
-  type LogExportArgs =
-    Database["public"]["Functions"]["log_notarial_index_export"]["Args"];
-  const args = {
-    p_format: "csv",
-    p_from: query.from,
-    p_to: query.to,
-    p_row_count: rows.length,
-  };
-
-  // The generated type does not encode nullable SQL date arguments.
-  const { error: activityError } = await supabase.rpc(
-    "log_notarial_index_export",
-    args as LogExportArgs,
-  );
-  if (activityError) {
-    console.error(
-      `[notarial-export] activity logging failed (${activityError.code ?? "unknown"})`,
-    );
-  }
-
-  const body = Uint8Array.from(new TextEncoder().encode(csv));
-
-  return {
-    body,
-    contentType: "text/csv; charset=utf-8",
-    contentDisposition: `attachment; filename="${filename}"`,
   };
 }

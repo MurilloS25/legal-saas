@@ -5,7 +5,7 @@ import {
   notarialExportFilename,
   notarialRowToCsvCells,
   type NotarialExportRow,
-} from "./notarial-export";
+} from "./notarial-csv";
 
 const complete: NotarialExportRow = {
   title: "Escritura Uno",

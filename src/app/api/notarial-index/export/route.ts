@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { publicErrorDetails } from "@/lib/server/errors";
-import type { RawNotarialQuery } from "@/features/documents";
-import { prepareNotarialCsvExport } from "@/features/documents/server";
+import type { RawNotarialQuery } from "@/features/notarial-index";
+import { prepareNotarialCsvExport } from "@/features/notarial-index/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

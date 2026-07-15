@@ -3,9 +3,9 @@ import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
   getDocumentById,
-  getNotarialMetadata,
   listDocumentActivity,
 } from "@/features/documents/server";
+import { getNotarialMetadata } from "@/features/notarial-index/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
 import { buildFillableFields } from "@/features/templates";
@@ -19,8 +19,8 @@ import { listReceivablesByDocument } from "@/features/receivables/server";
 import {
   DocumentActivity,
   DocumentComposer,
-  NotarialMetadataSection,
 } from "@/features/documents";
+import { NotarialMetadataSection } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
 
 export const metadata = {

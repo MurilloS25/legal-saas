@@ -5,8 +5,7 @@
  * búsqueda del workspace de Escrituras.
  */
 
-import { sanitizeSearchTermForPostgrest } from "./workspace-query";
-import { costaRicaDayEndIso, costaRicaDayStartIso } from "./notarial-datetime";
+import { costaRicaDayEndIso, costaRicaDayStartIso } from "./datetime";
 
 export const MAX_SEARCH_LENGTH = 100;
 export const NOTARIAL_PAGE_SIZE = 15;
@@ -49,6 +48,13 @@ export type NotarialQuery = {
   page: number;
   hasActiveFilters: boolean;
 };
+
+function sanitizeSearchTermForPostgrest(search: string): string {
+  return search
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function normDate(value: string | undefined): string | null {
   if (typeof value !== "string") return null;
