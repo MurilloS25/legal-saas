@@ -819,6 +819,22 @@ export type Database = {
         }
         Returns: string
       }
+      save_template_workspace: {
+        Args: {
+          p_content_json: Json
+          p_description: string
+          p_expected_updated_at: string
+          p_fields: Json
+          p_name: string
+          p_status: string
+          p_template_id: string
+          p_text_preview: string
+        }
+        Returns: {
+          template_id: string
+          updated_at: string
+        }[]
+      }
       void_receivable_payment: {
         Args: { p_payment_id: string; p_reason: string }
         Returns: undefined

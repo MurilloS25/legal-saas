@@ -54,6 +54,7 @@ export type WorkspaceTemplate = {
   name: string;
   description: string | null;
   status: string;
+  updated_at: string;
 };
 
 type Props = {
@@ -88,6 +89,7 @@ export function TemplateWorkspace(props: Props) {
   );
   const [dirty, setDirty] = useState(false);
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
+  const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
 
   const action = isEdit
     ? updateTemplateWorkspaceAction.bind(null, template!.id)
@@ -100,6 +102,9 @@ export function TemplateWorkspace(props: Props) {
     if (state.success && lastSuccess.current !== state) {
       lastSuccess.current = state;
       setDirty(false);
+      if (state.updatedAt && expectedUpdatedAtRef.current) {
+        expectedUpdatedAtRef.current.value = state.updatedAt;
+      }
     }
   }, [state]);
 
@@ -158,6 +163,16 @@ export function TemplateWorkspace(props: Props) {
         value={JSON.stringify(documentJson)}
       />
       <input type="hidden" name="variables" value={JSON.stringify(variables)} />
+      {isEdit && (
+        <input
+          ref={expectedUpdatedAtRef}
+          type="hidden"
+          name="expected_updated_at"
+          defaultValue={
+            props.mode === "edit" ? props.template.updated_at : ""
+          }
+        />
+      )}
 
       {/* ---- feedback global ---- */}
       {showSavedBanner && (
