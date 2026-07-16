@@ -5,11 +5,14 @@ import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "@/features/documents";
 import { parseNotarialFormData } from "../model/notarial-schema";
+import { generateConfiguredParties } from "./parties-generation";
 
 export type NotarialMetadataState = {
   errors?: Partial<Record<string, string>>;
   message?: string;
   success?: boolean;
+  successMessage?: string;
+  resetParties?: boolean;
 };
 
 /**
@@ -31,7 +34,7 @@ export async function saveNotarialMetadataAction(
 
   const { data: document, error: documentError } = await supabase
     .from("documents")
-    .select("id, templates(name)")
+    .select("id, template_id, field_values, templates(name)")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -40,16 +43,6 @@ export async function saveNotarialMetadataAction(
     throwDataAccessError("load document for notarial metadata", documentError);
   }
   if (!document) return { message: "No se encontró la escritura." };
-
-  const parsed = parseNotarialFormData(formData);
-  if (!parsed.success) {
-    const fieldErrors = parsed.error.flatten().fieldErrors;
-    const errors: Record<string, string> = {};
-    for (const [key, messages] of Object.entries(fieldErrors)) {
-      if (messages && messages[0]) errors[key] = messages[0];
-    }
-    return { errors };
-  }
 
   const { data: existing, error: existingError } = await supabase
     .from("document_notarial_metadata")
@@ -62,14 +55,80 @@ export async function saveNotarialMetadataAction(
     throwDataAccessError("load existing notarial metadata", existingError);
   }
 
+  const generated = await generateConfiguredParties(
+    supabase,
+    user.id,
+    document.template_id,
+    document.field_values,
+  );
+  if (formData.get("intent") === "reset-parties") {
+    if (!existing) {
+      return { message: "Guarda primero los datos del índice." };
+    }
+    if (generated.status !== "ready") {
+      return {
+        message:
+          "La configuración de Partes no está lista. Revísala antes de restablecer.",
+      };
+    }
+    const submittedVersion = Number(formData.get("version"));
+    if (!Number.isInteger(submittedVersion) || submittedVersion < 1) {
+      return { message: "Recarga la página antes de restablecer las Partes." };
+    }
+    const { data: reset, error: resetError } = await supabase
+      .from("document_notarial_metadata")
+      .update({
+        generated_parties: generated.value,
+        parties_override: null,
+      })
+      .eq("document_id", documentId)
+      .eq("owner_id", user.id)
+      .eq("version", submittedVersion)
+      .select("id")
+      .maybeSingle();
+    if (resetError) {
+      return { message: "No fue posible restablecer las Partes." };
+    }
+    if (!reset) {
+      return {
+        message:
+          "Los datos cambiaron en otra sesión. Recarga la página antes de continuar.",
+      };
+    }
+    revalidatePath(`/dashboard/documents/${documentId}`);
+    return {
+      success: true,
+      successMessage: "Partes restablecidas desde el machote.",
+      resetParties: true,
+    };
+  }
+
+  const parsed = parseNotarialFormData(formData);
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    const errors: Record<string, string> = {};
+    for (const [key, messages] of Object.entries(fieldErrors)) {
+      if (messages && messages[0]) errors[key] = messages[0];
+    }
+    return { errors };
+  }
+
   const { version, ...values } = parsed.data;
   const actNameSnapshot =
     existing?.act_name_snapshot ?? document.templates?.name ?? null;
+  const generatedParties =
+    generated.status === "ready"
+      ? generated.value
+      : (existing?.generated_parties ?? null);
 
   const result = existing
     ? await supabase
         .from("document_notarial_metadata")
-        .update({ ...values, act_name_snapshot: actNameSnapshot })
+        .update({
+          ...values,
+          act_name_snapshot: actNameSnapshot,
+          generated_parties: generatedParties,
+        })
         .eq("document_id", documentId)
         .eq("owner_id", user.id)
         .eq("version", version)
@@ -81,6 +140,7 @@ export async function saveNotarialMetadataAction(
           owner_id: user.id,
           document_id: documentId,
           act_name_snapshot: actNameSnapshot,
+          generated_parties: generatedParties,
           ...values,
         })
         .select("id")
@@ -99,5 +159,5 @@ export async function saveNotarialMetadataAction(
   }
 
   revalidatePath(`/dashboard/documents/${documentId}`);
-  return { success: true };
+  return { success: true, successMessage: "Datos del índice guardados." };
 }

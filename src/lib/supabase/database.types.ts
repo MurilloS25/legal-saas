@@ -683,6 +683,98 @@ export type Database = {
           },
         ]
       }
+      template_index_configuration_fields: {
+        Row: {
+          configuration_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          sort_order: number
+          template_field_id: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          configuration_id: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          sort_order: number
+          template_field_id: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          configuration_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          sort_order?: number
+          template_field_id?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_index_fields_configuration_fk"
+            columns: ["configuration_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_index_configurations"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
+          {
+            foreignKeyName: "template_index_fields_template_field_fk"
+            columns: ["template_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
+        ]
+      }
+      template_index_configurations: {
+        Row: {
+          allow_empty: boolean
+          created_at: string
+          fixed_suffix: string | null
+          id: string
+          is_complete: boolean
+          owner_id: string
+          party_separator: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          allow_empty?: boolean
+          created_at?: string
+          fixed_suffix?: string | null
+          id?: string
+          is_complete?: boolean
+          owner_id: string
+          party_separator?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          allow_empty?: boolean
+          created_at?: string
+          fixed_suffix?: string | null
+          id?: string
+          is_complete?: boolean
+          owner_id?: string
+          party_separator?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_index_config_template_owner_fk"
+            columns: ["template_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
       templates: {
         Row: {
           category: string | null
@@ -846,6 +938,16 @@ export type Database = {
           p_paid_at: string
           p_receivable_id: string
           p_reference: string
+        }
+        Returns: string
+      }
+      save_template_index_configuration: {
+        Args: {
+          p_allow_empty: boolean
+          p_fields: Json
+          p_fixed_suffix: string
+          p_party_separator: string
+          p_template_id: string
         }
         Returns: string
       }

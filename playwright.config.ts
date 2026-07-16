@@ -171,6 +171,17 @@ export default defineConfig({
       dependencies: ["chromium-documents-activity"],
     },
 
+    // Reusable Parties configuration per template — authenticated.
+    {
+      name: "chromium-notarial-template-config",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-template-config-authenticated\.spec\.ts/,
+      dependencies: ["chromium-notarial-metadata"],
+    },
+
     // Notarial index workspace — authenticated.
     {
       name: "chromium-notarial-workspace",
@@ -179,7 +190,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-metadata"],
+      dependencies: ["chromium-notarial-template-config"],
     },
 
     // Notarial index CSV export — authenticated.

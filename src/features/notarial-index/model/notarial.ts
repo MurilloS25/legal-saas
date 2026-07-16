@@ -38,6 +38,13 @@ function hasValue(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim() !== "";
 }
 
+function overrideOrFallback(
+  override: string | null | undefined,
+  fallback: string | null | undefined,
+): string | null | undefined {
+  return hasValue(override) ? override : fallback;
+}
+
 /** true si la metadata está completa según los campos internos mínimos. */
 export function isNotarialComplete(
   metadata: Partial<NotarialMetadata> | null,
@@ -50,8 +57,18 @@ export function isNotarialComplete(
     hasValue(metadata.protocol_book) &&
     hasValue(metadata.initial_folio) &&
     hasValue(metadata.final_folio) &&
-    hasValue(metadata.act_name_override ?? metadata.act_name_snapshot) &&
-    hasValue(metadata.parties_override ?? metadata.generated_parties)
+    hasValue(
+      overrideOrFallback(
+        metadata.act_name_override,
+        metadata.act_name_snapshot,
+      ),
+    ) &&
+    hasValue(
+      overrideOrFallback(
+        metadata.parties_override,
+        metadata.generated_parties,
+      ),
+    )
   );
 }
 
@@ -72,10 +89,24 @@ export function notarialMissingFields(
     missing.push("instrument_number");
   }
   if (!hasValue(metadata.authorized_at)) missing.push("authorized_at");
-  if (!hasValue(metadata.act_name_override ?? metadata.act_name_snapshot)) {
+  if (
+    !hasValue(
+      overrideOrFallback(
+        metadata.act_name_override,
+        metadata.act_name_snapshot,
+      ),
+    )
+  ) {
     missing.push("act_name");
   }
-  if (!hasValue(metadata.parties_override ?? metadata.generated_parties)) {
+  if (
+    !hasValue(
+      overrideOrFallback(
+        metadata.parties_override,
+        metadata.generated_parties,
+      ),
+    )
+  ) {
     missing.push("parties");
   }
   return missing;
