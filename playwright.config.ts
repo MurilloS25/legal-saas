@@ -193,14 +193,14 @@ export default defineConfig({
       dependencies: ["chromium-notarial-template-config"],
     },
 
-    // Notarial index CSV export — authenticated.
+    // Notarial index DOCX export — authenticated.
     {
       name: "chromium-notarial-export",
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/user.json",
       },
-      testMatch: /notarial-export-authenticated\.spec\.ts/,
+      testMatch: /notarial-docx-authenticated\.spec\.ts/,
       dependencies: ["chromium-notarial-workspace"],
     },
 

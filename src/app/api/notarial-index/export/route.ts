@@ -1,26 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { publicErrorDetails } from "@/lib/server/errors";
-import type { RawNotarialQuery } from "@/features/notarial-index";
-import { prepareNotarialCsvExport } from "@/features/notarial-index/server";
+import { prepareNotarialDocxExport } from "@/features/notarial-index/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function readParams(request: NextRequest): RawNotarialQuery {
-  const sp = request.nextUrl.searchParams;
-  return {
-    search: sp.get("search") ?? undefined,
-    completeness: sp.get("completeness") ?? undefined,
-    act_type: sp.get("act_type") ?? undefined,
-    from: sp.get("from") ?? undefined,
-    to: sp.get("to") ?? undefined,
-    sort: sp.get("sort") ?? undefined,
-  };
-}
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const searchParams = request.nextUrl.searchParams;
   try {
-    const result = await prepareNotarialCsvExport(readParams(request));
+    const result = await prepareNotarialDocxExport({
+      year: searchParams.get("year") ?? undefined,
+      month: searchParams.get("month") ?? undefined,
+      half: searchParams.get("half") ?? undefined,
+    });
     return new NextResponse(result.body, {
       status: 200,
       headers: {
@@ -33,13 +25,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     const details = publicErrorDetails(error);
+    if (details.status === 500) {
+      console.error("[notarial-export] generation failed");
+    }
     return NextResponse.json(
-      {
-        error:
-          details.status === 401
-            ? details.message
-            : "No fue posible generar el índice.",
-      },
+      { error: details.status === 500 ? "No fue posible generar el índice." : details.message },
       { status: details.status },
     );
   }

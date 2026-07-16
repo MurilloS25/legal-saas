@@ -1,38 +1,73 @@
 import "server-only";
 
+import { contentDispositionAttachment, DOCX_MIME } from "@/lib/documents/docx/http";
 import { requireApiUser } from "@/lib/server/auth";
+import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
 import type { Database } from "@/lib/supabase/database.types";
+import { generateNotarialIndexDocx } from "../export/notarial-docx";
 import {
-  buildNotarialCsv,
-  notarialExportFilename,
-} from "../export/notarial-csv";
-import { parseNotarialQuery, type RawNotarialQuery } from "../model/query";
+  fortnightDateBounds,
+  parseFortnightSelection,
+} from "../model/fortnight";
+import { notarialIndexFilename } from "../model/formatters";
 import { queryNotarialIndexForExport } from "./export-queries";
 
-export type NotarialCsvExport = {
+export type RawNotarialExportQuery = {
+  year?: string;
+  month?: string;
+  half?: string;
+};
+
+export type NotarialDocxExport = {
   body: Uint8Array<ArrayBuffer>;
   contentType: string;
   contentDisposition: string;
 };
 
-export async function prepareNotarialCsvExport(
-  rawQuery: RawNotarialQuery,
-): Promise<NotarialCsvExport> {
+export async function prepareNotarialDocxExport(
+  rawQuery: RawNotarialExportQuery,
+): Promise<NotarialDocxExport> {
+  const selection = parseFortnightSelection(rawQuery);
+  if (!selection) {
+    throw new ValidationError("Selecciona un año, mes y quincena válidos.");
+  }
+
   const { supabase, user } = await requireApiUser();
-  const query = parseNotarialQuery(rawQuery);
-  const rows = await queryNotarialIndexForExport(supabase, user.id, query);
-  const csv = buildNotarialCsv(rows);
-  const filename = notarialExportFilename(query.from, query.to);
+  const [{ data: profile, error: profileError }, exportData] = await Promise.all([
+    supabase
+      .from("lawyer_profiles")
+      .select("full_name")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
+    queryNotarialIndexForExport(supabase, user.id, selection),
+  ]);
+  if (profileError) throwDataAccessError("load notary profile for export", profileError);
+  const notaryName = profile?.full_name?.trim();
+  if (!notaryName) {
+    throw new ValidationError(
+      "Completa tu nombre en Configuración antes de generar el índice.",
+    );
+  }
+
+  const buffer = await generateNotarialIndexDocx({
+    rows: exportData.rows,
+    selection,
+    notaryName,
+  });
+  const bounds = fortnightDateBounds(
+    selection.year,
+    selection.month,
+    selection.half,
+  );
 
   type LogExportArgs =
     Database["public"]["Functions"]["log_notarial_index_export"]["Args"];
   const args = {
-    p_format: "csv",
-    p_from: query.from,
-    p_to: query.to,
-    p_row_count: rows.length,
+    p_format: "docx",
+    p_from: bounds.from,
+    p_to: bounds.to,
+    p_row_count: exportData.total,
   };
-
   const { error: activityError } = await supabase.rpc(
     "log_notarial_index_export",
     args as LogExportArgs,
@@ -43,10 +78,10 @@ export async function prepareNotarialCsvExport(
     );
   }
 
-  const body = Uint8Array.from(new TextEncoder().encode(csv));
+  const filename = notarialIndexFilename(selection);
   return {
-    body,
-    contentType: "text/csv; charset=utf-8",
-    contentDisposition: `attachment; filename="${filename}"`,
+    body: new Uint8Array(buffer),
+    contentType: DOCX_MIME,
+    contentDisposition: contentDispositionAttachment(filename),
   };
 }

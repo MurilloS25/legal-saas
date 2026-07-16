@@ -1,22 +1,12 @@
-/**
- * Parsing y validación de los parámetros del workspace del índice notarial.
- * Todo se filtra server-side; los valores llegan por query string y se
- * normalizan con listas blancas y límites. Reutiliza el saneamiento de
- * búsqueda del workspace de Escrituras.
- */
-
-import { costaRicaDayEndIso, costaRicaDayStartIso } from "./datetime";
+import {
+  currentCostaRicaFortnight,
+  fortnightRange,
+  parseFortnightSelection,
+  type FortnightSelection,
+} from "./fortnight";
 
 export const MAX_SEARCH_LENGTH = 100;
 export const NOTARIAL_PAGE_SIZE = 15;
-
-export const NOTARIAL_SORT_OPTIONS = [
-  { value: "recent", label: "Más recientes", ascending: false },
-  { value: "oldest", label: "Más antiguas", ascending: true },
-] as const;
-
-export type NotarialSortValue = (typeof NOTARIAL_SORT_OPTIONS)[number]["value"];
-const DEFAULT_SORT: NotarialSortValue = "recent";
 
 export const NOTARIAL_COMPLETENESS_FILTERS = [
   "complete",
@@ -26,15 +16,13 @@ export const NOTARIAL_COMPLETENESS_FILTERS = [
 export type NotarialCompletenessFilter =
   (typeof NOTARIAL_COMPLETENESS_FILTERS)[number];
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
 export type RawNotarialQuery = {
   search?: string;
   completeness?: string;
   act_type?: string;
-  from?: string;
-  to?: string;
-  sort?: string;
+  year?: string;
+  month?: string;
+  half?: string;
   page?: string;
 };
 
@@ -42,9 +30,7 @@ export type NotarialQuery = {
   search: string;
   completeness: NotarialCompletenessFilter | null;
   actType: string | null;
-  from: string | null;
-  to: string | null;
-  sort: NotarialSortValue;
+  selection: FortnightSelection;
   page: number;
   hasActiveFilters: boolean;
 };
@@ -56,13 +42,10 @@ function sanitizeSearchTermForPostgrest(search: string): string {
     .trim();
 }
 
-function normDate(value: string | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return DATE_RE.test(trimmed) ? trimmed : null;
-}
-
-export function parseNotarialQuery(raw: RawNotarialQuery): NotarialQuery {
+export function parseNotarialQuery(
+  raw: RawNotarialQuery,
+  now: Date = new Date(),
+): NotarialQuery {
   const search = (raw.search ?? "").trim().slice(0, MAX_SEARCH_LENGTH);
   const completeness = (
     NOTARIAL_COMPLETENESS_FILTERS as readonly string[]
@@ -70,71 +53,56 @@ export function parseNotarialQuery(raw: RawNotarialQuery): NotarialQuery {
     ? (raw.completeness as NotarialCompletenessFilter)
     : null;
   const actType = (raw.act_type ?? "").trim().slice(0, 200) || null;
-  const from = normDate(raw.from);
-  const to = normDate(raw.to);
-  const sort = NOTARIAL_SORT_OPTIONS.some((o) => o.value === raw.sort)
-    ? (raw.sort as NotarialSortValue)
-    : DEFAULT_SORT;
+  const selection =
+    parseFortnightSelection(raw) ?? currentCostaRicaFortnight(now);
   const pageNum = Number.parseInt(raw.page ?? "", 10);
-  const page = Number.isFinite(pageNum) && pageNum >= 1 ? Math.min(pageNum, 100_000) : 1;
+  const page =
+    Number.isFinite(pageNum) && pageNum >= 1
+      ? Math.min(pageNum, 100_000)
+      : 1;
 
   return {
     search,
     completeness,
     actType,
-    from,
-    to,
-    sort,
+    selection,
     page,
     hasActiveFilters:
-      search !== "" ||
-      completeness !== null ||
-      actType !== null ||
-      from !== null ||
-      to !== null,
+      search !== "" || completeness !== null || actType !== null,
   };
 }
 
-/** Término de búsqueda saneado para expresiones PostgREST. */
 export function notarialSearchTerm(search: string): string {
   return sanitizeSearchTermForPostgrest(search);
 }
 
-/**
- * Distingue entre "sin búsqueda" y "el usuario escribió algo, pero todo fue
- * eliminado por el saneamiento". En el segundo caso no debe devolverse todo el
- * índice, porque eso haría que búsquedas como `%_(),'` funcionen como filtro
- * amplio accidental.
- */
 export function notarialSearchHasNoSafeTerm(search: string): boolean {
   return search.trim() !== "" && notarialSearchTerm(search) === "";
 }
 
-/** Rango [desde, hasta] en ISO UTC a partir de las fechas CR (o null). */
 export function notarialDateRangeIso(query: NotarialQuery): {
-  fromIso: string | null;
-  toIso: string | null;
+  fromIso: string;
+  toIso: string;
 } {
-  return {
-    fromIso: query.from ? costaRicaDayStartIso(query.from) : null,
-    toIso: query.to ? costaRicaDayEndIso(query.to) : null,
-  };
-}
-
-export function notarialSortAscending(sort: NotarialSortValue): boolean {
-  return NOTARIAL_SORT_OPTIONS.find((o) => o.value === sort)?.ascending ?? false;
+  return fortnightRange(
+    query.selection.year,
+    query.selection.month,
+    query.selection.half,
+  );
 }
 
 export function notarialQueryToParams(
-  query: Partial<NotarialQuery>,
+  query: Partial<NotarialQuery> & { selection?: FortnightSelection },
 ): Record<string, string> {
   const params: Record<string, string> = {};
+  if (query.selection) {
+    params.year = String(query.selection.year);
+    params.month = String(query.selection.month);
+    params.half = query.selection.half;
+  }
   if (query.search) params.search = query.search;
   if (query.completeness) params.completeness = query.completeness;
   if (query.actType) params.act_type = query.actType;
-  if (query.from) params.from = query.from;
-  if (query.to) params.to = query.to;
-  if (query.sort && query.sort !== DEFAULT_SORT) params.sort = query.sort;
   if (query.page && query.page > 1) params.page = String(query.page);
   return params;
 }

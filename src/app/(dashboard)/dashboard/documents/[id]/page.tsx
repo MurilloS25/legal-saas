@@ -7,6 +7,7 @@ import {
 } from "@/features/documents/server";
 import {
   getNotarialMetadata,
+  getNotarialMetadataSuggestions,
   getTemplateIndexConfiguration,
 } from "@/features/notarial-index/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
@@ -54,6 +55,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     indexConfiguration,
     activity,
     notarialMetadata,
+    notarialSuggestions,
     receivables,
   ] = await Promise.all([
     getTemplateById(document.template_id),
@@ -61,6 +63,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     getTemplateIndexConfiguration(document.template_id),
     listDocumentActivity(document.id),
     getNotarialMetadata(document.id),
+    getNotarialMetadataSuggestions(),
     listReceivablesByDocument(document.id),
   ]);
   const generatedPartiesPreview = generateConfiguredPartiesPreview(
@@ -156,6 +159,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         canResetParties={indexConfiguration?.isComplete === true}
         actNamePreview={template?.name ?? null}
         generatedPartiesPreview={generatedPartiesPreview}
+        suggestions={notarialSuggestions}
       />
 
       {/* Cuentas por cobrar vinculadas a esta escritura */}

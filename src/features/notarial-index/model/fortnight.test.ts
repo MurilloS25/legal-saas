@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  currentCostaRicaFortnight,
   fortnightForCostaRicaIso,
   fortnightRange,
   parseFortnightSelection,
@@ -32,5 +33,14 @@ describe("notarial fortnight", () => {
       half: "FIRST_HALF",
     });
     expect(parseFortnightSelection({ year: "x", month: "13", half: "hack" })).toBeNull();
+  });
+
+  it("derives the current selection in Costa Rica", () => {
+    expect(
+      currentCostaRicaFortnight(new Date("2026-07-16T05:59:59.999Z")),
+    ).toEqual({ year: 2026, month: 7, half: "FIRST_HALF" });
+    expect(
+      currentCostaRicaFortnight(new Date("2026-07-16T06:00:00.000Z")),
+    ).toEqual({ year: 2026, month: 7, half: "SECOND_HALF" });
   });
 });

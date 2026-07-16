@@ -3,7 +3,12 @@ import "server-only";
 import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "@/features/documents";
-import type { NotarialMetadata } from "../model/notarial";
+import type {
+  NotarialMetadata,
+  NotarialMetadataSuggestions,
+} from "../model/notarial";
+import { currentCostaRicaFortnight } from "../model/fortnight";
+import { costaRicaDayEndIso, costaRicaDayStartIso } from "../model/datetime";
 
 const SELECT =
   "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version";
@@ -24,4 +29,45 @@ export async function getNotarialMetadata(
 
   if (error) throwDataAccessError("get document notarial metadata", error);
   return data ?? null;
+}
+
+export async function getNotarialMetadataSuggestions(): Promise<NotarialMetadataSuggestions> {
+  const { supabase, user } = await requireUser();
+  const currentYear = currentCostaRicaFortnight().year;
+  const fromIso = costaRicaDayStartIso(`${currentYear}-01-01`);
+  const toIso = costaRicaDayEndIso(`${currentYear}-12-31`);
+
+  const [latestResult, instrumentsResult] = await Promise.all([
+    supabase
+      .from("document_notarial_metadata")
+      .select("protocol_book, final_folio")
+      .eq("owner_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("document_notarial_metadata")
+      .select("instrument_number")
+      .eq("owner_id", user.id)
+      .gte("authorized_at", fromIso as string)
+      .lte("authorized_at", toIso as string)
+      .not("instrument_number", "is", null),
+  ]);
+  if (latestResult.error) {
+    throwDataAccessError("load notarial capture suggestions", latestResult.error);
+  }
+  if (instrumentsResult.error) {
+    throwDataAccessError("load notarial instrument suggestion", instrumentsResult.error);
+  }
+  const highestInstrument = Math.max(
+    0,
+    ...(instrumentsResult.data ?? []).map(
+      (row) => row.instrument_number ?? 0,
+    ),
+  );
+  return {
+    instrumentNumber: highestInstrument > 0 ? highestInstrument + 1 : 1,
+    protocolBook: latestResult.data?.protocol_book ?? null,
+    initialFolio: latestResult.data?.final_folio ?? null,
+  };
 }

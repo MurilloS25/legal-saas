@@ -127,6 +127,29 @@ export async function restInsert(
   return created.id;
 }
 
+export async function restUpsert(
+  table: string,
+  row: Record<string, unknown>,
+  onConflict: string,
+): Promise<void> {
+  const response = await fetch(
+    `${restUrl(table)}?on_conflict=${encodeURIComponent(onConflict)}`,
+    {
+      method: "POST",
+      headers: {
+        ...restHeaders(),
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(row),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Upsert into ${table} failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
 /**
  * Elimina todas las filas del usuario de prueba en una tabla (RLS acota al
  * propio owner). Útil para tablas de auditoría que no se limpian en cascada.

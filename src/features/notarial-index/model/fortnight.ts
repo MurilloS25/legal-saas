@@ -9,6 +9,23 @@ export type FortnightSelection = {
   half: NotarialFortnight;
 };
 
+export function currentCostaRicaFortnight(
+  now: Date = new Date(),
+): FortnightSelection {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const year = value("year");
+  const month = value("month");
+  const day = value("day");
+  return { year, month, half: day <= 15 ? "FIRST_HALF" : "SECOND_HALF" };
+}
+
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
@@ -47,12 +64,24 @@ export function fortnightRange(
   month: number,
   half: NotarialFortnight,
 ): { fromIso: string; toIso: string } {
+  const { from, to } = fortnightDateBounds(year, month, half);
+  const fromIso = costaRicaDayStartIso(from);
+  const toIso = costaRicaDayEndIso(to);
+  if (!fromIso || !toIso) throw new Error("Invalid fortnight selection");
+  return { fromIso, toIso };
+}
+
+export function fortnightDateBounds(
+  year: number,
+  month: number,
+  half: NotarialFortnight,
+): { from: string; to: string } {
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const fromDay = half === "FIRST_HALF" ? 1 : 16;
   const toDay = half === "FIRST_HALF" ? 15 : lastDay;
   const prefix = `${year}-${pad2(month)}-`;
-  const fromIso = costaRicaDayStartIso(`${prefix}${pad2(fromDay)}`);
-  const toIso = costaRicaDayEndIso(`${prefix}${pad2(toDay)}`);
-  if (!fromIso || !toIso) throw new Error("Invalid fortnight selection");
-  return { fromIso, toIso };
+  return {
+    from: `${prefix}${pad2(fromDay)}`,
+    to: `${prefix}${pad2(toDay)}`,
+  };
 }

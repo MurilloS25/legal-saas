@@ -39,15 +39,12 @@ describe("notarial index table contract", () => {
     });
   });
 
-  it("allows only the server-whitelisted date order", () => {
-    expect(NOTARIAL_SORTABLE_COLUMN_IDS).toEqual(["authorized_at"]);
-    expect(notarialTableState("recent", 3)).toEqual({
+  it("uses the fixed instrument number order", () => {
+    expect(NOTARIAL_SORTABLE_COLUMN_IDS).toEqual(["instrument_number"]);
+    expect(notarialTableState(3)).toEqual({
       pagination: { pageIndex: 2, pageSize: 15 },
-      sorting: [{ id: "authorized_at", desc: true }],
+      sorting: [{ id: "instrument_number", desc: false }],
     });
-    expect(notarialTableState("oldest", 1).sorting).toEqual([
-      { id: "authorized_at", desc: false },
-    ]);
   });
 
   it("keeps filtering, pagination, and sorting on the server", () => {

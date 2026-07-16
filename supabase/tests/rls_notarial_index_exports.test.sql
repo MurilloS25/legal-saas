@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(13);
+select plan(15);
 
 create schema rls_nie_test;
 grant usage on schema rls_nie_test to public;
@@ -26,7 +26,7 @@ values
 select set_config('request.jwt.claim.sub','91111111-1111-1111-1111-111111111111', true);
 set local role authenticated;
 
-select public.log_notarial_index_export('csv', '2026-07-01', '2026-07-31', 12);
+select public.log_notarial_index_export('docx', '2026-07-01', '2026-07-15', 12);
 
 select is((select count(*) from public.notarial_index_exports),
   1::bigint, 'The RPC records one export for the caller');
@@ -37,12 +37,20 @@ select is((select row_count from public.notarial_index_exports limit 1),
 select is((select owner_id from public.notarial_index_exports limit 1),
   '91111111-1111-1111-1111-111111111111'::uuid, 'The export owner is auth.uid()');
 
+select is((select format from public.notarial_index_exports limit 1),
+  'docx', 'The operational row records the only supported format');
+
+select public.log_notarial_index_export('csv', '2026-07-01', '2026-07-15', 12);
+
+select is((select count(*) from public.notarial_index_exports),
+  1::bigint, 'The retired CSV format is rejected by the RPC');
+
 select public.log_notarial_index_export('xlsx', '2026-07-01', '2026-07-31', 12);
 
 select is((select count(*) from public.notarial_index_exports),
   1::bigint, 'Invalid export formats are ignored by the RPC');
 
-select public.log_notarial_index_export('csv', null, null, -10);
+select public.log_notarial_index_export('docx', null, null, -10);
 
 select is((select row_count from public.notarial_index_exports where from_date is null limit 1),
   0, 'Negative export row counts are clamped to zero');
@@ -50,7 +58,7 @@ select is((select row_count from public.notarial_index_exports where from_date i
 -- INSERT directo bloqueado.
 select ok(rls_nie_test.statement_fails($$
   insert into public.notarial_index_exports (owner_id, format, row_count)
-  values ('91111111-1111-1111-1111-111111111111','csv',1)
+  values ('91111111-1111-1111-1111-111111111111','docx',1)
 $$), 'Direct INSERT into notarial_index_exports is blocked');
 
 select is(rls_nie_test.statement_row_count($$

@@ -7,7 +7,6 @@ import {
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
-  notarialSortAscending,
   type NotarialQuery,
 } from "../model/query";
 
@@ -35,7 +34,6 @@ export async function listNotarialIndex(
 
   const { fromIso, toIso } = notarialDateRangeIso(query);
   const term = notarialSearchTerm(query.search);
-  const ascending = notarialSortAscending(query.sort);
 
   let countRequest = supabase
     .from("notarial_index_entries")
@@ -113,8 +111,8 @@ export async function listNotarialIndex(
   const from = (query.page - 1) * NOTARIAL_PAGE_SIZE;
 
   const { data, error } = await request
-    .order("instrument_number", { ascending, nullsFirst: false })
-    .order("authorized_at", { ascending, nullsFirst: false })
+    .order("instrument_number", { ascending: true, nullsFirst: false })
+    .order("authorized_at", { ascending: true, nullsFirst: false })
     .order("document_id", { ascending: true })
     .range(from, from + NOTARIAL_PAGE_SIZE - 1);
 

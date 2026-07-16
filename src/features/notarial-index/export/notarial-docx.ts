@@ -1,0 +1,186 @@
+import "server-only";
+
+import {
+  AlignmentType,
+  BorderStyle,
+  Document,
+  PageOrientation,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableLayoutType,
+  TableRow,
+  TextRun,
+  VerticalAlign,
+  WidthType,
+} from "docx";
+import type { NotarialIndexRow } from "../model/notarial-index-row";
+import type { FortnightSelection } from "../model/fortnight";
+import {
+  formatIndexDate,
+  formatIndexTime,
+  formatNotarialGenerationDate,
+  notarialFortnightLabel,
+  notarialMonthName,
+} from "../model/formatters";
+
+const HEADERS = [
+  "Tomo",
+  "Folio Inicial",
+  "Folio Final",
+  "Número",
+  "Fecha",
+  "Hora",
+  "Acto o Contrato",
+  "Partes",
+] as const;
+const COLUMN_WIDTHS = [800, 1100, 1100, 800, 1400, 1100, 3300, 6100] as const;
+const CELL_MARGIN = { top: 70, bottom: 70, left: 80, right: 80 };
+const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+const BORDERS = {
+  top: BORDER,
+  bottom: BORDER,
+  left: BORDER,
+  right: BORDER,
+  insideHorizontal: BORDER,
+  insideVertical: BORDER,
+};
+
+type Input = {
+  rows: readonly NotarialIndexRow[];
+  selection: FortnightSelection;
+  notaryName: string;
+  generatedAt?: Date;
+};
+
+function cell(text: string, width: number, bold = false): TableCell {
+  return new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    margins: CELL_MARGIN,
+    verticalAlign: VerticalAlign.CENTER,
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 0, after: 0 },
+        children: [new TextRun({ text, bold, size: 16, font: "Arial" })],
+      }),
+    ],
+  });
+}
+
+function rowCells(row: NotarialIndexRow): string[] {
+  return [
+    row.protocol_book ?? "",
+    row.initial_folio ?? "",
+    row.final_folio ?? "",
+    row.instrument_number ? String(row.instrument_number) : "",
+    formatIndexDate(row.authorized_at),
+    formatIndexTime(row.authorized_at),
+    row.act_name?.toLocaleUpperCase("es-CR") ?? "",
+    row.parties?.toLocaleUpperCase("es-CR") ?? "",
+  ];
+}
+
+export async function generateNotarialIndexDocx({
+  rows,
+  selection,
+  notaryName,
+  generatedAt = new Date(),
+}: Input): Promise<Buffer> {
+  const safeName = notaryName.trim();
+  const title =
+    `Índice de instrumentos autorizados por el Notario ${safeName} ` +
+    `de la ${notarialFortnightLabel(selection.half)} del mes de ` +
+    `${notarialMonthName(selection.month)} del ${selection.year}.`;
+  const tableRows = [
+    new TableRow({
+      tableHeader: true,
+      cantSplit: true,
+      children: HEADERS.map((header, index) =>
+        cell(header, COLUMN_WIDTHS[index], true),
+      ),
+    }),
+    ...rows.map(
+      (row) =>
+        new TableRow({
+          cantSplit: true,
+          children: rowCells(row).map((value, index) =>
+            cell(value, COLUMN_WIDTHS[index]),
+          ),
+        }),
+    ),
+  ];
+
+  const children = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 240 },
+      children: [new TextRun({ text: title, bold: true, size: 20, font: "Arial" })],
+    }),
+    new Table({
+      width: { size: COLUMN_WIDTHS.reduce((sum, value) => sum + value, 0), type: WidthType.DXA },
+      columnWidths: [...COLUMN_WIDTHS],
+      layout: TableLayoutType.FIXED,
+      borders: BORDERS,
+      rows: tableRows,
+    }),
+    ...(rows.length === 0
+      ? [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 180 },
+            children: [
+              new TextRun({
+                text: "No hay instrumentos registrados para esta quincena.",
+                italics: true,
+                size: 18,
+                font: "Arial",
+              }),
+            ],
+          }),
+        ]
+      : []),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 360, after: 120 },
+      children: [
+        new TextRun({
+          text: formatNotarialGenerationDate(generatedAt),
+          size: 20,
+          font: "Arial",
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({
+          text: `LIC. ${safeName.toLocaleUpperCase("es-CR")}`,
+          bold: true,
+          size: 20,
+          font: "Arial",
+        }),
+      ],
+    }),
+  ];
+
+  const document = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            size: {
+              width: 16838,
+              height: 11906,
+              orientation: PageOrientation.LANDSCAPE,
+            },
+            margin: { top: 720, right: 567, bottom: 720, left: 567 },
+          },
+        },
+        children,
+      },
+    ],
+  });
+  return Packer.toBuffer(document);
+}

@@ -22,6 +22,7 @@ import {
   restRpc,
   restSelect,
   restUpdate,
+  restUpsert,
 } from "./supabase-api";
 
 export { CleanupRegistry };
@@ -230,6 +231,53 @@ export async function setTestDocumentStatus(
  */
 export async function cleanupNotarialExports(): Promise<void> {
   await restDeleteOwnRows("notarial_index_exports");
+}
+
+export type TestLawyerProfile = {
+  full_name: string;
+  professional_code: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+export async function replaceTestLawyerProfile(
+  fullName: string,
+): Promise<TestLawyerProfile | null> {
+  const { userId } = getTestUserAuth();
+  const previous = await restSelect<TestLawyerProfile>(
+    `lawyer_profiles?select=full_name,professional_code,email,phone&owner_id=eq.${userId}&limit=1`,
+  );
+  await restUpsert(
+    "lawyer_profiles",
+    {
+      owner_id: userId,
+      full_name: fullName,
+      professional_code: previous[0]?.professional_code ?? null,
+      email: previous[0]?.email ?? null,
+      phone: previous[0]?.phone ?? null,
+    },
+    "owner_id",
+  );
+  return previous[0] ?? null;
+}
+
+export async function restoreTestLawyerProfile(
+  previous: TestLawyerProfile | null,
+): Promise<void> {
+  const { userId } = getTestUserAuth();
+  if (!previous) {
+    await restDeleteOwnRows("lawyer_profiles");
+    return;
+  }
+  await restUpsert(
+    "lawyer_profiles",
+    { owner_id: userId, ...previous },
+    "owner_id",
+  );
+}
+
+export async function removeTestLawyerProfile(): Promise<void> {
+  await restDeleteOwnRows("lawyer_profiles");
 }
 
 // ------------------------------------------------------------------ UI-created rows

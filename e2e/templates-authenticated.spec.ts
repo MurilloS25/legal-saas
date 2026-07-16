@@ -103,12 +103,10 @@ test.describe("templates module", () => {
       "href",
       "/dashboard/templates/new",
     );
-    await expect(async () => {
-      await newTemplateLink.click();
-      await expect(page).toHaveURL(/\/dashboard\/templates\/new$/, {
-        timeout: 5_000,
-      });
-    }).toPass({ timeout: 20_000 });
+    await newTemplateLink.click();
+    await expect(page).toHaveURL(/\/dashboard\/templates\/new$/, {
+      timeout: 30_000,
+    });
 
     await expect(
       page.getByRole("heading", { name: "Nuevo machote", exact: true }),
@@ -237,7 +235,7 @@ test.describe("templates module", () => {
 
     await contentEditor(page).click();
     await page.keyboard.press("End");
-    await page.keyboard.type(" acepta las condiciones revisadas.");
+    await page.keyboard.insertText(" acepta las condiciones revisadas.");
 
     await expect(page.getByText("Cambios sin guardar")).toBeVisible();
     await page.getByRole("button", { name: "Guardar cambios" }).click();

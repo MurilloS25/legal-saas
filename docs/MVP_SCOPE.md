@@ -113,6 +113,12 @@ The system may help:
 - Validate missing required fields.
 - Export a table or Word document with prepared metadata.
 
+The implemented workflow selects a calendar year, month, and Costa Rica
+fortnight (days 1–15 or 16–month end), keeps a fixed instrument-number order,
+warns about incomplete rows without blocking the lawyer, and downloads an
+editable `.docx`. The file is generated in server memory and discarded after
+the response. CSV export is not supported.
+
 The system must not submit the official notarial index.
 
 The lawyer remains responsible for official submission and validation.

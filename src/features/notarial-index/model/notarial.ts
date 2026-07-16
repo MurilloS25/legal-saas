@@ -21,6 +21,12 @@ export type NotarialMetadata = {
   version: number;
 };
 
+export type NotarialMetadataSuggestions = {
+  instrumentNumber: number | null;
+  protocolBook: string | null;
+  initialFolio: string | null;
+};
+
 /** Campos que determinan la completitud interna. */
 export const NOTARIAL_CORE_FIELDS = [
   "protocol_book",

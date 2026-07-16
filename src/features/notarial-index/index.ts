@@ -6,11 +6,11 @@ export { generateConfiguredPartiesPreview } from "./model/parties";
 export {
   NOTARIAL_COMPLETENESS_FILTERS,
   NOTARIAL_PAGE_SIZE,
-  NOTARIAL_SORT_OPTIONS,
   notarialQueryToParams,
   parseNotarialQuery,
 } from "./model/query";
 export type { NotarialQuery, RawNotarialQuery } from "./model/query";
+export { notarialIndexWarnings } from "./model/warnings";
 export {
   formatCostaRicaDate,
   formatCostaRicaTime,
