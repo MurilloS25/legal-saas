@@ -36,6 +36,7 @@ type Props = {
   canResetParties?: boolean;
   actNamePreview?: string | null;
   generatedPartiesPreview?: string | null;
+  reviewRequired?: boolean;
 };
 
 export function NotarialMetadataSection({
@@ -46,6 +47,7 @@ export function NotarialMetadataSection({
   canResetParties = false,
   actNamePreview = null,
   generatedPartiesPreview = null,
+  reviewRequired = false,
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
@@ -126,6 +128,16 @@ export function NotarialMetadataSection({
           <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
             La escritura está finalizada. Puedes corregir estos datos del
             índice sin modificar el contenido de la escritura.
+          </div>
+        )}
+        {reviewRequired && (
+          <div
+            role="status"
+            className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            El contenido de la escritura cambió después del último guardado de
+            estos datos. Revísalos antes de preparar el índice; no se modificó
+            ningún valor manual.
           </div>
         )}
 

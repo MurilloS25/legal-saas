@@ -9,9 +9,10 @@ import type {
 } from "../model/notarial";
 import { currentCostaRicaFortnight } from "../model/fortnight";
 import { costaRicaDayEndIso, costaRicaDayStartIso } from "../model/datetime";
+import { requiresNotarialReview } from "../model/review-state";
 
 const SELECT =
-  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version";
+  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version, updated_at";
 
 /** Metadata notarial de una Escritura propia (o null si no existe). */
 export async function getNotarialMetadata(
@@ -29,6 +30,32 @@ export async function getNotarialMetadata(
 
   if (error) throwDataAccessError("get document notarial metadata", error);
   return data ?? null;
+}
+
+/**
+ * Deriva la advertencia sin mutar metadata ni regenerar overrides. La consulta
+ * usa actividad owner-scoped protegida por RLS y solo considera cambios reales
+ * del snapshot de contenido.
+ */
+export async function getNotarialMetadataReviewRequired(
+  documentId: string,
+  metadataUpdatedAt: string,
+): Promise<boolean> {
+  const { supabase, user } = await requireUser();
+  if (!DocumentIdSchema.safeParse(documentId).success) return false;
+
+  const { data, error } = await supabase
+    .from("document_activity")
+    .select("created_at")
+    .eq("document_id", documentId)
+    .eq("owner_id", user.id)
+    .eq("event_type", "document_content_updated")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throwDataAccessError("load notarial review state", error);
+  return requiresNotarialReview(data?.created_at ?? null, metadataUpdatedAt);
 }
 
 export async function getNotarialMetadataSuggestions(): Promise<NotarialMetadataSuggestions> {

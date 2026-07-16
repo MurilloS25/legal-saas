@@ -18,6 +18,7 @@ const full: NotarialMetadata = {
   parties_override: null,
   notes: null,
   version: 1,
+  updated_at: "2026-07-13T16:35:00.000Z",
 };
 
 describe("isNotarialComplete", () => {

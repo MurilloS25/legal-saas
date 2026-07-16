@@ -9,7 +9,7 @@ import {
 } from "./support/factories";
 
 test.describe.configure({ mode: "serial" });
-test.setTimeout(60_000);
+test.setTimeout(120_000);
 
 const registry = new CleanupRegistry();
 
@@ -115,7 +115,70 @@ test.describe("notarial index metadata", () => {
     ).toBeVisible();
   });
 
-  test("E: a finalized document keeps notarial metadata reviewable", async ({
+  test("E: reopened content changes require notarial review without replacing overrides", async ({
+    page,
+  }) => {
+    await open(page, draftId);
+
+    await page
+      .getByRole("button", { name: "Marcar como listo para revisar" })
+      .click();
+    await expect(
+      page.getByText("Listo para revisar", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Finalizar" }).click();
+    await page
+      .getByRole("alertdialog", { name: "¿Finalizar la escritura?" })
+      .getByRole("button", { name: "Finalizar" })
+      .click();
+    await expect(
+      page.getByText("Finalizado", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("button", { name: "Reabrir Escritura" }).click();
+    await page
+      .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })
+      .getByRole("button", { name: "Reabrir Escritura" })
+      .click();
+    await expect(
+      page.getByText("Listo para revisar", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page
+      .getByRole("region", { name: "Datos de la escritura" })
+      .getByLabel("Parte")
+      .fill("Persona Uno Actualizada");
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+
+    const section = notarialSection(page);
+    await expect(
+      section.getByText(/contenido de la escritura cambió/),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(section.getByLabel("Acto o contrato")).toHaveValue(
+      "Compraventa",
+    );
+    await expect(section.getByLabel("Partes")).toHaveValue(
+      "PERSONA UNO Y PERSONA DOS",
+    );
+
+    await section
+      .getByRole("button", { name: "Guardar datos del índice" })
+      .click();
+    await expect(
+      section.getByText(/contenido de la escritura cambió/),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Finalizar" }).click();
+    await page
+      .getByRole("alertdialog", { name: "¿Finalizar la escritura?" })
+      .getByRole("button", { name: "Finalizar" })
+      .click();
+    await expect(
+      page.getByText("Finalizado", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("F: a finalized document keeps notarial metadata reviewable", async ({
     page,
   }) => {
     await open(page, finalId);

@@ -19,6 +19,7 @@ export type NotarialMetadata = {
   parties_override: string | null;
   notes: string | null;
   version: number;
+  updated_at: string;
 };
 
 export type NotarialMetadataSuggestions = {

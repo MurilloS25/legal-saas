@@ -134,6 +134,7 @@ describe("resolveNotarialMetadataPrefill", () => {
       parties_override: "PARTE CORREGIDA",
       notes: "Nota",
       version: 3,
+      updated_at: "2026-07-14T16:30:00.000Z",
     };
 
     const result = resolveNotarialMetadataPrefill({

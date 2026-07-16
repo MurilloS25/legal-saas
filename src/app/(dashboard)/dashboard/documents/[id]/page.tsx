@@ -7,6 +7,7 @@ import {
 } from "@/features/documents/server";
 import {
   getNotarialMetadata,
+  getNotarialMetadataReviewRequired,
   getNotarialMetadataSuggestions,
   getTemplateIndexConfiguration,
 } from "@/features/notarial-index/server";
@@ -86,6 +87,12 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     generatedParties: generatedPartiesPreview,
     suggestions: notarialSuggestions,
   });
+  const notarialReviewRequired = notarialMetadata
+    ? await getNotarialMetadataReviewRequired(
+        document.id,
+        notarialMetadata.updated_at,
+      )
+    : false;
 
   return (
     <PageContainer>
@@ -158,6 +165,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         canResetParties={indexConfiguration?.isComplete === true}
         actNamePreview={template?.name ?? null}
         generatedPartiesPreview={generatedPartiesPreview}
+        reviewRequired={notarialReviewRequired}
       />
 
       {/* Cuentas por cobrar vinculadas a esta escritura */}
