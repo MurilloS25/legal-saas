@@ -109,7 +109,7 @@ test.describe("document ↔ client relationship", () => {
     page,
   }) => {
     await page.goto(`/dashboard/clients/${clientId}`);
-    const row = page.locator("li").filter({ hasText: draftTitle });
+    const row = page.locator("tbody tr").filter({ hasText: draftTitle });
     await expect(row).toBeVisible();
     await expect(row.getByText("Borrador", { exact: true })).toBeVisible();
     await expect(row.getByRole("link", { name: "Continuar" })).toBeVisible();

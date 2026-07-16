@@ -1,9 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
-import {
-  documentStatusBadgeClass,
-  documentStatusLabel,
-} from "@/features/documents";
+import { ClientDocumentsTable } from "@/features/documents";
 import type { ClientDocumentRow } from "@/features/documents/server";
 import {
   ReceivableMiniList,
@@ -11,14 +8,6 @@ import {
 } from "@/features/receivables";
 import type { ClientRow } from "../model/types";
 import { ClientForm } from "./ClientForm";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-CR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 // ------------------------------------------------------------------ avatar helpers
 
@@ -130,40 +119,9 @@ export function ClientDetail({ client, documents, receivables }: Props) {
             </p>
           </div>
         ) : (
-          <ul
-            role="list"
-            className="rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100 overflow-hidden"
-          >
-            {documents.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    {doc.title}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {doc.templates?.name ?? "—"} · Actualizada el{" "}
-                    {formatDate(doc.updated_at)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(doc.status)}`}
-                  >
-                    {documentStatusLabel(doc.status)}
-                  </span>
-                  <Link
-                    href={`/dashboard/documents/${doc.id}`}
-                    className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
-                  >
-                    {doc.status === "final" ? "Ver" : "Continuar"}
-                  </Link>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <ClientDocumentsTable rows={documents} />
+          </div>
         )}
       </section>
 

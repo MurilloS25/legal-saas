@@ -5,11 +5,11 @@ import {
   registerPaymentAction,
   type PaymentState,
 } from "../server/payment-actions";
-import { VoidPaymentButton } from "./VoidPaymentButton";
 import type { ReceivablePayment } from "../model/types";
 import { formatMoney } from "../model/status";
 import { PAYMENT_METHODS, paymentMethodLabel } from "../model/payments";
 import { FieldError } from "@/components/forms/FieldError";
+import { PaymentsTable } from "./PaymentsTable";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50";
@@ -22,14 +22,6 @@ type Props = {
   status: string;
   payments: ReceivablePayment[];
 };
-
-function formatDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("es-CR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 const initialState: PaymentState = {};
 
@@ -175,50 +167,9 @@ export function PaymentsSection({
           </p>
         </div>
       ) : (
-        <ul
-          role="list"
-          className="rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100 overflow-hidden"
-        >
-          {payments.map((p) => {
-            const voided = p.status === "voided";
-            return (
-              <li
-                key={p.id}
-                className="flex items-center justify-between gap-3 px-5 py-4"
-              >
-                <div className="min-w-0">
-                  <p
-                    className={`text-sm font-medium ${voided ? "text-slate-400 line-through" : "text-slate-900"}`}
-                  >
-                    {formatMoney(p.amount, p.currency)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {paymentMethodLabel(p.method)} · {formatDate(p.paid_at)}
-                    {p.reference ? ` · ${p.reference}` : ""}
-                  </p>
-                  {voided && p.void_reason && (
-                    <p className="text-xs text-red-600">
-                      Anulado: {p.void_reason}
-                    </p>
-                  )}
-                </div>
-                <div className="shrink-0">
-                  {voided ? (
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
-                      Anulado
-                    </span>
-                  ) : (
-                    <VoidPaymentButton
-                      receivableId={receivableId}
-                      paymentId={p.id}
-                      amountLabel={formatMoney(p.amount, p.currency)}
-                    />
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <PaymentsTable receivableId={receivableId} rows={payments} />
+        </div>
       )}
     </section>
   );

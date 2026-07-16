@@ -120,7 +120,7 @@ test.describe("receivable payments", () => {
 
     // Anula el pago de ₡40.000.
     const row = page
-      .getByRole("listitem")
+      .getByRole("row")
       .filter({ hasText: "₡40.000,00 CRC" });
     await row.getByRole("button", { name: "Anular" }).click();
 
