@@ -9,8 +9,8 @@
 
 export const DOCUMENT_STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
-  ready: "Listo para revisar",
-  final: "Finalizado",
+  ready: "Revisión pendiente (histórico)",
+  final: "Finalizada",
 };
 
 export function documentStatusLabel(status: string): string {

@@ -1,26 +1,18 @@
 /**
  * Máquina de estados del ciclo de vida de una escritura.
  *
- * Estados: draft (borrador) → ready (listo para revisar) → final (finalizado).
- * Transiciones permitidas:
- *
- *   draft  → ready
- *   ready  → draft
- *   ready  → final
- *   final  → ready   (reabrir)
- *
- * No se permite draft → final directo (debe pasar por ready). No hay bloqueo
- * irreversible: un documento finalizado puede reabrirse a ready. `final` no
- * implica firma ni validez legal.
+ * La experiencia visible usa Borrador ↔ Finalizada. `ready` se conserva
+ * únicamente para documentos históricos y puede resolverse a draft o final.
+ * `final` no implica firma, presentación ni validez legal.
  */
 
 export const DOCUMENT_STATUSES = ["draft", "ready", "final"] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
 const ALLOWED_TRANSITIONS: Record<DocumentStatus, DocumentStatus[]> = {
-  draft: ["ready"],
+  draft: ["ready", "final"],
   ready: ["draft", "final"],
-  final: ["ready"],
+  final: ["draft"],
 };
 
 export function isDocumentStatus(value: string): value is DocumentStatus {
@@ -46,20 +38,20 @@ export const ACTION_TARGET: Record<DocumentAction, DocumentStatus> = {
   mark_ready: "ready",
   return_to_draft: "draft",
   mark_final: "final",
-  reopen: "ready",
+  reopen: "draft",
 };
 
-const ACTION_ALLOWED_FROM: Record<DocumentAction, DocumentStatus> = {
-  mark_ready: "draft",
-  return_to_draft: "ready",
-  mark_final: "ready",
-  reopen: "final",
+const ACTION_ALLOWED_FROM: Record<DocumentAction, readonly DocumentStatus[]> = {
+  mark_ready: ["draft"],
+  return_to_draft: ["ready"],
+  mark_final: ["draft", "ready"],
+  reopen: ["final"],
 };
 
 export function isActionAllowed(
   status: DocumentStatus,
   action: DocumentAction,
 ): boolean {
-  return status === ACTION_ALLOWED_FROM[action] &&
+  return ACTION_ALLOWED_FROM[action].includes(status) &&
     canTransition(status, ACTION_TARGET[action]);
 }

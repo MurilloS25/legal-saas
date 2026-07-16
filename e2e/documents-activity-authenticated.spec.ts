@@ -98,20 +98,22 @@ test.describe("document activity history", () => {
     await expect(activity.getByText("Título actualizado")).toBeVisible();
   });
 
-  test("D: changing status records a status event", async ({ page }) => {
+  test("D: finalizing records a lifecycle event", async ({ page }) => {
     await openDocument(page);
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
-      .getByRole("button", { name: "Marcar como listo para revisar" })
+      .getByRole("alertdialog", { name: "Finalizar escritura" })
+      .getByRole("button", { name: "Finalizar escritura" })
       .click();
     await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
+      page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
     const activity = await activitySection(page);
-    await expect(activity.getByText("Estado actualizado")).toBeVisible();
+    await expect(activity.getByText("Escritura finalizada")).toBeVisible();
     await expect(
-      activity.getByText("De Borrador a Listo para revisar"),
+      activity.getByText("De Borrador a Finalizada"),
     ).toBeVisible();
   });
 
@@ -121,7 +123,7 @@ test.describe("document activity history", () => {
       .getByRole("heading", { level: 3 })
       .allInnerTexts();
     // El evento de estado es el más reciente; la creación, el más antiguo.
-    expect(titles[0]).toBe("Estado actualizado");
+    expect(titles[0]).toBe("Escritura finalizada");
     expect(titles[titles.length - 1]).toBe("Escritura creada");
   });
 
@@ -138,6 +140,14 @@ test.describe("document activity history", () => {
 
   test("G: a failed operation records no activity", async ({ page }) => {
     await openDocument(page);
+    await page.getByRole("button", { name: "Reabrir escritura" }).click();
+    await page
+      .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })
+      .getByRole("button", { name: "Reabrir escritura" })
+      .click();
+    await expect(
+      page.getByText("Borrador", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
     const contentEvents = (await activitySection(page)).getByRole("heading", {
       name: "Contenido de la escritura actualizado",
     });

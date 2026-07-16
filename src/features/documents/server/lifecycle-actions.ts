@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
@@ -148,7 +149,11 @@ export async function markDocumentFinalAction(
 ): Promise<DocumentStatusState> {
   void _prev;
   void _formData;
-  return transitionDocument(documentId, "mark_final");
+  const result = await transitionDocument(documentId, "mark_final");
+  if (result.success) {
+    redirect(`/dashboard/documents/${documentId}?lifecycle=finalized`);
+  }
+  return result;
 }
 
 export async function reopenDocumentAction(
@@ -158,5 +163,9 @@ export async function reopenDocumentAction(
 ): Promise<DocumentStatusState> {
   void _prev;
   void _formData;
-  return transitionDocument(documentId, "reopen");
+  const result = await transitionDocument(documentId, "reopen");
+  if (result.success) {
+    redirect(`/dashboard/documents/${documentId}?lifecycle=reopened`);
+  }
+  return result;
 }

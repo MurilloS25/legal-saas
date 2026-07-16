@@ -22,6 +22,7 @@ const fieldLabel = "Nombre de la parte";
 
 let completeId = "";
 let pendingId = "";
+let historicalReadyId = "";
 
 async function open(page: Page, id: string) {
   await page.goto(`/dashboard/documents/${id}`);
@@ -62,6 +63,14 @@ test.describe("document lifecycle statuses", () => {
     });
     pendingId = pending.id;
 
+    const historicalReady = await createTestDocument(registry, template.id, {
+      title: uniqueName("lifecycle", "historica"),
+      status: "ready",
+      field_values: { "parte.nombre": "Persona Histórica" },
+      rendered_content: "ESCRITURA. Comparece Persona Histórica.",
+    });
+    historicalReadyId = historicalReady.id;
+
     // Ya finalizada (sembrada directamente).
     await createTestDocument(registry, template.id, {
       title: finalTitle,
@@ -71,49 +80,43 @@ test.describe("document lifecycle statuses", () => {
     });
   });
 
-  test("B: draft can be marked ready", async ({ page }) => {
+  test("B: draft can be finalized directly with confirmation", async ({ page }) => {
     await open(page, completeId);
     await expect(page.getByText("Borrador", { exact: true })).toBeVisible();
-    await page
-      .getByRole("button", { name: "Marcar como listo para revisar" })
-      .click();
-    // El server action + revalidación puede tardar más de 5 s en frío (dev):
-    // se espera el estado derivado con el mismo timeout que el resto de
-    // transiciones de este spec (C/D/E/G).
-    await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-  });
-
-  test("C: ready can be finalized with confirmation", async ({ page }) => {
-    await open(page, completeId);
-    await page.getByRole("button", { name: "Finalizar" }).click();
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
 
     const dialog = page.getByRole("alertdialog", {
-      name: "¿Finalizar la escritura?",
+      name: "Finalizar escritura",
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/no significa firmado/)).toBeVisible();
-    await dialog.getByRole("button", { name: "Finalizar" }).click();
+    await expect(dialog.getByText(/quedará bloqueada para edición/)).toBeVisible();
+    await dialog.getByRole("button", { name: "Finalizar escritura" }).click();
 
     await expect(
-      page.getByText("Finalizado", { exact: true }).first(),
+      page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("Escritura finalizada correctamente.", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Completar datos del índice" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Índice notarial", exact: true }),
+    ).toBeVisible();
   });
 
-  test("D: final is read-only and can be reopened", async ({ page }) => {
+  test("C: final is read-only and can be reopened to draft", async ({ page }) => {
     await open(page, completeId);
     // Solo lectura: el título está deshabilitado.
     await expect(page.getByLabel("Título de la escritura")).toBeDisabled();
     await expect(
-      page.getByText(/Finalizado es de solo lectura/),
+      page.getByText(/Finalizada es de solo lectura/),
     ).toBeVisible();
     // La descarga sigue disponible en finalizado.
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Reabrir Escritura" }).click();
+    await page.getByRole("button", { name: "Reabrir escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "¿Reabrir la escritura?",
     });
@@ -122,24 +125,33 @@ test.describe("document lifecycle statuses", () => {
         "La Escritura volverá a estar editable. Podrás finalizarla nuevamente después.",
       ),
     ).toBeVisible();
-    await dialog.getByRole("button", { name: "Reabrir Escritura" }).click();
+    await dialog.getByRole("button", { name: "Reabrir escritura" }).click();
 
-    await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
-  });
-
-  test("E: ready can go back to draft with confirmation", async ({ page }) => {
-    await open(page, completeId);
-    await page.getByRole("button", { name: "Volver a borrador" }).click();
-    const dialog = page.getByRole("alertdialog", {
-      name: "¿Volver a borrador?",
-    });
-    await dialog.getByRole("button", { name: "Volver a borrador" }).click();
     await expect(
       page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("Escritura reabierta como borrador.", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
+  });
+
+  test("D: historical ready documents expose explicit resolution actions", async ({
+    page,
+  }) => {
+    await open(page, historicalReadyId);
+    await expect(
+      page.getByText("Revisión pendiente (histórico)", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Marcar como listo para revisar" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Finalizar escritura" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Volver a borrador" }),
+    ).toBeVisible();
   });
 
   test("F: unsaved changes block a status change", async ({ page }) => {
@@ -147,47 +159,40 @@ test.describe("document lifecycle statuses", () => {
     const field = page
       .getByRole("region", { name: "Datos de la escritura" })
       .getByLabel(new RegExp(fieldLabel));
-    const readyButton = page.getByRole("button", {
-      name: "Marcar como listo para revisar",
+    const finalButton = page.getByRole("button", {
+      name: "Finalizar escritura",
     });
 
     // Reintenta el fill hasta que el gate se active, por si el primer intento
     // ocurre antes de la hidratación (dirty no se dispararía).
     await expect(async () => {
       await field.fill("Persona Editada");
-      await expect(readyButton).toBeDisabled({ timeout: 2_000 });
+      await expect(finalButton).toBeDisabled({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
 
     await expect(
       page.getByText("Guarda los cambios antes de cambiar el estado."),
     ).toBeVisible();
-    await expect(readyButton).toBeDisabled();
+    await expect(finalButton).toBeDisabled();
   });
 
   test("G: pending variables block finalizing (server-side)", async ({
     page,
   }) => {
     await open(page, pendingId);
-    await page
-      .getByRole("button", { name: "Marcar como listo para revisar" })
-      .click();
-    await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-
-    await page.getByRole("button", { name: "Finalizar" }).click();
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
-      name: "¿Finalizar la escritura?",
+      name: "Finalizar escritura",
     });
-    await dialog.getByRole("button", { name: "Finalizar" }).click();
+    await dialog.getByRole("button", { name: "Finalizar escritura" }).click();
 
-    // El servidor bloquea y el estado sigue en "Listo para revisar".
+    // El servidor bloquea y el estado sigue en borrador.
     await expect(dialog.getByText(/variable(s)? sin completar/)).toBeVisible({
       timeout: 15_000,
     });
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
+      page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible();
   });
 
@@ -216,7 +221,7 @@ test.describe("document lifecycle statuses", () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await open(page, completeId);
     await expect(
-      page.getByRole("button", { name: "Marcar como listo para revisar" }),
+      page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeVisible();
   });
 });
