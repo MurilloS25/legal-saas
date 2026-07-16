@@ -3,6 +3,28 @@ import { z } from "zod";
 const POSTGRES_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export const SIMPLE_INDEX_MAPPING_KEYS = [
+  "instrument_number",
+  "authorized_date",
+  "authorized_time",
+  "protocol_book",
+  "initial_folio",
+  "final_folio",
+] as const;
+
+export type SimpleIndexMappingKey =
+  (typeof SIMPLE_INDEX_MAPPING_KEYS)[number];
+export const INDEX_MAPPING_KEYS = [
+  ...SIMPLE_INDEX_MAPPING_KEYS,
+  "parties",
+] as const;
+export type InvalidIndexMapping = (typeof INDEX_MAPPING_KEYS)[number];
+
+const optionalFieldId = z
+  .string()
+  .regex(POSTGRES_UUID, "Campo inválido")
+  .nullable();
+
 export const TemplateIndexConfigurationSchema = z
   .object({
     party_separator: z
@@ -16,6 +38,14 @@ export const TemplateIndexConfigurationSchema = z
       .transform((value) => (value === "" ? null : value))
       .nullable(),
     allow_empty: z.boolean(),
+    simple_fields: z.object({
+      instrument_number: optionalFieldId,
+      authorized_date: optionalFieldId,
+      authorized_time: optionalFieldId,
+      protocol_book: optionalFieldId,
+      initial_folio: optionalFieldId,
+      final_folio: optionalFieldId,
+    }),
     template_field_ids: z
       .array(z.string().regex(POSTGRES_UUID, "Campo inválido"))
       .max(50, "Selecciona como máximo 50 campos"),
@@ -35,6 +65,16 @@ export const TemplateIndexConfigurationSchema = z
         message: "Un campo no puede aparecer más de una vez",
       });
     }
+    const assignedSimpleFields = Object.values(value.simple_fields).filter(
+      (fieldId): fieldId is string => fieldId !== null,
+    );
+    if (new Set(assignedSimpleFields).size !== assignedSimpleFields.length) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["simple_fields"],
+        message: "Un campo simple no puede asignarse a más de un destino",
+      });
+    }
   });
 
 export type TemplateIndexConfigurationInput = z.infer<
@@ -48,6 +88,8 @@ export type TemplateIndexConfiguration = {
   fixedSuffix: string | null;
   allowEmpty: boolean;
   isComplete: boolean;
+  simpleFields: Record<SimpleIndexMappingKey, string | null>;
+  invalidMappings: InvalidIndexMapping[];
   fields: Array<{
     templateFieldId: string;
     order: number;

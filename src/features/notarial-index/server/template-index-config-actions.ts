@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { DocumentIdSchema } from "@/features/documents";
 import { TemplateIdSchema } from "@/features/templates";
 import { requireUser } from "@/lib/server/auth";
-import { throwDataAccessError } from "@/lib/server/errors";
 import type { Database } from "@/lib/supabase/database.types";
 import { TemplateIndexConfigurationSchema } from "../model/template-index-configuration";
 
@@ -16,34 +14,25 @@ export type TemplateIndexConfigurationState = {
 
 export async function saveTemplateIndexConfigurationAction(
   templateId: string,
-  documentId: string,
   _previousState: TemplateIndexConfigurationState,
   formData: FormData,
 ): Promise<TemplateIndexConfigurationState> {
-  const { supabase, user } = await requireUser();
+  const { supabase } = await requireUser();
   if (!TemplateIdSchema.safeParse(templateId).success) {
     return { message: "No se encontró el machote." };
   }
-  if (!DocumentIdSchema.safeParse(documentId).success) {
-    return { message: "No se encontró la escritura." };
-  }
-
-  const { data: document, error: documentError } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("id", documentId)
-    .eq("template_id", templateId)
-    .eq("owner_id", user.id)
-    .maybeSingle();
-  if (documentError) {
-    throwDataAccessError("authorize template index configuration", documentError);
-  }
-  if (!document) return { message: "No se encontró la escritura." };
-
   const parsed = TemplateIndexConfigurationSchema.safeParse({
     party_separator: String(formData.get("party_separator") ?? ""),
     fixed_suffix: String(formData.get("fixed_suffix") ?? ""),
     allow_empty: formData.get("allow_empty") === "on",
+    simple_fields: {
+      instrument_number: fieldId(formData, "instrument_number"),
+      authorized_date: fieldId(formData, "authorized_date"),
+      authorized_time: fieldId(formData, "authorized_time"),
+      protocol_book: fieldId(formData, "protocol_book"),
+      initial_folio: fieldId(formData, "initial_folio"),
+      final_folio: fieldId(formData, "final_folio"),
+    },
     template_field_ids: formData
       .getAll("selected_field")
       .map((value) => String(value)),
@@ -60,19 +49,20 @@ export async function saveTemplateIndexConfigurationAction(
   }
 
   type Args =
-    Database["public"]["Functions"]["save_template_index_configuration"]["Args"];
+    Database["public"]["Functions"]["save_template_index_mapping"]["Args"];
   const args = {
     p_template_id: templateId,
+    p_simple_fields: parsed.data.simple_fields,
     p_party_separator: parsed.data.party_separator,
     p_fixed_suffix: parsed.data.fixed_suffix,
     p_allow_empty: parsed.data.allow_empty,
-    p_fields: parsed.data.template_field_ids.map((templateFieldId, order) => ({
+    p_party_fields: parsed.data.template_field_ids.map((templateFieldId, order) => ({
       template_field_id: templateFieldId,
       sort_order: order,
     })),
   };
   const { error } = await supabase.rpc(
-    "save_template_index_configuration",
+    "save_template_index_mapping",
     args as unknown as Args,
   );
   if (error) {
@@ -83,6 +73,12 @@ export async function saveTemplateIndexConfigurationAction(
     return { message: knownMessage };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath(`/dashboard/templates/${templateId}`);
+  revalidatePath("/dashboard/documents", "layout");
   return { success: true };
+}
+
+function fieldId(formData: FormData, key: string): string | null {
+  const value = String(formData.get(`${key}_field_id`) ?? "").trim();
+  return value || null;
 }

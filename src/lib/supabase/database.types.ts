@@ -759,44 +759,107 @@ export type Database = {
       template_index_configurations: {
         Row: {
           allow_empty: boolean
+          authorized_date_field_id: string | null
+          authorized_time_field_id: string | null
           created_at: string
+          final_folio_field_id: string | null
           fixed_suffix: string | null
           id: string
+          initial_folio_field_id: string | null
+          instrument_number_field_id: string | null
+          invalid_mappings: string[]
           is_complete: boolean
           owner_id: string
           party_separator: string
+          protocol_book_field_id: string | null
           template_id: string
           updated_at: string
         }
         Insert: {
           allow_empty?: boolean
+          authorized_date_field_id?: string | null
+          authorized_time_field_id?: string | null
           created_at?: string
+          final_folio_field_id?: string | null
           fixed_suffix?: string | null
           id?: string
+          initial_folio_field_id?: string | null
+          instrument_number_field_id?: string | null
+          invalid_mappings?: string[]
           is_complete?: boolean
           owner_id: string
           party_separator?: string
+          protocol_book_field_id?: string | null
           template_id: string
           updated_at?: string
         }
         Update: {
           allow_empty?: boolean
+          authorized_date_field_id?: string | null
+          authorized_time_field_id?: string | null
           created_at?: string
+          final_folio_field_id?: string | null
           fixed_suffix?: string | null
           id?: string
+          initial_folio_field_id?: string | null
+          instrument_number_field_id?: string | null
+          invalid_mappings?: string[]
           is_complete?: boolean
           owner_id?: string
           party_separator?: string
+          protocol_book_field_id?: string | null
           template_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "template_index_config_date_field_fk"
+            columns: ["authorized_date_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
+          {
+            foreignKeyName: "template_index_config_final_folio_field_fk"
+            columns: ["final_folio_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
+          {
+            foreignKeyName: "template_index_config_initial_folio_field_fk"
+            columns: ["initial_folio_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
+          {
+            foreignKeyName: "template_index_config_instrument_field_fk"
+            columns: ["instrument_number_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
+          {
+            foreignKeyName: "template_index_config_protocol_field_fk"
+            columns: ["protocol_book_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
+          },
           {
             foreignKeyName: "template_index_config_template_owner_fk"
             columns: ["template_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "templates"
             referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "template_index_config_time_field_fk"
+            columns: ["authorized_time_field_id", "owner_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id", "owner_id", "template_id"]
           },
         ]
       }
@@ -972,6 +1035,17 @@ export type Database = {
           p_fields: Json
           p_fixed_suffix: string
           p_party_separator: string
+          p_template_id: string
+        }
+        Returns: string
+      }
+      save_template_index_mapping: {
+        Args: {
+          p_allow_empty: boolean
+          p_fixed_suffix: string
+          p_party_fields: Json
+          p_party_separator: string
+          p_simple_fields: Json
           p_template_id: string
         }
         Returns: string
