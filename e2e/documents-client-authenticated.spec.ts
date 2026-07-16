@@ -91,7 +91,7 @@ test.describe("document ↔ client relationship", () => {
     );
 
     await panelField(page, new RegExp(fieldLabel)).fill("Cliente Prueba");
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
@@ -140,7 +140,7 @@ test.describe("document ↔ client relationship", () => {
     await clientSelect.selectOption("");
     await expect(page.getByText("Cambios sin guardar").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -175,7 +175,7 @@ test.describe("document ↔ client relationship", () => {
       .getByLabel("Cliente principal (opcional)")
       .selectOption({ label: clientName });
     await panelField(page, new RegExp(fieldLabel)).fill("Otro Cliente");
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),

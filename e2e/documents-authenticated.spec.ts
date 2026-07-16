@@ -151,7 +151,7 @@ test.describe("document composer workspace", () => {
     // Progreso sobre los campos (configurado + derivado del contenido).
     await expect(page.getByText("1 de 2 campos completados")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     // Saving redirects to the edit view with a confirmation.
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
@@ -172,6 +172,47 @@ test.describe("document composer workspace", () => {
     await expect(
       documentRegion(page).getByText(`{{${derivedKey}}}`).first(),
     ).toBeVisible();
+  });
+
+  test("C2: persisted workspace uses stable sections and accessible history", async ({
+    page,
+  }) => {
+    await page.goto(draftPath);
+    const navigation = page.getByRole("navigation", {
+      name: "Secciones de la escritura",
+    });
+    await expect(
+      navigation.getByRole("link", { name: "Documento" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      navigation.getByRole("link", { name: "Cuentas por cobrar" }),
+    ).toBeVisible();
+    await expect(navigation.getByText("Índice notarial")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await expect(
+      page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Actividad" })).toHaveCount(0);
+
+    await navigation.getByRole("link", { name: "Cuentas por cobrar" }).click();
+    await expect(page).toHaveURL(/section=receivables/);
+    await expect(
+      page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(
+      page.getByRole("region", { name: "Datos de la escritura" }),
+    ).toBeVisible();
+
+    const historyTrigger = page.getByRole("button", { name: "Historial" });
+    await historyTrigger.click();
+    await expect(
+      page.getByRole("dialog", { name: "Historial de la escritura" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Cerrar historial" }).click();
+    await expect(historyTrigger).toBeFocused();
   });
 
   test("D: the saved draft appears in the documents list", async ({ page }) => {
@@ -210,7 +251,7 @@ test.describe("document composer workspace", () => {
     await fillFieldLive(page, panelField(page, new RegExp(derivedKey)), "ABC-123");
     await expect(page.getByText("2 de 2 campos completados")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
@@ -257,7 +298,7 @@ test.describe("document composer workspace", () => {
       await expect(requiredField).toHaveValue("", { timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
 
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page.getByText(`${fieldLabel} es requerido`)).toBeVisible({
       timeout: 15_000,
@@ -297,7 +338,7 @@ test.describe("document composer workspace", () => {
       "Poderdante de Prueba",
     );
 
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
@@ -374,7 +415,7 @@ test.describe("document composer workspace", () => {
       panelField(page, /otorgante\.nombre/),
       "Otorgante Estructurado",
     );
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 30_000 });
@@ -411,7 +452,7 @@ test.describe("document composer workspace", () => {
 
     // Guardar con un cambio no borra el valor histórico.
     await fillFieldLive(page, panelField(page, /dato\.uno/), "Valor Uno B");
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });

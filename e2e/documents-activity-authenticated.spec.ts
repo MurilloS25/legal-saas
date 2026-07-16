@@ -23,8 +23,11 @@ const fieldLabel = "Nombre de la parte";
 let templateId = "";
 let documentId = "";
 
-function activitySection(page: Page) {
-  return page.getByRole("region", { name: "Actividad" });
+async function activitySection(page: Page) {
+  await page.getByRole("button", { name: "Historial" }).click();
+  const dialog = page.getByRole("dialog", { name: "Historial de la escritura" });
+  await expect(dialog).toBeVisible();
+  return dialog.getByRole("region", { name: "Actividad" });
 }
 
 function panelField(page: Page, label: string | RegExp) {
@@ -62,7 +65,7 @@ test.describe("document activity history", () => {
   test("B: creating a draft records a creation event", async ({ page }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
     await panelField(page, new RegExp(fieldLabel)).fill("Persona Uno");
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
@@ -70,7 +73,7 @@ test.describe("document activity history", () => {
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
     documentId = new URL(page.url()).pathname.split("/").pop() as string;
 
-    const activity = activitySection(page);
+    const activity = await activitySection(page);
     await expect(activity).toBeVisible();
     await expect(activity.getByText("Escritura creada")).toBeVisible();
   });
@@ -83,13 +86,13 @@ test.describe("document activity history", () => {
     await page
       .getByLabel("Cliente principal (opcional)")
       .selectOption({ label: clientName });
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
-    const activity = activitySection(page);
+    const activity = await activitySection(page);
     await expect(activity.getByText("Cliente asociado")).toBeVisible();
     await expect(activity.getByText(`Cliente: ${clientName}`)).toBeVisible();
     await expect(activity.getByText("Título actualizado")).toBeVisible();
@@ -105,7 +108,7 @@ test.describe("document activity history", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
-    const activity = activitySection(page);
+    const activity = await activitySection(page);
     await expect(activity.getByText("Estado actualizado")).toBeVisible();
     await expect(
       activity.getByText("De Borrador a Listo para revisar"),
@@ -114,7 +117,7 @@ test.describe("document activity history", () => {
 
   test("E: the timeline shows the most recent event first", async ({ page }) => {
     await openDocument(page);
-    const titles = await activitySection(page)
+    const titles = await (await activitySection(page))
       .getByRole("heading", { level: 3 })
       .allInnerTexts();
     // El evento de estado es el más reciente; la creación, el más antiguo.
@@ -129,20 +132,21 @@ test.describe("document activity history", () => {
     await downloadPromise;
 
     await expect(
-      activitySection(page).getByText("Documento Word generado"),
+      (await activitySection(page)).getByText("Documento Word generado"),
     ).toBeVisible({ timeout: 15_000 });
   });
 
   test("G: a failed operation records no activity", async ({ page }) => {
     await openDocument(page);
-    const contentEvents = activitySection(page).getByRole("heading", {
+    const contentEvents = (await activitySection(page)).getByRole("heading", {
       name: "Contenido de la escritura actualizado",
     });
     const beforeContentEventCount = await contentEvents.count();
+    await page.getByRole("button", { name: "Cerrar historial" }).click();
 
     // Vaciar un campo requerido bloquea el guardado (operación fallida).
     await panelField(page, new RegExp(fieldLabel)).fill("");
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText(`${fieldLabel} es requerido`),
     ).toBeVisible({ timeout: 15_000 });
@@ -151,7 +155,7 @@ test.describe("document activity history", () => {
     // No debe existir un evento espurio: el conteo de "Contenido..." no crece
     // por un guardado que falló la validación.
     await expect(
-      activitySection(page).getByRole("heading", {
+      (await activitySection(page)).getByRole("heading", {
         name: "Contenido de la escritura actualizado",
       }),
     ).toHaveCount(beforeContentEventCount);

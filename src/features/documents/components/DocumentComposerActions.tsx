@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { DocumentStatus } from "../model/lifecycle";
 import { DocumentStatusControls } from "./DocumentStatusControls";
 import { DownloadDocxButton } from "./DownloadDocxButton";
@@ -48,7 +47,7 @@ export function DocumentComposerActions({
             disabled={pending}
             className="w-full rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {pending ? "Guardando…" : "Guardar borrador"}
+            {pending ? "Guardando…" : "Guardar cambios"}
           </button>
         </>
       )}
@@ -69,12 +68,6 @@ export function DocumentComposerActions({
         />
       )}
 
-      <Link
-        href="/dashboard/documents"
-        className="block w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
-      >
-        Volver a Escrituras
-      </Link>
     </div>
   );
 }
