@@ -3,6 +3,11 @@ export { NotarialMetadataSection } from "./components/NotarialMetadataSection";
 export { TemplateIndexConfigurationSection } from "./components/TemplateIndexConfigurationSection";
 export type { IndexConfigurationField } from "./components/TemplateIndexConfigurationSection";
 export { generateConfiguredPartiesPreview } from "./model/parties";
+export { resolveNotarialMetadataPrefill } from "./model/prefill";
+export type {
+  NotarialMetadataPrefill,
+  NotarialPrefillField,
+} from "./model/prefill";
 export {
   NOTARIAL_COMPLETENESS_FILTERS,
   NOTARIAL_PAGE_SIZE,
