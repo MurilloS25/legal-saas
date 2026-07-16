@@ -29,7 +29,7 @@ let clientAlphaId = "";
 let templateDosId = "";
 
 function row(page: Page, title: string) {
-  return page.locator("li").filter({ hasText: title });
+  return page.locator("tbody tr").filter({ hasText: title });
 }
 
 async function search(page: Page, term: string) {
@@ -138,7 +138,7 @@ test.describe("documents workspace management", () => {
 
     // Solo las filas sembradas contienen el token; se leen en orden del DOM.
     const seeded = await page
-      .locator("li")
+      .locator("tbody tr")
       .filter({ hasText: token })
       .locator("p.font-medium")
       .allInnerTexts();

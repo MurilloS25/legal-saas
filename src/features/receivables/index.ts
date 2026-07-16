@@ -2,6 +2,7 @@ export { DeleteReceivableButton } from "./components/DeleteReceivableButton";
 export { PaymentsSection } from "./components/PaymentsSection";
 export { ReceivableForm } from "./components/ReceivableForm";
 export { ReceivableMiniList } from "./components/ReceivableMiniList";
+export { ReceivablesTable } from "./components/ReceivablesTable";
 export { ReceivablesToolbar } from "./components/ReceivablesToolbar";
 export {
   formatMoney,

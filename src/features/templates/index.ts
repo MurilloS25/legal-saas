@@ -1,5 +1,6 @@
 export { TemplateWorkspace } from "./components/TemplateWorkspace";
 export type { WorkspaceTemplate } from "./components/TemplateWorkspace";
+export { TemplatesTable } from "./components/TemplatesTable";
 export {
   buildFillableFields,
 } from "./model/fillable-fields";

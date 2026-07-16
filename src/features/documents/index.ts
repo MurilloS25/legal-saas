@@ -4,6 +4,7 @@ export { DocumentActivity } from "./components/DocumentActivity";
 export { DocumentComposer } from "./components/DocumentComposer";
 export { DocumentWorkspaceHeader } from "./components/DocumentWorkspaceHeader";
 export type { DocumentWorkspaceSection } from "./components/DocumentWorkspaceHeader";
+export { DocumentsTable } from "./components/DocumentsTable";
 export { DocumentsToolbar } from "./components/DocumentsToolbar";
 export { DownloadDocxButton } from "./components/DownloadDocxButton";
 export {

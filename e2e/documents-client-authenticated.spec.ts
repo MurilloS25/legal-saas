@@ -117,7 +117,7 @@ test.describe("document ↔ client relationship", () => {
 
   test("E: the documents list shows the associated client", async ({ page }) => {
     await page.goto("/dashboard/documents");
-    const row = page.locator("li").filter({ hasText: draftTitle });
+    const row = page.locator("tbody tr").filter({ hasText: draftTitle });
     await expect(row).toBeVisible();
     await expect(row.getByText(clientName)).toBeVisible();
   });
@@ -127,7 +127,7 @@ test.describe("document ↔ client relationship", () => {
   }) => {
     await page.goto("/dashboard/documents");
     await page
-      .locator("li")
+      .locator("tbody tr")
       .filter({ hasText: draftTitle })
       .getByRole("link", { name: "Continuar" })
       .click();

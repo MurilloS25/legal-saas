@@ -284,15 +284,35 @@ code. See `docs/DOCX_EXPORT.md`.
 
 ## State And Data Libraries
 
-### TanStack Table: Adopt Incrementally
+### TanStack Table: Adopted For Core Listings
 
-The first future pilot is the Notarial Index. TanStack Table may manage columns,
+The Notarial Index pilot proved the pattern: TanStack Table manages columns,
 visibility, row selection, expansion, visual ordering, and controlled table
-state.
+state, while the server remains responsible for searching, data filters,
+pagination, security, and export.
 
-The server remains responsible for searching, data filters, pagination,
-security, and export. Do not install or migrate to TanStack Table outside an
-explicit task with acceptance criteria.
+Following an explicit audit that found the non-TanStack listings (Escrituras,
+Machotes, Clientes) implemented their column alignment with duplicated CSS
+Grid definitions between the header and each row — two independent grid
+containers that size `auto` tracks (notably the actions column) from their own
+content only, causing header/row misalignment whenever action content varies
+per row — those listings were migrated to TanStack Table as well (Escrituras,
+Machotes, Clientes, Cuentas por cobrar). Each keeps the header and body
+rendered from the same `getHeaderGroups()`/`getVisibleCells()` model, so the
+column count and alignment can no longer drift between header and rows.
+
+Server-paginated listings (Escrituras, Cuentas por cobrar, Índice Notarial)
+keep `manualPagination`/`manualFiltering`/`manualSorting: true` and continue to
+delegate search, filtering, sorting, and pagination to the server. Listings
+that load their full result set today (Machotes, Clientes) keep that behavior
+unchanged; TanStack Table only replaces their header/row rendering, not their
+data-loading strategy.
+
+Do not install or migrate additional listings to TanStack Table outside an
+explicit task with acceptance criteria. Timelines, activity feeds, and other
+non-columnar lists (for example document/receivable activity, payments,
+template variables) remain plain lists — they are not tabular data and do not
+need TanStack Table.
 
 ### TanStack Query: Evaluate Later
 

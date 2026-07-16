@@ -1,32 +1,7 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import type { ClientRow } from "../model/types";
-
-// ------------------------------------------------------------------ avatar helpers
-
-const AVATAR_COLORS = [
-  "bg-teal-600",
-  "bg-indigo-500",
-  "bg-emerald-600",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-violet-600",
-  "bg-sky-600",
-  "bg-slate-600",
-] as const;
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string): string {
-  const code = name
-    .split("")
-    .reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  return AVATAR_COLORS[code % AVATAR_COLORS.length];
-}
+import { ClientsTable } from "./ClientsTable";
 
 // ------------------------------------------------------------------ page
 
@@ -107,96 +82,7 @@ export function ClientsWorkspace({ clients }: { clients: ClientRow[] }) {
       ) : (
         /* ---- client table ---- */
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {/* Column headers — desktop only */}
-          <div className="hidden sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] px-6 py-3 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Cliente
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Cédula
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Ocupación
-            </span>
-            <span className="w-20" />
-          </div>
-
-          <ul role="list" className="divide-y divide-slate-100">
-            {clients.map((client) => {
-              const initials = getInitials(client.full_name);
-              const avatarColor = getAvatarColor(client.full_name);
-
-              return (
-                <li key={client.id} className="group">
-                  {/*
-                   * Row: flex on mobile, grid on desktop.
-                   * The client-name column is a <Link> for navigation;
-                   * the actions column holds the delete button separately —
-                   * this avoids nesting interactive elements inside <a>.
-                   */}
-                  <div className="flex items-center gap-3 px-6 py-4 transition-colors hover:bg-slate-50 sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                    {/* Client name (link to detail) */}
-                    <Link
-                      href={`/dashboard/clients/${client.id}`}
-                      className="flex min-w-0 flex-1 items-center gap-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 rounded"
-                    >
-                      <div
-                        className={`${avatarColor} flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white select-none`}
-                        aria-hidden="true"
-                      >
-                        {initials}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate group-hover:text-teal-700 transition-colors">
-                          {client.full_name}
-                        </p>
-                        {/* Sub-line on mobile */}
-                        <p className="text-xs text-slate-500 truncate sm:hidden">
-                          {client.identification_number} · {client.occupation}
-                        </p>
-                      </div>
-                    </Link>
-
-                    {/* Cédula — desktop */}
-                    <span className="hidden sm:block text-sm text-slate-600 truncate">
-                      {client.identification_number}
-                    </span>
-
-                    {/* Ocupación — desktop */}
-                    <span className="hidden sm:block text-sm text-slate-600 truncate">
-                      {client.occupation}
-                    </span>
-
-                    {/* Secondary visual affordance */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Link
-                        href={`/dashboard/clients/${client.id}`}
-                        aria-label={`Ver detalle de ${client.full_name}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-colors"
-                        tabIndex={-1}
-                        aria-hidden="true"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </Link>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <ClientsTable rows={clients} />
 
           {/* Row count footer */}
           <div className="border-t border-slate-100 bg-slate-50 px-6 py-3">

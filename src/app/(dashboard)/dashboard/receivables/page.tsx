@@ -5,8 +5,6 @@ import { listReceivablesWorkspace } from "@/features/receivables/server";
 import { listClients } from "@/features/clients/server";
 import {
   formatMoney,
-  receivableStatusBadgeClass,
-  receivableStatusLabel,
   RECEIVABLE_STATUS_LABEL,
   RECEIVABLE_CURRENCIES,
 } from "@/features/receivables";
@@ -16,19 +14,11 @@ import {
   RECEIVABLE_SORT_OPTIONS,
   type RawReceivablesQuery,
 } from "@/features/receivables";
-import { ReceivablesToolbar } from "@/features/receivables";
+import { ReceivablesToolbar, ReceivablesTable } from "@/features/receivables";
 
 export const metadata = {
   title: "Cuentas por cobrar — LexCR",
 };
-
-function formatDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("es-CR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 const STATUS_OPTIONS = Object.entries(RECEIVABLE_STATUS_LABEL).map(
   ([value, label]) => ({ value, label }),
@@ -189,37 +179,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <ul role="list" className="divide-y divide-slate-100">
-            {page.rows.map((r) => (
-              <li key={r.id} className="group">
-                <Link
-                  href={`/dashboard/receivables/${r.id}`}
-                  className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900 truncate group-hover:text-teal-700 transition-colors">
-                      {r.concept}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {r.client_name}
-                      {r.document_title ? ` · ${r.document_title}` : ""}
-                      {r.due_at ? ` · Vence ${formatDate(r.due_at)}` : ""}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {formatMoney(r.balance_due, r.currency)}
-                    </p>
-                    <span
-                      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${receivableStatusBadgeClass(r.status)}`}
-                    >
-                      {receivableStatusLabel(r.status)}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ReceivablesTable rows={page.rows} />
 
           <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3">
             <p className="text-xs text-slate-500">
