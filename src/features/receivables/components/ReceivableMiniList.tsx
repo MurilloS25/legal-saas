@@ -1,10 +1,6 @@
 import Link from "next/link";
 import type { ReceivableEntry } from "../model/types";
-import {
-  formatMoney,
-  receivableStatusBadgeClass,
-  receivableStatusLabel,
-} from "../model/status";
+import { ReceivableMiniTable } from "./ReceivableMiniTable";
 
 /**
  * Listado compacto de cuentas por cobrar para incrustar en el detalle de un
@@ -38,34 +34,9 @@ export function ReceivableMiniList({ receivables, newHref, emptyText }: Props) {
           <p className="text-sm text-slate-500">{emptyText}</p>
         </div>
       ) : (
-        <ul
-          role="list"
-          className="rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100 overflow-hidden"
-        >
-          {receivables.map((r) => (
-            <li key={r.id}>
-              <Link
-                href={`/dashboard/receivables/${r.id}`}
-                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    {r.concept}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Saldo {formatMoney(r.balance_due, r.currency)} de{" "}
-                    {formatMoney(r.amount_total, r.currency)}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${receivableStatusBadgeClass(r.status)}`}
-                >
-                  {receivableStatusLabel(r.status)}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <ReceivableMiniTable rows={receivables} />
+        </div>
       )}
     </div>
   );
