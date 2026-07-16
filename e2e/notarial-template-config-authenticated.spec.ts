@@ -17,10 +17,12 @@ const firstInstrument = 300_000 + Math.floor(Math.random() * 50_000);
 const secondInstrument = firstInstrument + 1;
 let firstDocumentId = "";
 let secondDocumentId = "";
+let templateId = "";
+let sellerFieldId = "";
 
 function configurationSection(page: Page) {
   return page.getByRole("region", {
-    name: "Configuración de Partes del índice",
+    name: "Configuración del índice notarial",
   });
 }
 
@@ -31,6 +33,21 @@ function metadataSection(page: Page) {
 async function open(page: Page, documentId: string) {
   await page.goto(`/dashboard/documents/${documentId}`);
   await expect(metadataSection(page)).toBeVisible();
+}
+
+async function openTemplate(page: Page) {
+  await page.goto(`/dashboard/templates/${templateId}`);
+  await expect(configurationSection(page)).toBeVisible();
+}
+
+async function expandConfiguration(page: Page) {
+  const details = configurationSection(page).locator("details");
+  await expect(async () => {
+    if (!(await details.evaluate((element) => element.hasAttribute("open")))) {
+      await details.locator("summary").click();
+    }
+    await expect(details).toHaveAttribute("open", "", { timeout: 1_000 });
+  }).toPass({ timeout: 5_000 });
 }
 
 async function fillStructuredMetadata(page: Page, instrument: number) {
@@ -60,11 +77,14 @@ test.describe("template notarial index configuration", () => {
       name: templateName,
       content: "VENDE {{seller.name}} A {{buyer.name}}.",
     });
-    await createTestTemplateField(registry, template.id, {
-      field_key: "seller.name",
-      label: "Nombre del vendedor",
-      sort_order: 0,
-    });
+    templateId = template.id;
+    sellerFieldId = (
+      await createTestTemplateField(registry, template.id, {
+        field_key: "seller.name",
+        label: "Nombre del vendedor",
+        sort_order: 0,
+      })
+    ).id;
     await createTestTemplateField(registry, template.id, {
       field_key: "buyer.name",
       label: "Nombre del comprador",
@@ -93,11 +113,16 @@ test.describe("template notarial index configuration", () => {
   });
 
   test("B: configure ordered fields with a live preview", async ({ page }) => {
-    await open(page, firstDocumentId);
+    await openTemplate(page);
+    await expandConfiguration(page);
     const section = configurationSection(page);
     await expect(
-      section.getByText("Selecciona los campos que representan las partes"),
+      section.getByText(/Asocia una vez las variables del machote/),
     ).toBeVisible();
+
+    await section
+      .getByLabel("Número de instrumento")
+      .selectOption(sellerFieldId);
 
     await section
       .getByRole("checkbox", { name: /Nombre del comprador/ })
@@ -109,7 +134,10 @@ test.describe("template notarial index configuration", () => {
       .getByRole("button", { name: "Subir Nombre del vendedor" })
       .click();
     await expect(
-      section.getByText("JUAN PÉREZ Y MARÍA RODRÍGUEZ", { exact: true }),
+      section.getByText(
+        "[NOMBRE DEL VENDEDOR] Y [NOMBRE DEL COMPRADOR]",
+        { exact: true },
+      ),
     ).toBeVisible();
 
     await section.getByRole("button", { name: "Guardar configuración" }).click();
@@ -119,9 +147,12 @@ test.describe("template notarial index configuration", () => {
   });
 
   test("C: configuration persists for the template", async ({ page }) => {
-    await open(page, firstDocumentId);
+    await openTemplate(page);
     const section = configurationSection(page);
-    await section.getByText("Editar configuración de Partes").click();
+    await expandConfiguration(page);
+    await expect(section.getByLabel("Número de instrumento")).toHaveValue(
+      sellerFieldId,
+    );
     await expect(
       section.getByRole("checkbox", { name: /Nombre del vendedor/ }),
     ).toBeChecked();
@@ -129,7 +160,10 @@ test.describe("template notarial index configuration", () => {
       section.getByRole("checkbox", { name: /Nombre del comprador/ }),
     ).toBeChecked();
     await expect(
-      section.getByText("JUAN PÉREZ Y MARÍA RODRÍGUEZ", { exact: true }),
+      section.getByText(
+        "[NOMBRE DEL VENDEDOR] Y [NOMBRE DEL COMPRADOR]",
+        { exact: true },
+      ),
     ).toBeVisible();
   });
 
@@ -137,6 +171,7 @@ test.describe("template notarial index configuration", () => {
     page,
   }) => {
     await open(page, firstDocumentId);
+    await expect(configurationSection(page)).toHaveCount(0);
     await fillStructuredMetadata(page, firstInstrument);
     const section = metadataSection(page);
     await expect(section.getByText("Completo", { exact: true })).toBeVisible();
@@ -174,9 +209,6 @@ test.describe("template notarial index configuration", () => {
     page,
   }) => {
     await open(page, secondDocumentId);
-    await expect(
-      configurationSection(page).getByText("Editar configuración de Partes"),
-    ).toBeVisible();
     await fillStructuredMetadata(page, secondInstrument);
     await expect(metadataSection(page).getByLabel("Partes")).toHaveAttribute(
       "placeholder",

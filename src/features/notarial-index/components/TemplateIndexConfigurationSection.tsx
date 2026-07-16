@@ -1,36 +1,70 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import {
+  useActionState,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { generateIndexParties } from "../model/parties";
+import type {
+  InvalidIndexMapping,
+  SimpleIndexMappingKey,
+  TemplateIndexConfiguration,
+} from "../model/template-index-configuration";
 import {
   saveTemplateIndexConfigurationAction,
   type TemplateIndexConfigurationState,
 } from "../server/template-index-config-actions";
-import type { TemplateIndexConfiguration } from "../model/template-index-configuration";
 
 export type IndexConfigurationField = {
   id: string;
   fieldKey: string;
   label: string;
-  value: string | null;
 };
 
 type Props = {
-  documentId: string;
   templateId: string;
   fields: IndexConfigurationField[];
   configuration: TemplateIndexConfiguration | null;
 };
 
+const SIMPLE_FIELDS: Array<{
+  key: SimpleIndexMappingKey;
+  label: string;
+}> = [
+  { key: "instrument_number", label: "Número de instrumento" },
+  { key: "authorized_date", label: "Fecha de autorización" },
+  { key: "authorized_time", label: "Hora de autorización" },
+  { key: "protocol_book", label: "Tomo" },
+  { key: "initial_folio", label: "Folio inicial" },
+  { key: "final_folio", label: "Folio final" },
+];
+
+const INVALID_LABELS: Record<InvalidIndexMapping, string> = {
+  instrument_number: "Número de instrumento",
+  authorized_date: "Fecha de autorización",
+  authorized_time: "Hora de autorización",
+  protocol_book: "Tomo",
+  initial_folio: "Folio inicial",
+  final_folio: "Folio final",
+  parties: "Partes",
+};
+
 const initialState: TemplateIndexConfigurationState = {};
+const inputClass =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 export function TemplateIndexConfigurationSection({
-  documentId,
   templateId,
   fields,
   configuration,
 }: Props) {
-  const availableIds = useMemo(() => new Set(fields.map((field) => field.id)), [fields]);
+  const availableIds = useMemo(
+    () => new Set(fields.map((field) => field.id)),
+    [fields],
+  );
   const [selectedIds, setSelectedIds] = useState(() =>
     (configuration?.fields ?? [])
       .map((field) => field.templateFieldId)
@@ -45,21 +79,20 @@ export function TemplateIndexConfigurationSection({
   const [allowEmpty, setAllowEmpty] = useState(
     configuration?.allowEmpty ?? false,
   );
-  const action = saveTemplateIndexConfigurationAction.bind(
-    null,
-    templateId,
-    documentId,
-  );
+  const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
-  const [expanded, setExpanded] = useState(
-    !configuration || !configuration.isComplete,
-  );
-  const [previousActionState, setPreviousActionState] = useState(state);
-  if (state !== previousActionState) {
-    setPreviousActionState(state);
-    if (state.success || state.message || state.errors) setExpanded(true);
-  }
-
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useLayoutEffect(() => {
+    if (
+      !configuration ||
+      !configuration.isComplete ||
+      state.success ||
+      state.message ||
+      state.errors
+    ) {
+      if (detailsRef.current) detailsRef.current.open = true;
+    }
+  }, [configuration, state]);
   const fieldsById = useMemo(
     () => new Map(fields.map((field) => [field.id, field])),
     [fields],
@@ -68,7 +101,7 @@ export function TemplateIndexConfigurationSection({
     fields: selectedIds.map((id, order) => ({
       templateFieldId: id,
       order,
-      value: fieldsById.get(id)?.value ?? "",
+      value: `[${fieldsById.get(id)?.label ?? "Campo"}]`,
     })),
     separator,
     fixedSuffix,
@@ -76,7 +109,9 @@ export function TemplateIndexConfigurationSection({
 
   function toggleField(id: string, checked: boolean) {
     setSelectedIds((current) =>
-      checked ? [...current, id] : current.filter((candidate) => candidate !== id),
+      checked
+        ? [...current, id]
+        : current.filter((candidate) => candidate !== id),
     );
   }
 
@@ -91,90 +126,117 @@ export function TemplateIndexConfigurationSection({
     });
   }
 
-  const selectedFields = selectedIds.flatMap((id) => {
-    const field = fieldsById.get(id);
-    return field ? [field] : [];
-  });
-  const unselectedFields = fields.filter((field) => !selectedIds.includes(field.id));
+  const orderedFields = [
+    ...selectedIds.flatMap((id) => {
+      const field = fieldsById.get(id);
+      return field ? [field] : [];
+    }),
+    ...fields.filter((field) => !selectedIds.includes(field.id)),
+  ];
 
   return (
     <section
-      aria-label="Configuración de Partes del índice"
-      className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm"
+      aria-label="Configuración del índice notarial"
+      className="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm"
     >
-      <details
-        open={expanded}
-        onToggle={(event) => setExpanded(event.currentTarget.open)}
-      >
-        <summary className="cursor-pointer px-6 py-5 text-sm font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-inset">
-          {configuration
-            ? "Editar configuración de Partes"
-            : "Configurar Partes del índice"}
+      <details ref={detailsRef}>
+        <summary className="cursor-pointer px-6 py-4 text-sm font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-inset">
+          Configuración del índice notarial
         </summary>
-        <form action={formAction} className="border-t border-slate-200 px-6 py-6">
+        <form action={formAction} className="border-t border-slate-200 px-6 py-5">
           <p className="mb-5 text-sm text-slate-600">
-            Selecciona los campos que representan las partes del índice.
+            Asocia una vez las variables del machote con los datos del índice.
+            Los valores podrán corregirse en cada escritura.
           </p>
 
           {configuration && !configuration.isComplete && (
-            <p
+            <div
               role="status"
               className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
             >
-              Un campo configurado ya no existe. Revisa y guarda nuevamente.
+              <p className="font-medium">La configuración necesita revisión.</p>
+              <p className="mt-1">
+                Se eliminaron campos asociados a: {configuration.invalidMappings
+                  .map((key) => INVALID_LABELS[key])
+                  .join(", ") || "Partes"}.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {SIMPLE_FIELDS.map(({ key, label }) => (
+              <div key={key}>
+                <label
+                  htmlFor={`${key}_field_id`}
+                  className="mb-1 block text-xs font-medium text-slate-700"
+                >
+                  {label}
+                </label>
+                <select
+                  id={`${key}_field_id`}
+                  name={`${key}_field_id`}
+                  defaultValue={configuration?.simpleFields[key] ?? ""}
+                  className={inputClass}
+                >
+                  <option value="">Sin asignar / ingreso manual</option>
+                  {fields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+
+          {state.errors?.simple_fields && (
+            <p role="alert" className="mt-3 text-sm text-red-700">
+              {state.errors.simple_fields}
             </p>
           )}
 
-          <fieldset>
-            <legend className="text-sm font-medium text-slate-800">
-              Campos del machote
-            </legend>
+          <fieldset className="mt-6">
+            <legend className="text-sm font-semibold text-slate-900">Partes</legend>
+            <p className="mt-1 text-xs text-slate-500">
+              Selecciona uno o varios campos y ajusta su orden.
+            </p>
             <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200">
-              {[...selectedFields, ...unselectedFields].map((field) => {
+              {orderedFields.map((field) => {
                 const selectedIndex = selectedIds.indexOf(field.id);
                 const selected = selectedIndex >= 0;
                 return (
-                  <div
-                    key={field.id}
-                    className="flex min-h-14 items-center gap-3 px-3 py-2"
-                  >
+                  <div key={field.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
                     <input
-                      id={`index-field-${field.id}`}
+                      id={`index-party-${field.id}`}
                       type="checkbox"
                       checked={selected}
-                      onChange={(event) =>
-                        toggleField(field.id, event.target.checked)
-                      }
+                      onChange={(event) => toggleField(field.id, event.target.checked)}
                       className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
                     />
                     <label
-                      htmlFor={`index-field-${field.id}`}
+                      htmlFor={`index-party-${field.id}`}
                       className="min-w-0 flex-1 text-sm text-slate-800"
                     >
-                      <span className="block font-medium">{field.label}</span>
-                      <span className="block truncate text-xs text-slate-500">
-                        {field.fieldKey}
-                      </span>
+                      <span className="font-medium">{field.label}</span>
+                      <span className="ml-2 text-xs text-slate-500">{field.fieldKey}</span>
                     </label>
                     {selected && (
-                      <div className="flex shrink-0 gap-1">
+                      <div className="flex gap-1">
                         <button
                           type="button"
-                          title={`Subir ${field.label}`}
                           aria-label={`Subir ${field.label}`}
                           disabled={selectedIndex === 0}
                           onClick={() => moveField(field.id, -1)}
-                          className="h-8 w-8 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
                         >
                           ↑
                         </button>
                         <button
                           type="button"
-                          title={`Bajar ${field.label}`}
                           aria-label={`Bajar ${field.label}`}
                           disabled={selectedIndex === selectedIds.length - 1}
                           onClick={() => moveField(field.id, 1)}
-                          className="h-8 w-8 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
                         >
                           ↓
                         </button>
@@ -190,12 +252,9 @@ export function TemplateIndexConfigurationSection({
             <input key={id} type="hidden" name="selected_field" value={id} />
           ))}
 
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label
-                htmlFor="party_separator"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="party_separator" className="mb-1 block text-xs font-medium text-slate-700">
                 Separador
               </label>
               <input
@@ -204,29 +263,12 @@ export function TemplateIndexConfigurationSection({
                 value={separator}
                 onChange={(event) => setSeparator(event.target.value)}
                 maxLength={30}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                aria-invalid={!!state.errors?.party_separator}
-                aria-describedby={
-                  state.errors?.party_separator
-                    ? "party_separator_error"
-                    : undefined
-                }
+                className={inputClass}
               />
-              {state.errors?.party_separator && (
-                <p
-                  id="party_separator_error"
-                  className="mt-1 text-sm text-red-700"
-                >
-                  {state.errors.party_separator}
-                </p>
-              )}
             </div>
             <div>
-              <label
-                htmlFor="fixed_suffix"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-              >
-                Texto fijo <span className="font-normal text-slate-500">(opcional)</span>
+              <label htmlFor="fixed_suffix" className="mb-1 block text-xs font-medium text-slate-700">
+                Texto fijo (opcional)
               </label>
               <input
                 id="fixed_suffix"
@@ -234,31 +276,19 @@ export function TemplateIndexConfigurationSection({
                 value={fixedSuffix}
                 onChange={(event) => setFixedSuffix(event.target.value)}
                 maxLength={200}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                aria-invalid={!!state.errors?.fixed_suffix}
-                aria-describedby={
-                  state.errors?.fixed_suffix ? "fixed_suffix_error" : undefined
-                }
+                className={inputClass}
               />
-              {state.errors?.fixed_suffix && (
-                <p
-                  id="fixed_suffix_error"
-                  className="mt-1 text-sm text-red-700"
-                >
-                  {state.errors.fixed_suffix}
-                </p>
-              )}
             </div>
           </div>
 
           {selectedIds.length === 0 && (
-            <label className="mt-5 flex items-start gap-2 text-sm text-slate-700">
+            <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
                 name="allow_empty"
                 checked={allowEmpty}
                 onChange={(event) => setAllowEmpty(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300"
               />
               Confirmo que este machote no requiere Partes para el índice.
             </label>
@@ -270,31 +300,19 @@ export function TemplateIndexConfigurationSection({
             </p>
           )}
 
-          <div className="mt-5 rounded-lg bg-slate-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase text-slate-500">
-              Vista previa
-            </p>
-            <p className="mt-1 min-h-5 text-sm text-slate-900">
-              {preview || "Sin valor generado"}
-            </p>
+          <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase text-slate-500">Vista previa</p>
+            <p className="mt-1 text-sm text-slate-900">{preview || "Sin Partes configuradas"}</p>
           </div>
 
-          {state.message && (
-            <p role="alert" className="mt-4 text-sm text-red-700">
-              {state.message}
-            </p>
-          )}
-          {state.success && (
-            <p role="status" className="mt-4 text-sm text-green-700">
-              Configuración guardada.
-            </p>
-          )}
+          {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
+          {state.success && <p role="status" className="mt-4 text-sm text-green-700">Configuración guardada.</p>}
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-5 flex justify-end">
             <button
               type="submit"
               disabled={pending}
-              className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:opacity-50"
+              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:opacity-50"
             >
               {pending ? "Guardando…" : "Guardar configuración"}
             </button>

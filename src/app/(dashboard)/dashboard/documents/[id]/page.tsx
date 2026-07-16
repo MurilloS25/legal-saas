@@ -26,7 +26,6 @@ import {
 } from "@/features/documents";
 import {
   NotarialMetadataSection,
-  TemplateIndexConfigurationSection,
   generateConfiguredPartiesPreview,
 } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
@@ -135,20 +134,6 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           templateFields={templateFields}
           document={document}
           savedJustNow={saved === "1"}
-        />
-      )}
-
-      {template && (
-        <TemplateIndexConfigurationSection
-          documentId={document.id}
-          templateId={template.id}
-          configuration={indexConfiguration}
-          fields={templateFields.map((field) => ({
-            id: field.id,
-            fieldKey: field.field_key,
-            label: field.label,
-            value: document.field_values[field.field_key] ?? null,
-          }))}
         />
       )}
 

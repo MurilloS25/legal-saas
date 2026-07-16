@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { TemplateWorkspace } from "@/features/templates";
+import { getTemplateIndexConfiguration } from "@/features/notarial-index/server";
+import { TemplateIndexConfigurationSection } from "@/features/notarial-index";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 
@@ -22,7 +24,10 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
 
   if (!template) notFound();
 
-  const fields = await listTemplateFields(template.id);
+  const [fields, indexConfiguration] = await Promise.all([
+    listTemplateFields(template.id),
+    getTemplateIndexConfiguration(template.id),
+  ]);
   // Contenido estructurado si existe; machotes legacy se convierten al
   // cargar (sin tocar el registro hasta que el usuario guarde). Las
   // etiquetas configuradas se aplican a las variables convertidas para que
@@ -94,6 +99,15 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           field_key: field.field_key,
           label: field.label,
           required: field.required,
+        }))}
+      />
+      <TemplateIndexConfigurationSection
+        templateId={template.id}
+        configuration={indexConfiguration}
+        fields={fields.map((field) => ({
+          id: field.id,
+          fieldKey: field.field_key,
+          label: field.label,
         }))}
       />
     </PageContainer>
