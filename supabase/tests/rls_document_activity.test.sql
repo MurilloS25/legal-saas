@@ -149,11 +149,11 @@ select is(
   'Changing status to final records document_finalized'
 );
 
-update public.documents set status = 'ready' where id = '61111111-d000-0000-0000-000000000001';
+update public.documents set status = 'draft' where id = '61111111-d000-0000-0000-000000000001';
 select is(
   rls_act_test.latest_event('61111111-d000-0000-0000-000000000001'),
   'document_reopened',
-  'Reopening from final records document_reopened'
+  'Reopening from final to draft records document_reopened'
 );
 
 update public.documents set client_id = '61111111-c000-0000-0000-000000000001' where id = '61111111-d000-0000-0000-000000000001';

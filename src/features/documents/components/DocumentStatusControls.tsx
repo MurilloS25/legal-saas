@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Controles del ciclo de vida de una escritura: acción guiada según el estado
- * (Borrador → Marcar como listo → Finalizar → Reabrir), con confirmaciones
+ * Controles del ciclo de vida visible de una escritura (Borrador ↔ Finalizada),
+ * con compatibilidad para el estado histórico `ready` y confirmaciones
  * accesibles. No se puede cambiar de estado con cambios locales sin guardar.
  * Finalizar se valida en servidor (bloquea si hay variables pendientes).
  */
@@ -15,9 +15,9 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import {
   markDocumentFinalAction,
-  markDocumentReadyAction,
   reopenDocumentAction,
   returnDocumentToDraftAction,
   type DocumentStatusState,
@@ -151,10 +151,6 @@ const primaryButtonClass =
   "rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
 export function DocumentStatusControls({ documentId, status, dirty }: Props) {
-  const [ready, readyAction, readyPending] = useActionState(
-    markDocumentReadyAction.bind(null, documentId),
-    initialState,
-  );
   const [toDraft, toDraftAction, toDraftPending] = useActionState(
     returnDocumentToDraftAction.bind(null, documentId),
     initialState,
@@ -171,12 +167,7 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
   const [dialog, setDialog] = useState<DialogKind>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const anyPending =
-    readyPending || toDraftPending || finalPending || reopenPending;
-
-  // Los errores de acciones con diálogo se muestran DENTRO del diálogo;
-  // mark_ready no tiene diálogo, así que su error va debajo de los controles.
-  const inlineMessage = ready.message;
+  const anyPending = toDraftPending || finalPending || reopenPending;
 
   // Un diálogo se oculta si su transición ya tuvo éxito (la revalidación
   // refresca el estado y los controles); así se evita setState en un efecto.
@@ -203,17 +194,23 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
 
       {status === "draft" && (
         <button
+          ref={triggerRef}
           type="button"
           disabled={dirty || anyPending}
-          onClick={() => submitAction(readyAction)}
+          onClick={() => setDialog("final")}
           className={primaryButtonClass}
         >
-          {readyPending ? "Aplicando…" : "Marcar como listo para revisar"}
+          Finalizar escritura
         </button>
       )}
 
       {status === "ready" && (
-        <div className="flex flex-wrap gap-2">
+        <div>
+          <p className="mb-2 text-xs text-amber-800">
+            Esta escritura conserva un estado histórico. Puedes finalizarla o
+            devolverla a borrador.
+          </p>
+          <div className="flex flex-wrap gap-2">
           <button
             ref={triggerRef}
             type="button"
@@ -221,7 +218,7 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
             onClick={() => setDialog("final")}
             className={primaryButtonClass}
           >
-            Finalizar
+            Finalizar escritura
           </button>
           <button
             type="button"
@@ -231,14 +228,15 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
           >
             Volver a borrador
           </button>
+          </div>
         </div>
       )}
 
       {status === "final" && (
         <div>
           <p className="text-xs text-slate-500 mb-2">
-            Finalizado es de solo lectura. No significa firmado, presentado ni
-            enviado oficialmente.
+            Finalizada es de solo lectura. No significa firmada, presentada ni
+            enviada oficialmente.
           </p>
           <button
             ref={triggerRef}
@@ -247,8 +245,14 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
             onClick={() => setDialog("reopen")}
             className={secondaryButtonClass}
           >
-            Reabrir Escritura
+            Reabrir escritura
           </button>
+          <Link
+            href={`/dashboard/documents/${documentId}?section=notarial`}
+            className="ml-2 inline-flex rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          >
+            Completar datos del índice
+          </Link>
         </div>
       )}
 
@@ -258,17 +262,11 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
         </p>
       )}
 
-      {inlineMessage && (
-        <p role="alert" className="mt-2 text-xs text-red-700">
-          {inlineMessage}
-        </p>
-      )}
-
       {showFinalDialog && (
         <ConfirmDialog
-          title="¿Finalizar la escritura?"
-          description="Quedará de solo lectura; podrás reabrirla para revisión más adelante. Finalizado no significa firmado, presentado ni enviado oficialmente."
-          confirmLabel="Finalizar"
+          title="Finalizar escritura"
+          description="La escritura quedará bloqueada para edición. Podrás reabrirla posteriormente. Antes de continuar, revisa el contenido y los datos ingresados."
+          confirmLabel="Finalizar escritura"
           pending={finalPending}
           error={final.message}
           onConfirm={() => submitAction(finalAction)}
@@ -280,7 +278,7 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
         <ConfirmDialog
           title="¿Reabrir la escritura?"
           description="La Escritura volverá a estar editable. Podrás finalizarla nuevamente después."
-          confirmLabel="Reabrir Escritura"
+          confirmLabel="Reabrir escritura"
           pending={reopenPending}
           error={reopened.message}
           onConfirm={() => submitAction(reopenAction)}

@@ -9,19 +9,12 @@ import {
 } from "./lifecycle";
 
 describe("canTransition", () => {
-  it("allows the forward and backward review steps", () => {
+  it("allows the simplified draft and final lifecycle", () => {
     expect(canTransition("draft", "ready")).toBe(true);
+    expect(canTransition("draft", "final")).toBe(true);
     expect(canTransition("ready", "draft")).toBe(true);
     expect(canTransition("ready", "final")).toBe(true);
-    expect(canTransition("final", "ready")).toBe(true);
-  });
-
-  it("does not allow draft → final directly", () => {
-    expect(canTransition("draft", "final")).toBe(false);
-  });
-
-  it("does not allow final → draft directly", () => {
-    expect(canTransition("final", "draft")).toBe(false);
+    expect(canTransition("final", "draft")).toBe(true);
   });
 
   it("does not allow no-op transitions", () => {
@@ -52,7 +45,7 @@ describe("isDocumentStatus", () => {
 describe("isActionAllowed", () => {
   it("maps each action to a legal transition from the current status", () => {
     expect(isActionAllowed("draft", "mark_ready")).toBe(true);
-    expect(isActionAllowed("draft", "mark_final")).toBe(false);
+    expect(isActionAllowed("draft", "mark_final")).toBe(true);
     expect(isActionAllowed("ready", "mark_final")).toBe(true);
     expect(isActionAllowed("ready", "return_to_draft")).toBe(true);
     expect(isActionAllowed("final", "reopen")).toBe(true);
@@ -70,5 +63,6 @@ describe("isActionAllowed", () => {
       "mark_final",
       "reopen",
     ]);
+    expect(ACTION_TARGET.reopen).toBe("draft");
   });
 });

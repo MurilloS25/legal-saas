@@ -34,12 +34,16 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; section?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    section?: string;
+    lifecycle?: string;
+  }>;
 };
 
 export default async function DocumentDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { saved, section: requestedSection } = await searchParams;
+  const { saved, section: requestedSection, lifecycle } = await searchParams;
 
   // getDocumentById devuelve null tanto para documentos inexistentes como
   // ajenos: el 404 no revela cuál de los dos casos ocurrió.
@@ -107,6 +111,17 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         savedJustNow={saved === "1"}
         activity={activity}
       />
+
+      {(lifecycle === "finalized" || lifecycle === "reopened") && (
+        <p
+          role="status"
+          className="mb-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-800"
+        >
+          {lifecycle === "finalized"
+            ? "Escritura finalizada correctamente."
+            : "Escritura reabierta como borrador."}
+        </p>
+      )}
 
       {section === "document" && !template ? (
         <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">

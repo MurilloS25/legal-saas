@@ -37,7 +37,7 @@ describe("formatActivityEvent", () => {
       ),
     ).toEqual({
       title: "Estado actualizado",
-      lines: ["De Borrador a Listo para revisar"],
+      lines: ["De Borrador a Revisión pendiente (histórico)"],
     });
   });
 
@@ -46,7 +46,10 @@ describe("formatActivityEvent", () => {
       formatActivityEvent(
         event("document_finalized", { previousStatus: "ready", newStatus: "final" }),
       ),
-    ).toEqual({ title: "Escritura finalizada", lines: ["De Listo para revisar a Finalizado"] });
+    ).toEqual({
+      title: "Escritura finalizada",
+      lines: ["De Revisión pendiente (histórico) a Finalizada"],
+    });
 
     expect(
       formatActivityEvent(

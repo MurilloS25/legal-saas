@@ -15,16 +15,20 @@ const registry = new CleanupRegistry();
 
 const templateName = uniqueName("notarial", "machote");
 const instrumentNumber = 100_000 + Math.floor(Math.random() * 100_000);
-let draftId = "";
+let workingId = "";
 let finalId = "";
 
 function notarialSection(page: Page) {
   return page.getByRole("region", { name: "Datos para índice" });
 }
 
-async function open(page: Page, id: string) {
-  await page.goto(`/dashboard/documents/${id}`);
-  await expect(notarialSection(page)).toBeVisible();
+async function open(page: Page, id: string, section: "document" | "notarial" = "notarial") {
+  await page.goto(
+    section === "notarial"
+      ? `/dashboard/documents/${id}?section=notarial`
+      : `/dashboard/documents/${id}`,
+  );
+  if (section === "notarial") await expect(notarialSection(page)).toBeVisible();
 }
 
 test.describe("notarial index metadata", () => {
@@ -32,7 +36,7 @@ test.describe("notarial index metadata", () => {
     await runCleanup(registry, "notarial");
   });
 
-  test("A: seed a template, a draft and a finalized document", async () => {
+  test("A: seed a template and finalized documents", async () => {
     const template = await createTestTemplate(registry, {
       name: templateName,
       content: "ESCRITURA. Comparece {{parte.nombre}}.",
@@ -43,12 +47,13 @@ test.describe("notarial index metadata", () => {
       required: true,
     });
 
-    const draft = await createTestDocument(registry, template.id, {
-      title: uniqueName("notarial", "borrador"),
+    const working = await createTestDocument(registry, template.id, {
+      title: uniqueName("notarial", "trabajo"),
+      status: "final",
       field_values: { "parte.nombre": "Persona Uno" },
       rendered_content: "ESCRITURA. Comparece Persona Uno.",
     });
-    draftId = draft.id;
+    workingId = working.id;
 
     const final = await createTestDocument(registry, template.id, {
       title: uniqueName("notarial", "final"),
@@ -62,7 +67,7 @@ test.describe("notarial index metadata", () => {
   test("B: the section starts incomplete and can be completed and saved", async ({
     page,
   }) => {
-    await open(page, draftId);
+    await open(page, workingId);
     const section = notarialSection(page);
     await expect(section.getByText("Incompleto", { exact: true })).toBeVisible();
 
@@ -90,7 +95,7 @@ test.describe("notarial index metadata", () => {
   });
 
   test("C: saved metadata persists after reload", async ({ page }) => {
-    await open(page, draftId);
+    await open(page, workingId);
     const section = notarialSection(page);
     await expect(section.getByLabel("Número de instrumento")).toHaveValue(
       String(instrumentNumber),
@@ -105,8 +110,11 @@ test.describe("notarial index metadata", () => {
   test("D: the activity timeline shows the notarial events", async ({
     page,
   }) => {
-    await open(page, draftId);
-    const activity = page.getByRole("region", { name: "Actividad" });
+    await open(page, workingId);
+    await page.getByRole("button", { name: "Historial" }).click();
+    const activity = page.getByRole("dialog", {
+      name: "Historial de la escritura",
+    });
     await expect(
       activity.getByText("Datos para índice creados"),
     ).toBeVisible();
@@ -118,30 +126,15 @@ test.describe("notarial index metadata", () => {
   test("E: reopened content changes require notarial review without replacing overrides", async ({
     page,
   }) => {
-    await open(page, draftId);
+    await open(page, workingId, "document");
 
-    await page
-      .getByRole("button", { name: "Marcar como listo para revisar" })
-      .click();
-    await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "Finalizar" }).click();
-    await page
-      .getByRole("alertdialog", { name: "¿Finalizar la escritura?" })
-      .getByRole("button", { name: "Finalizar" })
-      .click();
-    await expect(
-      page.getByText("Finalizado", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-
-    await page.getByRole("button", { name: "Reabrir Escritura" }).click();
+    await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })
-      .getByRole("button", { name: "Reabrir Escritura" })
+      .getByRole("button", { name: "Reabrir escritura" })
       .click();
     await expect(
-      page.getByText("Listo para revisar", { exact: true }).first(),
+      page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
     await page
@@ -149,6 +142,18 @@ test.describe("notarial index metadata", () => {
       .getByLabel("Parte")
       .fill("Persona Uno Actualizada");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Finalizar escritura" })
+      .getByRole("button", { name: "Finalizar escritura" })
+      .click();
+    await expect(
+      page.getByText("Finalizada", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await page
+      .getByRole("link", { name: "Índice notarial", exact: true })
+      .click();
 
     const section = notarialSection(page);
     await expect(
@@ -165,17 +170,12 @@ test.describe("notarial index metadata", () => {
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
     await expect(
+      page.getByText("Datos del índice guardados.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
       section.getByText(/contenido de la escritura cambió/),
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Finalizar" }).click();
-    await page
-      .getByRole("alertdialog", { name: "¿Finalizar la escritura?" })
-      .getByRole("button", { name: "Finalizar" })
-      .click();
-    await expect(
-      page.getByText("Finalizado", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("F: a finalized document keeps notarial metadata reviewable", async ({
