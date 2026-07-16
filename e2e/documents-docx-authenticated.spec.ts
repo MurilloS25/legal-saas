@@ -130,7 +130,7 @@ test.describe("document docx download", () => {
     ).toBeVisible();
 
     // Guardar reactiva la descarga.
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });

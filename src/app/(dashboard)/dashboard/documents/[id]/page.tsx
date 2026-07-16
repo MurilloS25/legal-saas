@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
   getDocumentById,
@@ -16,14 +15,11 @@ import { listClients } from "@/features/clients/server";
 import { buildFillableFields } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
-import {
-  documentStatusBadgeClass,
-  documentStatusLabel,
-} from "@/features/documents";
 import { listReceivablesByDocument } from "@/features/receivables/server";
 import {
-  DocumentActivity,
   DocumentComposer,
+  DocumentWorkspaceHeader,
+  type DocumentWorkspaceSection,
 } from "@/features/documents";
 import {
   NotarialMetadataSection,
@@ -38,12 +34,12 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; section?: string }>;
 };
 
 export default async function DocumentDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { saved } = await searchParams;
+  const { saved, section: requestedSection } = await searchParams;
 
   // getDocumentById devuelve null tanto para documentos inexistentes como
   // ajenos: el 404 no revela cuál de los dos casos ocurrió.
@@ -93,48 +89,26 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         notarialMetadata.updated_at,
       )
     : false;
+  const section: DocumentWorkspaceSection =
+    requestedSection === "receivables"
+      ? "receivables"
+      : requestedSection === "notarial" && document.status === "final"
+        ? "notarial"
+        : "document";
 
   return (
     <PageContainer>
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-6">
-        <Link
-          href="/dashboard/documents"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Escrituras
-        </Link>
-      </nav>
+      <DocumentWorkspaceHeader
+        documentId={document.id}
+        title={document.title}
+        clientName={document.clients?.full_name ?? null}
+        status={document.status}
+        section={section}
+        savedJustNow={saved === "1"}
+        activity={activity}
+      />
 
-      <div className="mb-6 flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          {document.title}
-        </h1>
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(document.status)}`}
-        >
-          {documentStatusLabel(document.status)}
-        </span>
-      </div>
-      <p className="-mt-4 mb-6 text-sm text-slate-500">
-        Cliente: {document.clients?.full_name ?? "Sin cliente"}
-      </p>
-
-      {!template ? (
+      {section === "document" && !template ? (
         <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">
           <p className="text-sm text-slate-700 mb-2 font-medium">
             El machote de esta escritura ya no está disponible.
@@ -147,7 +121,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
             {document.rendered_content}
           </pre>
         </div>
-      ) : (
+      ) : section === "document" && template ? (
         <DocumentComposerLoader
           templateName={template.name}
           contentJson={template.content_json}
@@ -155,37 +129,30 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           document={document}
           savedJustNow={saved === "1"}
         />
+      ) : null}
+
+      {section === "notarial" && (
+        <NotarialMetadataSection
+          documentId={document.id}
+          metadata={notarialMetadata}
+          prefill={notarialPrefill}
+          readOnly
+          canResetParties={indexConfiguration?.isComplete === true}
+          actNamePreview={template?.name ?? null}
+          generatedPartiesPreview={generatedPartiesPreview}
+          reviewRequired={notarialReviewRequired}
+        />
       )}
 
-      <NotarialMetadataSection
-        documentId={document.id}
-        metadata={notarialMetadata}
-        prefill={notarialPrefill}
-        readOnly={document.status === "final"}
-        canResetParties={indexConfiguration?.isComplete === true}
-        actNamePreview={template?.name ?? null}
-        generatedPartiesPreview={generatedPartiesPreview}
-        reviewRequired={notarialReviewRequired}
-      />
-
-      {/* Cuentas por cobrar vinculadas a esta escritura */}
-      <section aria-label="Cuentas por cobrar de la escritura" className="mt-8">
+      {section === "receivables" && (
+        <section aria-label="Cuentas por cobrar de la escritura">
         <ReceivableMiniList
           receivables={receivables}
           newHref={`/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`}
           emptyText="Esta escritura todavía no tiene cuentas por cobrar."
         />
-      </section>
-
-      {/* key = updated_at: al cambiar la escritura (guardar, cambio de estado)
-          la sección se remonta con la actividad recién revalidada. */}
-      <DocumentActivity
-        key={document.updated_at}
-        documentId={document.id}
-        initialItems={activity.items}
-        initialHasMore={activity.hasMore}
-        initialNextOffset={activity.nextOffset}
-      />
+        </section>
+      )}
     </PageContainer>
   );
 }

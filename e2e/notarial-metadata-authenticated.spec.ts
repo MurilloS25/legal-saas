@@ -148,7 +148,7 @@ test.describe("notarial index metadata", () => {
       .getByRole("region", { name: "Datos de la escritura" })
       .getByLabel("Parte")
       .fill("Persona Uno Actualizada");
-    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     const section = notarialSection(page);
     await expect(
