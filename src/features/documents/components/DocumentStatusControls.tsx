@@ -247,7 +247,7 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
             onClick={() => setDialog("reopen")}
             className={secondaryButtonClass}
           >
-            Reabrir para revisión
+            Reabrir Escritura
           </button>
         </div>
       )}
@@ -278,9 +278,9 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
 
       {showReopenDialog && (
         <ConfirmDialog
-          title="¿Reabrir para revisión?"
-          description="La escritura volverá al estado “Listo para revisar” y podrá editarse de nuevo."
-          confirmLabel="Reabrir"
+          title="¿Reabrir la escritura?"
+          description="La Escritura volverá a estar editable. Podrás finalizarla nuevamente después."
+          confirmLabel="Reabrir Escritura"
           pending={reopenPending}
           error={reopened.message}
           onConfirm={() => submitAction(reopenAction)}

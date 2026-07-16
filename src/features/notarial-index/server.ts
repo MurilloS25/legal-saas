@@ -2,6 +2,7 @@ import "server-only";
 
 export {
   getNotarialMetadata,
+  getNotarialMetadataReviewRequired,
   getNotarialMetadataSuggestions,
 } from "./server/detail-queries";
 export { getTemplateIndexConfiguration } from "./server/template-index-config-queries";

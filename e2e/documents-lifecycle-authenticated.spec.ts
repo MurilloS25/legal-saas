@@ -113,11 +113,16 @@ test.describe("document lifecycle statuses", () => {
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Reabrir para revisión" }).click();
+    await page.getByRole("button", { name: "Reabrir Escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
-      name: "¿Reabrir para revisión?",
+      name: "¿Reabrir la escritura?",
     });
-    await dialog.getByRole("button", { name: "Reabrir" }).click();
+    await expect(
+      dialog.getByText(
+        "La Escritura volverá a estar editable. Podrás finalizarla nuevamente después.",
+      ),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Reabrir Escritura" }).click();
 
     await expect(
       page.getByText("Listo para revisar", { exact: true }).first(),

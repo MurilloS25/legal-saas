@@ -55,6 +55,7 @@ export function DocumentComposerActions({
 
       {documentId && (
         <DocumentStatusControls
+          key={status}
           documentId={documentId}
           status={status}
           dirty={dirty}
