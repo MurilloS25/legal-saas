@@ -5,7 +5,6 @@ import {
   createTestTemplate,
   createTestTemplateField,
   runCleanup,
-  setTestDocumentStatus,
   uniqueName,
 } from "./support/factories";
 
@@ -33,7 +32,7 @@ function metadataSection(page: Page) {
 }
 
 async function open(page: Page, documentId: string) {
-  await page.goto(`/dashboard/documents/${documentId}`);
+  await page.goto(`/dashboard/documents/${documentId}?section=notarial`);
   await expect(metadataSection(page)).toBeVisible();
 }
 
@@ -110,6 +109,7 @@ test.describe("template notarial index configuration", () => {
     firstDocumentId = (
       await createTestDocument(registry, template.id, {
         title: uniqueName("index-config", "primera"),
+        status: "final",
         field_values: {
           "seller.name": "Juan Pérez",
           "buyer.name": "María Rodríguez",
@@ -125,6 +125,7 @@ test.describe("template notarial index configuration", () => {
     secondDocumentId = (
       await createTestDocument(registry, template.id, {
         title: uniqueName("index-config", "segunda"),
+        status: "final",
         field_values: {
           "seller.name": "Ana Mora",
           "buyer.name": "Luis Solano",
@@ -283,7 +284,6 @@ test.describe("template notarial index configuration", () => {
   test("G: finalized documents keep only index metadata editable", async ({
     page,
   }) => {
-    await setTestDocumentStatus(secondDocumentId, "final");
     await open(page, secondDocumentId);
     const section = metadataSection(page);
     await expect(
