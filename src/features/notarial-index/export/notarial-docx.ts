@@ -35,7 +35,12 @@ const HEADERS = [
   "Acto o Contrato",
   "Partes",
 ] as const;
-const COLUMN_WIDTHS = [800, 1100, 1100, 800, 1400, 1100, 3300, 6100] as const;
+const COLUMN_WIDTHS = [700, 950, 950, 750, 1250, 900, 3400, 6300] as const;
+// `docx` swaps the supplied dimensions when landscape is selected. Supplying
+// portrait A4 here produces the intended 16838 x 11906 landscape OOXML page.
+const PAGE_WIDTH_INPUT = 11906;
+const PAGE_HEIGHT_INPUT = 16838;
+const PAGE_MARGIN_HORIZONTAL = 567;
 const CELL_MARGIN = { top: 70, bottom: 70, left: 80, right: 80 };
 const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const BORDERS = {
@@ -171,11 +176,16 @@ export async function generateNotarialIndexDocx({
         properties: {
           page: {
             size: {
-              width: 16838,
-              height: 11906,
+              width: PAGE_WIDTH_INPUT,
+              height: PAGE_HEIGHT_INPUT,
               orientation: PageOrientation.LANDSCAPE,
             },
-            margin: { top: 720, right: 567, bottom: 720, left: 567 },
+            margin: {
+              top: 720,
+              right: PAGE_MARGIN_HORIZONTAL,
+              bottom: 720,
+              left: PAGE_MARGIN_HORIZONTAL,
+            },
           },
         },
         children,

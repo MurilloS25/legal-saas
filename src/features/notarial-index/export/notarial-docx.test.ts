@@ -23,6 +23,17 @@ const row: NotarialIndexRow = {
   is_complete: true,
 };
 
+function wordAttributes(xml: string, tag: string): Record<string, string> {
+  const match = xml.match(new RegExp(`<w:${tag}\\s+([^>]+?)/?>`));
+  if (!match) return {};
+  return Object.fromEntries(
+    [...match[1].matchAll(/w:([\w]+)="([^"]*)"/g)].map((attribute) => [
+      attribute[1],
+      attribute[2],
+    ]),
+  );
+}
+
 describe("notarial index DOCX", () => {
   it("generates a landscape OOXML document with headers and rows", async () => {
     const buffer = await generateNotarialIndexDocx({
@@ -35,7 +46,28 @@ describe("notarial index DOCX", () => {
     const text = extractDocxText(parts.documentXml);
 
     expect(parts.entryNames).toContain("word/document.xml");
-    expect(parts.documentXml).toContain('w:orient="landscape"');
+    const pageSize = wordAttributes(parts.documentXml, "pgSz");
+    const pageMargins = wordAttributes(parts.documentXml, "pgMar");
+    const pageWidth = Number(pageSize.w);
+    const usableWidth =
+      pageWidth - Number(pageMargins.left) - Number(pageMargins.right);
+    const columnWidths = [
+      ...parts.documentXml.matchAll(/<w:gridCol w:w="(\d+)"\/>/g),
+    ].map((match) => Number(match[1]));
+    const tableWidth = Number(wordAttributes(parts.documentXml, "tblW").w);
+
+    expect(pageSize).toMatchObject({
+      w: "16838",
+      h: "11906",
+      orient: "landscape",
+    });
+    expect(pageWidth).toBeGreaterThan(Number(pageSize.h));
+    expect(pageMargins).toMatchObject({ left: "567", right: "567" });
+    expect(columnWidths).toHaveLength(8);
+    expect(columnWidths.reduce((sum, width) => sum + width, 0)).toBe(tableWidth);
+    expect(tableWidth).toBeLessThanOrEqual(usableWidth);
+    expect(columnWidths[6]).toBeGreaterThan(Math.max(...columnWidths.slice(0, 6)));
+    expect(columnWidths[7]).toBeGreaterThan(columnWidths[6]);
     expect(parts.documentXml).toContain("<w:tblHeader/>");
     expect(text).toContain(
       "Índice de instrumentos autorizados por el Notario Abogada Prueba",
