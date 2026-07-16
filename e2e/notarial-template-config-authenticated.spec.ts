@@ -5,6 +5,7 @@ import {
   createTestTemplate,
   createTestTemplateField,
   runCleanup,
+  setTestDocumentStatus,
   uniqueName,
 } from "./support/factories";
 
@@ -19,6 +20,7 @@ let firstDocumentId = "";
 let secondDocumentId = "";
 let templateId = "";
 let sellerFieldId = "";
+const mappedFieldIds: Record<string, string> = {};
 
 function configurationSection(page: Page) {
   return page.getByRole("region", {
@@ -90,12 +92,32 @@ test.describe("template notarial index configuration", () => {
       label: "Nombre del comprador",
       sort_order: 1,
     });
+    for (const [fieldKey, label, sortOrder] of [
+      ["authorized.date", "Fecha autorizada", 2],
+      ["authorized.time", "Hora autorizada", 3],
+      ["protocol.book", "Tomo del protocolo", 4],
+      ["folio.initial", "Folio inicial del instrumento", 5],
+      ["folio.final", "Folio final del instrumento", 6],
+    ] as const) {
+      mappedFieldIds[fieldKey] = (
+        await createTestTemplateField(registry, template.id, {
+          field_key: fieldKey,
+          label,
+          sort_order: sortOrder,
+        })
+      ).id;
+    }
     firstDocumentId = (
       await createTestDocument(registry, template.id, {
         title: uniqueName("index-config", "primera"),
         field_values: {
           "seller.name": "Juan Pérez",
           "buyer.name": "María Rodríguez",
+          "authorized.date": "2026-07-14",
+          "authorized.time": "10:30",
+          "protocol.book": "09",
+          "folio.initial": "40F",
+          "folio.final": "40V",
         },
         rendered_content: "VENDE Juan Pérez A María Rodríguez.",
       })
@@ -106,6 +128,11 @@ test.describe("template notarial index configuration", () => {
         field_values: {
           "seller.name": "Ana Mora",
           "buyer.name": "Luis Solano",
+          "authorized.date": "2026-07-15",
+          "authorized.time": "11:45",
+          "protocol.book": "09",
+          "folio.initial": "41F",
+          "folio.final": "41V",
         },
         rendered_content: "VENDE Ana Mora A Luis Solano.",
       })
@@ -121,8 +148,23 @@ test.describe("template notarial index configuration", () => {
     ).toBeVisible();
 
     await section
-      .getByLabel("Número de instrumento")
+      .getByLabel("Número de instrumento", { exact: true })
       .selectOption(sellerFieldId);
+    await section
+      .getByLabel("Fecha de autorización", { exact: true })
+      .selectOption(mappedFieldIds["authorized.date"]);
+    await section
+      .getByLabel("Hora de autorización", { exact: true })
+      .selectOption(mappedFieldIds["authorized.time"]);
+    await section
+      .getByLabel("Tomo", { exact: true })
+      .selectOption(mappedFieldIds["protocol.book"]);
+    await section
+      .getByLabel("Folio inicial", { exact: true })
+      .selectOption(mappedFieldIds["folio.initial"]);
+    await section
+      .getByLabel("Folio final", { exact: true })
+      .selectOption(mappedFieldIds["folio.final"]);
 
     await section
       .getByRole("checkbox", { name: /Nombre del comprador/ })
@@ -172,8 +214,23 @@ test.describe("template notarial index configuration", () => {
   }) => {
     await open(page, firstDocumentId);
     await expect(configurationSection(page)).toHaveCount(0);
-    await fillStructuredMetadata(page, firstInstrument);
     const section = metadataSection(page);
+    await expect(section.getByLabel("Número de instrumento")).toHaveValue("");
+    await expect(
+      section.getByText(/Valor del machote: “Juan Pérez”/),
+    ).toBeVisible();
+    await expect(section.getByLabel("Fecha y hora de autorización")).toHaveValue(
+      "2026-07-14T10:30",
+    );
+    await expect(section.getByLabel("Tomo")).toHaveValue("09");
+    await expect(section.getByLabel("Folio inicial")).toHaveValue("40F");
+    await expect(section.getByLabel("Folio final")).toHaveValue("40V");
+    await expect(section.getByLabel("Acto o contrato")).toHaveValue(templateName);
+    await expect(section.getByLabel("Partes")).toHaveAttribute(
+      "placeholder",
+      "JUAN PÉREZ Y MARÍA RODRÍGUEZ",
+    );
+    await fillStructuredMetadata(page, firstInstrument);
     await expect(section.getByText("Completo", { exact: true })).toBeVisible();
     await expect(section.getByLabel("Partes")).toHaveAttribute(
       "placeholder",
@@ -192,6 +249,10 @@ test.describe("template notarial index configuration", () => {
       .click();
     await expect(section.getByLabel("Partes")).toHaveValue("PARTE CORREGIDA");
 
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("corrección manual de Partes");
+      await dialog.accept();
+    });
     await section
       .getByRole("button", { name: "Restablecer desde el machote" })
       .click();
@@ -209,10 +270,33 @@ test.describe("template notarial index configuration", () => {
     page,
   }) => {
     await open(page, secondDocumentId);
+    await expect(
+      metadataSection(page).getByLabel("Fecha y hora de autorización"),
+    ).toHaveValue("2026-07-15T11:45");
     await fillStructuredMetadata(page, secondInstrument);
     await expect(metadataSection(page).getByLabel("Partes")).toHaveAttribute(
       "placeholder",
       "ANA MORA Y LUIS SOLANO",
     );
+  });
+
+  test("G: finalized documents keep only index metadata editable", async ({
+    page,
+  }) => {
+    await setTestDocumentStatus(secondDocumentId, "final");
+    await open(page, secondDocumentId);
+    const section = metadataSection(page);
+    await expect(
+      section.getByText(/Puedes corregir estos datos del índice/),
+    ).toBeVisible();
+    await section.getByLabel("Tomo").fill("10");
+    await section
+      .getByRole("button", { name: "Guardar datos del índice" })
+      .click();
+    await expect(section.getByText("Datos del índice guardados.")).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.reload();
+    await expect(metadataSection(page).getByLabel("Tomo")).toHaveValue("10");
   });
 });

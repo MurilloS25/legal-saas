@@ -120,12 +120,23 @@ export async function saveNotarialMetadataAction(
     generated.status === "ready"
       ? generated.value
       : (existing?.generated_parties ?? null);
+  const normalizedValues = {
+    ...values,
+    act_name_override:
+      values.act_name_override === actNameSnapshot
+        ? null
+        : values.act_name_override,
+    parties_override:
+      values.parties_override === generatedParties
+        ? null
+        : values.parties_override,
+  };
 
   const result = existing
     ? await supabase
         .from("document_notarial_metadata")
         .update({
-          ...values,
+          ...normalizedValues,
           act_name_snapshot: actNameSnapshot,
           generated_parties: generatedParties,
         })
@@ -141,7 +152,7 @@ export async function saveNotarialMetadataAction(
           document_id: documentId,
           act_name_snapshot: actNameSnapshot,
           generated_parties: generatedParties,
-          ...values,
+          ...normalizedValues,
         })
         .select("id")
         .single();

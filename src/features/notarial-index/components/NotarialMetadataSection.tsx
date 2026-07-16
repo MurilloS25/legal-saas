@@ -12,12 +12,13 @@ import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
 } from "../server/metadata-actions";
+import type { NotarialMetadata } from "../model/notarial";
 import type {
-  NotarialMetadata,
-  NotarialMetadataSuggestions,
-} from "../model/notarial";
+  NotarialAuthorizedAtPrefill,
+  NotarialMetadataPrefill,
+  NotarialPrefillField,
+} from "../model/prefill";
 import { isNotarialComplete } from "../model/notarial";
-import { isoToCostaRicaLocal } from "../model/datetime";
 import { FieldError } from "@/components/forms/FieldError";
 
 const inputClass =
@@ -29,52 +30,34 @@ const initialState: NotarialMetadataState = {};
 type Props = {
   documentId: string;
   metadata: NotarialMetadata | null;
-  /** true cuando la Escritura está finalizada (solo lectura). */
+  prefill: NotarialMetadataPrefill;
+  /** true cuando el contenido de la Escritura está finalizado. */
   readOnly: boolean;
   canResetParties?: boolean;
   actNamePreview?: string | null;
   generatedPartiesPreview?: string | null;
-  suggestions?: NotarialMetadataSuggestions;
 };
 
 export function NotarialMetadataSection({
   documentId,
   metadata,
+  prefill,
   readOnly,
   canResetParties = false,
   actNamePreview = null,
   generatedPartiesPreview = null,
-  suggestions = {
-    instrumentNumber: null,
-    protocolBook: null,
-    initialFolio: null,
-  },
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
   const [state, formAction, pending] = useActionState(action, initialState);
 
   // Valores controlados para el badge de completitud en vivo.
-  const [instrument, setInstrument] = useState(
-    metadata?.instrument_number
-      ? String(metadata.instrument_number)
-      : suggestions.instrumentNumber
-        ? String(suggestions.instrumentNumber)
-        : "",
-  );
-  const [authorizedAt, setAuthorizedAt] = useState(
-    isoToCostaRicaLocal(metadata?.authorized_at ?? null),
-  );
-  const [protocolBook, setProtocolBook] = useState(
-    metadata?.protocol_book ?? suggestions.protocolBook ?? "",
-  );
-  const [initialFolio, setInitialFolio] = useState(
-    metadata?.initial_folio ?? suggestions.initialFolio ?? "",
-  );
-  const [finalFolio, setFinalFolio] = useState(
-    metadata?.final_folio ?? suggestions.initialFolio ?? "",
-  );
-  const [actName, setActName] = useState(metadata?.act_name_override ?? "");
+  const [instrument, setInstrument] = useState(prefill.instrumentNumber.value);
+  const [authorizedAt, setAuthorizedAt] = useState(prefill.authorizedAt.value);
+  const [protocolBook, setProtocolBook] = useState(prefill.protocolBook.value);
+  const [initialFolio, setInitialFolio] = useState(prefill.initialFolio.value);
+  const [finalFolio, setFinalFolio] = useState(prefill.finalFolio.value);
+  const [actName, setActName] = useState(prefill.actName.value);
   const [parties, setParties] = useState(metadata?.parties_override ?? "");
   const [previousActionState, setPreviousActionState] = useState(state);
   if (state !== previousActionState) {
@@ -173,6 +156,7 @@ export function NotarialMetadataSection({
               id="instrument_number-error"
               message={state.errors?.instrument_number}
             />
+            <PrefillHelp field={prefill.instrumentNumber} />
           </div>
 
           <div>
@@ -195,6 +179,7 @@ export function NotarialMetadataSection({
               id="authorized_at-error"
               message={state.errors?.authorized_at}
             />
+            <AuthorizedAtPrefillHelp field={prefill.authorizedAt} />
             <p className="mt-1 text-xs text-slate-400">
               Hora de Costa Rica.
             </p>
@@ -223,11 +208,7 @@ export function NotarialMetadataSection({
               id="act_name_override-error"
               message={state.errors?.act_name_override}
             />
-            {!metadata?.instrument_number && suggestions.instrumentNumber && (
-              <p className="mt-1 text-xs text-slate-400">
-                Sugerencia editable; el número no queda reservado hasta guardar.
-              </p>
-            )}
+            <PrefillHelp field={prefill.actName} />
             <p className="mt-1 text-xs text-slate-400">
               Si queda vacío, se usa el nombre guardado del machote.
             </p>
@@ -253,6 +234,7 @@ export function NotarialMetadataSection({
               id="protocol_book-error"
               message={state.errors?.protocol_book}
             />
+            <PrefillHelp field={prefill.protocolBook} />
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:col-span-2">
@@ -282,6 +264,7 @@ export function NotarialMetadataSection({
                 id="initial_folio-error"
                 message={state.errors?.initial_folio}
               />
+              <PrefillHelp field={prefill.initialFolio} />
             </div>
             <div>
               <label htmlFor="final_folio" className={labelClass}>
@@ -303,6 +286,7 @@ export function NotarialMetadataSection({
                 id="final_folio-error"
                 message={state.errors?.final_folio}
               />
+              <PrefillHelp field={prefill.finalFolio} />
             </div>
           </div>
 
@@ -333,6 +317,7 @@ export function NotarialMetadataSection({
               id="parties_override-error"
               message={state.errors?.parties_override}
             />
+            <PrefillHelp field={prefill.parties} />
             <p className="mt-1 text-xs text-slate-400">
               Una corrección manual tiene prioridad sobre el valor generado.
             </p>
@@ -363,6 +348,16 @@ export function NotarialMetadataSection({
               name="intent"
               value="reset-parties"
               disabled={pending}
+              onClick={(event) => {
+                if (
+                  metadata.parties_override &&
+                  !window.confirm(
+                    "Se reemplazará la corrección manual de Partes con el valor actual del machote. ¿Deseas continuar?",
+                  )
+                ) {
+                  event.preventDefault();
+                }
+              }}
               className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50"
             >
               Restablecer desde el machote
@@ -381,4 +376,40 @@ export function NotarialMetadataSection({
       </form>
     </section>
   );
+}
+
+function PrefillHelp({ field }: { field: NotarialPrefillField }) {
+  if (field.source !== "template") return null;
+  if (!field.compatible && field.rawValue) {
+    return (
+      <p className="mt-1 text-xs text-amber-700">
+        Valor del machote: “{field.rawValue}”. No se convirtió automáticamente;
+        ajústalo al formato requerido.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-1 text-xs text-slate-500">
+      El valor fue precargado desde el machote. Revísalo y ajústalo al formato
+      requerido para el índice.
+    </p>
+  );
+}
+
+function AuthorizedAtPrefillHelp({
+  field,
+}: {
+  field: NotarialAuthorizedAtPrefill;
+}) {
+  if (field.source !== "template") return null;
+  if (!field.compatible) {
+    const values = [field.rawDate, field.rawTime].filter(Boolean).join(" / ");
+    return (
+      <p className="mt-1 text-xs text-amber-700">
+        Valor del machote: “{values}”. No se convirtió automáticamente; ingresa
+        la fecha y hora en el formato requerido.
+      </p>
+    );
+  }
+  return <PrefillHelp field={field} />;
 }

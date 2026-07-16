@@ -27,6 +27,7 @@ import {
 import {
   NotarialMetadataSection,
   generateConfiguredPartiesPreview,
+  resolveNotarialMetadataPrefill,
 } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
 
@@ -73,6 +74,18 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     })),
     document.field_values,
   );
+  const notarialPrefill = resolveNotarialMetadataPrefill({
+    metadata: notarialMetadata,
+    configuration: indexConfiguration,
+    availableFields: templateFields.map((field) => ({
+      id: field.id,
+      fieldKey: field.field_key,
+    })),
+    fieldValues: document.field_values,
+    templateName: template?.name ?? null,
+    generatedParties: generatedPartiesPreview,
+    suggestions: notarialSuggestions,
+  });
 
   return (
     <PageContainer>
@@ -140,11 +153,11 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       <NotarialMetadataSection
         documentId={document.id}
         metadata={notarialMetadata}
+        prefill={notarialPrefill}
         readOnly={document.status === "final"}
         canResetParties={indexConfiguration?.isComplete === true}
         actNamePreview={template?.name ?? null}
         generatedPartiesPreview={generatedPartiesPreview}
-        suggestions={notarialSuggestions}
       />
 
       {/* Cuentas por cobrar vinculadas a esta escritura */}
