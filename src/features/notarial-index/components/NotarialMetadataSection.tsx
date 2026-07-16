@@ -12,7 +12,10 @@ import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
 } from "../server/metadata-actions";
-import type { NotarialMetadata } from "../model/notarial";
+import type {
+  NotarialMetadata,
+  NotarialMetadataSuggestions,
+} from "../model/notarial";
 import { isNotarialComplete } from "../model/notarial";
 import { isoToCostaRicaLocal } from "../model/datetime";
 import { FieldError } from "@/components/forms/FieldError";
@@ -31,6 +34,7 @@ type Props = {
   canResetParties?: boolean;
   actNamePreview?: string | null;
   generatedPartiesPreview?: string | null;
+  suggestions?: NotarialMetadataSuggestions;
 };
 
 export function NotarialMetadataSection({
@@ -40,6 +44,11 @@ export function NotarialMetadataSection({
   canResetParties = false,
   actNamePreview = null,
   generatedPartiesPreview = null,
+  suggestions = {
+    instrumentNumber: null,
+    protocolBook: null,
+    initialFolio: null,
+  },
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
@@ -47,14 +56,24 @@ export function NotarialMetadataSection({
 
   // Valores controlados para el badge de completitud en vivo.
   const [instrument, setInstrument] = useState(
-    metadata?.instrument_number ? String(metadata.instrument_number) : "",
+    metadata?.instrument_number
+      ? String(metadata.instrument_number)
+      : suggestions.instrumentNumber
+        ? String(suggestions.instrumentNumber)
+        : "",
   );
   const [authorizedAt, setAuthorizedAt] = useState(
     isoToCostaRicaLocal(metadata?.authorized_at ?? null),
   );
-  const [protocolBook, setProtocolBook] = useState(metadata?.protocol_book ?? "");
-  const [initialFolio, setInitialFolio] = useState(metadata?.initial_folio ?? "");
-  const [finalFolio, setFinalFolio] = useState(metadata?.final_folio ?? "");
+  const [protocolBook, setProtocolBook] = useState(
+    metadata?.protocol_book ?? suggestions.protocolBook ?? "",
+  );
+  const [initialFolio, setInitialFolio] = useState(
+    metadata?.initial_folio ?? suggestions.initialFolio ?? "",
+  );
+  const [finalFolio, setFinalFolio] = useState(
+    metadata?.final_folio ?? suggestions.initialFolio ?? "",
+  );
   const [actName, setActName] = useState(metadata?.act_name_override ?? "");
   const [parties, setParties] = useState(metadata?.parties_override ?? "");
   const [previousActionState, setPreviousActionState] = useState(state);
@@ -204,6 +223,11 @@ export function NotarialMetadataSection({
               id="act_name_override-error"
               message={state.errors?.act_name_override}
             />
+            {!metadata?.instrument_number && suggestions.instrumentNumber && (
+              <p className="mt-1 text-xs text-slate-400">
+                Sugerencia editable; el número no queda reservado hasta guardar.
+              </p>
+            )}
             <p className="mt-1 text-xs text-slate-400">
               Si queda vacío, se usa el nombre guardado del machote.
             </p>
@@ -241,7 +265,13 @@ export function NotarialMetadataSection({
                 name="initial_folio"
                 type="text"
                 value={initialFolio}
-                onChange={(event) => setInitialFolio(event.target.value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (finalFolio === "" || finalFolio === initialFolio) {
+                    setFinalFolio(next);
+                  }
+                  setInitialFolio(next);
+                }}
                 className={inputClass}
                 aria-invalid={!!state.errors?.initial_folio}
                 aria-describedby={

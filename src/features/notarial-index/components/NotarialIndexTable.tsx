@@ -20,7 +20,7 @@ import {
 
 type Props = {
   rows: NotarialIndexRow[];
-  query: Pick<NotarialQuery, "page" | "sort">;
+  query: Pick<NotarialQuery, "page">;
   pageCount: number;
   total: number;
 };
@@ -38,7 +38,7 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     DEFAULT_NOTARIAL_COLUMN_VISIBILITY,
   );
-  const { pagination, sorting } = notarialTableState(query.sort, query.page);
+  const { pagination, sorting } = notarialTableState(query.page);
 
   // TanStack Table intentionally exposes mutable-style callbacks that React
   // Compiler cannot safely memoize; this component is opted out above.
@@ -119,10 +119,8 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
                     key={header.id}
                     scope="col"
                     aria-sort={
-                      header.column.id === "authorized_at"
-                        ? query.sort === "recent"
-                          ? "descending"
-                          : "ascending"
+                      header.column.id === "instrument_number"
+                        ? "ascending"
                         : undefined
                     }
                     className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500"

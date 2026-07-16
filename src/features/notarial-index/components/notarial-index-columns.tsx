@@ -5,7 +5,7 @@ import type {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
-import { NOTARIAL_PAGE_SIZE, type NotarialSortValue } from "../model/query";
+import { NOTARIAL_PAGE_SIZE } from "../model/query";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import { formatCostaRicaDate, formatCostaRicaTime } from "../model/datetime";
 
@@ -38,7 +38,7 @@ export const DEFAULT_NOTARIAL_COLUMN_VISIBILITY: VisibilityState = {
   title: false,
 };
 
-export const NOTARIAL_SORTABLE_COLUMN_IDS = ["authorized_at"] as const;
+export const NOTARIAL_SORTABLE_COLUMN_IDS = ["instrument_number"] as const;
 
 export const NOTARIAL_MANUAL_TABLE_OPTIONS = {
   manualFiltering: true,
@@ -47,7 +47,6 @@ export const NOTARIAL_MANUAL_TABLE_OPTIONS = {
 } as const;
 
 export function notarialTableState(
-  sort: NotarialSortValue,
   page: number,
 ): { pagination: PaginationState; sorting: SortingState } {
   return {
@@ -55,7 +54,7 @@ export function notarialTableState(
       pageIndex: Math.max(0, page - 1),
       pageSize: NOTARIAL_PAGE_SIZE,
     },
-    sorting: [{ id: "authorized_at", desc: sort === "recent" }],
+    sorting: [{ id: "instrument_number", desc: false }],
   };
 }
 
@@ -83,14 +82,14 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
     {
       accessorKey: "instrument_number",
       header: NOTARIAL_COLUMN_LABELS.instrument_number,
-      enableSorting: false,
+      enableSorting: true,
       enableHiding: false,
       cell: ({ getValue }) => getValue<string | null>() ?? <EmptyValue />,
     },
     {
       accessorKey: "authorized_at",
       header: NOTARIAL_COLUMN_LABELS.authorized_at,
-      enableSorting: true,
+      enableSorting: false,
       enableHiding: true,
       cell: ({ getValue }) => {
         const value = getValue<string | null>();

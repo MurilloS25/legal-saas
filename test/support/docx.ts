@@ -39,7 +39,9 @@ export async function readDocx(buffer: Buffer | Uint8Array): Promise<DocxParts> 
  * el orden. Útil para verificar el contenido sin acoplarse al XML completo.
  */
 export function extractDocxText(documentXml: string): string {
-  const matches = [...documentXml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)];
+  const matches = [
+    ...documentXml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g),
+  ];
   return matches
     .map((match) =>
       match[1]

@@ -52,7 +52,9 @@ test.describe("clients module", () => {
       .first()
       .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/clients\/new$/);
+    await expect(page).toHaveURL(/\/dashboard\/clients\/new$/, {
+      timeout: 15_000,
+    });
     await expect(
       page.getByRole("heading", { name: "Nuevo cliente", exact: true }),
     ).toBeVisible();

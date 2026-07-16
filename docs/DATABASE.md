@@ -900,6 +900,19 @@ Migration files must:
 
 No migrations should be created until this design is approved.
 
+### Notarial index export history
+
+`notarial_index_exports` stores only minimal operational metadata for an index
+download: owner, `docx` format, selected date bounds, row count, and timestamp.
+It never stores the generated Word file, its contents, a storage path, or full
+escritura text. CSV is not an active format. The owner is always derived from
+`auth.uid()` by the restricted `log_notarial_index_export` RPC.
+
+The export query is owner-only, restricted to one selected Costa Rica
+fortnight, ordered by instrument number with deterministic tie-breakers, and
+limited to 2,000 rows. Exceeding the limit fails explicitly rather than
+returning a partial index.
+
 ## Generated TypeScript Types
 
 The application versions the Supabase-generated public schema types in

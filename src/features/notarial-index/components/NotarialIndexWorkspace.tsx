@@ -4,23 +4,18 @@ import { NotarialToolbar } from "./NotarialToolbar";
 import { NotarialIndexTable } from "./NotarialIndexTable";
 import {
   NOTARIAL_PAGE_SIZE,
-  NOTARIAL_SORT_OPTIONS,
   notarialQueryToParams,
   type NotarialQuery,
 } from "../model/query";
 import { formatCostaRicaDate } from "../model/datetime";
 import type { NotarialIndexPage } from "../server/workspace-queries";
 
-const SORT_OPTIONS = NOTARIAL_SORT_OPTIONS.map((o) => ({
-  value: o.value,
-  label: o.label,
-}));
-
 type Props = {
   query: NotarialQuery;
   page: NotarialIndexPage;
   actTypes: string[];
   lastExportAt: string | null;
+  warnings: { incompleteCount: number; missingFields: string[] };
 };
 
 export function NotarialIndexWorkspace({
@@ -28,8 +23,13 @@ export function NotarialIndexWorkspace({
   page,
   actTypes,
   lastExportAt,
+  warnings,
 }: Props) {
-  const exportParams = notarialQueryToParams({ ...query, page: 1 });
+  const exportParams = {
+    year: String(query.selection.year),
+    month: String(query.selection.month),
+    half: query.selection.half,
+  };
   const exportQs = new URLSearchParams(exportParams).toString();
   const exportHref = exportQs
     ? `/api/notarial-index/export?${exportQs}`
@@ -64,7 +64,7 @@ export function NotarialIndexWorkspace({
           href={exportHref}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
         >
-          Exportar CSV
+          Exportar Word
         </a>
       </div>
 
@@ -81,14 +81,27 @@ export function NotarialIndexWorkspace({
           search: query.search,
           completeness: query.completeness,
           actType: query.actType,
-          from: query.from,
-          to: query.to,
-          sort: query.sort,
+          selection: query.selection,
         }}
         actTypes={actTypes}
-        sortOptions={SORT_OPTIONS}
         hasActiveFilters={query.hasActiveFilters}
       />
+
+      {warnings.incompleteCount > 0 && (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          <p className="font-semibold">
+            {warnings.incompleteCount} registro
+            {warnings.incompleteCount === 1 ? " incompleto" : "s incompletos"}
+          </p>
+          <p className="mt-1">
+            Faltan: {warnings.missingFields.join(", ")}. El Word se puede
+            generar, pero puede requerir edición posterior.
+          </p>
+        </div>
+      )}
 
       {page.total === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
@@ -98,7 +111,7 @@ export function NotarialIndexWorkspace({
                 No hay escrituras finalizadas con esos filtros
               </p>
               <Link
-                href="/dashboard/notarial-index"
+                href={`/dashboard/notarial-index?${exportQs}`}
                 className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
               >
                 Limpiar filtros

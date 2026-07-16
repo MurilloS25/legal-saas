@@ -466,6 +466,8 @@ pnpm e2e:headed   # headed browser
 | `chromium-documents-workspace` | `e2e/documents-workspace-authenticated.spec.ts` | Workspace: search (title/client/template), filters, sort, clear, invalid params, no-results, list download, mobile |
 | `chromium-documents-lifecycle` | `e2e/documents-lifecycle-authenticated.spec.ts` | Status lifecycle: draft↔ready↔final transitions, finalize blocked by pending variables, read-only final, reopen, unsaved-changes gate, status filter, mobile |
 | `chromium-documents-activity` | `e2e/documents-activity-authenticated.spec.ts` | Activity history: creation/client/title/status/word events recorded, timeline order, no event on failed operation, foreign access blocked |
+| `chromium-notarial-workspace` | `e2e/notarial-workspace-authenticated.spec.ts` | Fortnight selection, day 15/16 boundary, fixed instrument order, filters, warnings, pagination, and responsive table |
+| `chromium-notarial-export` | `e2e/notarial-docx-authenticated.spec.ts` | Owner-authenticated `.docx` export, OOXML content, filename/MIME, incomplete rows, empty period, missing profile, anonymous rejection, and retired CSV UI |
 | `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
 
 **Setting up authenticated E2E tests:**

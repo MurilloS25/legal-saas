@@ -26,6 +26,7 @@ const authorizedAt = "2026-07-15T16:35:00.000Z"; // 10:35 CR el 2026-07-15
 let completeId = "";
 let incompleteId = "";
 let missingId = "";
+let secondHalfId = "";
 let draftId = "";
 
 async function seedFinal(
@@ -45,7 +46,7 @@ async function seedFinal(
 
 async function search(page: Page, term: string, extra = "") {
   await page.goto(
-    `/dashboard/notarial-index?search=${encodeURIComponent(term)}${extra}`,
+    `/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${encodeURIComponent(term)}${extra}`,
   );
   await expect(
     page.getByRole("heading", { name: "Índice notarial", exact: true }),
@@ -90,9 +91,16 @@ test.describe("notarial index workspace", () => {
     await setTestDocumentStatus(complete.id, "final");
     completeId = complete.id;
     incompleteId = await seedFinal(template.id, `${token} Incompleto`, {
+      authorized_at: "2026-07-15T17:00:00.000Z",
       appearing_parties_summary: `Solo partes ${token}`,
     });
     missingId = await seedFinal(template.id, `${token} SinDatos`, null);
+    secondHalfId = await seedFinal(template.id, `${token} SegundaQuincena`, {
+      instrument_number: instrument + 1,
+      authorized_at: "2026-07-16T16:35:00.000Z",
+      act_type: actType,
+      appearing_parties_summary: `Segunda quincena ${token}`,
+    });
 
     const draft = await createTestDocument(registry, template.id, {
       title: `${token} Borrador`,
@@ -111,12 +119,13 @@ test.describe("notarial index workspace", () => {
     ).toBeVisible();
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, incompleteId)).toBeVisible();
-    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, missingId)).toHaveCount(0);
+    await expect(rowFor(page, secondHalfId)).toHaveCount(0);
     // Un borrador no aparece en el índice.
     await expect(rowFor(page, draftId)).toHaveCount(0);
   });
 
-  test("C: distinguishes complete / incomplete / missing", async ({ page }) => {
+  test("C: distinguishes complete and incomplete entries in the fortnight", async ({ page }) => {
     await search(page, token);
     await expect(
       rowFor(page, completeId).getByText("Completo", { exact: true }),
@@ -125,7 +134,7 @@ test.describe("notarial index workspace", () => {
       rowFor(page, incompleteId).getByText("Incompleto", { exact: true }),
     ).toBeVisible();
     await expect(
-      rowFor(page, missingId).getByText("Sin datos", { exact: true }),
+      page.getByRole("alert").filter({ hasText: "registro incompleto" }),
     ).toBeVisible();
   });
 
@@ -139,8 +148,8 @@ test.describe("notarial index workspace", () => {
     });
     await expect(table.getByRole("columnheader", { name: "Número" })).toBeVisible();
     await expect(
-      table.getByRole("columnheader", { name: "Fecha y hora" }),
-    ).toHaveAttribute("aria-sort", "descending");
+      table.getByRole("columnheader", { name: "Número" }),
+    ).toHaveAttribute("aria-sort", "ascending");
     await expect(table.getByRole("columnheader", { name: "Cliente" })).toHaveCount(0);
 
     await page.getByText("Columnas", { exact: true }).click();
@@ -162,9 +171,9 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, missingId)).toHaveCount(0);
   });
 
-  test("E: filter by completeness = missing", async ({ page }) => {
+  test("E: missing metadata cannot be assigned to a fortnight", async ({ page }) => {
     await search(page, token, "&completeness=missing");
-    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, missingId)).toHaveCount(0);
     await expect(rowFor(page, completeId)).toHaveCount(0);
   });
 
@@ -174,12 +183,15 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, incompleteId)).toHaveCount(0);
   });
 
-  test("G: date range includes and excludes correctly", async ({ page }) => {
-    await search(page, token, "&from=2026-07-15&to=2026-07-15");
+  test("G: day 15 and day 16 belong to different fortnights", async ({ page }) => {
+    await search(page, token);
     await expect(rowFor(page, completeId)).toBeVisible();
-
-    await search(page, token, "&from=2026-07-16&to=2026-07-16");
+    await expect(rowFor(page, secondHalfId)).toHaveCount(0);
+    await page.goto(
+      `/dashboard/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
+    );
     await expect(rowFor(page, completeId)).toHaveCount(0);
+    await expect(rowFor(page, secondHalfId)).toBeVisible();
   });
 
   test("H: search by instrument number", async ({ page }) => {
@@ -206,7 +218,7 @@ test.describe("notarial index workspace", () => {
 
   test("K: invalid query params are handled safely", async ({ page }) => {
     await page.goto(
-      "/dashboard/notarial-index?from=bad&to=%25%28%29&completeness=x&sort=hack&page=-1",
+      "/dashboard/notarial-index?year=bad&month=99&half=hack&completeness=x&page=-1",
     );
     await expect(
       page.getByRole("heading", { name: "Índice notarial", exact: true }),
@@ -226,7 +238,10 @@ test.describe("notarial index workspace", () => {
 
   test("M: the toolbar is usable on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/dashboard/notarial-index");
+    await page.goto("/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF");
+    await expect(page.getByLabel("Año")).toBeVisible();
+    await expect(page.getByLabel("Mes")).toBeVisible();
+    await expect(page.getByLabel("Quincena")).toBeVisible();
     await expect(page.getByLabel("Buscar")).toBeVisible();
     await expect(page.getByLabel("Completitud")).toBeVisible();
     await expect(
