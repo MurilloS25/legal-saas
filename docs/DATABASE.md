@@ -63,7 +63,7 @@ Candidate tables for the first migration:
 - `templates`
 - `template_fields`
 - `document_metadata`
-- `notarial_records`
+- `document_notarial_metadata`
 - `receivables`
 
 Explicitly excluded from the first migration:
@@ -508,7 +508,7 @@ Relationships:
 - `owner_id` references `auth.users(id)`.
 - `template_id` references `templates(id)`.
 - `client_id` optionally references `clients(id)`.
-- May have one `notarial_records` row.
+- May have one `document_notarial_metadata` row.
 - May be referenced by `receivables`.
 
 Sensitive data:
@@ -531,50 +531,61 @@ Pending questions:
 
 - Decide whether additional document types are needed after initial template workflows are tested.
 
-### `notarial_records`
+### `document_notarial_metadata`
 
 Purpose:
 
-Stores structured metadata required to help prepare a notarial index.
+Stores structured metadata required to help prepare a notarial index. This
+implemented 1:1 table fulfills the responsibility originally proposed as
+`notarial_records`; a second table is intentionally not created.
 
 The application prepares metadata only and does not submit official notarial indexes.
 
-Candidate fields:
+Implemented index fields:
 
 ```txt
 id
 owner_id
-document_metadata_id
-volume
+document_id
+protocol_book
 initial_folio
 final_folio
-deed_number
-deed_date
-deed_time
-act_or_contract
-parties
-period_half
-period_month
-period_year
+instrument_number
+authorized_at
+act_name_snapshot
+act_name_override
+generated_parties
+parties_override
+version
 created_at
 updated_at
 ```
 
-Column type decision:
+Column and derivation decisions:
 
-- `parties` is `text` for the MVP.
+- `instrument_number` is a positive integer.
+- `protocol_book`, `initial_folio`, and `final_folio` remain text so values can
+  preserve leading zeroes and folio suffixes.
+- `authorized_at` is the single structured timestamp used to derive date,
+  time, year, month, and fortnight in `America/Costa_Rica`.
+- Effective act name uses `act_name_override` before `act_name_snapshot`.
+- Effective parties use `parties_override` before `generated_parties`.
+- Snapshot and override values are minimal index-oriented text. They must not
+  contain the full escritura.
+- `version` supports optimistic concurrency when metadata is reviewed.
 
-Initial allowed `period_half` values:
+Derived `period_half` values:
 
 ```txt
-first
-second
+FIRST_HALF
+SECOND_HALF
 ```
 
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
-- `document_metadata_id` references `document_metadata(id)`.
+- `document_id` references `documents(id)` and is unique, enforcing one
+  metadata row per Escritura.
 
 Sensitive data:
 
@@ -592,14 +603,23 @@ RLS need:
 
 Rules:
 
-- All listed notarial record fields are required for the index.
+- Completeness requires tomo, both folios, number, authorization date/time,
+  effective act, and effective parties. Incomplete records remain reviewable.
 - First half-month period: day 1 through day 15.
 - Second half-month period: day 16 through the end of the month.
+- Instrument numbers are unique per owner and Costa Rica calendar year. This
+  prevents accidental duplicate numbers while allowing the sequence to restart
+  in a later year. Legacy non-numeric values must be corrected before the
+  migration can convert the column, avoiding silent data loss.
+- Finalized Escrituras keep their notarial metadata editable because index
+  review and correction happens after document finalization. Ownership and
+  immutable document linkage remain enforced by RLS and database triggers.
 - The system only prepares metadata. It does not send the official index.
 
 Pending questions:
 
-- Decide whether `parties` should become structured JSON after MVP validation.
+- Validate the annual instrument-number uniqueness rule against real workflows
+  before production rollout.
 
 ### `receivables`
 
@@ -735,7 +755,7 @@ auth.users
   │   └─ document_metadata
   ├─ documents
   ├─ document_metadata
-  │   ├─ notarial_records
+  │   ├─ document_notarial_metadata
   │   └─ receivables
   └─ receivables
 ```
@@ -780,7 +800,7 @@ RLS is required for every user-owned table:
 - `template_fields`
 - `documents`
 - `document_metadata`
-- `notarial_records`
+- `document_notarial_metadata`
 - `receivables`
 
 Base policy concept:

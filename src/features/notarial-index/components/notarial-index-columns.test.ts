@@ -13,8 +13,8 @@ describe("notarial index table contract", () => {
     expect(NOTARIAL_COLUMN_IDS).toEqual([
       "instrument_number",
       "authorized_at",
-      "act_type",
-      "appearing_parties_summary",
+      "act_name",
+      "parties",
       "client_name",
       "title",
       "completeness",

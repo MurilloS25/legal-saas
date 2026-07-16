@@ -13,12 +13,13 @@ import {
 
 export type NotarialExportRow = {
   title: string;
-  instrument_number: string | null;
+  instrument_number: number | null;
   authorized_at: string | null;
-  act_type: string | null;
-  book_reference: string | null;
-  folio_reference: string | null;
-  appearing_parties_summary: string | null;
+  act_name: string | null;
+  protocol_book: string | null;
+  initial_folio: string | null;
+  final_folio: string | null;
+  parties: string | null;
   has_metadata: boolean;
   is_complete: boolean;
 };
@@ -42,13 +43,13 @@ function completenessLabel(row: NotarialExportRow): string {
 
 export function notarialRowToCsvCells(row: NotarialExportRow): string[] {
   return [
-    row.instrument_number ?? "",
+    row.instrument_number === null ? "" : String(row.instrument_number),
     formatCostaRicaDate(row.authorized_at),
     formatCostaRicaTime(row.authorized_at),
-    row.act_type ?? "",
-    row.appearing_parties_summary ?? "",
-    row.book_reference ?? "",
-    row.folio_reference ?? "",
+    row.act_name ?? "",
+    row.parties ?? "",
+    row.protocol_book ?? "",
+    [row.initial_folio, row.final_folio].filter(Boolean).join(" - "),
     completenessLabel(row),
     row.title,
   ];

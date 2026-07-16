@@ -3,9 +3,8 @@
 /**
  * Sección "Datos para índice" del detalle de una Escritura: formulario de la
  * metadata notarial interna. La completitud se calcula sobre los campos
- * mínimos (número de instrumento, fecha de autorización, tipo de acto) y es
- * interna al sistema, no una validación legal. Bloqueado cuando la Escritura
- * está finalizada.
+ * estructurados requeridos por el índice interno. Puede corregirse aun cuando
+ * la Escritura esté finalizada, sin alterar el contenido de la Escritura.
  */
 
 import { useActionState, useId, useState } from "react";
@@ -42,17 +41,27 @@ export function NotarialMetadataSection({
 
   // Valores controlados para el badge de completitud en vivo.
   const [instrument, setInstrument] = useState(
-    metadata?.instrument_number ?? "",
+    metadata?.instrument_number ? String(metadata.instrument_number) : "",
   );
   const [authorizedAt, setAuthorizedAt] = useState(
     isoToCostaRicaLocal(metadata?.authorized_at ?? null),
   );
-  const [actType, setActType] = useState(metadata?.act_type ?? "");
+  const [protocolBook, setProtocolBook] = useState(metadata?.protocol_book ?? "");
+  const [initialFolio, setInitialFolio] = useState(metadata?.initial_folio ?? "");
+  const [finalFolio, setFinalFolio] = useState(metadata?.final_folio ?? "");
+  const [actName, setActName] = useState(metadata?.act_name_override ?? "");
+  const [parties, setParties] = useState(metadata?.parties_override ?? "");
 
   const complete = isNotarialComplete({
-    instrument_number: instrument,
+    instrument_number: Number(instrument),
     authorized_at: authorizedAt,
-    act_type: actType,
+    protocol_book: protocolBook,
+    initial_folio: initialFolio,
+    final_folio: finalFolio,
+    act_name_override: actName,
+    act_name_snapshot: metadata?.act_name_snapshot,
+    parties_override: parties,
+    generated_parties: metadata?.generated_parties,
   });
 
   return (
@@ -101,10 +110,12 @@ export function NotarialMetadataSection({
         )}
         {readOnly && (
           <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
-            La escritura está finalizada. Reábrela para editar los datos del
-            índice.
+            La escritura está finalizada. Puedes corregir estos datos del
+            índice sin modificar el contenido de la escritura.
           </div>
         )}
+
+        <input type="hidden" name="version" value={metadata?.version ?? 1} />
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -114,12 +125,18 @@ export function NotarialMetadataSection({
             <input
               id="instrument_number"
               name="instrument_number"
-              type="text"
+              type="number"
+              min={1}
+              step={1}
               value={instrument}
               onChange={(e) => setInstrument(e.target.value)}
-              disabled={readOnly}
               className={inputClass}
               aria-invalid={!!state.errors?.instrument_number}
+              aria-describedby={
+                state.errors?.instrument_number
+                  ? "instrument_number-error"
+                  : undefined
+              }
             />
             <FieldError
               id="instrument_number-error"
@@ -137,9 +154,11 @@ export function NotarialMetadataSection({
               type="datetime-local"
               value={authorizedAt}
               onChange={(e) => setAuthorizedAt(e.target.value)}
-              disabled={readOnly}
               className={inputClass}
               aria-invalid={!!state.errors?.authorized_at}
+              aria-describedby={
+                state.errors?.authorized_at ? "authorized_at-error" : undefined
+              }
             />
             <FieldError
               id="authorized_at-error"
@@ -151,67 +170,129 @@ export function NotarialMetadataSection({
           </div>
 
           <div>
-            <label htmlFor="act_type" className={labelClass}>
-              Tipo de acto
+            <label htmlFor="act_name_override" className={labelClass}>
+              Acto o contrato
             </label>
             <input
-              id="act_type"
-              name="act_type"
+              id="act_name_override"
+              name="act_name_override"
               type="text"
-              value={actType}
-              onChange={(e) => setActType(e.target.value)}
-              disabled={readOnly}
+              value={actName}
+              onChange={(e) => setActName(e.target.value)}
               className={inputClass}
-              placeholder="Ej: Compraventa, Poder especial"
-              aria-invalid={!!state.errors?.act_type}
+              placeholder={metadata?.act_name_snapshot ?? "Nombre del machote"}
+              aria-invalid={!!state.errors?.act_name_override}
+              aria-describedby={
+                state.errors?.act_name_override
+                  ? "act_name_override-error"
+                  : undefined
+              }
             />
-            <FieldError id="act_type-error" message={state.errors?.act_type} />
+            <FieldError
+              id="act_name_override-error"
+              message={state.errors?.act_name_override}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Si queda vacío, se usa el nombre guardado del machote.
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="protocol_book" className={labelClass}>
+              Tomo
+            </label>
+            <input
+              id="protocol_book"
+              name="protocol_book"
+              type="text"
+              value={protocolBook}
+              onChange={(event) => setProtocolBook(event.target.value)}
+              className={inputClass}
+              aria-invalid={!!state.errors?.protocol_book}
+              aria-describedby={
+                state.errors?.protocol_book ? "protocol_book-error" : undefined
+              }
+            />
+            <FieldError
+              id="protocol_book-error"
+              message={state.errors?.protocol_book}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
             <div>
-              <label htmlFor="book_reference" className={labelClass}>
-                Libro/Tomo{" "}
-                <span className="text-slate-400 font-normal">(opcional)</span>
+              <label htmlFor="initial_folio" className={labelClass}>
+                Folio inicial
               </label>
               <input
-                id="book_reference"
-                name="book_reference"
+                id="initial_folio"
+                name="initial_folio"
                 type="text"
-                defaultValue={metadata?.book_reference ?? ""}
-                disabled={readOnly}
+                value={initialFolio}
+                onChange={(event) => setInitialFolio(event.target.value)}
                 className={inputClass}
+                aria-invalid={!!state.errors?.initial_folio}
+                aria-describedby={
+                  state.errors?.initial_folio ? "initial_folio-error" : undefined
+                }
+              />
+              <FieldError
+                id="initial_folio-error"
+                message={state.errors?.initial_folio}
               />
             </div>
             <div>
-              <label htmlFor="folio_reference" className={labelClass}>
-                Folio{" "}
-                <span className="text-slate-400 font-normal">(opcional)</span>
+              <label htmlFor="final_folio" className={labelClass}>
+                Folio final
               </label>
               <input
-                id="folio_reference"
-                name="folio_reference"
+                id="final_folio"
+                name="final_folio"
                 type="text"
-                defaultValue={metadata?.folio_reference ?? ""}
-                disabled={readOnly}
+                value={finalFolio}
+                onChange={(event) => setFinalFolio(event.target.value)}
                 className={inputClass}
+                aria-invalid={!!state.errors?.final_folio}
+                aria-describedby={
+                  state.errors?.final_folio ? "final_folio-error" : undefined
+                }
+              />
+              <FieldError
+                id="final_folio-error"
+                message={state.errors?.final_folio}
               />
             </div>
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="appearing_parties_summary" className={labelClass}>
-              Comparecientes (resumen){" "}
-              <span className="text-slate-400 font-normal">(opcional)</span>
+            <label htmlFor="parties_override" className={labelClass}>
+              Partes
             </label>
             <textarea
-              id="appearing_parties_summary"
-              name="appearing_parties_summary"
+              id="parties_override"
+              name="parties_override"
               rows={3}
-              defaultValue={metadata?.appearing_parties_summary ?? ""}
-              disabled={readOnly}
+              value={parties}
+              onChange={(event) => setParties(event.target.value)}
+              placeholder={
+                metadata?.generated_parties ??
+                "Se generará desde la configuración del machote"
+              }
               className={inputClass + " resize-y"}
+              aria-invalid={!!state.errors?.parties_override}
+              aria-describedby={
+                state.errors?.parties_override
+                  ? "parties_override-error"
+                  : undefined
+              }
             />
+            <FieldError
+              id="parties_override-error"
+              message={state.errors?.parties_override}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Una corrección manual tiene prioridad sobre el valor generado.
+            </p>
           </div>
 
           <div className="sm:col-span-2">
@@ -224,7 +305,6 @@ export function NotarialMetadataSection({
               name="notes"
               rows={2}
               defaultValue={metadata?.notes ?? ""}
-              disabled={readOnly}
               className={inputClass + " resize-y"}
             />
             <p className="mt-1 text-xs text-slate-400">
@@ -233,17 +313,15 @@ export function NotarialMetadataSection({
           </div>
         </div>
 
-        {!readOnly && (
-          <div className="mt-6 flex justify-end">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {pending ? "Guardando…" : "Guardar datos del índice"}
-            </button>
-          </div>
-        )}
+        <div className="mt-6 flex justify-end">
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {pending ? "Guardando…" : "Guardar datos del índice"}
+          </button>
+        </div>
       </form>
     </section>
   );

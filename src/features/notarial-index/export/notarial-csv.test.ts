@@ -9,12 +9,13 @@ import {
 
 const complete: NotarialExportRow = {
   title: "Escritura Uno",
-  instrument_number: "125-2026",
+  instrument_number: 125,
   authorized_at: "2026-07-15T16:35:00.000Z", // 10:35 CR
-  act_type: "Compraventa",
-  book_reference: "Tomo 3",
-  folio_reference: "12",
-  appearing_parties_summary: "Ana, Beto",
+  act_name: "Compraventa",
+  protocol_book: "Tomo 3",
+  initial_folio: "12F",
+  final_folio: "12V",
+  parties: "Ana, Beto",
   has_metadata: true,
   is_complete: true,
 };
@@ -22,7 +23,7 @@ const complete: NotarialExportRow = {
 describe("notarialRowToCsvCells", () => {
   it("maps a complete row to the expected columns", () => {
     const cells = notarialRowToCsvCells(complete);
-    expect(cells[0]).toBe("125-2026");
+    expect(cells[0]).toBe("125");
     expect(cells[1]).toMatch(/2026/);
     expect(cells[2]).toBe("10:35");
     expect(cells[3]).toBe("Compraventa");
@@ -46,9 +47,9 @@ describe("notarialRowToCsvCells", () => {
 });
 
 describe("buildNotarialCsv", () => {
-  it("includes the header, a BOM and neutralizes injection", () => {
+  it("includes the header, a BOM and neutralizes text injection", () => {
     const csv = buildNotarialCsv([
-      { ...complete, instrument_number: "=HYPERLINK(1)" },
+      { ...complete, parties: "=HYPERLINK(1)" },
     ]);
     expect(csv.startsWith("﻿")).toBe(true);
     expect(csv).toContain("Número,Fecha,Hora");

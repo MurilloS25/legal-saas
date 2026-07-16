@@ -18,7 +18,7 @@ const registry = new CleanupRegistry();
 
 const token = uniqueName("niw", "t").split("-").pop() as string;
 const templateName = uniqueName("niw", "machote");
-const instrument = `NI-${token}`;
+const instrument = 600_000 + Math.floor(Math.random() * 100_000);
 const actType = `Compraventa ${token}`;
 const clientName = `Cliente ${token}`;
 const authorizedAt = "2026-07-15T16:35:00.000Z"; // 10:35 CR el 2026-07-15
@@ -183,7 +183,7 @@ test.describe("notarial index workspace", () => {
   });
 
   test("H: search by instrument number", async ({ page }) => {
-    await search(page, instrument);
+    await search(page, String(instrument));
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, missingId)).toHaveCount(0);
   });

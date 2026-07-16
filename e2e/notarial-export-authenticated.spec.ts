@@ -18,7 +18,7 @@ const registry = new CleanupRegistry();
 
 const token = uniqueName("nix", "t").split("-").pop() as string;
 const templateName = uniqueName("nix", "machote");
-const instrument = `=HACK-${token}`; // prefijo de fórmula para probar la mitigación
+const instrument = 700_000 + Math.floor(Math.random() * 100_000);
 const actType = `Poder ${token}`;
 const parties = ` =PARTES-${token}`;
 const secretNote = `SECRETO-${token}`;
@@ -74,8 +74,8 @@ test.describe("notarial index CSV export", () => {
     // Contenido esperado.
     expect(body).toContain(actType);
     expect(body).toContain(parties);
-    // CSV injection neutralizada: la celda con '=' se antepone con apóstrofo.
-    expect(body).toContain(`'=HACK-${token}`);
+    expect(body).toContain(String(instrument));
+    // CSV injection neutralizada: la celda de texto con '=' se antepone con apóstrofo.
     expect(body).toContain(`' =PARTES-${token}`);
     // Las notas internas NO se exportan.
     expect(body).not.toContain(secretNote);

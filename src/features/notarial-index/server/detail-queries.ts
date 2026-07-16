@@ -6,7 +6,7 @@ import { DocumentIdSchema } from "@/features/documents";
 import type { NotarialMetadata } from "../model/notarial";
 
 const SELECT =
-  "instrument_number, authorized_at, act_type, book_reference, folio_reference, appearing_parties_summary, notes";
+  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version";
 
 /** Metadata notarial de una Escritura propia (o null si no existe). */
 export async function getNotarialMetadata(
