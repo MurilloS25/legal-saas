@@ -9,6 +9,14 @@ type Props = {
   rows: ReceivableEntry[];
 };
 
+// Columnas secundarias: se ocultan en viewports angostos para evitar
+// desbordamiento horizontal, en vez de forzar scroll para todas las columnas.
+const RESPONSIVE_HIDDEN: Record<string, string> = {
+  document_title: "hidden lg:table-cell",
+  amount_total: "hidden md:table-cell",
+  due_at: "hidden md:table-cell",
+};
+
 export function ReceivablesTable({ rows }: Props) {
   "use no memo";
 
@@ -45,7 +53,7 @@ export function ReceivablesTable({ rows }: Props) {
                   scope="col"
                   className={`px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${
                     header.column.id === "actions" ? "text-right" : ""
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder
                     ? null
@@ -65,7 +73,7 @@ export function ReceivablesTable({ rows }: Props) {
                     cell.column.id === "concept" || cell.column.id === "client_name"
                       ? "max-w-[14rem] truncate"
                       : "whitespace-nowrap"
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[cell.column.id] ?? ""}`}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>

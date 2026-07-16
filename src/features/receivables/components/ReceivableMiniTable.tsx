@@ -9,6 +9,12 @@ type Props = {
   rows: ReceivableEntry[];
 };
 
+// Columna secundaria: se oculta en viewports angostos para evitar
+// desbordamiento horizontal, en vez de forzar scroll para todas las columnas.
+const RESPONSIVE_HIDDEN: Record<string, string> = {
+  amount_total: "hidden sm:table-cell",
+};
+
 export function ReceivableMiniTable({ rows }: Props) {
   "use no memo";
 
@@ -42,7 +48,7 @@ export function ReceivableMiniTable({ rows }: Props) {
                   scope="col"
                   className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${
                     header.column.id === "actions" ? "text-right" : ""
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder
                     ? null
@@ -56,7 +62,10 @@ export function ReceivableMiniTable({ rows }: Props) {
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id} className="transition-colors hover:bg-slate-50">
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-5 py-4 align-middle whitespace-nowrap">
+                <td
+                  key={cell.id}
+                  className={`px-5 py-4 align-middle whitespace-nowrap ${RESPONSIVE_HIDDEN[cell.column.id] ?? ""}`}
+                >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}
