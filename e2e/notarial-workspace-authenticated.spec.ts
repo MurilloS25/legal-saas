@@ -22,12 +22,14 @@ const instrument = 600_000 + Math.floor(Math.random() * 100_000);
 const actType = `Compraventa ${token}`;
 const clientName = `Cliente ${token}`;
 const authorizedAt = "2026-07-15T16:35:00.000Z"; // 10:35 CR el 2026-07-15
+const liveSearchTerm = `Objetivo Dinámico ${token}`;
 
 let completeId = "";
 let incompleteId = "";
 let missingId = "";
 let secondHalfId = "";
 let draftId = "";
+let liveSearchId = "";
 
 async function seedFinal(
   templateId: string,
@@ -108,6 +110,25 @@ test.describe("notarial index workspace", () => {
       rendered_content: "x",
     });
     draftId = draft.id;
+
+    // Más de una página de resultados para probar que la búsqueda se aplica
+    // en servidor antes de paginar, no solo sobre las filas visibles.
+    const liveInstrumentBase = 200_000 + Math.floor(Math.random() * 10_000);
+    for (let index = 0; index < 16; index += 1) {
+      const document = await createTestDocument(registry, template.id, {
+        title: index === 15 ? liveSearchTerm : `Registro auxiliar ${index}`,
+        field_values: { "parte.nombre": `Persona ${index}` },
+        rendered_content: `Contenido auxiliar ${index}`,
+      });
+      await createTestNotarialMetadata(document.id, {
+        instrument_number: liveInstrumentBase + index,
+        authorized_at: `2026-07-${String((index % 15) + 1).padStart(2, "0")}T16:00:00.000Z`,
+        act_type: "Donación de prueba",
+        appearing_parties_summary: `Parte auxiliar ${index}`,
+      });
+      await setTestDocumentStatus(document.id, "final");
+      if (index === 15) liveSearchId = document.id;
+    }
   });
 
   test("B: shows finalized entries with the disclaimer, excludes drafts", async ({
@@ -198,6 +219,59 @@ test.describe("notarial index workspace", () => {
     await search(page, String(instrument));
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, missingId)).toHaveCount(0);
+  });
+
+  test("H2: live search queries all server rows, resets page and preserves filters", async ({
+    page,
+  }) => {
+    await page.goto(
+      "/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&completeness=complete&page=2",
+    );
+    await expect(page.getByLabel("Buscar")).toBeVisible();
+
+    const input = page.getByLabel("Buscar");
+    await input.fill("Objetivo");
+    await input.fill(liveSearchTerm);
+
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("search"), {
+        timeout: 15_000,
+      })
+      .toBe(liveSearchTerm);
+    const appliedUrl = new URL(page.url());
+    expect(appliedUrl.searchParams.get("page")).toBeNull();
+    expect(appliedUrl.searchParams.get("year")).toBe("2026");
+    expect(appliedUrl.searchParams.get("month")).toBe("7");
+    expect(appliedUrl.searchParams.get("half")).toBe("FIRST_HALF");
+    expect(appliedUrl.searchParams.get("completeness")).toBe("complete");
+    await expect(rowFor(page, liveSearchId)).toBeVisible();
+
+    const filters = page.getByRole("group", {
+      name: "Filtros del índice notarial",
+    });
+    await expect(filters).toHaveAttribute("aria-busy", "false");
+    const exportUrl = new URL(
+      (await page.getByRole("link", { name: "Exportar Word" }).getAttribute("href")) ??
+        "",
+      "http://localhost:3000",
+    );
+    expect(exportUrl.searchParams.get("search")).toBe(liveSearchTerm);
+    expect(exportUrl.searchParams.get("completeness")).toBe("complete");
+
+    await page.getByLabel("Completitud").selectOption("");
+    await expect(page).not.toHaveURL(/completeness=complete/);
+    await page.goBack();
+    await expect(page.getByLabel("Buscar")).toHaveValue(liveSearchTerm);
+    await expect(page.getByLabel("Completitud")).toHaveValue("complete");
+    await page.goForward();
+    await expect(page.getByLabel("Buscar")).toHaveValue(liveSearchTerm);
+    await expect(page.getByLabel("Completitud")).toHaveValue("");
+    await page.goBack();
+    await expect(page.getByLabel("Completitud")).toHaveValue("complete");
+
+    await page.getByRole("button", { name: "Limpiar búsqueda" }).click();
+    await expect(page).not.toHaveURL(/(?:\?|&)search=/, { timeout: 15_000 });
+    expect(new URL(page.url()).searchParams.get("completeness")).toBe("complete");
   });
 
   test("I: special-character-only search does not broaden results", async ({

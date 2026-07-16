@@ -25,12 +25,14 @@ export function NotarialIndexWorkspace({
   lastExportAt,
   warnings,
 }: Props) {
-  const exportParams = {
+  const periodParams = {
     year: String(query.selection.year),
     month: String(query.selection.month),
     half: query.selection.half,
   };
+  const exportParams = notarialQueryToParams({ ...query, page: 1 });
   const exportQs = new URLSearchParams(exportParams).toString();
+  const periodQs = new URLSearchParams(periodParams).toString();
   const exportHref = exportQs
     ? `/api/notarial-index/export?${exportQs}`
     : "/api/notarial-index/export";
@@ -77,6 +79,7 @@ export function NotarialIndexWorkspace({
       </div>
 
       <NotarialToolbar
+        key={query.search}
         initial={{
           search: query.search,
           completeness: query.completeness,
@@ -111,7 +114,7 @@ export function NotarialIndexWorkspace({
                 No hay escrituras finalizadas con esos filtros
               </p>
               <Link
-                href={`/dashboard/notarial-index?${exportQs}`}
+                href={`/dashboard/notarial-index?${periodQs}`}
                 className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
               >
                 Limpiar filtros

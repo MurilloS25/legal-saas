@@ -27,7 +27,7 @@ export default async function NotarialIndexPage({ searchParams }: Props) {
     listNotarialIndex(query),
     listNotarialActTypes(),
     getLatestNotarialExportAt(),
-    listNotarialIndexForExport(query.selection),
+    listNotarialIndexForExport(query),
   ]);
 
   if (page.total > 0 && query.page > page.pageCount) {

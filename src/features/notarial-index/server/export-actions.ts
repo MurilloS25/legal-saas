@@ -9,14 +9,14 @@ import {
   fortnightDateBounds,
   parseFortnightSelection,
 } from "../model/fortnight";
+import { parseNotarialQuery, type RawNotarialQuery } from "../model/query";
 import { notarialIndexFilename } from "../model/formatters";
 import { queryNotarialIndexForExport } from "./export-queries";
 
-export type RawNotarialExportQuery = {
-  year?: string;
-  month?: string;
-  half?: string;
-};
+export type RawNotarialExportQuery = Pick<
+  RawNotarialQuery,
+  "year" | "month" | "half" | "search" | "completeness" | "act_type"
+>;
 
 export type NotarialDocxExport = {
   body: Uint8Array<ArrayBuffer>;
@@ -31,6 +31,7 @@ export async function prepareNotarialDocxExport(
   if (!selection) {
     throw new ValidationError("Selecciona un año, mes y quincena válidos.");
   }
+  const query = parseNotarialQuery(rawQuery);
 
   const { supabase, user } = await requireApiUser();
   const [{ data: profile, error: profileError }, exportData] = await Promise.all([
@@ -39,7 +40,7 @@ export async function prepareNotarialDocxExport(
       .select("full_name")
       .eq("owner_id", user.id)
       .maybeSingle(),
-    queryNotarialIndexForExport(supabase, user.id, selection),
+    queryNotarialIndexForExport(supabase, user.id, query),
   ]);
   if (profileError) throwDataAccessError("load notary profile for export", profileError);
   const notaryName = profile?.full_name?.trim();
@@ -51,13 +52,13 @@ export async function prepareNotarialDocxExport(
 
   const buffer = await generateNotarialIndexDocx({
     rows: exportData.rows,
-    selection,
+    selection: query.selection,
     notaryName,
   });
   const bounds = fortnightDateBounds(
-    selection.year,
-    selection.month,
-    selection.half,
+    query.selection.year,
+    query.selection.month,
+    query.selection.half,
   );
 
   type LogExportArgs =
@@ -78,7 +79,7 @@ export async function prepareNotarialDocxExport(
     );
   }
 
-  const filename = notarialIndexFilename(selection);
+  const filename = notarialIndexFilename(query.selection);
   return {
     body: new Uint8Array(buffer),
     contentType: DOCX_MIME,
