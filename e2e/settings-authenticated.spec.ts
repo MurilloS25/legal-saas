@@ -19,7 +19,42 @@ test.describe("authenticated flows", () => {
     ).toBeVisible();
   });
 
-  test("B: authenticated user reaches /dashboard/settings", async ({
+  test("B: dashboard exposes every active module without duplicate future links", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    const modules = [
+      ["Clientes", "/dashboard/clients"],
+      ["Machotes", "/dashboard/templates"],
+      ["Escrituras", "/dashboard/documents"],
+      ["Índice Notarial", "/dashboard/notarial-index"],
+      ["Cuentas por cobrar", "/dashboard/receivables"],
+      ["Configuración", "/dashboard/settings"],
+    ] as const;
+
+    for (const [label, href] of modules) {
+      await expect(
+        page
+          .getByRole("main")
+          .getByRole("link", { name: new RegExp(`^${label}(?:\\s|$)`) }),
+      ).toHaveAttribute("href", href);
+    }
+    await expect(page.getByText("Próximamente", { exact: true })).toHaveCount(0);
+
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: /^Índice Notarial(?:\s|$)/ })
+      .click();
+    await expect(page).toHaveURL(/\/dashboard\/notarial-index$/);
+    await page.goto("/dashboard");
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: /^Cuentas por cobrar(?:\s|$)/ })
+      .click();
+    await expect(page).toHaveURL(/\/dashboard\/receivables$/);
+  });
+
+  test("C: authenticated user reaches /dashboard/settings", async ({
     page,
   }) => {
     await page.goto("/dashboard/settings");
@@ -31,7 +66,7 @@ test.describe("authenticated flows", () => {
     ).toBeVisible();
   });
 
-  test("C: user can save lawyer profile", async ({ page }) => {
+  test("D: user can save lawyer profile", async ({ page }) => {
     await page.goto("/dashboard/settings");
 
     const name = `E2E Lawyer ${Date.now()}`;
@@ -48,7 +83,7 @@ test.describe("authenticated flows", () => {
     });
   });
 
-  test("D: user can save document settings", async ({ page }) => {
+  test("E: user can save document settings", async ({ page }) => {
     await page.goto("/dashboard/settings");
 
     // exact: true distinguishes "Fuente" from "Tamaño de fuente (pt)".
@@ -70,7 +105,7 @@ test.describe("authenticated flows", () => {
     });
   });
 
-  test("E: saved profile persists after page reload", async ({ page }) => {
+  test("F: saved profile persists after page reload", async ({ page }) => {
     await page.goto("/dashboard/settings");
 
     const name = `E2E Persist ${Date.now()}`;
@@ -84,7 +119,7 @@ test.describe("authenticated flows", () => {
     await expect(page.getByLabel("Nombre completo")).toHaveValue(name);
   });
 
-  test("F: user can log out and is redirected to /login", async ({ page }) => {
+  test("G: user can log out and is redirected to /login", async ({ page }) => {
     await page.goto("/dashboard");
 
     // "Cerrar sesión" is the logout button in the sidebar.

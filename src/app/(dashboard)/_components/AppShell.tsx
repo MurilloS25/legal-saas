@@ -60,8 +60,6 @@ const ACTIVE_LINKS = [
   { label: "Configuración", href: "/dashboard/settings" },
 ] as const;
 
-const FUTURE_LABELS = ["Cuentas por Cobrar"] as const;
-
 // ------------------------------------------------------------------ SidebarNav
 
 function SidebarNav({
@@ -97,21 +95,6 @@ function SidebarNav({
         );
       })}
 
-      <div className="mt-5 mb-1.5 px-3">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Próximamente
-        </p>
-      </div>
-
-      {FUTURE_LABELS.map((label) => (
-        <span
-          key={label}
-          className="flex items-center rounded-lg px-3 py-2 text-sm text-slate-400 cursor-default select-none"
-          aria-disabled="true"
-        >
-          {label}
-        </span>
-      ))}
     </>
   );
 }

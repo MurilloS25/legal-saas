@@ -48,12 +48,14 @@ const MODULE_CARDS: ModuleCard[] = [
   {
     label: "Índice Notarial",
     description: "Preparación de metadata para el índice notarial.",
-    active: false,
+    href: "/dashboard/notarial-index",
+    active: true,
   },
   {
-    label: "Cuentas por Cobrar",
+    label: "Cuentas por cobrar",
     description: "Control básico de honorarios y cobros pendientes.",
-    active: false,
+    href: "/dashboard/receivables",
+    active: true,
   },
 ];
 
