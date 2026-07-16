@@ -10,6 +10,15 @@ type Props = {
   rows: ReceivablePayment[];
 };
 
+// Columnas secundarias: se ocultan en viewports angostos para evitar
+// desbordamiento horizontal, en vez de forzar scroll para todas las columnas.
+// La moneda ya aparece formateada dentro del monto, así que es la primera
+// en ocultarse.
+const RESPONSIVE_HIDDEN: Record<string, string> = {
+  currency: "hidden sm:table-cell",
+  reference: "hidden md:table-cell",
+};
+
 export function PaymentsTable({ receivableId, rows }: Props) {
   "use no memo";
 
@@ -41,7 +50,7 @@ export function PaymentsTable({ receivableId, rows }: Props) {
                   scope="col"
                   className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${
                     header.column.id === "actions" ? "text-right" : ""
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder
                     ? null
@@ -59,7 +68,7 @@ export function PaymentsTable({ receivableId, rows }: Props) {
                   key={cell.id}
                   className={`px-5 py-4 align-middle ${
                     cell.column.id === "status" ? "" : "whitespace-nowrap"
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[cell.column.id] ?? ""}`}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>

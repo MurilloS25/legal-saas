@@ -9,6 +9,12 @@ type Props = {
   rows: ClientRow[];
 };
 
+// Columna secundaria: se oculta en viewports angostos para evitar
+// desbordamiento horizontal, en vez de forzar scroll para todas las columnas.
+const RESPONSIVE_HIDDEN: Record<string, string> = {
+  occupation: "hidden sm:table-cell",
+};
+
 export function ClientsTable({ rows }: Props) {
   "use no memo";
 
@@ -37,7 +43,7 @@ export function ClientsTable({ rows }: Props) {
                   scope="col"
                   className={`px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 ${
                     header.column.id === "actions" ? "text-right w-16" : ""
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder
                     ? null
@@ -51,7 +57,10 @@ export function ClientsTable({ rows }: Props) {
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id} className="transition-colors hover:bg-slate-50">
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-6 py-4 align-middle">
+                <td
+                  key={cell.id}
+                  className={`px-6 py-4 align-middle ${RESPONSIVE_HIDDEN[cell.column.id] ?? ""}`}
+                >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}

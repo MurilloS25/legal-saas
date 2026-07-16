@@ -9,6 +9,13 @@ type Props = {
   rows: WorkspaceDocumentRow[];
 };
 
+// Columnas secundarias: se ocultan en viewports angostos para evitar
+// desbordamiento horizontal, en vez de forzar scroll para todas las columnas.
+const RESPONSIVE_HIDDEN: Record<string, string> = {
+  template: "hidden md:table-cell",
+  updated_at: "hidden md:table-cell",
+};
+
 export function DocumentsTable({ rows }: Props) {
   "use no memo";
 
@@ -40,7 +47,7 @@ export function DocumentsTable({ rows }: Props) {
                   scope="col"
                   className={`px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 ${
                     header.column.id === "actions" ? "text-right" : ""
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder
                     ? null
@@ -60,7 +67,7 @@ export function DocumentsTable({ rows }: Props) {
                     cell.column.id === "client" || cell.column.id === "template"
                       ? "max-w-[16rem] truncate text-slate-500"
                       : ""
-                  }`}
+                  } ${RESPONSIVE_HIDDEN[cell.column.id] ?? ""}`}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>

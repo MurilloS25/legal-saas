@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { listDocumentsPage } from "@/features/documents/server";
 import { listClients } from "@/features/clients/server";
 import { listTemplateOptions } from "@/features/templates/server";
@@ -132,42 +133,12 @@ export default async function DocumentsPage({ searchParams }: Props) {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <DocumentsTable rows={page.rows} />
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-3">
-            <p className="text-xs text-slate-500">
-              {`${rangeStart}–${rangeEnd} de ${page.total}`}
-            </p>
-            {page.pageCount > 1 && (
-              <nav aria-label="Paginación" className="flex items-center gap-2">
-                {query.page > 1 ? (
-                  <Link
-                    href={pageHref(query.page - 1)}
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
-                  >
-                    Anterior
-                  </Link>
-                ) : (
-                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-300">
-                    Anterior
-                  </span>
-                )}
-                <span className="text-xs text-slate-500">
-                  Página {query.page} de {page.pageCount}
-                </span>
-                {query.page < page.pageCount ? (
-                  <Link
-                    href={pageHref(query.page + 1)}
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
-                  >
-                    Siguiente
-                  </Link>
-                ) : (
-                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-300">
-                    Siguiente
-                  </span>
-                )}
-              </nav>
-            )}
-          </div>
+          <TablePagination
+            page={query.page}
+            pageCount={page.pageCount}
+            countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
+            pageHref={pageHref}
+          />
         </div>
       )}
     </PageContainer>
