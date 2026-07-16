@@ -12,6 +12,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       year: searchParams.get("year") ?? undefined,
       month: searchParams.get("month") ?? undefined,
       half: searchParams.get("half") ?? undefined,
+      search: searchParams.get("search") ?? undefined,
+      completeness: searchParams.get("completeness") ?? undefined,
+      act_type: searchParams.get("act_type") ?? undefined,
     });
     return new NextResponse(result.body, {
       status: 200,

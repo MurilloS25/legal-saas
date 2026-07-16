@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FortnightSelection } from "../model/fortnight";
+import {
+  applyNotarialNavigationChanges,
+  type NotarialNavigationChanges,
+} from "../model/navigation";
 
 type Props = {
   initial: {
@@ -34,28 +38,42 @@ const MONTHS = [
 
 export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState(initial.search);
+  const [isPending, startTransition] = useTransition();
+  const currentQuery = searchParams.toString();
 
-  function navigate(next: {
-    search?: string;
-    completeness?: string | null;
-    actType?: string | null;
-    selection?: FortnightSelection;
-  }) {
-    const merged = { ...initial, search, ...next };
-    const params = new URLSearchParams({
-      year: String(merged.selection.year),
-      month: String(merged.selection.month),
-      half: merged.selection.half,
-    });
-    if (merged.search.trim()) params.set("search", merged.search.trim());
-    if (merged.completeness) params.set("completeness", merged.completeness);
-    if (merged.actType) params.set("act_type", merged.actType);
-    router.push(`/dashboard/notarial-index?${params.toString()}`);
-  }
+  const navigate = useCallback(
+    (next: NotarialNavigationChanges, replace = false) => {
+      const params = applyNotarialNavigationChanges(
+        new URLSearchParams(currentQuery),
+        next,
+      );
+      const href = params.size > 0 ? `${pathname}?${params.toString()}` : pathname;
+      startTransition(() => {
+        if (replace) router.replace(href, { scroll: false });
+        else router.push(href, { scroll: false });
+      });
+    },
+    [currentQuery, pathname, router],
+  );
+
+  useEffect(() => {
+    if (search.trim() === initial.search) return;
+    const timeout = window.setTimeout(() => {
+      navigate({ search }, true);
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [initial.search, navigate, search]);
 
   return (
-    <div className="mb-6 space-y-3">
+    <div
+      role="group"
+      aria-label="Filtros del índice notarial"
+      className="mb-6 space-y-3"
+      aria-busy={isPending}
+    >
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
           <label htmlFor="ni-year" className="mb-1 block text-xs font-medium text-slate-600">
@@ -132,27 +150,35 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
           role="search"
           onSubmit={(event) => {
             event.preventDefault();
-            navigate({});
+            navigate({ search }, true);
           }}
         >
           <label htmlFor="ni-search" className="mb-1 block text-xs font-medium text-slate-600">
             Buscar
           </label>
-          <div className="flex gap-2">
+          <div className="relative">
             <input
               id="ni-search"
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Número, acto, partes"
-              className={`${controlClass} w-full`}
+              className={`${controlClass} w-full pr-10`}
             />
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-            >
-              Buscar
-            </button>
+            {search !== "" && (
+              <button
+                type="button"
+                aria-label="Limpiar búsqueda"
+                title="Limpiar búsqueda"
+                onClick={() => {
+                  setSearch("");
+                  navigate({ search: "" }, true);
+                }}
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-lg text-slate-500 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            )}
           </div>
         </form>
 
@@ -206,6 +232,13 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
             Limpiar filtros
           </button>
         )}
+        <span
+          role="status"
+          aria-live="polite"
+          className={`pb-2 text-xs text-slate-500 ${isPending ? "visible" : "invisible"}`}
+        >
+          Actualizando resultados…
+        </span>
       </div>
     </div>
   );

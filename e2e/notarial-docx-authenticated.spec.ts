@@ -98,6 +98,20 @@ test.describe("notarial index DOCX export", () => {
     expect(text).toContain("NOTARIA PRUEBA E2E");
   });
 
+  test("applies the visible server filters to the exported DOCX", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      `/api/notarial-index/export?${selection}&search=800001`,
+    );
+    expect(response.status()).toBe(200);
+    const text = extractDocxText(
+      (await readDocx(await response.body())).documentXml,
+    );
+    expect(text).toContain("800001");
+    expect(text).not.toContain("800002");
+  });
+
   test("removes CSV from the user-facing workflow", async ({ page }) => {
     await page.goto(`/dashboard/notarial-index?${selection}`);
     await expect(page.getByText(/CSV/i)).toHaveCount(0);
