@@ -1,48 +1,11 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { listTemplates } from "@/features/templates/server";
+import { TemplatesTable } from "@/features/templates";
 
 export const metadata = {
   title: "Machotes — LexCR",
 };
-
-// ------------------------------------------------------------------ status badge
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft: {
-    label: "Borrador",
-    className: "bg-slate-100 text-slate-600",
-  },
-  active: {
-    label: "Activo",
-    className: "bg-teal-50 text-teal-700",
-  },
-  archived: {
-    label: "Archivado",
-    className: "bg-amber-50 text-amber-700",
-  },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft;
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className}`}
-    >
-      {config.label}
-    </span>
-  );
-}
-
-// ------------------------------------------------------------------ date formatter
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-CR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 // ------------------------------------------------------------------ page
 
@@ -121,83 +84,7 @@ export default async function TemplatesPage() {
       ) : (
         /* ---- templates table ---- */
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {/* Column headers — desktop only */}
-          <div className="hidden sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] px-6 py-3 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Machote
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Estado
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Actualizado
-            </span>
-            <span className="w-10" />
-          </div>
-
-          <ul role="list" className="divide-y divide-slate-100">
-            {templates.map((template) => (
-              <li key={template.id} className="group">
-                <div className="flex items-center gap-3 px-6 py-4 transition-colors hover:bg-slate-50 sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                  {/* Name (link to detail) */}
-                  <Link
-                    href={`/dashboard/templates/${template.id}`}
-                    className="flex min-w-0 flex-1 flex-col focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 rounded"
-                  >
-                    <p className="text-sm font-medium text-slate-900 truncate group-hover:text-teal-700 transition-colors">
-                      {template.name}
-                    </p>
-                    {template.description && (
-                      <p className="text-xs text-slate-500 truncate">
-                        {template.description}
-                      </p>
-                    )}
-                    {/* Mobile: sub-info */}
-                    <p className="text-xs text-slate-400 sm:hidden mt-0.5">
-                      {STATUS_CONFIG[template.status]?.label ?? template.status} ·{" "}
-                      {formatDate(template.updated_at)}
-                    </p>
-                  </Link>
-
-                  {/* Status — desktop */}
-                  <span className="hidden sm:flex items-center">
-                    <StatusBadge status={template.status} />
-                  </span>
-
-                  {/* Updated at — desktop */}
-                  <span className="hidden sm:block text-sm text-slate-500">
-                    {formatDate(template.updated_at)}
-                  </span>
-
-                  {/* Chevron */}
-                  <div className="flex items-center shrink-0">
-                    <Link
-                      href={`/dashboard/templates/${template.id}`}
-                      aria-label={`Abrir machote ${template.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-colors"
-                      tabIndex={-1}
-                      aria-hidden="true"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="15"
-                        height="15"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </Link>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <TemplatesTable rows={templates} />
 
           {/* Footer */}
           <div className="border-t border-slate-100 bg-slate-50 px-6 py-3">

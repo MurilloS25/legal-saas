@@ -4,20 +4,15 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { listDocumentsPage } from "@/features/documents/server";
 import { listClients } from "@/features/clients/server";
 import { listTemplateOptions } from "@/features/templates/server";
-import {
-  documentStatusBadgeClass,
-  documentStatusLabel,
-  DOCUMENT_STATUS_LABEL,
-} from "@/features/documents";
+import { DOCUMENT_STATUS_LABEL } from "@/features/documents";
 import {
   DOCUMENT_SORT_OPTIONS,
   DOCUMENTS_PAGE_SIZE,
   documentsQueryToParams,
   parseDocumentsQuery,
   type RawDocumentsQuery,
-  DeleteDocumentButton,
+  DocumentsTable,
   DocumentsToolbar,
-  DownloadDocxButton,
 } from "@/features/documents";
 
 export const metadata = {
@@ -25,14 +20,6 @@ export const metadata = {
 };
 
 // ------------------------------------------------------------------ helpers
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-CR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 const newDocumentButtonClass =
   "inline-flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors";
@@ -143,77 +130,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
         )
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="hidden sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-3 px-6 py-3 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Escritura
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Cliente
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Machote
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Estado
-            </span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Actualizada
-            </span>
-            <span className="w-40" />
-          </div>
-
-          <ul role="list" className="divide-y divide-slate-100">
-            {page.rows.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex flex-col gap-2 px-6 py-4 sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-3 hover:bg-slate-50 transition-colors"
-              >
-                <p className="text-sm font-medium text-slate-900 truncate">
-                  {doc.title}
-                </p>
-
-                <p className="text-sm text-slate-500 truncate">
-                  {doc.clients?.full_name ?? (
-                    <span className="text-slate-400">Sin cliente</span>
-                  )}
-                </p>
-
-                <p className="text-sm text-slate-500 truncate">
-                  {doc.templates?.name ?? "—"}
-                </p>
-
-                <span
-                  className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(doc.status)}`}
-                >
-                  {documentStatusLabel(doc.status)}
-                </span>
-
-                <p className="text-sm text-slate-500">
-                  {formatDate(doc.updated_at)}
-                </p>
-
-                <div className="flex items-center gap-1">
-                  <Link
-                    href={`/dashboard/documents/${doc.id}`}
-                    className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
-                  >
-                    {doc.status === "final" ? "Ver" : "Continuar"}
-                  </Link>
-                  <DownloadDocxButton
-                    documentId={doc.id}
-                    disabled={false}
-                    pendingVariableCount={doc.pendingVariableCount}
-                    variant="compact"
-                    ariaLabel={`Descargar Word de ${doc.title}`}
-                  />
-                  <DeleteDocumentButton
-                    documentId={doc.id}
-                    documentTitle={doc.title}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <DocumentsTable rows={page.rows} />
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-3">
             <p className="text-xs text-slate-500">

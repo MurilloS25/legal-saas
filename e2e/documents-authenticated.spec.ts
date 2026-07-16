@@ -37,7 +37,7 @@ async function openDocumentsHome(page: Page) {
 }
 
 function draftRow(page: Page, title: string) {
-  return page.locator("li").filter({ hasText: title });
+  return page.locator("tbody tr").filter({ hasText: title });
 }
 
 /** Hoja documental del compositor. */

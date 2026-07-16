@@ -271,7 +271,7 @@ test.describe("templates module", () => {
     await expect(page.getByText(editedTemplateName).first()).toBeVisible();
 
     const templateRow = page
-      .locator("li")
+      .locator("tbody tr")
       .filter({ hasText: editedTemplateName });
     await expect(
       templateRow.getByText("Activo", { exact: true }).first(),

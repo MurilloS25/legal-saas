@@ -199,11 +199,11 @@ test.describe("document lifecycle statuses", () => {
   test("H: the workspace can filter by status", async ({ page }) => {
     await page.goto("/dashboard/documents?status=final");
     await expect(
-      page.locator("li").filter({ hasText: finalTitle }),
+      page.locator("tbody tr").filter({ hasText: finalTitle }),
     ).toBeVisible();
     // Una escritura en otro estado no aparece bajo el filtro final.
     await expect(
-      page.locator("li").filter({ hasText: pendingTitle }),
+      page.locator("tbody tr").filter({ hasText: pendingTitle }),
     ).toHaveCount(0);
   });
 
@@ -211,7 +211,7 @@ test.describe("document lifecycle statuses", () => {
     page,
   }) => {
     await page.goto("/dashboard/documents?status=final");
-    const row = page.locator("li").filter({ hasText: finalTitle });
+    const row = page.locator("tbody tr").filter({ hasText: finalTitle });
     await expect(row.getByRole("link", { name: "Ver" })).toBeVisible();
   });
 
