@@ -276,6 +276,7 @@ Relationships:
 
 - `owner_id` references `auth.users(id)`.
 - Has many `template_fields`.
+- Has at most one `template_index_configurations` row per owner and template.
 - May be referenced by `document_metadata`.
 
 Sensitive data:
@@ -404,6 +405,29 @@ Pending questions:
 - Decide whether `textarea` should be allowed in first migration or constrained to reduce full escritura capture risk.
 - Define validation rules for `field_key` and `role_key`.
 - Define exact mappings from client fields to template field sources.
+
+### Template index configuration
+
+`template_index_configurations` stores the reusable owner + template rule for
+building the notarial index `Partes` snapshot. It stores only a separator,
+optional fixed suffix, explicit-empty choice, and reconciliation state.
+`template_index_configuration_fields` stores the selected `template_fields`
+and their deterministic order.
+
+Rules:
+
+- The configuration is unique per `owner_id + template_id`.
+- Every selected field must have the same owner and template as its
+  configuration.
+- Duplicate fields and duplicate positions are rejected.
+- An empty selection is valid only when `allow_empty` is explicitly true.
+- Removing a selected template field preserves the parent configuration and
+  marks it incomplete for explicit reconciliation.
+- Saving is transactional through `save_template_index_configuration`, which
+  derives the owner from `auth.uid()` and validates all relationships.
+- RLS is owner-only on both tables; anonymous access is not allowed.
+- The configuration stores no client values or escritura text. Generated
+  `Partes` is snapshotted only in the document's notarial metadata.
 
 ### `documents`
 
@@ -798,6 +822,8 @@ RLS is required for every user-owned table:
 - `clients`
 - `templates`
 - `template_fields`
+- `template_index_configurations`
+- `template_index_configuration_fields`
 - `documents`
 - `document_metadata`
 - `document_notarial_metadata`

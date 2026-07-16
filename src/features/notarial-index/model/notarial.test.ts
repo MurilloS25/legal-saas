@@ -21,6 +21,21 @@ const full: NotarialMetadata = {
 };
 
 describe("isNotarialComplete", () => {
+  it("uses snapshots when manual overrides are blank", () => {
+    expect(
+      isNotarialComplete({
+        instrument_number: 1,
+        authorized_at: "2026-07-15T12:00:00.000Z",
+        protocol_book: "08",
+        initial_folio: "1F",
+        final_folio: "1V",
+        act_name_snapshot: "Compraventa",
+        act_name_override: "   ",
+        generated_parties: "ANA Y BETO",
+        parties_override: "",
+      }),
+    ).toBe(true);
+  });
   it("is complete with all eight index values present", () => {
     expect(isNotarialComplete(full)).toBe(true);
   });

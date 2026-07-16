@@ -28,12 +28,18 @@ type Props = {
   metadata: NotarialMetadata | null;
   /** true cuando la Escritura está finalizada (solo lectura). */
   readOnly: boolean;
+  canResetParties?: boolean;
+  actNamePreview?: string | null;
+  generatedPartiesPreview?: string | null;
 };
 
 export function NotarialMetadataSection({
   documentId,
   metadata,
   readOnly,
+  canResetParties = false,
+  actNamePreview = null,
+  generatedPartiesPreview = null,
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
@@ -51,6 +57,11 @@ export function NotarialMetadataSection({
   const [finalFolio, setFinalFolio] = useState(metadata?.final_folio ?? "");
   const [actName, setActName] = useState(metadata?.act_name_override ?? "");
   const [parties, setParties] = useState(metadata?.parties_override ?? "");
+  const [previousActionState, setPreviousActionState] = useState(state);
+  if (state !== previousActionState) {
+    setPreviousActionState(state);
+    if (state.resetParties) setParties("");
+  }
 
   const complete = isNotarialComplete({
     instrument_number: Number(instrument),
@@ -59,9 +70,10 @@ export function NotarialMetadataSection({
     initial_folio: initialFolio,
     final_folio: finalFolio,
     act_name_override: actName,
-    act_name_snapshot: metadata?.act_name_snapshot,
+    act_name_snapshot: metadata?.act_name_snapshot ?? actNamePreview,
     parties_override: parties,
-    generated_parties: metadata?.generated_parties,
+    generated_parties:
+      metadata?.generated_parties ?? generatedPartiesPreview,
   });
 
   return (
@@ -97,7 +109,7 @@ export function NotarialMetadataSection({
             role="status"
             className="mb-6 rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-800"
           >
-            Datos del índice guardados.
+            {state.successMessage ?? "Datos del índice guardados."}
           </div>
         )}
         {state.message && (
@@ -276,6 +288,7 @@ export function NotarialMetadataSection({
               onChange={(event) => setParties(event.target.value)}
               placeholder={
                 metadata?.generated_parties ??
+                generatedPartiesPreview ??
                 "Se generará desde la configuración del machote"
               }
               className={inputClass + " resize-y"}
@@ -313,9 +326,22 @@ export function NotarialMetadataSection({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          {canResetParties && metadata && (
+            <button
+              type="submit"
+              name="intent"
+              value="reset-parties"
+              disabled={pending}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              Restablecer desde el machote
+            </button>
+          )}
           <button
             type="submit"
+            name="intent"
+            value="save"
             disabled={pending}
             className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >

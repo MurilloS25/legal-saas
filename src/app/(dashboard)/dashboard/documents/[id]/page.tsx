@@ -5,7 +5,10 @@ import {
   getDocumentById,
   listDocumentActivity,
 } from "@/features/documents/server";
-import { getNotarialMetadata } from "@/features/notarial-index/server";
+import {
+  getNotarialMetadata,
+  getTemplateIndexConfiguration,
+} from "@/features/notarial-index/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
 import { buildFillableFields } from "@/features/templates";
@@ -20,7 +23,11 @@ import {
   DocumentActivity,
   DocumentComposer,
 } from "@/features/documents";
-import { NotarialMetadataSection } from "@/features/notarial-index";
+import {
+  NotarialMetadataSection,
+  TemplateIndexConfigurationSection,
+  generateConfiguredPartiesPreview,
+} from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
 
 export const metadata = {
@@ -41,10 +48,29 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   const document = await getDocumentById(id);
   if (!document) notFound();
 
-  const template = await getTemplateById(document.template_id);
-  const activity = await listDocumentActivity(document.id);
-  const notarialMetadata = await getNotarialMetadata(document.id);
-  const receivables = await listReceivablesByDocument(document.id);
+  const [
+    template,
+    templateFields,
+    indexConfiguration,
+    activity,
+    notarialMetadata,
+    receivables,
+  ] = await Promise.all([
+    getTemplateById(document.template_id),
+    listTemplateFields(document.template_id),
+    getTemplateIndexConfiguration(document.template_id),
+    listDocumentActivity(document.id),
+    getNotarialMetadata(document.id),
+    listReceivablesByDocument(document.id),
+  ]);
+  const generatedPartiesPreview = generateConfiguredPartiesPreview(
+    indexConfiguration,
+    templateFields.map((field) => ({
+      id: field.id,
+      fieldKey: field.field_key,
+    })),
+    document.field_values,
+  );
 
   return (
     <PageContainer>
@@ -101,11 +127,25 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         </div>
       ) : (
         <DocumentComposerLoader
-          templateId={template.id}
           templateName={template.name}
           contentJson={template.content_json}
+          templateFields={templateFields}
           document={document}
           savedJustNow={saved === "1"}
+        />
+      )}
+
+      {template && (
+        <TemplateIndexConfigurationSection
+          documentId={document.id}
+          templateId={template.id}
+          configuration={indexConfiguration}
+          fields={templateFields.map((field) => ({
+            id: field.id,
+            fieldKey: field.field_key,
+            label: field.label,
+            value: document.field_values[field.field_key] ?? null,
+          }))}
         />
       )}
 
@@ -113,6 +153,9 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         documentId={document.id}
         metadata={notarialMetadata}
         readOnly={document.status === "final"}
+        canResetParties={indexConfiguration?.isComplete === true}
+        actNamePreview={template?.name ?? null}
+        generatedPartiesPreview={generatedPartiesPreview}
       />
 
       {/* Cuentas por cobrar vinculadas a esta escritura */}
@@ -139,22 +182,22 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
 
 // Carga de campos, clientes y documento etiquetado para el compositor.
 async function DocumentComposerLoader({
-  templateId,
   templateName,
   contentJson,
+  templateFields,
   document,
   savedJustNow,
 }: {
-  templateId: string;
   templateName: string;
   contentJson: unknown;
+  templateFields: Awaited<ReturnType<typeof listTemplateFields>>;
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   savedJustNow: boolean;
 }) {
   const { document: templateDocument, templateText } =
     resolveTemplateContent(contentJson);
   const fields = buildFillableFields(
-    await listTemplateFields(templateId),
+    templateFields,
     templateText,
   );
   const labeledDocument = applyVariableLabels(
