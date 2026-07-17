@@ -51,6 +51,30 @@ describe("parseTemplateWorkspacePayload", () => {
     }
   });
 
+  it("accepts a document with an unlabeled variable (attrs.label: null, as Tiptap serializes a pasted/typed placeholder)", () => {
+    const documentWithUnlabeledVariable = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Comparece " },
+            { type: "templateVariable", attrs: { key: "pegada.nueva", label: null } },
+            { type: "text", text: " hoy." },
+          ],
+        },
+      ],
+    });
+    const result = parseTemplateWorkspacePayload(
+      formDataFrom({
+        ...validEntries,
+        document: documentWithUnlabeledVariable,
+        variables: "[]",
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
   it("rejects a missing name with a field error", () => {
     const result = parseTemplateWorkspacePayload(
       formDataFrom({ ...validEntries, name: "   " }),
