@@ -85,7 +85,7 @@ export async function registerPaymentAction(
   }
 
   revalidatePath(`/dashboard/receivables/${receivableId}`);
-  redirect(`/dashboard/receivables/${receivableId}`);
+  redirect(`/dashboard/receivables/${receivableId}?section=payments`);
 }
 
 // ------------------------------------------------------------------ void
@@ -118,5 +118,5 @@ export async function voidPaymentAction(
   }
 
   revalidatePath(`/dashboard/receivables/${receivableId}`);
-  redirect(`/dashboard/receivables/${receivableId}`);
+  redirect(`/dashboard/receivables/${receivableId}?section=payments`);
 }

@@ -86,15 +86,24 @@ test.describe("receivables module", () => {
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
     // Redirige al detalle de la cuenta recién creada.
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
-      timeout: 15_000,
-    });
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
+      { timeout: 15_000 },
+    );
     await registerCreatedViaUi(registry, "receivables", "concept", concept);
 
     await expect(
       page.getByRole("heading", { name: concept, exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Pendiente", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Cuenta creada.", { exact: true }),
+    ).toBeVisible();
+    // Abre directamente en "Datos de la cuenta", sin desplazamiento inesperado.
+    await expect(
+      page.getByRole("tab", { name: "Datos de la cuenta" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Monto total")).toBeVisible();
   });
 
   test("D: created receivable appears in the list", async ({ page }) => {
@@ -127,12 +136,17 @@ test.describe("receivables module", () => {
     await page.reload();
 
     await expect(page.getByLabel("Monto total")).toHaveValue("175000.00");
-    // El historial registró el cambio de monto y el vínculo con la escritura.
+
+    // El historial registró el cambio de monto y el vínculo con la
+    // escritura — ahora vive en el diálogo "Historial" del encabezado.
+    await page.getByRole("button", { name: "Historial" }).click();
+    const dialog = page.getByRole("dialog", { name: "Historial de la cuenta" });
+    await expect(dialog).toBeVisible();
     await expect(
-      page.getByText("Monto actualizado", { exact: true }),
+      dialog.getByText("Monto actualizado", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Escritura vinculada", { exact: true }),
+      dialog.getByText("Escritura vinculada", { exact: true }),
     ).toBeVisible();
   });
 
@@ -148,9 +162,10 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("50000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
-      timeout: 15_000,
-    });
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
+      { timeout: 15_000 },
+    );
     await registerCreatedViaUi(
       registry,
       "receivables",

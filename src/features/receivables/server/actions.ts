@@ -86,7 +86,7 @@ export async function createReceivableAction(
   }
 
   revalidatePath("/dashboard/receivables");
-  redirect(`/dashboard/receivables/${data.id}`);
+  redirect(`/dashboard/receivables/${data.id}?created=1`);
 }
 
 // ------------------------------------------------------------------ update
