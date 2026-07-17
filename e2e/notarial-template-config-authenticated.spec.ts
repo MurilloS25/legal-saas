@@ -134,7 +134,7 @@ test.describe("template notarial index configuration", () => {
     await openTemplate(page);
     const section = configurationSection(page);
     await expect(
-      section.getByText(/Asocia una vez las variables del machote/),
+      section.getByText(/precargar datos del índice notarial/),
     ).toBeVisible();
 
     await section
@@ -167,7 +167,7 @@ test.describe("template notarial index configuration", () => {
       .click();
     await expect(
       section.getByText(
-        "[NOMBRE DEL VENDEDOR] Y [NOMBRE DEL COMPRADOR]",
+        "NOMBRE DEL VENDEDOR Y NOMBRE DEL COMPRADOR",
         { exact: true },
       ),
     ).toBeVisible();
@@ -192,7 +192,7 @@ test.describe("template notarial index configuration", () => {
     ).toBeChecked();
     await expect(
       section.getByText(
-        "[NOMBRE DEL VENDEDOR] Y [NOMBRE DEL COMPRADOR]",
+        "NOMBRE DEL VENDEDOR Y NOMBRE DEL COMPRADOR",
         { exact: true },
       ),
     ).toBeVisible();

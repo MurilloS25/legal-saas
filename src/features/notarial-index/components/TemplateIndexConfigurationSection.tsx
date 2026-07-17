@@ -73,6 +73,7 @@ export function TemplateIndexConfigurationSection({
   const [allowEmpty, setAllowEmpty] = useState(
     configuration?.allowEmpty ?? false,
   );
+  const [partiesSearch, setPartiesSearch] = useState("");
   const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const fieldsById = useMemo(
@@ -83,11 +84,18 @@ export function TemplateIndexConfigurationSection({
     fields: selectedIds.map((id, order) => ({
       templateFieldId: id,
       order,
-      value: `[${fieldsById.get(id)?.label ?? "Campo"}]`,
+      value: fieldsById.get(id)?.label ?? "",
     })),
     separator,
     fixedSuffix,
   });
+  const previewIncomplete = configuration != null && !configuration.isComplete;
+  const previewMessage =
+    selectedIds.length === 0
+      ? "Aún no se han configurado Partes."
+      : previewIncomplete
+        ? "La configuración está incompleta. Revisa las variables señaladas."
+        : preview || "Aún no se han configurado Partes.";
 
   function toggleField(id: string, checked: boolean) {
     setSelectedIds((current) =>
@@ -116,6 +124,19 @@ export function TemplateIndexConfigurationSection({
     ...fields.filter((field) => !selectedIds.includes(field.id)),
   ];
 
+  // La búsqueda solo oculta candidatos sin seleccionar: un campo ya elegido
+  // permanece visible para poder reordenarlo o quitarlo aunque no coincida
+  // con el texto buscado.
+  const normalizedSearch = partiesSearch.trim().toLocaleLowerCase("es-CR");
+  const visibleFields = orderedFields.filter((field) => {
+    if (selectedIds.includes(field.id)) return true;
+    if (normalizedSearch === "") return true;
+    return (
+      field.label.toLocaleLowerCase("es-CR").includes(normalizedSearch) ||
+      field.fieldKey.toLocaleLowerCase("es-CR").includes(normalizedSearch)
+    );
+  });
+
   return (
     <section
       aria-label="Configuración del índice notarial"
@@ -125,10 +146,20 @@ export function TemplateIndexConfigurationSection({
         Configuración del índice notarial
       </div>
       <form action={formAction} className="px-6 py-5">
-          <p className="mb-5 text-sm text-slate-600">
-            Asocia una vez las variables del machote con los datos del índice.
-            Los valores podrán corregirse en cada escritura.
+          <p className="text-sm text-slate-600">
+            Opcional. Esta configuración permite precargar datos del índice
+            notarial cuando crees una Escritura usando este Machote.
           </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Los valores podrán revisarse y corregirse manualmente en cada
+            Escritura.
+          </p>
+          <ul className="mt-3 mb-5 space-y-1 text-xs text-slate-500">
+            <li>• No modifica el contenido del Machote.</li>
+            <li>• Puedes dejar campos sin asignar.</li>
+            <li>• Solo sirve para precargar datos del índice.</li>
+            <li>• Los valores siempre podrán corregirse después.</li>
+          </ul>
 
           {configuration && !configuration.isComplete && (
             <div
@@ -144,6 +175,9 @@ export function TemplateIndexConfigurationSection({
             </div>
           )}
 
+          <p className="mb-3 text-xs text-slate-500">
+            Selecciona la variable que debe usarse para precargar este dato.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {SIMPLE_FIELDS.map(({ key, label }) => (
               <div key={key}>
@@ -177,12 +211,31 @@ export function TemplateIndexConfigurationSection({
           )}
 
           <fieldset className="mt-6">
-            <legend className="text-sm font-semibold text-slate-900">Partes</legend>
+            <legend className="text-sm font-semibold text-slate-900">
+              Partes para el índice
+            </legend>
             <p className="mt-1 text-xs text-slate-500">
-              Selecciona uno o varios campos y ajusta su orden.
+              Selecciona las variables que representan a las personas o
+              entidades que deben aparecer en la columna &ldquo;Partes&rdquo;
+              del índice.
             </p>
+            {fields.length > 8 && (
+              <input
+                type="text"
+                value={partiesSearch}
+                onChange={(event) => setPartiesSearch(event.target.value)}
+                placeholder="Buscar variable…"
+                aria-label="Buscar variable para Partes"
+                className={`${inputClass} mt-3`}
+              />
+            )}
             <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200">
-              {orderedFields.map((field) => {
+              {visibleFields.length === 0 && (
+                <p className="px-3 py-4 text-sm text-slate-500">
+                  Ninguna variable coincide con la búsqueda.
+                </p>
+              )}
+              {visibleFields.map((field) => {
                 const selectedIndex = selectedIds.indexOf(field.id);
                 const selected = selectedIndex >= 0;
                 return (
@@ -263,16 +316,25 @@ export function TemplateIndexConfigurationSection({
           </div>
 
           {selectedIds.length === 0 && (
-            <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                name="allow_empty"
-                checked={allowEmpty}
-                onChange={(event) => setAllowEmpty(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300"
-              />
-              Confirmo que este machote no requiere Partes para el índice.
-            </label>
+            <div className="mt-4">
+              <p className="text-sm text-slate-600">
+                Este Machote no necesita generar automáticamente el campo
+                &ldquo;Partes&rdquo; del índice.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Podrás completarlo manualmente en cada Escritura.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="allow_empty"
+                  checked={allowEmpty}
+                  onChange={(event) => setAllowEmpty(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                />
+                Confirmo que este machote no requiere Partes para el índice.
+              </label>
+            </div>
           )}
 
           {state.errors?.template_field_ids && (
@@ -283,7 +345,15 @@ export function TemplateIndexConfigurationSection({
 
           <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3">
             <p className="text-xs font-medium uppercase text-slate-500">Vista previa</p>
-            <p className="mt-1 text-sm text-slate-900">{preview || "Sin Partes configuradas"}</p>
+            <p
+              className={`mt-1 text-sm ${
+                selectedIds.length === 0 || previewIncomplete
+                  ? "text-slate-500"
+                  : "text-slate-900"
+              }`}
+            >
+              {previewMessage}
+            </p>
           </div>
 
           {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
