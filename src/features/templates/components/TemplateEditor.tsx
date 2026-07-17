@@ -13,8 +13,13 @@ import { useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
 import type { TemplateDocument } from "@/lib/editor/types";
+import { detectLegacyVariables } from "@/lib/editor/legacy-variables";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import { InsertVariableDialog } from "./InsertVariableDialog";
+import {
+  LegacyVariablesReviewDialog,
+  type LegacyVariableSelection,
+} from "./LegacyVariablesReviewDialog";
 
 // ------------------------------------------------------------------ styles
 
@@ -93,6 +98,9 @@ export function TemplateEditor({
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [legacyMatches, setLegacyMatches] = useState<
+    ReturnType<typeof detectLegacyVariables>
+  >([]);
 
   const editor = useEditor({
     extensions: buildEditorExtensions(),
@@ -107,6 +115,20 @@ export function TemplateEditor({
         class:
           "tiptap-editor min-h-[20rem] px-4 py-3 text-sm leading-relaxed " +
           "text-slate-900 focus:outline-none whitespace-pre-wrap",
+      },
+      // No intercepta el pegado: lo deja seguir su curso normal (la regla
+      // de pegado existente sigue convirtiendo `{{clave.valida}}` de forma
+      // directa, sin cambios). Solo observa el texto plano pegado para
+      // detectar placeholders legacy (`{{MAYUSCULAS}}`) que esa regla no
+      // reconoce, y programa el diálogo de revisión para después de que el
+      // pegado real ya se haya aplicado al documento.
+      handlePaste: (_view, event) => {
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        const matches = detectLegacyVariables(text);
+        if (matches.length > 0) {
+          window.setTimeout(() => setLegacyMatches(matches), 0);
+        }
+        return false;
       },
     },
     onUpdate: ({ editor }) => {
@@ -133,6 +155,64 @@ export function TemplateEditor({
   function closeDialog() {
     setDialogOpen(false);
     window.setTimeout(() => insertButtonRef.current?.focus(), 0);
+  }
+
+  /**
+   * Convierte las variables legacy que el usuario incluyó: busca el texto
+   * literal `{{RAW}}` de cada una en los nodos de texto del documento (tal
+   * como quedó tras el pegado normal) y lo reemplaza por una variable real.
+   * Las candidatas excluidas, o si el usuario cancela, quedan como texto
+   * literal sin ningún cambio — no hay sustitución parcial.
+   *
+   * Se aplican en orden de posición descendente sobre la misma transacción
+   * para que los reemplazos previos no invaliden las posiciones siguientes.
+   */
+  function convertLegacyVariables(
+    selections: Map<string, LegacyVariableSelection>,
+  ) {
+    if (!editor) return;
+    const { state, view } = editor;
+    const variableType = state.schema.nodes.templateVariable;
+    if (!variableType) return;
+
+    type Replacement = { from: number; to: number; key: string; label: string };
+    const replacements: Replacement[] = [];
+
+    state.doc.descendants((node, pos) => {
+      if (!node.isText || !node.text) return;
+      for (const [raw, selection] of selections) {
+        if (!selection.included) continue;
+        const needle = `{{${raw}}}`;
+        let idx = node.text.indexOf(needle);
+        while (idx !== -1) {
+          replacements.push({
+            from: pos + idx,
+            to: pos + idx + needle.length,
+            key: selection.key.trim(),
+            label: selection.label.trim(),
+          });
+          idx = node.text.indexOf(needle, idx + needle.length);
+        }
+      }
+    });
+
+    if (replacements.length === 0) return;
+    replacements.sort((a, b) => b.from - a.from);
+
+    let tr = state.tr;
+    for (const replacement of replacements) {
+      tr = tr.replaceWith(
+        replacement.from,
+        replacement.to,
+        variableType.create({
+          key: replacement.key,
+          label: replacement.label || null,
+        }),
+      );
+    }
+    // `view.dispatch` es el dispatch del propio editor Tiptap: dispara
+    // `onUpdate` igual que cualquier otra edición, sin llamada manual aquí.
+    view.dispatch(tr);
   }
 
   return (
@@ -229,6 +309,18 @@ export function TemplateEditor({
             insertVariable(key, label);
           }}
           onClose={closeDialog}
+        />
+      )}
+
+      {legacyMatches.length > 0 && (
+        <LegacyVariablesReviewDialog
+          matches={legacyMatches}
+          configuredKeys={new Set(variables.map((v) => v.field_key))}
+          onConvert={(selections) => {
+            convertLegacyVariables(selections);
+            setLegacyMatches([]);
+          }}
+          onCancel={() => setLegacyMatches([])}
         />
       )}
     </div>
