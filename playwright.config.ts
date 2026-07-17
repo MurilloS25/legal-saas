@@ -248,6 +248,17 @@ export default defineConfig({
       dependencies: ["chromium-receivable-payments"],
     },
 
+    // Dashboard Panel + sidebar shell — authenticated.
+    {
+      name: "chromium-dashboard",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /dashboard-panel-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivables-workspace"],
+    },
+
     // Authenticated tests (settings) — must run last because test F logs
     // the user out, which would invalidate the shared session.
     {
@@ -257,7 +268,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables-workspace"],
+      dependencies: ["chromium-dashboard"],
     },
   ],
   webServer: {
