@@ -124,9 +124,15 @@ function validateInlineNode(
       ) {
         return "La clave de una variable no es válida.";
       }
+      // Tiptap serializa siempre el atributo `label` con su valor por
+      // defecto del esquema (`null`) cuando no se asignó ninguno — por
+      // ejemplo, variables detectadas al escribir o pegar `{{clave}}`, o
+      // variables pendientes de un machote legacy una vez pasan por el
+      // editor. `null` es equivalente a "sin etiqueta", igual que ausente.
       const label = attrs.label;
       if (
         label !== undefined &&
+        label !== null &&
         (typeof label !== "string" ||
           label.length > TEMPLATE_DOC_LIMITS.maxVariableLabelLength)
       ) {

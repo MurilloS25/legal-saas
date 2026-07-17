@@ -91,6 +91,27 @@ describe("validateTemplateDocument", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("accepts a variable with attrs.label explicitly null", () => {
+    // Tiptap siempre serializa `label` con el valor por defecto del esquema
+    // (`null`) cuando no se asignó ninguno -- por ejemplo, variables
+    // detectadas al escribir o pegar `{{clave}}`. `null` debe tratarse igual
+    // que "sin etiqueta" (ausente), no como un valor inválido.
+    const result = validateTemplateDocument(
+      doc([p([{ type: "templateVariable", attrs: { key: "sin.etiqueta", label: null } }])]),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a variable with a non-string, non-null label", () => {
+    const result = validateTemplateDocument(
+      doc([p([{ type: "templateVariable", attrs: { key: "clave", label: 42 } }])]),
+    );
+    expect(result).toEqual({
+      ok: false,
+      error: "La etiqueta de una variable no es válida.",
+    });
+  });
+
   it("rejects unknown attrs on variables", () => {
     const result = validateTemplateDocument(
       doc([

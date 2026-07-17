@@ -11,9 +11,19 @@
  * módulos puros (`validate.ts`, `convert.ts`, `render.ts`).
  */
 
-import { Node, mergeAttributes, type Extensions } from "@tiptap/core";
+import {
+  Node,
+  mergeAttributes,
+  nodeInputRule,
+  nodePasteRule,
+  type Extensions,
+} from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { FIELD_KEY_PATTERN } from "./variable-key";
+import {
+  FIELD_KEY_PATTERN,
+  VARIABLE_INPUT_RULE_PATTERN,
+  VARIABLE_PASTE_RULE_PATTERN,
+} from "./variable-key";
 import { TEMPLATE_DOC_LIMITS } from "./types";
 
 export type InsertTemplateVariableOptions = {
@@ -129,6 +139,43 @@ export const TemplateVariableNode = Node.create({
           });
         },
     };
+  },
+
+  // Convierte `{{clave}}` escrito o pegado a mano en una variable real, sin
+  // pasar por el diálogo "Insertar variable". El regex solo admite el mismo
+  // alfabeto que `FIELD_KEY_PATTERN` (minúsculas, números, guion bajo, puntos
+  // simples): un placeholder con sintaxis inválida —mayúsculas, espacios,
+  // llaves vacías— simplemente no coincide y queda como texto plano. No hay
+  // interpretación de expresiones ni ejecución de código: el "clave" nunca
+  // se evalúa, solo se copia como atributo del nodo.
+  addInputRules() {
+    return [
+      nodeInputRule({
+        find: VARIABLE_INPUT_RULE_PATTERN,
+        type: this.type,
+        getAttributes: (match) => ({ key: match[1] }),
+      }),
+    ];
+  },
+
+  // Misma conversión para texto pegado; a diferencia de la regla de entrada,
+  // las reglas de pegado sí pueden abortar la coincidencia (devolviendo
+  // `false`) — se usa para descartar claves más largas que el límite
+  // persistido, en vez de crear una variable que el guardado rechazaría.
+  addPasteRules() {
+    return [
+      nodePasteRule({
+        find: VARIABLE_PASTE_RULE_PATTERN,
+        type: this.type,
+        getAttributes: (match) => {
+          const key = match[1];
+          if (key.length > TEMPLATE_DOC_LIMITS.maxVariableKeyLength) {
+            return false;
+          }
+          return { key };
+        },
+      }),
+    ];
   },
 });
 

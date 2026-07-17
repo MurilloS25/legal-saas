@@ -94,6 +94,17 @@ export default defineConfig({
       dependencies: ["chromium-templates"],
     },
 
+    // Pasted/typed template variable detection — authenticated.
+    {
+      name: "chromium-template-pasted-variables",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-pasted-variables-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-fields"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
@@ -102,7 +113,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-fields"],
+      dependencies: ["chromium-template-pasted-variables"],
     },
 
     // Document DOCX download — authenticated.
