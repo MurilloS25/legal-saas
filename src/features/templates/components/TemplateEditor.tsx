@@ -9,7 +9,7 @@
  * activos, foco visible y el diálogo de inserción de variables.
  */
 
-import { useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
 import type { TemplateDocument } from "@/lib/editor/types";
@@ -89,13 +89,30 @@ type Props = {
   "aria-label"?: string;
 };
 
-export function TemplateEditor({
-  initialDocument,
-  variables,
-  onDocumentChange,
-  onCreateVariable,
-  "aria-label": ariaLabel = "Contenido del machote",
-}: Props) {
+/**
+ * Acciones imperativas que el workspace necesita disparar sobre el
+ * contenido del editor desde fuera (p. ej. al renombrar una variable desde
+ * la pestaña Variables). El nodo Tiptap guarda su propia copia de `label`
+ * para poder mostrarla sin depender de la configuración externa (fichas
+ * pegadas/legacy sin configurar todavía) — por eso, cuando la etiqueta
+ * configurada cambia, hay que empujar el cambio a los nodos existentes en
+ * vez de dejarlos con una copia obsoleta.
+ */
+export type TemplateEditorHandle = {
+  updateVariableLabel: (key: string, label: string) => void;
+};
+
+export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
+  function TemplateEditor(
+    {
+      initialDocument,
+      variables,
+      onDocumentChange,
+      onCreateVariable,
+      "aria-label": ariaLabel = "Contenido del machote",
+    },
+    ref,
+  ) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
   const [legacyMatches, setLegacyMatches] = useState<
@@ -166,6 +183,12 @@ export function TemplateEditor({
    *
    * Se aplican en orden de posición descendente sobre la misma transacción
    * para que los reemplazos previos no invaliden las posiciones siguientes.
+   *
+   * La etiqueta y clave confirmadas en el diálogo son la fuente real de
+   * configuración: además de crear el nodo, cada clave nueva (que no esté
+   * ya configurada) se registra vía `onCreateVariable` — el mismo camino
+   * que usa "Insertar variable" — para que quede `Configurada` de inmediato
+   * en vez de reaparecer como pendiente sin etiqueta.
    */
   function convertLegacyVariables(
     selections: Map<string, LegacyVariableSelection>,
@@ -213,7 +236,43 @@ export function TemplateEditor({
     // `view.dispatch` es el dispatch del propio editor Tiptap: dispara
     // `onUpdate` igual que cualquier otra edición, sin llamada manual aquí.
     view.dispatch(tr);
+
+    const alreadyConfigured = new Set(variables.map((v) => v.field_key));
+    const registered = new Set<string>();
+    for (const replacement of replacements) {
+      if (alreadyConfigured.has(replacement.key)) continue;
+      if (registered.has(replacement.key)) continue;
+      registered.add(replacement.key);
+      onCreateVariable({
+        field_key: replacement.key,
+        label: replacement.label || replacement.key,
+        required: false,
+      });
+    }
   }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      updateVariableLabel(key: string, label: string) {
+        if (!editor) return;
+        const { state, view } = editor;
+        let tr = state.tr;
+        let changed = false;
+
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== "templateVariable") return;
+          if (node.attrs.key !== key) return;
+          if (node.attrs.label === label) return;
+          tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, label });
+          changed = true;
+        });
+
+        if (changed) view.dispatch(tr);
+      },
+    }),
+    [editor],
+  );
 
   return (
     <div className="rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-teal-500 overflow-hidden">
@@ -325,4 +384,5 @@ export function TemplateEditor({
       )}
     </div>
   );
-}
+  },
+);

@@ -27,7 +27,7 @@ import {
 } from "../server/template-actions";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import type { TemplateDocument } from "@/lib/editor/types";
-import { TemplateEditor } from "./TemplateEditor";
+import { TemplateEditor, type TemplateEditorHandle } from "./TemplateEditor";
 import { TemplateMetadataForm } from "./TemplateMetadataForm";
 import {
   TemplateMobileViewToggle,
@@ -99,6 +99,7 @@ export function TemplateWorkspace(props: Props) {
     isEdit ? (props.initialSection ?? "document") : "document",
   );
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<TemplateEditorHandle>(null);
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
   // navegación real (evita remontar el editor). `popstate` cubre
@@ -147,6 +148,30 @@ export function TemplateWorkspace(props: Props) {
 
   function markDirty() {
     if (!dirty) setDirty(true);
+  }
+
+  /**
+   * Único punto de entrada para cambios desde la pestaña Variables. El nodo
+   * Tiptap de cada variable guarda su propia copia de `label` (para poder
+   * mostrarla sin depender de la configuración externa); si esta lista trae
+   * una etiqueta distinta para una clave ya presente, empuja el cambio a
+   * los nodos existentes en el editor para que la ficha y la vista previa
+   * dejen de mostrar la etiqueta anterior.
+   */
+  function handleVariablesChange(next: TemplateWorkspaceVariable[]) {
+    for (const nextVariable of next) {
+      const previous = variables.find(
+        (v) => v.field_key === nextVariable.field_key,
+      );
+      if (previous && previous.label !== nextVariable.label) {
+        editorRef.current?.updateVariableLabel(
+          nextVariable.field_key,
+          nextVariable.label,
+        );
+      }
+    }
+    setVariables(next);
+    markDirty();
   }
 
   const showSavedBanner =
@@ -266,6 +291,7 @@ export function TemplateWorkspace(props: Props) {
                 </div>
                 <div className="px-6 py-5">
                   <TemplateEditor
+                    ref={editorRef}
                     initialDocument={props.initialDocument}
                     variables={variables}
                     onDocumentChange={(json) => {
@@ -284,10 +310,7 @@ export function TemplateWorkspace(props: Props) {
                 <TemplateVariablesPanel
                   variables={variables}
                   contentKeys={contentKeys}
-                  onChange={(next) => {
-                    setVariables(next);
-                    markDirty();
-                  }}
+                  onChange={handleVariablesChange}
                 />
               )}
             </div>
@@ -314,10 +337,7 @@ export function TemplateWorkspace(props: Props) {
             <TemplateVariablesPanel
               variables={variables}
               contentKeys={contentKeys}
-              onChange={(next) => {
-                setVariables(next);
-                markDirty();
-              }}
+              onChange={handleVariablesChange}
             />
           </div>
         )}
