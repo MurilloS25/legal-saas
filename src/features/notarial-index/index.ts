@@ -2,6 +2,7 @@ export { NotarialIndexWorkspace } from "./components/NotarialIndexWorkspace";
 export { NotarialMetadataSection } from "./components/NotarialMetadataSection";
 export { TemplateIndexConfigurationSection } from "./components/TemplateIndexConfigurationSection";
 export type { IndexConfigurationField } from "./components/TemplateIndexConfigurationSection";
+export type { TemplateIndexConfiguration } from "./model/template-index-configuration";
 export { generateConfiguredPartiesPreview } from "./model/parties";
 export { resolveNotarialMetadataPrefill } from "./model/prefill";
 export type {

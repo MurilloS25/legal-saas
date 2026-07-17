@@ -40,6 +40,11 @@ function variableRow(page: Page, key: string) {
   return variablesRegion(page).locator("li").filter({ hasText: key });
 }
 
+async function goToVariablesTab(page: Page) {
+  await page.getByRole("tab", { name: "Variables" }).click();
+  await expect(variablesRegion(page)).toBeVisible();
+}
+
 /**
  * Abre el workspace y espera a que esté hidratado: el editor Tiptap solo se
  * monta en cliente, así que su visibilidad garantiza que los handlers de
@@ -82,6 +87,7 @@ test.describe("template variables workspace", () => {
     ).toBeVisible();
 
     // Estados unificados: configurada y usada vs. pendiente de configurar.
+    await goToVariablesTab(page);
     await expect(
       variableRow(page, configuredKey).getByText("Configurada"),
     ).toBeVisible();
@@ -94,6 +100,7 @@ test.describe("template variables workspace", () => {
     page,
   }) => {
     await openWorkspace(page);
+    await goToVariablesTab(page);
 
     await variableRow(page, pendingKey)
       .getByRole("button", { name: `Configurar variable ${pendingKey}` })
@@ -148,6 +155,7 @@ test.describe("template variables workspace", () => {
     );
 
     // La configuración no se borra: la variable pasa a "No utilizada".
+    await goToVariablesTab(page);
     await expect(
       variableRow(page, configuredKey).getByText("No utilizada"),
     ).toBeVisible();
@@ -173,6 +181,7 @@ test.describe("template variables workspace", () => {
     page,
   }) => {
     await openWorkspace(page);
+    await goToVariablesTab(page);
 
     await variableRow(page, pendingKey)
       .getByRole("button", {

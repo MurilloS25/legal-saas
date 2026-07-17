@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { TemplateListRow } from "../server/workspace-queries";
+import { templateStatusBadgeClass, templateStatusLabel } from "../model/templates";
 
 export const TEMPLATES_COLUMN_LABELS = {
   name: "Machote",
@@ -9,28 +10,12 @@ export const TEMPLATES_COLUMN_LABELS = {
   actions: "Acciones",
 } as const;
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft: {
-    label: "Borrador",
-    className: "bg-slate-100 text-slate-600",
-  },
-  active: {
-    label: "Activo",
-    className: "bg-teal-50 text-teal-700",
-  },
-  archived: {
-    label: "Archivado",
-    className: "bg-amber-50 text-amber-700",
-  },
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft;
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${templateStatusBadgeClass(status)}`}
     >
-      {config.label}
+      {templateStatusLabel(status)}
     </span>
   );
 }

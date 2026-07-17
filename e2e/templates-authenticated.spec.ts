@@ -33,6 +33,10 @@ function variablesRegion(page: Page) {
   return page.getByRole("region", { name: "Variables del machote" });
 }
 
+async function goToTab(page: Page, name: "Documento" | "Variables" | "Índice notarial") {
+  await page.getByRole("tab", { name }).click();
+}
+
 /**
  * Espera a que el workspace esté hidratado: el editor Tiptap solo se monta
  * en cliente, así que su visibilidad garantiza que React ya responde.
@@ -200,6 +204,52 @@ test.describe("templates module", () => {
     templateUrl = new URL(page.url()).pathname;
   });
 
+  test("C2: workspace navigation stays on Documento after saving and switches sections without losing edits", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
+
+    // Tras el primer guardado la URL persistida permanece en Documento.
+    await expect(page).toHaveURL(new RegExp(`${templateUrl}(\\?|$)`));
+    await expect(page.getByRole("tab", { name: "Documento", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(contentEditor(page)).toBeVisible();
+
+    // Variables.
+    await goToTab(page, "Variables");
+    await expect(page).toHaveURL(/\?section=variables$/);
+    await expect(variablesRegion(page)).toBeVisible();
+    await expect(contentEditor(page)).not.toBeVisible();
+
+    // Índice notarial.
+    await goToTab(page, "Índice notarial");
+    await expect(page).toHaveURL(/\?section=notarial$/);
+    await expect(
+      page.getByRole("region", { name: "Configuración del índice notarial" }),
+    ).toBeVisible();
+    await expect(variablesRegion(page)).not.toBeVisible();
+
+    // Volver a Documento: el editor conserva el contenido escrito antes de
+    // cambiar de pestaña — nunca se desmontó.
+    await goToTab(page, "Documento");
+    await expect(page).toHaveURL(new RegExp(`${templateUrl}$`));
+    await expect(contentEditor(page)).toContainText("CONTRATO DE ARRENDAMIENTO");
+    await expect(contentEditor(page).getByText(variableLabel)).toBeVisible();
+
+    // Atrás/adelante del navegador siguen la sección activa.
+    await page.goBack();
+    await expect(page).toHaveURL(/\?section=notarial$/);
+    await page.goForward();
+    await expect(page).toHaveURL(new RegExp(`${templateUrl}$`));
+
+    // El breadcrumb regresa al listado.
+    await page.getByRole("link", { name: "‹ Machotes" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/templates$/);
+  });
+
   test("D: created template persists after reload with its variable", async ({
     page,
   }) => {
@@ -215,6 +265,7 @@ test.describe("templates module", () => {
     );
     await expect(contentEditor(page).getByText(variableLabel)).toBeVisible();
 
+    await goToTab(page, "Variables");
     const variableRow = variablesRegion(page)
       .locator("li")
       .filter({ hasText: variableKey });
@@ -237,13 +288,17 @@ test.describe("templates module", () => {
     await page.keyboard.press("End");
     await page.keyboard.insertText(" acepta las condiciones revisadas.");
 
-    await expect(page.getByText("Cambios sin guardar")).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Cambios sin guardar" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
       page.getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Guardado", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Guardado" }).last(),
+    ).toBeVisible();
   });
 
   test("F: edited template persists after page reload", async ({ page }) => {

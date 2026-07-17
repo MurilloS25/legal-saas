@@ -14,6 +14,29 @@ export const TemplateSchema = z.object({
 
 export type TemplateInput = z.infer<typeof TemplateSchema>;
 
+export const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = {
+  draft: "Borrador",
+  active: "Activo",
+  archived: "Archivado",
+};
+
+const TEMPLATE_STATUS_BADGE_CLASS: Record<TemplateStatus, string> = {
+  draft: "bg-slate-100 text-slate-600",
+  active: "bg-teal-50 text-teal-700",
+  archived: "bg-amber-50 text-amber-700",
+};
+
+export function templateStatusLabel(status: string): string {
+  return TEMPLATE_STATUS_LABEL[status as TemplateStatus] ?? status;
+}
+
+export function templateStatusBadgeClass(status: string): string {
+  return (
+    TEMPLATE_STATUS_BADGE_CLASS[status as TemplateStatus] ??
+    TEMPLATE_STATUS_BADGE_CLASS.draft
+  );
+}
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

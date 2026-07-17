@@ -37,18 +37,8 @@ async function open(page: Page, documentId: string) {
 }
 
 async function openTemplate(page: Page) {
-  await page.goto(`/dashboard/templates/${templateId}`);
+  await page.goto(`/dashboard/templates/${templateId}?section=notarial`);
   await expect(configurationSection(page)).toBeVisible();
-}
-
-async function expandConfiguration(page: Page) {
-  const details = configurationSection(page).locator("details");
-  await expect(async () => {
-    if (!(await details.evaluate((element) => element.hasAttribute("open")))) {
-      await details.locator("summary").click();
-    }
-    await expect(details).toHaveAttribute("open", "", { timeout: 1_000 });
-  }).toPass({ timeout: 5_000 });
 }
 
 async function fillStructuredMetadata(page: Page, instrument: number) {
@@ -142,7 +132,6 @@ test.describe("template notarial index configuration", () => {
 
   test("B: configure ordered fields with a live preview", async ({ page }) => {
     await openTemplate(page);
-    await expandConfiguration(page);
     const section = configurationSection(page);
     await expect(
       section.getByText(/Asocia una vez las variables del machote/),
@@ -192,7 +181,6 @@ test.describe("template notarial index configuration", () => {
   test("C: configuration persists for the template", async ({ page }) => {
     await openTemplate(page);
     const section = configurationSection(page);
-    await expandConfiguration(page);
     await expect(section.getByLabel("Número de instrumento")).toHaveValue(
       sellerFieldId,
     );
