@@ -178,4 +178,166 @@ test.describe("template pasted/typed variable detection", () => {
       contentEditor(page).getByText("Parte única"),
     ).toBeVisible();
   });
+
+  test("E: pasting a legacy uppercase block shows a review dialog and converts on confirm", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    // Muestra de un machote antiguo real: variables en mayúsculas con la
+    // misma delimitación `{{ }}`, una clave con mayúsculas y punto, un
+    // token con dos puntos que no es una variable de datos (`SMART:`), y
+    // una variable ya válida en el mismo bloque pegado.
+    await pasteAtEnd(
+      page,
+      "Comparece {{NOMBRE_COMPARECIENTE}}, placas {{PLACAS}}, tomo " +
+        "{{NUMERO_ESCRITURA.numero}}, bloque {{SMART:block_fda924b2}} y " +
+        "{{comprador.nombre}}.",
+    );
+
+    const dialog = page.getByRole("dialog", {
+      name: "Revisar variables detectadas",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByText("Se detectaron 3 posibles variables"),
+    ).toBeVisible();
+    await expect(dialog.getByText("{{NOMBRE_COMPARECIENTE}}")).toBeVisible();
+    await expect(dialog.getByText("{{PLACAS}}")).toBeVisible();
+    await expect(
+      dialog.getByText("{{NUMERO_ESCRITURA.numero}}"),
+    ).toBeVisible();
+    // El token con dos puntos no es una variable reconocida: no aparece en
+    // la lista de candidatas del diálogo.
+    await expect(dialog.getByText("SMART:block")).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(dialog).toBeHidden();
+
+    // La variable ya válida se convierte igual que siempre (sin diálogo),
+    // y las tres variables legacy quedan como fichas reales normalizadas.
+    await expect(
+      contentEditor(page).locator('[data-variable-key="comprador.nombre"]'),
+    ).toBeVisible();
+    await expect(
+      contentEditor(page).locator(
+        '[data-variable-key="nombre_compareciente"]',
+      ),
+    ).toBeVisible();
+    await expect(
+      contentEditor(page).locator('[data-variable-key="placas"]'),
+    ).toBeVisible();
+    await expect(
+      contentEditor(page).locator(
+        '[data-variable-key="numero_escritura.numero"]',
+      ),
+    ).toBeVisible();
+    // El token no reconocido queda literal, sin convertirse.
+    await expect(contentEditor(page)).toContainText(
+      "{{SMART:block_fda924b2}}",
+    );
+
+    await goToTab(page, "Variables");
+    await expect(
+      variableRow(page, "nombre_compareciente").getByText(
+        "Pendiente de configurar",
+      ),
+    ).toBeVisible();
+    await expect(
+      variableRow(page, "placas").getByText("Pendiente de configurar"),
+    ).toBeVisible();
+  });
+
+  test("F: canceling the legacy review dialog leaves the pasted text unmodified", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    await pasteAtEnd(page, "Tomo {{TOMO_NUMERO}} folio {{FOLIO_INICIAL}}.");
+
+    const dialog = page.getByRole("dialog", {
+      name: "Revisar variables detectadas",
+    });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(
+      contentEditor(page).locator(
+        '[data-variable-key="tomo_numero"], [data-variable-key="folio_inicial"]',
+      ),
+    ).toHaveCount(0);
+    await expect(contentEditor(page)).toContainText(
+      "Tomo {{TOMO_NUMERO}} folio {{FOLIO_INICIAL}}.",
+    );
+  });
+
+  test("G: excluding a candidate in the review dialog keeps it as literal text", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    await pasteAtEnd(page, "Marca {{MARCA}} combustible {{COMBUSTIBLE}}.");
+
+    const dialog = page.getByRole("dialog", {
+      name: "Revisar variables detectadas",
+    });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("checkbox", { name: "Incluir variable MARCA" }).uncheck();
+    await dialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(
+      contentEditor(page).locator('[data-variable-key="combustible"]'),
+    ).toBeVisible();
+    await expect(
+      contentEditor(page).locator('[data-variable-key="marca"]'),
+    ).toHaveCount(0);
+    await expect(contentEditor(page)).toContainText("{{MARCA}}");
+  });
+
+  test("H: a converted legacy variable persists after saving and reloading", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    await pasteAtEnd(page, "Folio final {{FOLIO_FINAL}}.");
+    const dialog = page.getByRole("dialog", {
+      name: "Revisar variables detectadas",
+    });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(dialog).toBeHidden();
+
+    await goToTab(page, "Variables");
+    const row = variableRow(page, "folio_final");
+    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
+    await row
+      .getByRole("button", { name: "Configurar variable folio_final" })
+      .click();
+    await page.getByLabel("Etiqueta").fill("Folio final");
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+    await expect(row.getByText("Configurada")).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await expect(async () => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(
+        variableRow(page, "folio_final").getByText("Configurada"),
+      ).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 20_000 });
+
+    await goToTab(page, "Documento");
+    await expect(
+      contentEditor(page).locator('[data-variable-key="folio_final"]'),
+    ).toBeVisible();
+  });
 });
