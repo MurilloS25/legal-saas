@@ -17,10 +17,13 @@ const concept = uniqueName("payments", "concepto");
 let receivableId = "";
 
 async function openReceivable(page: Page) {
-  await page.goto(`/dashboard/receivables/${receivableId}`);
+  await page.goto(`/dashboard/receivables/${receivableId}?section=payments`);
   await expect(
     page.getByRole("heading", { name: concept, exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "Pagos" }),
+  ).toHaveAttribute("aria-selected", "true");
 }
 
 function paymentsSection(page: Page) {
@@ -59,9 +62,10 @@ test.describe("receivable payments", () => {
     await section.getByLabel("Método").selectOption("cash");
     await section.getByRole("button", { name: "Registrar pago" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
-      timeout: 15_000,
-    });
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments$/,
+      { timeout: 15_000 },
+    );
     // Saldo y estado derivados reflejan el abono parcial. La URL de detalle no
     // cambia al guardar, así que se espera al re-render con un timeout amplio.
     await expect(
@@ -103,9 +107,10 @@ test.describe("receivable payments", () => {
       .selectOption("bank_transfer");
     await section.getByRole("button", { name: "Registrar pago" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
-      timeout: 15_000,
-    });
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments$/,
+      { timeout: 15_000 },
+    );
     await expect(page.getByText("Pagada", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
@@ -135,8 +140,17 @@ test.describe("receivable payments", () => {
       timeout: 15_000,
     });
     await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
+
+    // El evento de reapertura vive en el diálogo "Historial" del encabezado.
+    await page.getByRole("button", { name: "Historial" }).click();
+    const historyDialog = page.getByRole("dialog", {
+      name: "Historial de la cuenta",
+    });
+    await expect(historyDialog).toBeVisible();
     await expect(
-      page.getByText("Cuenta reabierta tras anulación", { exact: true }),
+      historyDialog.getByText("Cuenta reabierta tras anulación", {
+        exact: true,
+      }),
     ).toBeVisible();
   });
 });

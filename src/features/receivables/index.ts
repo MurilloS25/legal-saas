@@ -1,9 +1,12 @@
 export { DeleteReceivableButton } from "./components/DeleteReceivableButton";
 export { PaymentsSection } from "./components/PaymentsSection";
 export { ReceivableForm } from "./components/ReceivableForm";
+export { ReceivableHistoryDialog } from "./components/ReceivableHistoryDialog";
 export { ReceivableMiniList } from "./components/ReceivableMiniList";
 export { ReceivablesTable } from "./components/ReceivablesTable";
 export { ReceivablesToolbar } from "./components/ReceivablesToolbar";
+export { ReceivableWorkspace } from "./components/ReceivableWorkspace";
+export type { ReceivableWorkspaceSection } from "./components/ReceivableWorkspaceHeader";
 export {
   formatMoney,
   receivableStatusBadgeClass,
