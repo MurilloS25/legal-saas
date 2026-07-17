@@ -44,6 +44,7 @@ type Props = {
   payments: ReceivablePayment[];
   initialSection?: ReceivableWorkspaceSection;
   createdJustNow?: boolean;
+  paidJustNow?: boolean;
 };
 
 function resolveSection(raw: string | null): ReceivableWorkspaceSection {
@@ -59,6 +60,7 @@ export function ReceivableWorkspace({
   payments,
   initialSection,
   createdJustNow,
+  paidJustNow,
 }: Props) {
   const [section, setSection] = useState<ReceivableWorkspaceSection>(
     initialSection ?? "account",
@@ -170,6 +172,7 @@ export function ReceivableWorkspace({
           balanceDue={entry.balance_due}
           status={entry.status}
           payments={payments}
+          paidJustNow={paidJustNow}
         />
       </div>
     </div>

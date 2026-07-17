@@ -30,6 +30,15 @@ function paymentsSection(page: Page) {
   return page.getByRole("region", { name: "Pagos" });
 }
 
+async function openRegisterPaymentDialog(page: Page) {
+  await paymentsSection(page)
+    .getByRole("button", { name: "Registrar pago" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Registrar pago" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 test.describe("receivable payments", () => {
   test.afterAll(async () => {
     if (receivableId) {
@@ -52,20 +61,53 @@ test.describe("receivable payments", () => {
     receivableId = receivable.id;
   });
 
+  test("B0: canceling the register-payment dialog leaves everything unchanged", async ({
+    page,
+  }) => {
+    await openReceivable(page);
+    const dialog = await openRegisterPaymentDialog(page);
+
+    await dialog.getByLabel(/Monto del pago/).fill("40000");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toBeHidden();
+
+    // Ningún pago se registró: el saldo total sigue intacto.
+    await expect(
+      page.getByText("₡100.000,00 CRC", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Todavía no se han registrado pagos.", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("B1: Escape closes the register-payment dialog too", async ({
+    page,
+  }) => {
+    await openReceivable(page);
+    const dialog = await openRegisterPaymentDialog(page);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  });
+
   test("B: registering a partial payment leaves the account partial", async ({
     page,
   }) => {
     await openReceivable(page);
-    const section = paymentsSection(page);
+    const dialog = await openRegisterPaymentDialog(page);
 
-    await section.getByLabel(/Monto del pago/).fill("40000");
-    await section.getByLabel("Método").selectOption("cash");
-    await section.getByRole("button", { name: "Registrar pago" }).click();
+    await dialog.getByLabel(/Monto del pago/).fill("40000");
+    await dialog.getByLabel("Método").selectOption("cash");
+    await dialog.getByRole("button", { name: "Registrar pago" }).click();
 
     await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments$/,
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments&paid=1$/,
       { timeout: 15_000 },
     );
+    // El diálogo se cierra solo al redirigir tras el envío exitoso.
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByText("Pago registrado.", { exact: true }),
+    ).toBeVisible();
     // Saldo y estado derivados reflejan el abono parcial. La URL de detalle no
     // cambia al guardar, así que se espera al re-render con un timeout amplio.
     await expect(
@@ -79,16 +121,23 @@ test.describe("receivable payments", () => {
     ).toBeVisible();
   });
 
-  test("C: an overpayment is rejected", async ({ page }) => {
+  test("C: an overpayment is rejected and keeps the dialog open with the error", async ({
+    page,
+  }) => {
     await openReceivable(page);
-    const section = paymentsSection(page);
+    const dialog = await openRegisterPaymentDialog(page);
 
-    await section.getByLabel(/Monto del pago/).fill("70000");
-    await section.getByRole("button", { name: "Registrar pago" }).click();
+    await dialog.getByLabel(/Monto del pago/).fill("70000");
+    await dialog.getByRole("button", { name: "Registrar pago" }).click();
 
+    // Sin redirect: el diálogo permanece abierto con el error visible.
+    await expect(dialog).toBeVisible();
     await expect(
-      page.getByText("El pago supera el saldo pendiente de la cuenta."),
+      dialog.getByText("El pago supera el saldo pendiente de la cuenta."),
     ).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toBeHidden();
+
     // El saldo no cambió.
     await expect(
       page.getByText("₡60.000,00 CRC", { exact: true }).first(),
@@ -99,16 +148,14 @@ test.describe("receivable payments", () => {
     page,
   }) => {
     await openReceivable(page);
-    const section = paymentsSection(page);
+    const dialog = await openRegisterPaymentDialog(page);
 
-    await section.getByLabel(/Monto del pago/).fill("60000");
-    await section
-      .getByLabel("Método")
-      .selectOption("bank_transfer");
-    await section.getByRole("button", { name: "Registrar pago" }).click();
+    await dialog.getByLabel(/Monto del pago/).fill("60000");
+    await dialog.getByLabel("Método").selectOption("bank_transfer");
+    await dialog.getByRole("button", { name: "Registrar pago" }).click();
 
     await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments$/,
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments&paid=1$/,
       { timeout: 15_000 },
     );
     await expect(page.getByText("Pagada", { exact: true })).toBeVisible({
@@ -118,9 +165,14 @@ test.describe("receivable payments", () => {
     await expect(
       page.getByText("Esta cuenta está saldada.", { exact: false }),
     ).toBeVisible();
+    await expect(
+      paymentsSection(page).getByRole("button", { name: "Registrar pago" }),
+    ).toHaveCount(0);
   });
 
-  test("E: voiding a payment reopens the account", async ({ page }) => {
+  test("E: voiding a payment reopens the account and the register-payment action returns", async ({
+    page,
+  }) => {
     await openReceivable(page);
 
     // Anula el pago de ₡40.000.
@@ -129,17 +181,21 @@ test.describe("receivable payments", () => {
       .filter({ hasText: "₡40.000,00 CRC" });
     await row.getByRole("button", { name: "Anular" }).click();
 
-    const dialog = page.getByRole("alertdialog");
-    await dialog.getByLabel(/Motivo de la anulación/).fill("Pago revertido");
-    await dialog.getByRole("button", { name: "Anular pago" }).click();
+    const voidDialog = page.getByRole("alertdialog");
+    await voidDialog.getByLabel(/Motivo de la anulación/).fill("Pago revertido");
+    await voidDialog.getByRole("button", { name: "Anular pago" }).click();
 
     // El diálogo se cierra al completarse la anulación y re-renderizar.
-    await expect(dialog).toBeHidden({ timeout: 15_000 });
+    await expect(voidDialog).toBeHidden({ timeout: 15_000 });
     // La cuenta vuelve a tener saldo y estado parcial.
     await expect(page.getByText("Parcial", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
+    // El botón para registrar pagos vuelve a estar disponible.
+    await expect(
+      paymentsSection(page).getByRole("button", { name: "Registrar pago" }),
+    ).toBeVisible();
 
     // El evento de reapertura vive en el diálogo "Historial" del encabezado.
     await page.getByRole("button", { name: "Historial" }).click();
@@ -152,5 +208,9 @@ test.describe("receivable payments", () => {
         exact: true,
       }),
     ).toBeVisible();
+
+    // El historial también se puede cerrar (Escape).
+    await page.keyboard.press("Escape");
+    await expect(historyDialog).toBeHidden();
   });
 });
