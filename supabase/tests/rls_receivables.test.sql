@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(28);
+select plan(36);
 
 create schema rls_rec_test;
 grant usage on schema rls_rec_test to public;
@@ -115,11 +115,42 @@ select ok(rls_rec_test.statement_fails($$
   values ('81111111-1111-1111-1111-111111111111','81111111-c000-0000-0000-000000000001','Fechas','CRC',100,'2026-07-13','2026-07-01')
 $$), 'Due date cannot precede the issue date');
 
--- Cliente obligatorio (NOT NULL).
+-- Nombre libre: client_id nulo con un nombre visible es válido.
+select ok(rls_rec_test.statement_succeeds($$
+  insert into public.receivables
+    (id, owner_id, client_id, client_name_snapshot, concept, currency, amount_total, issued_at)
+  values ('81111111-a000-0000-0000-000000000004','81111111-1111-1111-1111-111111111111',
+    null, 'Nombre Libre S.A.', 'Sin cliente registrado', 'CRC', 90000.00, '2026-07-13')
+$$), 'A receivable can be created with a free-text client name and no client_id');
+
+select is((select client_name from public.receivable_entries
+  where id = '81111111-a000-0000-0000-000000000004'),
+  'Nombre Libre S.A.', 'The free-text name is the effective visible name');
+
+-- El nombre visible sigue siendo obligatorio: sin Cliente y sin nombre libre
+-- se rechaza (NOT NULL / CHECK de no-vacío).
 select ok(rls_rec_test.statement_fails($$
   insert into public.receivables (owner_id, client_id, concept, currency, amount_total, issued_at)
-  values ('81111111-1111-1111-1111-111111111111', null,'Sin cliente','CRC',100,'2026-07-13')
-$$), 'Client is mandatory');
+  values ('81111111-1111-1111-1111-111111111111', null,'Sin cliente ni nombre','CRC',100,'2026-07-13')
+$$), 'A receivable needs a visible name: no client and no free-text name is rejected');
+
+select ok(rls_rec_test.statement_fails($$
+  insert into public.receivables (owner_id, client_id, client_name_snapshot, concept, currency, amount_total, issued_at)
+  values ('81111111-1111-1111-1111-111111111111', null, '   ', 'Nombre en blanco','CRC',100,'2026-07-13')
+$$), 'A blank free-text name is rejected');
+
+-- Cliente registrado: el snapshot enviado por el cliente se ignora — el
+-- trigger siempre lo sincroniza desde el nombre vigente de clients.
+select ok(rls_rec_test.statement_succeeds($$
+  insert into public.receivables
+    (id, owner_id, client_id, client_name_snapshot, concept, currency, amount_total, issued_at)
+  values ('81111111-a000-0000-0000-000000000005','81111111-1111-1111-1111-111111111111',
+    '81111111-c000-0000-0000-000000000001', 'Nombre Falsificado', 'Con cliente', 'CRC', 1000.00, '2026-07-13')
+$$), 'Creating a receivable with a registered client succeeds regardless of the submitted snapshot text');
+
+select is((select client_name from public.receivable_entries
+  where id = '81111111-a000-0000-0000-000000000005'),
+  'Cliente A', 'The snapshot always reflects the live client name, never the submitted text');
 
 -- Cliente ajeno rechazado por FK compuesta.
 select ok(rls_rec_test.statement_fails($$
@@ -161,6 +192,26 @@ select is(rls_rec_test.total_events('81111111-a000-0000-0000-000000000003'),
 update public.receivables set concept = 'Saldo' where id = '81111111-a000-0000-0000-000000000003';
 select is(rls_rec_test.total_events('81111111-a000-0000-0000-000000000003'),
   1::bigint, 'A no-op update records no new activity');
+
+-- Cambiar el nombre libre (client_id sigue nulo) registra receivable_client_changed.
+update public.receivables set client_name_snapshot = 'Nombre Libre Actualizado'
+  where id = '81111111-a000-0000-0000-000000000004';
+select is(rls_rec_test.event_count('81111111-a000-0000-0000-000000000004','receivable_client_changed'),
+  1::bigint, 'Changing the free-text name records receivable_client_changed');
+
+-- Cliente renombrado: el snapshot ya escrito NO cambia retroactivamente.
+update public.clients set full_name = 'Cliente A Renombrado'
+  where id = '81111111-c000-0000-0000-000000000001';
+select is((select client_name from public.receivable_entries
+  where id = '81111111-a000-0000-0000-000000000005'),
+  'Cliente A', 'Renaming the Client does not retroactively change an already-written snapshot');
+
+-- Pero la próxima escritura sobre esa cuenta sí toma el nombre vigente.
+update public.receivables set concept = 'Con cliente (editado)'
+  where id = '81111111-a000-0000-0000-000000000005';
+select is((select client_name from public.receivable_entries
+  where id = '81111111-a000-0000-0000-000000000005'),
+  'Cliente A Renombrado', 'The next write on that receivable re-syncs the snapshot from the current client name');
 
 -- Actividad es de solo lectura para el usuario.
 select ok(rls_rec_test.statement_fails($$

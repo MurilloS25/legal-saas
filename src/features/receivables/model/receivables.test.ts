@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { ReceivableSchema } from "./receivables";
 
 const base = {
+  client_mode: "registered",
   client_id: "41111111-c000-0000-0000-000000000001",
+  client_name: "",
   document_id: "",
   concept: "Honorarios",
   currency: "CRC",
@@ -10,6 +12,13 @@ const base = {
   issued_at: "2026-07-13",
   due_at: "",
   notes: "",
+};
+
+const freeBase = {
+  ...base,
+  client_mode: "free",
+  client_id: "",
+  client_name: "María Pérez",
 };
 
 describe("ReceivableSchema", () => {
@@ -41,10 +50,36 @@ describe("ReceivableSchema", () => {
     }
   });
 
-  it("requires a client", () => {
-    expect(ReceivableSchema.safeParse({ ...base, client_id: "" }).success).toBe(false);
+  it("requires a client for registered mode", () => {
+    expect(
+      ReceivableSchema.safeParse({ ...base, client_id: "" }).success,
+    ).toBe(false);
     expect(
       ReceivableSchema.safeParse({ ...base, client_id: "not-a-uuid" }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a free-text client name without a client_id", () => {
+    const result = ReceivableSchema.safeParse(freeBase);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.client_id).toBeNull();
+      expect(result.data.client_name).toBe("María Pérez");
+    }
+  });
+
+  it("requires a non-blank name for free-text mode", () => {
+    expect(
+      ReceivableSchema.safeParse({ ...freeBase, client_name: "" }).success,
+    ).toBe(false);
+    expect(
+      ReceivableSchema.safeParse({ ...freeBase, client_name: "   " }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an unknown client_mode", () => {
+    expect(
+      ReceivableSchema.safeParse({ ...base, client_mode: "other" }).success,
     ).toBe(false);
   });
 
