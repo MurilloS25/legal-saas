@@ -85,7 +85,7 @@ export async function registerPaymentAction(
   }
 
   revalidatePath(`/dashboard/receivables/${receivableId}`);
-  redirect(`/dashboard/receivables/${receivableId}?section=payments`);
+  redirect(`/dashboard/receivables/${receivableId}?section=payments&paid=1`);
 }
 
 // ------------------------------------------------------------------ void

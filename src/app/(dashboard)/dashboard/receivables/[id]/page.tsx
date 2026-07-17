@@ -17,7 +17,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ section?: string; created?: string }>;
+  searchParams: Promise<{ section?: string; created?: string; paid?: string }>;
 };
 
 function resolveInitialSection(
@@ -31,7 +31,7 @@ export default async function ReceivableDetailPage({
   searchParams,
 }: Props) {
   const { id } = await params;
-  const { section, created } = await searchParams;
+  const { section, created, paid } = await searchParams;
 
   const [entry, editable] = await Promise.all([
     getReceivableEntry(id),
@@ -58,6 +58,7 @@ export default async function ReceivableDetailPage({
         payments={payments}
         initialSection={resolveInitialSection(section)}
         createdJustNow={created === "1"}
+        paidJustNow={paid === "1"}
       />
     </PageContainer>
   );
