@@ -31,7 +31,18 @@ function variableRow(page: Page, key: string) {
   return variablesRegion(page).locator("li").filter({ hasText: key });
 }
 
-async function goToTab(page: Page, name: "Documento" | "Variables") {
+function previewRegion(page: Page) {
+  return page.getByRole("region", { name: "Vista previa" });
+}
+
+function notarialIndexRegion(page: Page) {
+  return page.getByRole("region", { name: "Configuración del índice notarial" });
+}
+
+async function goToTab(
+  page: Page,
+  name: "Documento" | "Variables" | "Índice notarial",
+) {
   await page.getByRole("tab", { name }).click();
 }
 
@@ -238,14 +249,24 @@ test.describe("template pasted/typed variable detection", () => {
       "{{SMART:block_fda924b2}}",
     );
 
+    // La etiqueta y clave confirmadas en el diálogo son la configuración
+    // real: las variables legacy quedan "Configurada" de inmediato, no
+    // "Pendiente de configurar" — la fuente única de verdad es el mismo
+    // diálogo de revisión, no un segundo paso manual.
     await goToTab(page, "Variables");
     await expect(
+      variableRow(page, "nombre_compareciente").getByText("Configurada"),
+    ).toBeVisible();
+    await expect(
       variableRow(page, "nombre_compareciente").getByText(
-        "Pendiente de configurar",
+        "Nombre compareciente",
       ),
     ).toBeVisible();
     await expect(
-      variableRow(page, "placas").getByText("Pendiente de configurar"),
+      variableRow(page, "placas").getByText("Configurada"),
+    ).toBeVisible();
+    await expect(
+      variableRow(page, "numero_escritura.numero").getByText("Configurada"),
     ).toBeVisible();
   });
 
@@ -297,9 +318,17 @@ test.describe("template pasted/typed variable detection", () => {
       contentEditor(page).locator('[data-variable-key="marca"]'),
     ).toHaveCount(0);
     await expect(contentEditor(page)).toContainText("{{MARCA}}");
+
+    // La incluida queda configurada; la excluida ni siquiera aparece como
+    // variable (no se creó ningún nodo ni configuración para ella).
+    await goToTab(page, "Variables");
+    await expect(
+      variableRow(page, "combustible").getByText("Configurada"),
+    ).toBeVisible();
+    await expect(variablesRegion(page).getByText("{{marca}}")).toHaveCount(0);
   });
 
-  test("H: a converted legacy variable persists after saving and reloading", async ({
+  test("H: a converted legacy variable persists after saving and reloading, and is selectable in the notarial index", async ({
     page,
   }) => {
     await page.goto(templateUrl);
@@ -313,15 +342,12 @@ test.describe("template pasted/typed variable detection", () => {
     await dialog.getByRole("button", { name: "Convertir" }).click();
     await expect(dialog).toBeHidden();
 
+    // Ya queda configurada de inmediato (no hace falta un paso manual de
+    // "Configurar" adicional).
     await goToTab(page, "Variables");
     const row = variableRow(page, "folio_final");
-    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
-    await row
-      .getByRole("button", { name: "Configurar variable folio_final" })
-      .click();
-    await page.getByLabel("Etiqueta").fill("Folio final");
-    await page.getByRole("button", { name: "Guardar variable" }).click();
     await expect(row.getByText("Configurada")).toBeVisible();
+    await expect(row.getByText("Folio final")).toBeVisible();
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
@@ -339,5 +365,79 @@ test.describe("template pasted/typed variable detection", () => {
     await expect(
       contentEditor(page).locator('[data-variable-key="folio_final"]'),
     ).toBeVisible();
+
+    // Ahora aparece como opción seleccionable en el Índice Notarial (se
+    // alimenta de la misma configuración persistida de variables).
+    await goToTab(page, "Índice notarial");
+    await expect(
+      notarialIndexRegion(page)
+        .getByLabel("Número de instrumento", { exact: true })
+        .locator("option", { hasText: "Folio final" }),
+    ).toHaveCount(1);
+  });
+
+  test("I: editing a converted variable's label updates the editor chip, the preview and the notarial index", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    await pasteAtEnd(page, "Marca del vehiculo {{MARCA_VEHICULO}}.");
+    const dialog = page.getByRole("dialog", {
+      name: "Revisar variables detectadas",
+    });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(
+      contentEditor(page).getByText("Marca vehiculo"),
+    ).toBeVisible();
+    await expect(
+      previewRegion(page).getByText("Marca vehiculo"),
+    ).toBeVisible();
+
+    await goToTab(page, "Variables");
+    const row = variableRow(page, "marca_vehiculo");
+    await row
+      .getByRole("button", { name: "Editar variable marca_vehiculo" })
+      .click();
+    await page.getByLabel("Etiqueta").fill("Marca del vehículo");
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+    await expect(row.getByText("Marca del vehículo")).toBeVisible();
+
+    // La ficha del editor y la vista previa reflejan la nueva etiqueta de
+    // inmediato, sin guardar todavía.
+    await goToTab(page, "Documento");
+    await expect(
+      contentEditor(page).getByText("Marca del vehículo"),
+    ).toBeVisible();
+    await expect(
+      contentEditor(page).getByText("Marca vehiculo"),
+    ).toHaveCount(0);
+    await expect(
+      previewRegion(page).getByText("Marca del vehículo"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // La etiqueta renombrada persiste tras recargar, en el editor y en el
+    // Índice Notarial.
+    await expect(async () => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(
+        contentEditor(page).getByText("Marca del vehículo"),
+      ).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 20_000 });
+
+    await goToTab(page, "Índice notarial");
+    await expect(
+      notarialIndexRegion(page)
+        .getByLabel("Número de instrumento", { exact: true })
+        .locator("option", { hasText: "Marca del vehículo" }),
+    ).toHaveCount(1);
   });
 });
