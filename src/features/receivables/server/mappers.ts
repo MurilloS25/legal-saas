@@ -28,6 +28,7 @@ export type ReceivableTableRow = Pick<
   Tables<"receivables">,
   | "id"
   | "client_id"
+  | "client_name_snapshot"
   | "document_id"
   | "concept"
   | "currency"
@@ -42,7 +43,6 @@ export function mapReceivableEntry(
 ): ReceivableEntry | null {
   if (
     !row.id ||
-    !row.client_id ||
     !row.concept ||
     !row.currency ||
     row.amount_total === null ||

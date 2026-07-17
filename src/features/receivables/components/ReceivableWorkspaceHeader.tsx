@@ -24,7 +24,8 @@ type Props = {
   concept: string;
   statusBadge: React.ReactNode;
   clientName: string;
-  clientId: string;
+  /** Solo existe para un Cliente registrado; nombre libre no navega a nada. */
+  clientId: string | null;
   documentTitle: string | null;
   documentId: string | null;
   section: ReceivableWorkspaceSection;
@@ -75,12 +76,16 @@ export function ReceivableWorkspaceHeader({
             {statusBadge}
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            <Link
-              href={`/dashboard/clients/${clientId}`}
-              className="text-teal-700 hover:underline"
-            >
-              {clientName}
-            </Link>
+            {clientId ? (
+              <Link
+                href={`/dashboard/clients/${clientId}`}
+                className="text-teal-700 hover:underline"
+              >
+                {clientName}
+              </Link>
+            ) : (
+              <span>{clientName}</span>
+            )}
             {documentTitle && documentId && (
               <>
                 {" · "}

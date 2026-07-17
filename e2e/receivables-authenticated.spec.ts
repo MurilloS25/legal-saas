@@ -77,7 +77,7 @@ test.describe("receivables module", () => {
   }) => {
     await page.goto("/dashboard/receivables/new");
 
-    await page.getByLabel("Cliente").selectOption(clientId);
+    await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Concepto").fill(concept);
     await page.getByLabel("Moneda").selectOption("CRC");
     await page.getByLabel("Monto total").fill("150000.00");
@@ -156,7 +156,7 @@ test.describe("receivables module", () => {
     const secondConcept = uniqueName("receivables", "concepto2");
     await page.goto("/dashboard/receivables/new");
 
-    await page.getByLabel("Cliente").selectOption(clientId);
+    await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Escritura").selectOption(documentId);
     await page.getByLabel("Concepto").fill(secondConcept);
     await page.getByLabel("Monto total").fill("50000.00");
@@ -179,7 +179,7 @@ test.describe("receivables module", () => {
 
   test("H: rejects a non-positive amount", async ({ page }) => {
     await page.goto("/dashboard/receivables/new");
-    await page.getByLabel("Cliente").selectOption(clientId);
+    await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Concepto").fill(uniqueName("receivables", "malo"));
     await page.getByLabel("Monto total").fill("0");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
@@ -189,5 +189,95 @@ test.describe("receivables module", () => {
     await expect(
       page.getByText("El monto debe ser mayor que cero"),
     ).toBeVisible();
+  });
+
+  test("I: user can create a receivable with a free-text client name, optionally linked to a document", async ({
+    page,
+  }) => {
+    const freeName = uniqueName("receivables", "nombre-libre");
+    const freeConcept = uniqueName("receivables", "concepto-libre");
+    await page.goto("/dashboard/receivables/new");
+
+    await page.getByRole("radio", { name: "Escribir nombre" }).check();
+    await page.getByLabel("Nombre del cliente").fill(freeName);
+    await page.getByLabel("Escritura").selectOption(documentId);
+    await page.getByLabel("Concepto").fill(freeConcept);
+    await page.getByLabel("Monto total").fill("30000.00");
+    await page.getByRole("button", { name: "Crear cuenta" }).click();
+
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
+      { timeout: 15_000 },
+    );
+    await registerCreatedViaUi(registry, "receivables", "concept", freeConcept);
+
+    await expect(
+      page.getByRole("heading", { name: freeConcept, exact: true }),
+    ).toBeVisible();
+    // El nombre libre se muestra como texto plano, sin enlazar a un Cliente.
+    const clientText = page.getByText(freeName, { exact: true });
+    await expect(clientText).toBeVisible();
+    await expect(clientText).not.toHaveAttribute("href", /.+/);
+
+    // El modo "Escribir nombre" y el nombre quedan reflejados en el formulario.
+    await expect(
+      page.getByRole("radio", { name: "Escribir nombre" }),
+    ).toBeChecked();
+    await expect(page.getByLabel("Nombre del cliente")).toHaveValue(freeName);
+  });
+
+  test("J: a free-text receivable persists after reload and appears in the list", async ({
+    page,
+  }) => {
+    const freeName = uniqueName("receivables", "nombre-libre2");
+    const freeConcept = uniqueName("receivables", "concepto-libre2");
+    await page.goto("/dashboard/receivables/new");
+
+    await page.getByRole("radio", { name: "Escribir nombre" }).check();
+    await page.getByLabel("Nombre del cliente").fill(freeName);
+    await page.getByLabel("Concepto").fill(freeConcept);
+    await page.getByLabel("Monto total").fill("15000.00");
+    await page.getByRole("button", { name: "Crear cuenta" }).click();
+
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
+      { timeout: 15_000 },
+    );
+    await registerCreatedViaUi(registry, "receivables", "concept", freeConcept);
+    await page.reload();
+    await expect(page.getByLabel("Nombre del cliente")).toHaveValue(freeName);
+
+    await page.goto("/dashboard/receivables");
+    await expect(page.getByText(freeName).first()).toBeVisible();
+  });
+
+  test("K: switching an existing receivable from a registered client to a free-text name saves correctly", async ({
+    page,
+  }) => {
+    const switchConcept = uniqueName("receivables", "concepto-switch");
+    const freeName = uniqueName("receivables", "nombre-switch");
+    await page.goto("/dashboard/receivables/new");
+    await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
+    await page.getByLabel("Concepto").fill(switchConcept);
+    await page.getByLabel("Monto total").fill("20000.00");
+    await page.getByRole("button", { name: "Crear cuenta" }).click();
+    await expect(page).toHaveURL(
+      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
+      { timeout: 15_000 },
+    );
+    await registerCreatedViaUi(registry, "receivables", "concept", switchConcept);
+
+    await page.getByRole("radio", { name: "Escribir nombre" }).check();
+    await page.getByLabel("Nombre del cliente").fill(freeName);
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+      timeout: 15_000,
+    });
+    await page.reload();
+    await expect(
+      page.getByRole("radio", { name: "Escribir nombre" }),
+    ).toBeChecked();
+    await expect(page.getByLabel("Nombre del cliente")).toHaveValue(freeName);
   });
 });

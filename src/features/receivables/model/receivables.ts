@@ -52,12 +52,23 @@ const OptionalDate = z
     message: "La fecha no es válida",
   });
 
+const MAX_CLIENT_NAME = 200;
+
+export const CLIENT_MODES = ["registered", "free"] as const;
+export type ClientMode = (typeof CLIENT_MODES)[number];
+
 export const ReceivableSchema = z
   .object({
-    client_id: z
+    client_mode: z.enum(CLIENT_MODES, { error: "Selecciona el tipo de cliente" }),
+    client_id: OptionalUuid,
+    // Nombre libre digitado por el usuario. Para "Cliente registrado" este
+    // valor no se usa: el servidor siempre deriva el snapshot del nombre
+    // vigente del Cliente (nunca se confía en texto enviado por el navegador
+    // para una cuenta con client_id).
+    client_name: z
       .string()
       .trim()
-      .regex(UUID_PATTERN, "Selecciona un cliente"),
+      .max(MAX_CLIENT_NAME, "El nombre es demasiado largo"),
     document_id: OptionalUuid,
     concept: z
       .string()
@@ -81,13 +92,26 @@ export const ReceivableSchema = z
       message: "El vencimiento no puede ser anterior a la emisión",
       path: ["due_at"],
     },
+  )
+  .refine((data) => data.client_mode !== "registered" || data.client_id !== null, {
+    message: "Selecciona un cliente",
+    path: ["client_id"],
+  })
+  .refine(
+    (data) => data.client_mode !== "free" || data.client_name.trim() !== "",
+    {
+      message: "El nombre del cliente es requerido",
+      path: ["client_name"],
+    },
   );
 
 export type ReceivableInput = z.infer<typeof ReceivableSchema>;
 
 export function parseReceivableFormData(formData: FormData) {
   return ReceivableSchema.safeParse({
+    client_mode: String(formData.get("client_mode") ?? ""),
     client_id: String(formData.get("client_id") ?? ""),
+    client_name: String(formData.get("client_name") ?? ""),
     document_id: String(formData.get("document_id") ?? ""),
     concept: String(formData.get("concept") ?? ""),
     currency: String(formData.get("currency") ?? ""),

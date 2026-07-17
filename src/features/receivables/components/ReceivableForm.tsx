@@ -13,6 +13,7 @@ import type {
   ReceivableRow,
 } from "../model/types";
 import { RECEIVABLE_CURRENCIES } from "../model/status";
+import { CLIENT_MODES, type ClientMode } from "../model/receivables";
 import { FieldError } from "@/components/forms/FieldError";
 
 const inputClass =
@@ -50,6 +51,9 @@ export function ReceivableForm(props: Props) {
 
   const [state, formAction, pending] = useActionState(action, initialState);
 
+  const [clientMode, setClientMode] = useState<ClientMode>(() =>
+    isEdit && !receivable!.client_id ? "free" : "registered",
+  );
   const [clientId, setClientId] = useState<string>(
     receivable?.client_id ?? defaults?.client_id ?? "",
   );
@@ -112,68 +116,123 @@ export function ReceivableForm(props: Props) {
         )}
 
         <div className="space-y-5">
-          {/* Cliente + Escritura */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="client_id" className={labelClass}>
-                Cliente{requiredMark}
-              </label>
-              <select
-                id="client_id"
-                name="client_id"
-                required
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                className={inputClass}
-                aria-describedby={
-                  state.errors?.client_id ? "client_id-error" : undefined
-                }
-                aria-invalid={!!state.errors?.client_id}
-              >
-                <option value="" disabled>
-                  Seleccionar cliente…
-                </option>
-                {props.clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.full_name}
-                  </option>
-                ))}
-              </select>
-              <FieldError
-                id="client_id-error"
-                message={state.errors?.client_id}
-              />
+          {/* Cliente */}
+          <div>
+            <p className={labelClass}>Cliente de la cuenta{requiredMark}</p>
+            <div
+              role="radiogroup"
+              aria-label="Cliente de la cuenta"
+              className="mb-3 flex flex-wrap gap-4"
+            >
+              {CLIENT_MODES.map((mode) => (
+                <label
+                  key={mode}
+                  className="flex items-center gap-2 text-sm text-slate-700"
+                >
+                  <input
+                    type="radio"
+                    name="client_mode"
+                    value={mode}
+                    checked={clientMode === mode}
+                    onChange={() => setClientMode(mode)}
+                    className="h-4 w-4 border-slate-300 text-teal-700 focus:ring-teal-500"
+                  />
+                  {mode === "registered" ? "Cliente registrado" : "Escribir nombre"}
+                </label>
+              ))}
             </div>
 
-            <div>
-              <label htmlFor="document_id" className={labelClass}>
-                Escritura{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  (opcional)
-                </span>
-              </label>
-              <select
-                id="document_id"
-                name="document_id"
-                defaultValue={defaultDocumentId}
-                className={inputClass}
-                aria-describedby={
-                  state.errors?.document_id ? "document_id-error" : undefined
-                }
-                aria-invalid={!!state.errors?.document_id}
-              >
-                <option value="">Sin escritura</option>
-                {availableDocuments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.title}
+            {clientMode === "registered" ? (
+              <>
+                <label htmlFor="client_id" className="sr-only">
+                  Cliente
+                </label>
+                <select
+                  id="client_id"
+                  name="client_id"
+                  required
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className={inputClass}
+                  aria-describedby={
+                    state.errors?.client_id ? "client_id-error" : undefined
+                  }
+                  aria-invalid={!!state.errors?.client_id}
+                >
+                  <option value="" disabled>
+                    Seleccionar cliente…
                   </option>
-                ))}
-              </select>
-              <FieldError
-                id="document_id-error"
-                message={state.errors?.document_id}
-              />
-            </div>
+                  {props.clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name}
+                    </option>
+                  ))}
+                </select>
+                <FieldError
+                  id="client_id-error"
+                  message={state.errors?.client_id}
+                />
+              </>
+            ) : (
+              <>
+                <label htmlFor="client_name" className="sr-only">
+                  Nombre del cliente
+                </label>
+                <input
+                  id="client_name"
+                  name="client_name"
+                  type="text"
+                  required
+                  maxLength={200}
+                  defaultValue={
+                    isEdit && !receivable!.client_id
+                      ? receivable!.client_name_snapshot
+                      : ""
+                  }
+                  className={inputClass}
+                  placeholder="Nombre del cliente"
+                  aria-describedby={
+                    state.errors?.client_name ? "client_name-error" : undefined
+                  }
+                  aria-invalid={!!state.errors?.client_name}
+                />
+                <FieldError
+                  id="client_name-error"
+                  message={state.errors?.client_name}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Escritura */}
+          <div>
+            <label htmlFor="document_id" className={labelClass}>
+              Escritura{" "}
+              <span className="text-xs font-normal text-slate-400">
+                (opcional)
+              </span>
+            </label>
+            <select
+              id="document_id"
+              name="document_id"
+              defaultValue={defaultDocumentId}
+              className={inputClass}
+              aria-describedby={
+                state.errors?.document_id ? "document_id-error" : undefined
+              }
+              aria-invalid={!!state.errors?.document_id}
+            >
+              <option value="">Sin escritura</option>
+              {availableDocuments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title}
+                </option>
+              ))}
+            </select>
+            <FieldError
+              id="document_id-error"
+              message={state.errors?.document_id}
+            />
           </div>
 
           {/* Concepto */}

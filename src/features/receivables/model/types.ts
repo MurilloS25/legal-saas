@@ -2,7 +2,7 @@ import type { ReceivableStatus } from "./status";
 
 export type ReceivableEntry = {
   id: string;
-  client_id: string;
+  client_id: string | null;
   document_id: string | null;
   concept: string;
   currency: string;
@@ -11,6 +11,7 @@ export type ReceivableEntry = {
   due_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Nombre visible efectivo — siempre el snapshot, registrado o libre. */
   client_name: string;
   document_title: string | null;
   paid_amount: string;
@@ -20,7 +21,9 @@ export type ReceivableEntry = {
 
 export type ReceivableRow = {
   id: string;
-  client_id: string;
+  client_id: string | null;
+  /** Snapshot actual, usado para prellenar el campo de nombre libre al editar. */
+  client_name_snapshot: string;
   document_id: string | null;
   concept: string;
   currency: string;

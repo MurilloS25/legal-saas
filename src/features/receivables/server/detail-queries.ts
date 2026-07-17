@@ -36,7 +36,7 @@ export async function getReceivableForEdit(
   const { data, error } = await supabase
     .from("receivables")
     .select(
-      "id, client_id, document_id, concept, currency, amount_total, issued_at, due_at, notes",
+      "id, client_id, client_name_snapshot, document_id, concept, currency, amount_total, issued_at, due_at, notes",
     )
     .eq("id", id)
     .eq("owner_id", user.id)

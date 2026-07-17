@@ -6,13 +6,19 @@ import { requireUser } from "@/lib/server/auth";
 import {
   ReceivableSchema,
   parseReceivableFormData,
+  type ReceivableInput,
 } from "../model/receivables";
+import type { Database } from "@/lib/supabase/database.types";
+
+type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
+type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
 
 // ------------------------------------------------------------------ types
 
 export type ReceivableState = {
   errors?: {
     client_id?: string;
+    client_name?: string;
     document_id?: string;
     concept?: string;
     currency?: string;
@@ -39,6 +45,7 @@ function fieldErrors(
   return {
     errors: {
       client_id: fe.client_id?.[0],
+      client_name: fe.client_name?.[0],
       document_id: fe.document_id?.[0],
       concept: fe.concept?.[0],
       currency: fe.currency?.[0],
@@ -57,6 +64,40 @@ function receivableMutationMessage(code: string | undefined): string {
   return "No fue posible actualizar la cuenta por cobrar. Intenta de nuevo.";
 }
 
+/**
+ * Construye el payload de escritura a partir de la entrada validada.
+ *
+ * Para "Cliente registrado" nunca se envía el texto del formulario como
+ * snapshot: se manda `null` y el trigger `sync_receivable_client_name_snapshot`
+ * lo deriva siempre del nombre vigente del Cliente en el momento de
+ * guardar — así no se puede falsificar el nombre visible de una cuenta con
+ * `client_id`. Para "Escribir nombre" se envía `client_id: null` y el texto
+ * digitado como snapshot (el CHECK de la tabla exige que no quede vacío).
+ *
+ * `client_name_snapshot` se envía `null` para "Cliente registrado" — el
+ * tipo generado lo marca `string` (no nullable) porque la columna es
+ * `NOT NULL` a nivel de tabla, pero eso no ve que un trigger BEFORE la
+ * rellena antes de que se evalúe esa restricción; de ahí el cast.
+ */
+function buildReceivableMutation(
+  data: ReceivableInput,
+): Omit<ReceivableInsert, "owner_id"> {
+  const isRegistered = data.client_mode === "registered";
+  return {
+    client_id: isRegistered ? data.client_id : null,
+    client_name_snapshot: isRegistered
+      ? (null as unknown as string)
+      : data.client_name.trim(),
+    document_id: data.document_id,
+    concept: data.concept,
+    currency: data.currency,
+    amount_total: Number(data.amount_total),
+    issued_at: data.issued_at,
+    due_at: data.due_at,
+    notes: data.notes,
+  };
+}
+
 // ------------------------------------------------------------------ create
 
 export async function createReceivableAction(
@@ -68,10 +109,7 @@ export async function createReceivableAction(
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
 
-  const mutation = {
-    ...result.data,
-    amount_total: Number(result.data.amount_total),
-  };
+  const mutation = buildReceivableMutation(result.data);
 
   const { data, error } = await supabase
     .from("receivables")
@@ -101,10 +139,7 @@ export async function updateReceivableAction(
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
 
-  const mutation = {
-    ...result.data,
-    amount_total: Number(result.data.amount_total),
-  };
+  const mutation: ReceivableUpdate = buildReceivableMutation(result.data);
 
   const { error } = await supabase
     .from("receivables")

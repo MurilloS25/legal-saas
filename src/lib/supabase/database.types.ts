@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       clients: {
@@ -591,7 +566,8 @@ export type Database = {
       receivables: {
         Row: {
           amount_total: number
-          client_id: string
+          client_id: string | null
+          client_name_snapshot: string
           concept: string
           created_at: string
           currency: string
@@ -605,7 +581,8 @@ export type Database = {
         }
         Insert: {
           amount_total: number
-          client_id: string
+          client_id?: string | null
+          client_name_snapshot: string
           concept: string
           created_at?: string
           currency: string
@@ -619,7 +596,8 @@ export type Database = {
         }
         Update: {
           amount_total?: number
-          client_id?: string
+          client_id?: string | null
+          client_name_snapshot?: string
           concept?: string
           created_at?: string
           currency?: string
@@ -1198,9 +1176,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
