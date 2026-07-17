@@ -11,6 +11,36 @@
   --font-sans: var(--font-inter);
 }
 
+/*
+ * Paleta del shell del panel (sidebar + Panel principal).
+ *
+ * "ink": azul tinta desaturado del sidebar — reemplaza el marino casi
+ * negro anterior. "accent": variante más clara/intensa del MISMO azul,
+ * usada como único acento decorativo (barra activa, iconos, hover, foco,
+ * badges, enlaces) — reemplaza el teal/verde brillante anterior. Verde,
+ * ámbar y rojo quedan reservados exclusivamente para estados semánticos
+ * (positivo/pendiente/error), nunca como decoración.
+ * Contraste verificado (WCAG AA): ink-800 vs blanco ≈14.6:1; accent-400
+ * vs ink-800 ≈4.4:1; accent-600 vs blanco ≈6.7:1.
+ */
+@theme {
+  --color-ink-900: #14202F;
+  --color-ink-800: #1B2A42;
+  --color-ink-700: #26374F;
+  --color-ink-600: #32455E;
+  --color-ink-400: #90A0BA;
+  --color-ink-200: #D7DEE9;
+
+  --color-accent-50: #EEF3FC;
+  --color-accent-100: #DCE8FA;
+  --color-accent-200: #B7D0F3;
+  --color-accent-300: #8CB3E9;
+  --color-accent-400: #5D91DC;
+  --color-accent-500: #3E73C4;
+  --color-accent-600: #2F5C9E;
+  --color-accent-700: #244B87;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
