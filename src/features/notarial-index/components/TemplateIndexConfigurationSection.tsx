@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useActionState,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useActionState, useMemo, useState } from "react";
 import { generateIndexParties } from "../model/parties";
 import type {
   InvalidIndexMapping,
@@ -81,18 +75,6 @@ export function TemplateIndexConfigurationSection({
   );
   const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-  useLayoutEffect(() => {
-    if (
-      !configuration ||
-      !configuration.isComplete ||
-      state.success ||
-      state.message ||
-      state.errors
-    ) {
-      if (detailsRef.current) detailsRef.current.open = true;
-    }
-  }, [configuration, state]);
   const fieldsById = useMemo(
     () => new Map(fields.map((field) => [field.id, field])),
     [fields],
@@ -137,13 +119,12 @@ export function TemplateIndexConfigurationSection({
   return (
     <section
       aria-label="Configuración del índice notarial"
-      className="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm"
+      className="rounded-xl border border-slate-200 bg-white shadow-sm"
     >
-      <details ref={detailsRef}>
-        <summary className="cursor-pointer px-6 py-4 text-sm font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-inset">
-          Configuración del índice notarial
-        </summary>
-        <form action={formAction} className="border-t border-slate-200 px-6 py-5">
+      <div className="px-6 py-4 text-sm font-semibold text-slate-900 border-b border-slate-200">
+        Configuración del índice notarial
+      </div>
+      <form action={formAction} className="px-6 py-5">
           <p className="mb-5 text-sm text-slate-600">
             Asocia una vez las variables del machote con los datos del índice.
             Los valores podrán corregirse en cada escritura.
@@ -317,8 +298,7 @@ export function TemplateIndexConfigurationSection({
               {pending ? "Guardando…" : "Guardar configuración"}
             </button>
           </div>
-        </form>
-      </details>
+      </form>
     </section>
   );
 }

@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { TemplateWorkspace } from "@/features/templates";
+import type { TemplateWorkspaceSection } from "@/features/templates";
 import { getTemplateIndexConfiguration } from "@/features/notarial-index/server";
-import { TemplateIndexConfigurationSection } from "@/features/notarial-index";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 
@@ -14,12 +14,16 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; section?: string }>;
 };
+
+function resolveInitialSection(raw: string | undefined): TemplateWorkspaceSection {
+  return raw === "variables" || raw === "notarial" ? raw : "document";
+}
 
 export default async function TemplateDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { created } = await searchParams;
+  const { created, section } = await searchParams;
   const template = await getTemplateById(id);
 
   if (!template) notFound();
@@ -40,50 +44,6 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
 
   return (
     <PageContainer>
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-6">
-        <Link
-          href="/dashboard/templates"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Machotes
-        </Link>
-      </nav>
-
-      {/* Encabezado */}
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {template.name}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Edita el contenido, las variables y la configuración del machote.
-          </p>
-        </div>
-
-        {/* Acceso rápido secundario: el flujo principal vive en Escrituras. */}
-        <Link
-          href={`/dashboard/documents/new/${template.id}`}
-          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
-        >
-          Crear escritura
-        </Link>
-      </div>
-
       <TemplateWorkspace
         mode="edit"
         template={{
@@ -94,21 +54,27 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           updated_at: template.updated_at,
         }}
         createdJustNow={created === "1"}
+        initialSection={resolveInitialSection(section)}
         initialDocument={labeledDocument}
         initialVariables={fields.map((field) => ({
           field_key: field.field_key,
           label: field.label,
           required: field.required,
         }))}
-      />
-      <TemplateIndexConfigurationSection
-        templateId={template.id}
-        configuration={indexConfiguration}
-        fields={fields.map((field) => ({
+        indexConfiguration={indexConfiguration}
+        indexFields={fields.map((field) => ({
           id: field.id,
           fieldKey: field.field_key,
           label: field.label,
         }))}
+        headerActions={
+          <Link
+            href={`/dashboard/documents/new/${template.id}`}
+            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+          >
+            Crear escritura
+          </Link>
+        }
       />
     </PageContainer>
   );
