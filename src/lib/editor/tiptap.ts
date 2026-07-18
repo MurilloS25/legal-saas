@@ -109,8 +109,8 @@ export const TemplateVariableNode = Node.create({
       "span",
       mergeAttributes(HTMLAttributes, {
         class:
-          "template-variable-chip rounded bg-teal-50 border border-teal-200 " +
-          "px-1 py-0.5 text-teal-800 text-[0.9em] whitespace-nowrap",
+          "template-variable-chip rounded bg-accent-50 border border-accent-200 " +
+          "px-1 py-0.5 text-accent-800 text-[0.9em] whitespace-nowrap",
       }),
       label,
     ];

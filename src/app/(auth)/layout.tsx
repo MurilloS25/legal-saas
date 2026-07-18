@@ -10,7 +10,7 @@ export default function AuthLayout({
         <p className="text-2xl font-bold tracking-tight text-slate-900">
           LexCR
         </p>
-        <p className="mt-1 text-sm text-slate-500">Legal Workspace</p>
+        <p className="mt-1 text-sm text-slate-500">Gestión Notarial</p>
       </div>
 
       {children}
