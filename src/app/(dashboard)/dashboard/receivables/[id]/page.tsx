@@ -10,6 +10,7 @@ import {
 import { listClientOptions } from "@/features/clients/server";
 import { ReceivableWorkspace } from "@/features/receivables";
 import type { ReceivableWorkspaceSection } from "@/features/receivables";
+import { parseDocumentReceivablesReturnTo } from "@/lib/navigation/context-return";
 
 export const metadata = {
   title: "Cuenta por cobrar — LexCR",
@@ -17,7 +18,12 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ section?: string; created?: string; paid?: string }>;
+  searchParams: Promise<{
+    section?: string;
+    created?: string;
+    paid?: string;
+    returnTo?: string;
+  }>;
 };
 
 function resolveInitialSection(
@@ -31,7 +37,8 @@ export default async function ReceivableDetailPage({
   searchParams,
 }: Props) {
   const { id } = await params;
-  const { section, created, paid } = await searchParams;
+  const { section, created, paid, returnTo: rawReturnTo } = await searchParams;
+  const returnTo = parseDocumentReceivablesReturnTo(rawReturnTo);
 
   const [entry, editable] = await Promise.all([
     getReceivableEntry(id),
@@ -59,6 +66,7 @@ export default async function ReceivableDetailPage({
         initialSection={resolveInitialSection(section)}
         createdJustNow={created === "1"}
         paidJustNow={paid === "1"}
+        returnTo={returnTo}
       />
     </PageContainer>
   );

@@ -34,6 +34,9 @@ type Props = {
   | {
       mode: "create";
       defaults?: { client_id?: string; document_id?: string };
+      /** Ruta ya validada (ver context-return.ts) para volver a la
+       * Escritura de origen; ausente cuando se crea desde otro lugar. */
+      returnTo?: string | null;
     }
   | { mode: "edit"; receivable: ReceivableRow }
 );
@@ -44,6 +47,7 @@ export function ReceivableForm(props: Props) {
   const isEdit = props.mode === "edit";
   const receivable = isEdit ? props.receivable : null;
   const defaults = !isEdit ? props.defaults : undefined;
+  const returnTo = !isEdit ? (props.returnTo ?? null) : null;
 
   const action = isEdit
     ? updateReceivableAction.bind(null, receivable!.id)
@@ -106,6 +110,7 @@ export function ReceivableForm(props: Props) {
       </div>
 
       <form action={formAction} noValidate className="px-6 py-6">
+        {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
         {state.message && !state.errors && (
           <div
             role="alert"
@@ -390,7 +395,7 @@ export function ReceivableForm(props: Props) {
 
         <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
           <Link
-            href="/dashboard/receivables"
+            href={returnTo ?? "/dashboard/receivables"}
             className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
             Cancelar

@@ -248,6 +248,18 @@ export default defineConfig({
       dependencies: ["chromium-receivable-payments"],
     },
 
+    // Context navigation between a document and its receivables (returnTo
+    // back link) — authenticated.
+    {
+      name: "chromium-document-receivable-navigation",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-receivable-context-navigation-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivables-workspace"],
+    },
+
     // Dashboard Panel + sidebar shell — authenticated.
     {
       name: "chromium-dashboard",
@@ -256,7 +268,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /dashboard-panel-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables-workspace"],
+      dependencies: ["chromium-document-receivable-navigation"],
     },
 
     // Authenticated tests (settings) — must run last because test F logs

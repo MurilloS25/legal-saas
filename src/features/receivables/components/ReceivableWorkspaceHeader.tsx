@@ -12,6 +12,7 @@
  */
 
 import Link from "next/link";
+import { ContextBackLink } from "@/components/navigation/ContextBackLink";
 
 export type ReceivableWorkspaceSection = "account" | "payments";
 
@@ -31,6 +32,9 @@ type Props = {
   section: ReceivableWorkspaceSection;
   onSectionChange: (section: ReceivableWorkspaceSection) => void;
   actions?: React.ReactNode;
+  /** Ruta ya validada para volver a la Escritura de origen; `null`/`undefined`
+   * si esta cuenta no se abrió desde una Escritura. */
+  returnTo?: string | null;
 };
 
 export function ReceivableWorkspaceHeader({
@@ -43,9 +47,13 @@ export function ReceivableWorkspaceHeader({
   section,
   onSectionChange,
   actions,
+  returnTo,
 }: Props) {
   return (
     <header className="mb-6">
+      {returnTo && (
+        <ContextBackLink href={returnTo} label="Volver a la Escritura" />
+      )}
       <Link
         href="/dashboard/receivables"
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"

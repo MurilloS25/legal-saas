@@ -6,6 +6,7 @@ import {
   receivableStatusBadgeClass,
   receivableStatusLabel,
 } from "../model/status";
+import { appendReturnTo } from "@/lib/navigation/context-return";
 
 export const RECEIVABLE_MINI_COLUMN_LABELS = {
   concept: "Concepto",
@@ -15,7 +16,9 @@ export const RECEIVABLE_MINI_COLUMN_LABELS = {
   actions: "Acciones",
 } as const;
 
-export function createReceivableMiniColumns(): ColumnDef<ReceivableEntry>[] {
+export function createReceivableMiniColumns(
+  returnTo?: string,
+): ColumnDef<ReceivableEntry>[] {
   return [
     {
       id: "concept",
@@ -23,7 +26,10 @@ export function createReceivableMiniColumns(): ColumnDef<ReceivableEntry>[] {
       accessorFn: (row) => row.concept,
       cell: ({ row }) => (
         <Link
-          href={`/dashboard/receivables/${row.original.id}`}
+          href={appendReturnTo(
+            `/dashboard/receivables/${row.original.id}`,
+            returnTo ?? null,
+          )}
           className="text-sm font-medium text-slate-900 hover:text-accent-700 focus:outline-none focus:underline transition-colors"
         >
           {row.original.concept}
@@ -69,7 +75,10 @@ export function createReceivableMiniColumns(): ColumnDef<ReceivableEntry>[] {
       cell: ({ row }) => (
         <div className="flex items-center justify-end">
           <Link
-            href={`/dashboard/receivables/${row.original.id}`}
+            href={appendReturnTo(
+              `/dashboard/receivables/${row.original.id}`,
+              returnTo ?? null,
+            )}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
           >
             Ver
