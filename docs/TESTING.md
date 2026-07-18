@@ -470,7 +470,7 @@ pnpm e2e:headed   # headed browser
 | `chromium-notarial-workspace` | `e2e/notarial-workspace-authenticated.spec.ts` | Fortnight selection, day 15/16 boundary, fixed instrument order, filters, warnings, pagination, and responsive table |
 | `chromium-notarial-export` | `e2e/notarial-docx-authenticated.spec.ts` | Owner-authenticated `.docx` export, OOXML content, filename/MIME, incomplete rows, empty period, missing profile, anonymous rejection, and retired CSV UI |
 | `chromium-dashboard` | `e2e/dashboard-panel-authenticated.spec.ts` | Panel/sidebar shell: no duplicate "Nueva escritura" action, collapse/expand toggle + localStorage persistence + keyboard operability, collapsed nav tooltips without horizontal overflow, real notarial-fortnight incomplete count, real "Necesita tu atención" content (no "urgente" wording), fully clickable cards, quick actions |
-| `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard, settings, profile, document settings, logout |
+| `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard; unified settings workspace (profile + document settings in one page, no tabs, single "Guardar cambios" action, dirty detection, discard, validation blocks save without partial writes, persistence, mobile, keyboard nav); logout |
 
 **Setting up authenticated E2E tests:**
 
