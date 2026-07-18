@@ -10,7 +10,7 @@ export const CLIENTS_COLUMN_LABELS = {
 } as const;
 
 const AVATAR_COLORS = [
-  "bg-teal-600",
+  "bg-accent-600",
   "bg-indigo-500",
   "bg-emerald-600",
   "bg-amber-500",
@@ -44,7 +44,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
         return (
           <Link
             href={`/dashboard/clients/${client.id}`}
-            className="flex min-w-0 items-center gap-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 rounded"
+            className="flex min-w-0 items-center gap-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 rounded"
           >
             <div
               className={`${avatarColor} flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white select-none`}
@@ -52,7 +52,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
             >
               {initials}
             </div>
-            <span className="min-w-0 truncate text-sm font-medium text-slate-900 hover:text-teal-700 transition-colors">
+            <span className="min-w-0 truncate text-sm font-medium text-slate-900 hover:text-accent-700 transition-colors">
               {client.full_name}
             </span>
           </Link>
@@ -88,7 +88,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
             <Link
               href={`/dashboard/clients/${client.id}`}
               aria-label={`Ver detalle de ${client.full_name}`}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
