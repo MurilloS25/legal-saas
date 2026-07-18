@@ -3,6 +3,17 @@ import { z } from "zod";
 export const IDENTIFICATION_TYPES = ["cedula_fisica"] as const;
 export type IdentificationType = (typeof IDENTIFICATION_TYPES)[number];
 
+// Única fuente de las opciones de estado civil — la reutilizan tanto el
+// formulario completo (`ClientForm`) como el diálogo de creación contextual
+// (`CreateClientDialog`), para no duplicar la lista.
+export const MARITAL_STATUS_OPTIONS = [
+  { value: "soltero", label: "Soltero/a" },
+  { value: "casado", label: "Casado/a" },
+  { value: "divorciado", label: "Divorciado/a" },
+  { value: "viudo", label: "Viudo/a" },
+  { value: "union_libre", label: "Unión libre" },
+] as const;
+
 export const ClientSchema = z.object({
   full_name: z.string().trim().min(1, "El nombre completo es requerido"),
   identification_type: z.enum(IDENTIFICATION_TYPES, {

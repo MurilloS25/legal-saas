@@ -25,6 +25,13 @@ export type DeleteClientState = {
   message?: string;
 };
 
+/** Cliente mínimo que devuelve la creación contextual (diálogo). */
+export type CreatedClient = { id: string; full_name: string };
+
+export type ClientDialogState = ClientState & {
+  client?: CreatedClient;
+};
+
 // ------------------------------------------------------------------ helpers
 
 function parseFormData(formData: FormData) {
@@ -56,28 +63,66 @@ function fieldErrors(result: ReturnType<typeof ClientSchema.safeParse>): ClientS
 }
 
 // ------------------------------------------------------------------ create
+//
+// `createClientRow` es la única lógica de creación: valida, inserta con el
+// `owner_id` del usuario autenticado (nunca aceptado del cliente) y
+// revalida la caché del listado. Dos acciones la envuelven con
+// comportamientos de navegación distintos: la del módulo Clientes
+// (redirige al listado, como siempre) y la de creación contextual desde
+// otro formulario (nunca navega — devuelve el cliente creado para que el
+// formulario de origen lo seleccione sin perder sus propios datos).
+
+async function createClientRow(
+  formData: FormData,
+): Promise<
+  | { ok: true; client: CreatedClient }
+  | { ok: false; state: ClientState }
+> {
+  const { supabase, user } = await requireUser();
+
+  const result = ClientSchema.safeParse(parseFormData(formData));
+  if (!result.success) return { ok: false, state: fieldErrors(result) };
+
+  const { data, error } = await supabase
+    .from("clients")
+    .insert({ owner_id: user.id, ...result.data })
+    .select("id, full_name")
+    .single();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      state: { message: "No fue posible crear el cliente. Intenta de nuevo." },
+    };
+  }
+
+  revalidatePath("/dashboard/clients");
+  return { ok: true, client: data };
+}
 
 export async function createClientAction(
   _prevState: ClientState,
   formData: FormData,
 ): Promise<ClientState> {
-  const { supabase, user } = await requireUser();
+  const result = await createClientRow(formData);
+  if (!result.ok) return result.state;
 
-  const result = ClientSchema.safeParse(parseFormData(formData));
-  if (!result.success) return fieldErrors(result);
-
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({ owner_id: user.id, ...result.data })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    return { message: "No fue posible crear el cliente. Intenta de nuevo." };
-  }
-
-  revalidatePath("/dashboard/clients");
   redirect("/dashboard/clients");
+}
+
+/**
+ * Creación contextual desde otro formulario (Escritura, Cuenta por
+ * cobrar): nunca redirige. El componente que la usa (`CreateClientDialog`)
+ * cierra el diálogo y selecciona el cliente devuelto por su cuenta.
+ */
+export async function createClientForDialogAction(
+  _prevState: ClientDialogState,
+  formData: FormData,
+): Promise<ClientDialogState> {
+  const result = await createClientRow(formData);
+  if (!result.ok) return result.state;
+
+  return { success: true, client: result.client };
 }
 
 // ------------------------------------------------------------------ update
