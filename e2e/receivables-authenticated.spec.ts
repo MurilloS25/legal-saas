@@ -85,11 +85,12 @@ test.describe("receivables module", () => {
 
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    // Redirige al detalle de la cuenta recién creada.
-    await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
-      { timeout: 15_000 },
-    );
+    // Redirige al detalle de la cuenta recién creada. El ?created=1 se
+    // limpia de la URL casi de inmediato (MilestoneFeedback lo quita con
+    // history.replaceState), así que no se exige aquí.
+    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+      timeout: 15_000,
+    });
     await registerCreatedViaUi(registry, "receivables", "concept", concept);
 
     await expect(
@@ -97,7 +98,7 @@ test.describe("receivables module", () => {
     ).toBeVisible();
     await expect(page.getByText("Pendiente", { exact: true })).toBeVisible();
     await expect(
-      page.getByText("Cuenta creada.", { exact: true }),
+      page.getByText("Cuenta por cobrar creada", { exact: true }),
     ).toBeVisible();
     // Abre directamente en "Datos de la cuenta", sin desplazamiento inesperado.
     await expect(
@@ -162,10 +163,9 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("50000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
-      { timeout: 15_000 },
-    );
+    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+      timeout: 15_000,
+    });
     await registerCreatedViaUi(
       registry,
       "receivables",
@@ -205,10 +205,9 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("30000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
-      { timeout: 15_000 },
-    );
+    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+      timeout: 15_000,
+    });
     await registerCreatedViaUi(registry, "receivables", "concept", freeConcept);
 
     await expect(
@@ -239,10 +238,9 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("15000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
-      { timeout: 15_000 },
-    );
+    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+      timeout: 15_000,
+    });
     await registerCreatedViaUi(registry, "receivables", "concept", freeConcept);
     await page.reload();
     await expect(page.getByLabel("Nombre del cliente")).toHaveValue(freeName);
@@ -261,10 +259,9 @@ test.describe("receivables module", () => {
     await page.getByLabel("Concepto").fill(switchConcept);
     await page.getByLabel("Monto total").fill("20000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
-    await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?created=1$/,
-      { timeout: 15_000 },
-    );
+    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+      timeout: 15_000,
+    });
     await registerCreatedViaUi(registry, "receivables", "concept", switchConcept);
 
     await page.getByRole("radio", { name: "Escribir nombre" }).check();

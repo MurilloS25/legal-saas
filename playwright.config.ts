@@ -260,6 +260,17 @@ export default defineConfig({
       dependencies: ["chromium-notarial-export"],
     },
 
+    // Milestone feedback after creating a receivable — authenticated.
+    {
+      name: "chromium-receivable-milestone",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /receivable-milestone-feedback-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivables"],
+    },
+
     // Receivable payments — authenticated.
     {
       name: "chromium-receivable-payments",
@@ -268,7 +279,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivable-payments-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables"],
+      dependencies: ["chromium-receivable-milestone"],
     },
 
     // Receivables workspace (filters, totals) — authenticated.
