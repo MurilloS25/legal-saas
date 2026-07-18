@@ -34,6 +34,10 @@ import {
   ReceivableWorkspaceHeader,
   type ReceivableWorkspaceSection,
 } from "./ReceivableWorkspaceHeader";
+import {
+  MilestoneFeedback,
+  MilestoneFeedbackAction,
+} from "@/components/feedback/MilestoneFeedback";
 
 type Props = {
   entry: ReceivableEntry;
@@ -69,6 +73,7 @@ export function ReceivableWorkspace({
   const [section, setSection] = useState<ReceivableWorkspaceSection>(
     initialSection ?? "account",
   );
+  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
   // navegación real. `popstate` cubre atrás/adelante del navegador.
@@ -118,13 +123,19 @@ export function ReceivableWorkspace({
         }
       />
 
-      {createdJustNow && (
-        <div
-          role="status"
-          className="mb-6 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"
-        >
-          Cuenta creada.
-        </div>
+      {createdJustNow && !milestoneDismissed && (
+        <MilestoneFeedback
+          title="Cuenta por cobrar creada"
+          description="La cuenta ya está disponible. Ahora puedes registrar pagos y consultar su historial."
+          actions={
+            <MilestoneFeedbackAction
+              label="Ver Pagos"
+              onClick={() => goToSection("payments")}
+            />
+          }
+          onDismiss={() => setMilestoneDismissed(true)}
+          clearParams={["created"]}
+        />
       )}
 
       {/* Resumen de montos — siempre visible, fuera de las pestañas. */}
