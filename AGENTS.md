@@ -33,7 +33,7 @@ Use this guide before starting any task:
 | Database design, tables, relationships, RLS planning | `docs/DATABASE.md`, `docs/SECURITY.md` |
 | Security, OWASP, secrets, logging, RLS | `docs/SECURITY.md` |
 | Accessibility, forms, keyboard navigation, focus, errors | `docs/ACCESSIBILITY.md` |
-| UI implementation, visual design, app layout, components | `docs/UI_GUIDELINES.md`, `docs/design/DESIGN.md` |
+| UI implementation, visual design, app layout, components | `docs/UI_GUIDELINES.md`, `DESIGN.md` (repo root — color tokens, components) |
 | Word (`.docx`) export: generation, download endpoint, privacy | `docs/DOCX_EXPORT.md`, `docs/SECURITY.md` |
 | Testing, TDD rules, unit tests, E2E tests | `docs/TESTING.md` |
 | CI/CD, GitHub Actions, Dependabot, deployment flow | `docs/CI_CD.md` |
@@ -166,9 +166,9 @@ Accessibility is mandatory for UI work.
 
 For UI tasks, read `docs/ACCESSIBILITY.md`.
 
-For UI implementation tasks, read `docs/UI_GUIDELINES.md` first.
+For UI implementation tasks, read `docs/UI_GUIDELINES.md` first, then `DESIGN.md` (repo root) for the actual color tokens, typography, spacing, and component patterns — it documents the approved Panel/sidebar as the visual reference for the whole app.
 
-For visual implementation tasks that need screen-level direction, see the Stitch design references in `docs/design/`. Read `docs/design/README.md` before using the PNG mockups.
+`docs/design/` holds the original Stitch/Sober Juris moodboard and PNG mockups — historical inspiration only, superseded by `DESIGN.md` for anything token-level. Read `docs/design/README.md` before using the PNG mockups.
 
 All user-facing forms must consider:
 

@@ -1,3 +1,11 @@
+> **Superado.** Este documento describe el moodboard inicial ("Sober
+> Juris") generado antes de tener una interfaz implementada. La
+> especificación autoritativa actual — la que refleja el Panel principal
+> aprobado y sus tokens reales (`ink-*`, `accent-*`) — es
+> [`DESIGN.md`](../../DESIGN.md) en la raíz del repositorio. Se conserva
+> este archivo solo como referencia histórica del moodboard original; no
+> usarlo para tomar decisiones visuales nuevas.
+
 ---
 name: Sober Juris
 colors:

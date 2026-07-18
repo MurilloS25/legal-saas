@@ -12,16 +12,19 @@
 }
 
 /*
- * Paleta del shell del panel (sidebar + Panel principal).
+ * Design system de LexCR — ver DESIGN.md para la documentación completa
+ * (identidad, uso por token, tipografía, espaciado, componentes).
  *
- * "ink": azul tinta desaturado del sidebar — reemplaza el marino casi
- * negro anterior. "accent": variante más clara/intensa del MISMO azul,
- * usada como único acento decorativo (barra activa, iconos, hover, foco,
- * badges, enlaces) — reemplaza el teal/verde brillante anterior. Verde,
- * ámbar y rojo quedan reservados exclusivamente para estados semánticos
+ * "ink": azul tinta desaturado, propio del sidebar. "accent": variante más
+ * clara/intensa del MISMO azul — el único acento decorativo de toda la
+ * aplicación (acción primaria, enlaces, hover, foco, badges informativos,
+ * barra de navegación activa). Reemplaza el teal/verde brillante que usaba
+ * el resto de la app antes de esta iteración. Verde, ámbar y rojo quedan
+ * reservados exclusivamente para estados semánticos reales
  * (positivo/pendiente/error), nunca como decoración.
  * Contraste verificado (WCAG AA): ink-800 vs blanco ≈14.6:1; accent-400
- * vs ink-800 ≈4.4:1; accent-600 vs blanco ≈6.7:1.
+ * vs ink-800 ≈4.4:1; accent-600 vs blanco ≈6.7:1; accent-700/800 vs
+ * blanco superan 6.7:1 (más oscuros, más contraste).
  */
 @theme {
   --color-ink-900: #14202F;
@@ -39,6 +42,8 @@
   --color-accent-500: #3E73C4;
   --color-accent-600: #2F5C9E;
   --color-accent-700: #244B87;
+  --color-accent-800: #1C3A69;
+  --color-accent-900: #142A4D;
 }
 
 body {
