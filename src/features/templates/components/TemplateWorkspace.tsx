@@ -46,6 +46,10 @@ import {
   type IndexConfigurationField,
   type TemplateIndexConfiguration,
 } from "@/features/notarial-index";
+import {
+  MilestoneFeedback,
+  MilestoneFeedbackAction,
+} from "@/components/feedback/MilestoneFeedback";
 
 // ------------------------------------------------------------------ props
 
@@ -98,6 +102,7 @@ export function TemplateWorkspace(props: Props) {
   const [section, setSection] = useState<TemplateWorkspaceSection>(
     isEdit ? (props.initialSection ?? "document") : "document",
   );
+  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<TemplateEditorHandle>(null);
 
@@ -174,10 +179,19 @@ export function TemplateWorkspace(props: Props) {
     markDirty();
   }
 
-  const showSavedBanner =
-    !dirty &&
-    !pending &&
-    (state.success || (isEdit && props.createdJustNow && !state.message));
+  // El hito "recién creado" solo aplica hasta el primer guardado posterior
+  // real: en cuanto state.success pasa a true por una acción nueva, el
+  // machote deja de ser "recién creado" y vuelve al feedback simple.
+  const isFirstSaveMilestone =
+    isEdit && props.createdJustNow && !state.success && !state.message;
+  const bannerKind: "milestone" | "saved" | null =
+    dirty || pending
+      ? null
+      : isFirstSaveMilestone && !milestoneDismissed
+        ? "milestone"
+        : state.success
+          ? "saved"
+          : null;
 
   const saveStatusText = pending
     ? "Guardando…"
@@ -218,14 +232,32 @@ export function TemplateWorkspace(props: Props) {
         )}
 
         {/* ---- feedback global ---- */}
-        {showSavedBanner && (
+        {bannerKind === "milestone" && (
+          <MilestoneFeedback
+            title="Machote creado correctamente"
+            description="Ahora puedes configurar sus Variables y la información del Índice Notarial."
+            actions={
+              <>
+                <MilestoneFeedbackAction
+                  label="Revisar Variables"
+                  onClick={() => goToSection("variables")}
+                />
+                <MilestoneFeedbackAction
+                  label="Configurar Índice Notarial"
+                  onClick={() => goToSection("notarial")}
+                />
+              </>
+            }
+            onDismiss={() => setMilestoneDismissed(true)}
+            clearParams={["created"]}
+          />
+        )}
+        {bannerKind === "saved" && (
           <div
             role="status"
             className="mb-6 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"
           >
-            {isEdit && props.createdJustNow && !state.success
-              ? "Machote creado."
-              : "Machote guardado."}
+            Machote guardado.
           </div>
         )}
         {state.message && (
