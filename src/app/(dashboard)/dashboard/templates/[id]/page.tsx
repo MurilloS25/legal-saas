@@ -70,7 +70,7 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
         headerActions={
           <Link
             href={`/dashboard/documents/new/${template.id}`}
-            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
           >
             Crear escritura
           </Link>

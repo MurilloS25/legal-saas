@@ -7,7 +7,7 @@ import { FIELD_KEY_PATTERN } from "../model/template-fields";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
 
 type Props = {
   variables: TemplateWorkspaceVariable[];
@@ -120,7 +120,7 @@ export function InsertVariableDialog({
                       <button
                         type="button"
                         onClick={() => onInsertExisting(variable)}
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:border-teal-300 hover:bg-teal-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:border-accent-300 hover:bg-accent-50/50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
                       >
                         <span className="font-medium text-slate-900">
                           {variable.label}
@@ -184,14 +184,14 @@ export function InsertVariableDialog({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={insertNew}
-              className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+              className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
             >
               Insertar variable
             </button>

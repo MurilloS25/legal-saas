@@ -29,7 +29,7 @@ export function TemplateSaveControls({ dirty, pending, saved, isEdit }: Props) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-teal-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="rounded-lg bg-accent-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear machote"}
       </button>

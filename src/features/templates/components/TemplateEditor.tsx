@@ -26,9 +26,9 @@ import {
 const toolbarButtonClass =
   "flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-sm " +
   "text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none " +
-  "focus:ring-2 focus:ring-teal-500 disabled:opacity-40 " +
+  "focus:ring-2 focus:ring-accent-500 disabled:opacity-40 " +
   "disabled:hover:bg-transparent transition-colors " +
-  "aria-pressed:bg-teal-50 aria-pressed:text-teal-800";
+  "aria-pressed:bg-accent-50 aria-pressed:text-accent-800";
 
 // ------------------------------------------------------------------ toolbar icons
 
@@ -275,7 +275,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   );
 
   return (
-    <div className="rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-teal-500 overflow-hidden">
+    <div className="rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-accent-500 focus-within:border-accent-500 overflow-hidden">
       <div
         role="toolbar"
         aria-label="Formato del contenido"
@@ -345,7 +345,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           ref={insertButtonRef}
           disabled={!editor}
           onClick={() => setDialogOpen(true)}
-          className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-40 transition-colors"
+          className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-40 transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
             <line x1="12" y1="5" x2="12" y2="19" />

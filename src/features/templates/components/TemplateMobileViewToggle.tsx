@@ -9,7 +9,7 @@ type Props = {
 
 export function TemplateMobileViewToggle({ value, onChange }: Props) {
   const tabClass = (active: boolean) =>
-    `flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+    `flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 ${
       active
         ? "bg-slate-900 text-white"
         : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"

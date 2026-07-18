@@ -96,9 +96,9 @@ export function TemplateWorkspaceHeader({
                   onSectionChange(next.id);
                   document.getElementById(`template-tab-${next.id}`)?.focus();
                 }}
-                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 ${
+                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
                   active
-                    ? "border-teal-700 text-teal-800"
+                    ? "border-accent-700 text-accent-800"
                     : "border-transparent text-slate-600 hover:text-slate-900"
                 }`}
               >

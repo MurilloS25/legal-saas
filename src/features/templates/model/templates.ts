@@ -20,10 +20,14 @@ export const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = {
   archived: "Archivado",
 };
 
+// "Activo" es un estado positivo real (el machote está listo para
+// usarse) → verde semántico, no el acento decorativo. "Archivado" es
+// neutro/inactivo (como "Borrador"), no una advertencia → gris, no
+// ámbar (DESIGN.md reserva ámbar para pendiente/advertencia real).
 const TEMPLATE_STATUS_BADGE_CLASS: Record<TemplateStatus, string> = {
   draft: "bg-slate-100 text-slate-600",
-  active: "bg-teal-50 text-teal-700",
-  archived: "bg-amber-50 text-amber-700",
+  active: "bg-emerald-50 text-emerald-700",
+  archived: "bg-slate-200 text-slate-700",
 };
 
 export function templateStatusLabel(status: string): string {
