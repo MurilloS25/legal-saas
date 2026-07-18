@@ -96,7 +96,7 @@ test.describe("document lifecycle statuses", () => {
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByText("Escritura finalizada correctamente.", { exact: true }),
+      page.getByText("Escritura finalizada", { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Completar datos del índice" })).toBeVisible();
     await expect(

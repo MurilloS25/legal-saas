@@ -2,6 +2,7 @@ export { ActivityRow } from "./components/ActivityRow";
 export { DeleteDocumentButton } from "./components/DeleteDocumentButton";
 export { DocumentActivity } from "./components/DocumentActivity";
 export { DocumentComposer } from "./components/DocumentComposer";
+export { DocumentFinalizedMilestone } from "./components/DocumentFinalizedMilestone";
 export { DocumentWorkspaceHeader } from "./components/DocumentWorkspaceHeader";
 export type { DocumentWorkspaceSection } from "./components/DocumentWorkspaceHeader";
 export { DocumentsTable } from "./components/DocumentsTable";

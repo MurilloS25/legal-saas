@@ -22,6 +22,7 @@ import {
 } from "@/lib/navigation/context-return";
 import {
   DocumentComposer,
+  DocumentFinalizedMilestone,
   DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
 } from "@/features/documents";
@@ -116,14 +117,15 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         activity={activity}
       />
 
-      {(lifecycle === "finalized" || lifecycle === "reopened") && (
+      {lifecycle === "finalized" && (
+        <DocumentFinalizedMilestone documentId={document.id} />
+      )}
+      {lifecycle === "reopened" && (
         <p
           role="status"
           className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm font-medium text-accent-800"
         >
-          {lifecycle === "finalized"
-            ? "Escritura finalizada correctamente."
-            : "Escritura reabierta como borrador."}
+          Escritura reabierta como borrador.
         </p>
       )}
 
