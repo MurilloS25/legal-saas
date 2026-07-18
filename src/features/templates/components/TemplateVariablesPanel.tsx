@@ -33,8 +33,10 @@ const STATUS_UI: Record<
   { label: string; className: string }
 > = {
   configured: {
+    // Estado positivo real (la variable está lista) → verde semántico,
+    // no el acento decorativo.
     label: "Configurada",
-    className: "bg-teal-50 text-teal-700 border border-teal-200",
+    className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
   },
   pending: {
     label: "Pendiente de configurar",
@@ -109,7 +111,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
           type="text"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           placeholder="Ej: Nombre del comprador"
           aria-describedby={error ? errorId : undefined}
           aria-invalid={!!error}
@@ -128,7 +130,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
           type="checkbox"
           checked={required}
           onChange={(event) => setRequired(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+          className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
         />
         <label htmlFor={requiredId} className="text-sm text-slate-700">
           Variable obligatoria
@@ -139,14 +141,14 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
         >
           Cancelar
         </button>
         <button
           type="button"
           onClick={save}
-          className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+          className="rounded-lg bg-accent-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
         >
           Guardar variable
         </button>
@@ -252,7 +254,7 @@ export function TemplateVariablesPanel({
                     onClick={() => setEditingKey(isEditing ? null : row.field_key)}
                     aria-expanded={isEditing}
                     aria-label={`${row.status === "pending" ? "Configurar" : "Editar"} variable ${row.field_key}`}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
                   >
                     {row.status === "pending" ? "Configurar" : "Editar"}
                   </button>

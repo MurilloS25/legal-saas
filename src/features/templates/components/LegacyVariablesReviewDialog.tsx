@@ -18,7 +18,7 @@ import { FIELD_KEY_PATTERN } from "../model/template-fields";
 import type { LegacyVariableMatch } from "@/lib/editor/legacy-variables";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
 
 export type LegacyVariableSelection = {
   included: boolean;
@@ -139,7 +139,7 @@ export function LegacyVariablesReviewDialog({
                       onChange={(event) =>
                         update(match.raw, { included: event.target.checked })
                       }
-                      className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
                       aria-label={`Incluir variable ${match.raw}`}
                     />
                     <div className="min-w-0 flex-1 space-y-2">
@@ -197,7 +197,7 @@ export function LegacyVariablesReviewDialog({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
               >
                 Cancelar
               </button>
@@ -205,7 +205,7 @@ export function LegacyVariablesReviewDialog({
                 type="button"
                 onClick={handleConvert}
                 disabled={includedCount === 0}
-                className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors disabled:opacity-40"
+                className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors disabled:opacity-40"
               >
                 Convertir
               </button>

@@ -39,9 +39,9 @@ export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
         return (
           <Link
             href={`/dashboard/templates/${template.id}`}
-            className="flex min-w-0 flex-col focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 rounded"
+            className="flex min-w-0 flex-col focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 rounded"
           >
-            <span className="text-sm font-medium text-slate-900 truncate hover:text-teal-700 transition-colors">
+            <span className="text-sm font-medium text-slate-900 truncate hover:text-accent-700 transition-colors">
               {template.name}
             </span>
             {template.description && (
@@ -80,7 +80,7 @@ export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
             <Link
               href={`/dashboard/templates/${template.id}`}
               aria-label={`Abrir machote ${template.name}`}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
