@@ -33,7 +33,7 @@ export function ReceivableHistoryDialog({ activity, currency }: Props) {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
       >
         Historial
       </button>
@@ -63,7 +63,7 @@ export function ReceivableHistoryDialog({ activity, currency }: Props) {
                 type="button"
                 onClick={close}
                 aria-label="Cerrar historial"
-                className="flex size-9 items-center justify-center rounded-md text-xl text-slate-500 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="flex size-9 items-center justify-center rounded-md text-xl text-slate-500 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-accent-500"
               >
                 <span aria-hidden="true">×</span>
               </button>

@@ -27,10 +27,12 @@ export function receivableStatusLabel(status: string): string {
   return RECEIVABLE_STATUS_LABEL[status as ReceivableStatus] ?? status;
 }
 
+// "Pagada" es un estado positivo real (la cuenta quedó saldada) →
+// verde semántico, no el acento decorativo.
 const STATUS_BADGE_CLASS: Record<ReceivableStatus, string> = {
   pending: "bg-slate-100 text-slate-600",
   partial: "bg-amber-50 text-amber-800 border border-amber-200",
-  paid: "bg-teal-50 text-teal-700 border border-teal-200",
+  paid: "bg-emerald-50 text-emerald-700 border border-emerald-200",
   overdue: "bg-red-50 text-red-700 border border-red-200",
 };
 
