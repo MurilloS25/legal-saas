@@ -20,7 +20,7 @@ type Props = {
 };
 
 const controlClass =
-  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500";
+  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -174,7 +174,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
                   setSearch("");
                   navigate({ search: "" }, true);
                 }}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-lg text-slate-500 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500"
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-lg text-slate-500 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500"
               >
                 <span aria-hidden="true">×</span>
               </button>
@@ -227,7 +227,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
               setSearch("");
               navigate({ search: "", completeness: null, actType: null });
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           >
             Limpiar filtros
           </button>
