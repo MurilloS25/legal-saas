@@ -199,7 +199,7 @@ test.describe("templates module", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByText("Machote creado.", { exact: true }),
+      page.getByText("Machote creado correctamente", { exact: true }),
     ).toBeVisible();
     templateUrl = new URL(page.url()).pathname;
   });

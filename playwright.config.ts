@@ -105,6 +105,17 @@ export default defineConfig({
       dependencies: ["chromium-template-fields"],
     },
 
+    // Milestone feedback after the first template save — authenticated.
+    {
+      name: "chromium-template-milestone",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-milestone-feedback-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-pasted-variables"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
@@ -113,7 +124,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-pasted-variables"],
+      dependencies: ["chromium-template-milestone"],
     },
 
     // Document DOCX download — authenticated.
