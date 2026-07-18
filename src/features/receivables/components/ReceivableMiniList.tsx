@@ -23,7 +23,7 @@ export function ReceivableMiniList({ receivables, newHref, emptyText }: Props) {
         </h2>
         <Link
           href={newHref}
-          className="text-sm font-medium text-teal-700 hover:text-teal-800 focus:outline-none focus:underline"
+          className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
         >
           Nueva cuenta
         </Link>

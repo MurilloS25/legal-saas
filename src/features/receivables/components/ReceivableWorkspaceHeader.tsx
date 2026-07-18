@@ -79,7 +79,7 @@ export function ReceivableWorkspaceHeader({
             {clientId ? (
               <Link
                 href={`/dashboard/clients/${clientId}`}
-                className="text-teal-700 hover:underline"
+                className="text-accent-700 hover:underline"
               >
                 {clientName}
               </Link>
@@ -91,7 +91,7 @@ export function ReceivableWorkspaceHeader({
                 {" · "}
                 <Link
                   href={`/dashboard/documents/${documentId}`}
-                  className="text-teal-700 hover:underline"
+                  className="text-accent-700 hover:underline"
                 >
                   {documentTitle}
                 </Link>
@@ -133,9 +133,9 @@ export function ReceivableWorkspaceHeader({
                   onSectionChange(next.id);
                   document.getElementById(`receivable-tab-${next.id}`)?.focus();
                 }}
-                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 ${
+                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
                   active
-                    ? "border-teal-700 text-teal-800"
+                    ? "border-accent-700 text-accent-800"
                     : "border-transparent text-slate-600 hover:text-slate-900"
                 }`}
               >

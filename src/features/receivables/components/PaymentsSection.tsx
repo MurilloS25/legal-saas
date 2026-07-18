@@ -45,14 +45,14 @@ export function PaymentsSection({
       {paidJustNow && (
         <div
           role="status"
-          className="mb-4 rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-800"
+          className="mb-4 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"
         >
           Pago registrado.
         </div>
       )}
 
       {isSettled && (
-        <div className="mb-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+        <div className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-800">
           Esta cuenta está saldada. No hay saldo pendiente por cobrar.
         </div>
       )}

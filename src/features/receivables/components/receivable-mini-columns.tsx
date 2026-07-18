@@ -24,7 +24,7 @@ export function createReceivableMiniColumns(): ColumnDef<ReceivableEntry>[] {
       cell: ({ row }) => (
         <Link
           href={`/dashboard/receivables/${row.original.id}`}
-          className="text-sm font-medium text-slate-900 hover:text-teal-700 focus:outline-none focus:underline transition-colors"
+          className="text-sm font-medium text-slate-900 hover:text-accent-700 focus:outline-none focus:underline transition-colors"
         >
           {row.original.concept}
         </Link>
@@ -70,7 +70,7 @@ export function createReceivableMiniColumns(): ColumnDef<ReceivableEntry>[] {
         <div className="flex items-center justify-end">
           <Link
             href={`/dashboard/receivables/${row.original.id}`}
-            className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
           >
             Ver
           </Link>

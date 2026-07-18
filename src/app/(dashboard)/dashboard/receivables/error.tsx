@@ -25,7 +25,7 @@ export default function ReceivablesError({
         <button
           type="button"
           onClick={reset}
-          className="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
+          className="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2"
         >
           Reintentar
         </button>
