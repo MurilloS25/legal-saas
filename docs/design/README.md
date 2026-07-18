@@ -1,12 +1,12 @@
 # Design References
 
-This folder contains design references generated with [Stitch](https://stitch.withgoogle.com/) for the Sober Juris design system.
+This folder contains design references generated with [Stitch](https://stitch.withgoogle.com/) for the original Sober Juris moodboard. It predates the implemented app; the actual design system now lives in [`DESIGN.md`](../../DESIGN.md) at the repo root, documenting the approved Panel/sidebar.
 
 ## Files
 
 | File | Description |
 |---|---|
-| `DESIGN.md` | Sober Juris design system specification — colors, typography, spacing, components. |
+| `DESIGN.md` | Sober Juris moodboard specification (superseded — see the root `DESIGN.md`). |
 | `reference/login.png` | Login screen reference. |
 | `reference/register.png` | Sign-up / registration screen reference. |
 | `reference/dashboard.png` | Main dashboard reference. |
@@ -24,12 +24,12 @@ Use them to:
 
 Do **not** use them to:
 
-- Copy exact pixel values — use the token system in `DESIGN.md` and `UI_GUIDELINES.md` instead.
+- Copy exact pixel values — use the token system in the root `DESIGN.md` and `docs/UI_GUIDELINES.md` instead.
 - Implement features or UI elements that are not in the current MVP scope (`docs/MVP_SCOPE.md`).
 - Override accessibility or contrast requirements in `docs/ACCESSIBILITY.md`.
 
 ## Design System
 
-The authoritative design system is documented in `DESIGN.md`.
+The authoritative design system is documented in the root [`DESIGN.md`](../../DESIGN.md) — it reflects the approved Panel/sidebar, not this folder's original moodboard.
 
 For implementation rules (Tailwind tokens, component guidelines, things to avoid), read `docs/UI_GUIDELINES.md`.

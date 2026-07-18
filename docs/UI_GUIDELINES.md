@@ -27,6 +27,11 @@ The product should not feel:
 
 ## Color Palette
 
+The full token table (including the sidebar `ink-*` scale and the
+`accent-*` scale that replaced the old teal accent) lives in
+[`DESIGN.md`](../DESIGN.md) at the repo root — that document is now the
+source of truth for color. Summary:
+
 Primary / Brand:
 
 - Primary 950: `#0F172A`
@@ -34,12 +39,16 @@ Primary / Brand:
 - Primary 800: `#1E293B`
 - Primary 700: `#334155`
 
-Accent:
+Accent (single accent across the whole app — see `DESIGN.md` §3 for the
+full `accent-50`…`accent-900` scale):
 
-- Accent 700: `#0F766E`
-- Accent 600: `#0D9488`
-- Accent 100: `#CCFBF1`
-- Accent 50: `#F0FDFA`
+- Accent 700: `#244B87`
+- Accent 600: `#2F5C9E`
+- Accent 100: `#DCE8FA`
+- Accent 50: `#EEF3FC`
+
+Do not use `teal-*` in new or migrated components — `accent-*` is the
+only decorative accent.
 
 Background / Surface:
 
@@ -68,7 +77,8 @@ States:
 
 Focus:
 
-- Focus ring: `#0D9488`
+- Focus ring: `#3E73C4` (`accent-500`), `#5D91DC` (`accent-400`) on dark
+  surfaces like the sidebar.
 
 ## Component Rules
 
@@ -85,7 +95,8 @@ Buttons:
 - Primary buttons use `#0F172A` with white text.
 - Primary hover uses `#1E293B`.
 - Secondary buttons use white background with `#E2E8F0` border.
-- Accent buttons can use `#0F766E` for important positive actions.
+- Accent buttons use `#2F5C9E` (`accent-600`) for important positive
+  actions, hover `#244B87`/`#1C3A69` (`accent-700`/`800`).
 - Buttons must support loading/pending states.
 
 Inputs:
@@ -93,7 +104,7 @@ Inputs:
 - Labels must always be visible.
 - Inputs use white background.
 - Borders use `#CBD5E1` or `#E2E8F0`.
-- Focus state uses `#0D9488`.
+- Focus state uses `#3E73C4` (`accent-500`).
 - Error text uses `#B91C1C`.
 - Error messages must be understandable and not overly technical.
 
@@ -101,7 +112,8 @@ Layout:
 
 - Main app background uses `#F8FAFC`.
 - Main content uses white cards.
-- Future app layout should use left sidebar + top header + central content.
+- App layout uses a collapsible left sidebar (see `DESIGN.md` §7) with a
+  mobile-only top bar; no persistent desktop top header.
 - Keep screens calm and spacious.
 - Do not add fake metrics just to fill space.
 
@@ -164,13 +176,21 @@ Things to Avoid:
 
 ## Design References
 
-Visual screen references and the Sober Juris design system specification are in `docs/design/`.
+The authoritative color/typography/spacing/component specification is
+[`DESIGN.md`](../DESIGN.md) at the repo root — it documents the approved
+Panel/sidebar as the visual reference for the whole app. Read it before
+any UI implementation task.
 
-- `docs/design/DESIGN.md` — color tokens, typography scale, spacing, component styles.
-- `docs/design/reference/` — PNG mockups for login, register, dashboard, and settings screens.
+`docs/design/` holds the original Sober Juris moodboard (superseded,
+kept for history) and PNG mockups:
+
+- `docs/design/DESIGN.md` — superseded; points to the root `DESIGN.md`.
+- `docs/design/reference/` — PNG mockups for login, register, dashboard, and settings screens. Historical inspiration only.
 - `docs/design/README.md` — how to use these references and what constraints apply.
 
-Use these as visual direction, not pixel-perfect specs. MVP scope and accessibility requirements take precedence.
+Use the PNG references as loose visual direction, not pixel-perfect
+specs. MVP scope, accessibility requirements, and `DESIGN.md`'s actual
+tokens take precedence over the old mockups.
 
 ## Inspiration Sources
 
