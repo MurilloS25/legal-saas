@@ -64,7 +64,7 @@ export function NotarialIndexWorkspace({
         </div>
         <a
           href={exportHref}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors shrink-0"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
         >
           Exportar Word
         </a>
@@ -115,7 +115,7 @@ export function NotarialIndexWorkspace({
               </p>
               <Link
                 href={`/dashboard/notarial-index?${periodQs}`}
-                className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+                className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
               >
                 Limpiar filtros
               </Link>
@@ -141,7 +141,7 @@ export function NotarialIndexWorkspace({
             {page.pageCount > 1 && (
               <nav aria-label="Paginación" className="flex items-center gap-2">
                 {query.page > 1 ? (
-                  <Link href={pageHref(query.page - 1)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors">
+                  <Link href={pageHref(query.page - 1)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors">
                     Anterior
                   </Link>
                 ) : (
@@ -149,7 +149,7 @@ export function NotarialIndexWorkspace({
                 )}
                 <span className="text-xs text-slate-500">Página {query.page} de {page.pageCount}</span>
                 {query.page < page.pageCount ? (
-                  <Link href={pageHref(query.page + 1)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors">
+                  <Link href={pageHref(query.page + 1)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors">
                     Siguiente
                   </Link>
                 ) : (

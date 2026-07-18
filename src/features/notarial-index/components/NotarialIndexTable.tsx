@@ -64,7 +64,7 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
             aria-controls="notarial-column-visibility"
             disabled={!hydrated}
             onClick={() => setIsColumnMenuOpen((open) => !open)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:cursor-wait disabled:opacity-60"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:cursor-wait disabled:opacity-60"
           >
             Columnas
           </button>
@@ -87,7 +87,7 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
                         type="checkbox"
                         checked={column.getIsVisible()}
                         onChange={column.getToggleVisibilityHandler()}
-                        className="size-4 accent-teal-700"
+                        className="size-4 accent-accent-700"
                       />
                       {NOTARIAL_COLUMN_LABELS[column.id as NotarialColumnId]}
                     </label>

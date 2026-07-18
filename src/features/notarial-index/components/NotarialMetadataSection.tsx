@@ -22,7 +22,7 @@ import { isNotarialComplete } from "../model/notarial";
 import { FieldError } from "@/components/forms/FieldError";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-60";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
 const initialState: NotarialMetadataState = {};
@@ -96,10 +96,12 @@ export function NotarialMetadataSection({
             legal.
           </p>
         </div>
+        {/* "Completo" es un estado positivo real → verde semántico, no el
+            acento decorativo. */}
         <span
           className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
             complete
-              ? "bg-teal-50 text-teal-700 border border-teal-200"
+              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
               : "bg-amber-50 text-amber-800 border border-amber-300"
           }`}
         >
@@ -111,7 +113,7 @@ export function NotarialMetadataSection({
         {state.success && (
           <div
             role="status"
-            className="mb-6 rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-800"
+            className="mb-6 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800"
           >
             {state.successMessage ?? "Datos del índice guardados."}
           </div>
@@ -370,7 +372,7 @@ export function NotarialMetadataSection({
                   event.preventDefault();
                 }
               }}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
             >
               Restablecer desde el machote
             </button>
@@ -380,7 +382,7 @@ export function NotarialMetadataSection({
             name="intent"
             value="save"
             disabled={pending}
-            className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {pending ? "Guardando…" : "Guardar datos del índice"}
           </button>

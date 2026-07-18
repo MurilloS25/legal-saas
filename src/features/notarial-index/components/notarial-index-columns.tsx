@@ -66,10 +66,12 @@ function completenessBadge(row: NotarialIndexRow) {
   if (!row.has_metadata) {
     return { label: "Sin datos", className: "bg-slate-100 text-slate-500" };
   }
+  // "Completo" es un estado positivo real (el registro tiene todos los
+  // datos) → verde semántico, no el acento decorativo.
   return row.is_complete
     ? {
         label: "Completo",
-        className: "border border-teal-200 bg-teal-50 text-teal-700",
+        className: "border border-emerald-200 bg-emerald-50 text-emerald-700",
       }
     : {
         label: "Incompleto",
@@ -152,7 +154,7 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
       cell: ({ row }) => (
         <Link
           href={`/dashboard/documents/${row.original.document_id}`}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-teal-700 transition-colors hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 transition-colors hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
         >
           Ver escritura
         </Link>
