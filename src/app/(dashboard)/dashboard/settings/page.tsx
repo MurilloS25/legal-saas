@@ -1,8 +1,7 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ProfileForm } from "./_components/ProfileForm";
-import { DocumentSettingsForm } from "./_components/DocumentSettingsForm";
+import { SettingsWorkspace } from "./_components/SettingsWorkspace";
 
 export const metadata = {
   title: "Configuración — LexCR",
@@ -34,20 +33,23 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <PageContainer width="form">
-      {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Configuración
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Perfil profesional y preferencias de documentos.
-        </p>
-      </div>
+    <PageContainer>
+      <div className="max-w-5xl mx-auto">
+        {/* Page header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Configuración
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Administra tu información profesional y las preferencias de los
+            documentos.
+          </p>
+        </div>
 
-      <div className="space-y-8">
-        <ProfileForm initialData={profileResult.data} />
-        <DocumentSettingsForm initialData={settingsResult.data} />
+        <SettingsWorkspace
+          initialProfile={profileResult.data}
+          initialSettings={settingsResult.data}
+        />
       </div>
     </PageContainer>
   );
