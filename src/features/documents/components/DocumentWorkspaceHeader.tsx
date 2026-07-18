@@ -65,9 +65,9 @@ export function DocumentWorkspaceHeader({
                 key={tab.id}
                 href={tab.id === "document" ? base : `${base}?section=${tab.id}`}
                 aria-current={section === tab.id ? "page" : undefined}
-                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 ${
+                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
                   section === tab.id
-                    ? "border-teal-700 text-teal-800"
+                    ? "border-accent-700 text-accent-800"
                     : "border-transparent text-slate-600 hover:text-slate-900"
                 }`}
               >
