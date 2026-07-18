@@ -7,19 +7,10 @@ import {
   updateClientAction,
   type ClientState,
 } from "../server/actions";
+import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 import type { ClientRow } from "../model/types";
 import { DeleteClientButton } from "./DeleteClientButton";
 import { FieldError } from "@/components/forms/FieldError";
-
-// ------------------------------------------------------------------ marital status options
-
-const MARITAL_STATUS_OPTIONS = [
-  { value: "soltero", label: "Soltero/a" },
-  { value: "casado", label: "Casado/a" },
-  { value: "divorciado", label: "Divorciado/a" },
-  { value: "viudo", label: "Viudo/a" },
-  { value: "union_libre", label: "Unión libre" },
-] as const;
 
 // ------------------------------------------------------------------ styles
 
