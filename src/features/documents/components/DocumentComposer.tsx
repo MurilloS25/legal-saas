@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
 import type { FillableTemplateField } from "@/features/templates";
+import type { CreatedClient } from "@/features/clients";
 import {
   createDocumentDraftAction,
   updateDocumentDraftAction,
@@ -66,7 +67,16 @@ export function DocumentComposer(props: Props) {
     return initial;
   });
   const [clientId, setClientId] = useState(props.initialClientId ?? "");
+  const [clientOptions, setClientOptions] = useState(clients);
   const [fieldFilter, setFieldFilter] = useState<"all" | "pending">("all");
+
+  // El cliente creado desde el diálogo contextual queda seleccionado de
+  // inmediato, sin recargar la página ni tocar el resto del formulario.
+  function handleClientCreated(client: CreatedClient) {
+    setClientOptions((current) => [...current, client]);
+    setClientId(client.id);
+    markDirty();
+  }
 
   const { model, persistedPendingCount } = useDocumentPreview(
     document,
@@ -160,7 +170,7 @@ export function DocumentComposer(props: Props) {
         />
         <DocumentFormPanel
           clientId={clientId}
-          clients={clients}
+          clients={clientOptions}
           completedCount={completedCount}
           dirty={dirty}
           documentId={draft?.id ?? null}
@@ -177,6 +187,7 @@ export function DocumentComposer(props: Props) {
           values={values}
           visibleFields={visibleFields}
           onClientChange={changeClient}
+          onClientCreated={handleClientCreated}
           onFieldBlur={() => setFocusedKey(undefined)}
           onFieldChange={changeField}
           onFieldFilterChange={setFieldFilter}

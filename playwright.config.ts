@@ -138,6 +138,17 @@ export default defineConfig({
       dependencies: ["chromium-documents-docx"],
     },
 
+    // Contextual client creation from the document workspace — authenticated.
+    {
+      name: "chromium-document-client-dialog",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-client-contextual-creation-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents-client"],
+    },
+
     // Documents workspace (search/filter/sort) — authenticated.
     {
       name: "chromium-documents-workspace",
@@ -146,7 +157,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-client"],
+      dependencies: ["chromium-document-client-dialog"],
     },
 
     // Document lifecycle statuses — authenticated.

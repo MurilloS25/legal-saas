@@ -8,9 +8,17 @@
  * su cuenta y notifica al formulario de origen vía `onCreated`, que decide
  * cómo seleccionarlo — el formulario de origen nunca se remonta ni pierde
  * sus propios cambios sin guardar.
+ *
+ * El trigger vive dentro del formulario de Escritura/Cuenta, así que el
+ * propio diálogo (con su `<form>`) se monta vía `createPortal` en
+ * `document.body`: un `<form>` no puede anidarse dentro de otro `<form>`
+ * en HTML válido (el navegador lo rompe silenciosamente), y aquí sí hay
+ * un formulario ancestro real, a diferencia de otros diálogos existentes
+ * que siempre viven fuera de cualquier `<form>`.
  */
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useActionState } from "react";
 import {
   createClientForDialogAction,
@@ -78,8 +86,9 @@ export function CreateClientDialog({ onCreated }: Props) {
         + Crear nuevo cliente
       </button>
 
-      {open && (
-        <>
+      {open &&
+        createPortal(
+          <>
           <div
             className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
             aria-hidden="true"
@@ -356,8 +365,9 @@ export function CreateClientDialog({ onCreated }: Props) {
               </form>
             </div>
           </div>
-        </>
-      )}
+          </>,
+          document.body,
+        )}
     </>
   );
 }

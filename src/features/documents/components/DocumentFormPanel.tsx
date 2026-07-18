@@ -2,6 +2,7 @@
 
 import { FieldError } from "@/components/forms/FieldError";
 import type { FillableTemplateField } from "@/features/templates";
+import { CreateClientDialog, type CreatedClient } from "@/features/clients";
 import type { DocumentDraftState } from "../server/content-actions";
 import type { DocumentStatus } from "../model/lifecycle";
 import { documentFieldInputId } from "../model/composer";
@@ -38,6 +39,7 @@ type Props = {
   values: Record<string, string>;
   visibleFields: FillableTemplateField[];
   onClientChange: (value: string) => void;
+  onClientCreated: (client: CreatedClient) => void;
   onFieldBlur: () => void;
   onFieldChange: (key: string, value: string) => void;
   onFieldFilterChange: (value: FieldFilter) => void;
@@ -72,6 +74,7 @@ export function DocumentFormPanel({
   values,
   visibleFields,
   onClientChange,
+  onClientCreated,
   onFieldBlur,
   onFieldChange,
   onFieldFilterChange,
@@ -137,6 +140,11 @@ export function DocumentFormPanel({
               </option>
             ))}
           </select>
+          {!readOnly && (
+            <div className="mt-2">
+              <CreateClientDialog onCreated={onClientCreated} />
+            </div>
+          )}
         </div>
 
         {fields.length > 0 && (
