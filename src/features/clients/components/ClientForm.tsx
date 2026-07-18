@@ -24,7 +24,7 @@ const MARITAL_STATUS_OPTIONS = [
 // ------------------------------------------------------------------ styles
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
 
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
@@ -58,7 +58,7 @@ export function ClientForm(props: Props) {
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       {/* ---- Card header ---- */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 shrink-0">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 shrink-0">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -69,7 +69,7 @@ export function ClientForm(props: Props) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="text-teal-700"
+            className="text-accent-700"
             aria-hidden="true"
           >
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -309,14 +309,14 @@ export function ClientForm(props: Props) {
         <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
           <Link
             href="/dashboard/clients"
-            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {pending ? (
               <>
