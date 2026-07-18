@@ -97,7 +97,7 @@ test.describe("document ↔ client relationship", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByText("Escritura guardada como borrador", { exact: true }),
     ).toBeVisible();
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
 
@@ -178,7 +178,7 @@ test.describe("document ↔ client relationship", () => {
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByText("Escritura guardada como borrador", { exact: true }),
     ).toBeVisible({ timeout: 30_000 });
     await registerCreatedViaUi(registry, "documents", "title", secondTitle);
     await expect(page.getByText(`Cliente: ${clientName}`)).toBeVisible();

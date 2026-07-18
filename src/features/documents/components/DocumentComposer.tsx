@@ -21,6 +21,10 @@ import { useDocumentPreview } from "../hooks/use-document-preview";
 import { DocumentFormPanel } from "./DocumentFormPanel";
 import { DocumentMobileViewToggle } from "./DocumentMobileViewToggle";
 import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
+import {
+  MilestoneFeedback,
+  MilestoneFeedbackAction,
+} from "@/components/feedback/MilestoneFeedback";
 
 type Props = {
   document: TemplateDocument;
@@ -69,6 +73,7 @@ export function DocumentComposer(props: Props) {
   const [clientId, setClientId] = useState(props.initialClientId ?? "");
   const [clientOptions, setClientOptions] = useState(clients);
   const [fieldFilter, setFieldFilter] = useState<"all" | "pending">("all");
+  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
 
   // El cliente creado desde el diálogo contextual queda seleccionado de
   // inmediato, sin recargar la página ni tocar el resto del formulario.
@@ -105,11 +110,23 @@ export function DocumentComposer(props: Props) {
       : state.success || isEdit
         ? "Guardado"
         : "Sin guardar";
-  const showSavedBanner =
-    !dirty &&
-    !pending &&
-    (state.success ||
-      (isEdit && props.savedJustNow && !state.message && !state.errors));
+  // El hito de "primer guardado" solo aplica hasta el primer guardado
+  // posterior real: en cuanto state.success pasa a true por una acción
+  // nueva, el borrador deja de ser "recién creado".
+  const isFirstSaveMilestone =
+    isEdit &&
+    props.savedJustNow &&
+    !state.success &&
+    !state.message &&
+    !state.errors;
+  const bannerKind: "milestone" | "saved" | null =
+    dirty || pending
+      ? null
+      : isFirstSaveMilestone && !milestoneDismissed
+        ? "milestone"
+        : state.success
+          ? "saved"
+          : null;
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -137,7 +154,21 @@ export function DocumentComposer(props: Props) {
         />
       ))}
 
-      {showSavedBanner && (
+      {bannerKind === "milestone" && draft && (
+        <MilestoneFeedback
+          title="Escritura guardada como borrador"
+          description="La Escritura ya fue creada. Ahora puedes asociar cuentas por cobrar y continuar completando el documento."
+          actions={
+            <MilestoneFeedbackAction
+              label="Ver Cuentas por cobrar"
+              href={`/dashboard/documents/${draft.id}?section=receivables`}
+            />
+          }
+          onDismiss={() => setMilestoneDismissed(true)}
+          clearParams={["saved"]}
+        />
+      )}
+      {bannerKind === "saved" && (
         <div
           role="status"
           className="mb-6 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"

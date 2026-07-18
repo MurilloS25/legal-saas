@@ -182,6 +182,18 @@ export default defineConfig({
       dependencies: ["chromium-documents-workspace"],
     },
 
+    // Milestone feedback after the first draft save and after finalizing —
+    // authenticated.
+    {
+      name: "chromium-document-milestone",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-milestone-feedback-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents-lifecycle"],
+    },
+
     // Document activity history — authenticated.
     {
       name: "chromium-documents-activity",
@@ -190,7 +202,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-activity-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-lifecycle"],
+      dependencies: ["chromium-document-milestone"],
     },
 
     // Notarial index metadata — authenticated.

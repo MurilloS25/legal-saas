@@ -159,7 +159,7 @@ test.describe("document composer workspace", () => {
     });
     draftPath = new URL(page.url()).pathname;
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByText("Escritura guardada como borrador", { exact: true }),
     ).toBeVisible();
 
     // Register the persisted draft for cleanup (its id survives edits).
@@ -344,7 +344,7 @@ test.describe("document composer workspace", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByText("Escritura guardada como borrador", { exact: true }),
     ).toBeVisible();
     await registerCreatedViaUi(registry, "documents", "title", bareDraftTitle);
 
@@ -417,7 +417,7 @@ test.describe("document composer workspace", () => {
     );
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByText("Escritura guardada como borrador", { exact: true }),
     ).toBeVisible({ timeout: 30_000 });
     await registerCreatedViaUi(registry, "documents", "title", structuredTitle);
 
