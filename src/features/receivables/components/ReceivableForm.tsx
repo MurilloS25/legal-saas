@@ -15,6 +15,7 @@ import type {
 import { RECEIVABLE_CURRENCIES } from "../model/status";
 import { CLIENT_MODES, type ClientMode } from "../model/receivables";
 import { FieldError } from "@/components/forms/FieldError";
+import { CreateClientDialog, type CreatedClient } from "@/features/clients";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
@@ -61,6 +62,16 @@ export function ReceivableForm(props: Props) {
   const [clientId, setClientId] = useState<string>(
     receivable?.client_id ?? defaults?.client_id ?? "",
   );
+  const [clientOptions, setClientOptions] = useState<ClientOption[]>(
+    props.clients,
+  );
+
+  // El cliente creado desde el diálogo contextual queda seleccionado de
+  // inmediato, sin recargar la página ni tocar el resto del formulario.
+  function handleClientCreated(client: CreatedClient) {
+    setClientOptions((current) => [...current, client]);
+    setClientId(client.id);
+  }
 
   // Solo se ofrecen Escrituras del cliente seleccionado (o sin cliente),
   // para no vincular una cuenta a una Escritura de otra persona.
@@ -167,7 +178,7 @@ export function ReceivableForm(props: Props) {
                   <option value="" disabled>
                     Seleccionar cliente…
                   </option>
-                  {props.clients.map((c) => (
+                  {clientOptions.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.full_name}
                     </option>
@@ -177,6 +188,9 @@ export function ReceivableForm(props: Props) {
                   id="client_id-error"
                   message={state.errors?.client_id}
                 />
+                <div className="mt-2">
+                  <CreateClientDialog onCreated={handleClientCreated} />
+                </div>
               </>
             ) : (
               <>

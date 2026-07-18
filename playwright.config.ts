@@ -259,6 +259,17 @@ export default defineConfig({
       dependencies: ["chromium-receivable-payments"],
     },
 
+    // Contextual client creation from the receivable form — authenticated.
+    {
+      name: "chromium-receivable-client-dialog",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /receivable-client-contextual-creation-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivables-workspace"],
+    },
+
     // Context navigation between a document and its receivables (returnTo
     // back link) — authenticated.
     {
@@ -268,7 +279,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-receivable-context-navigation-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables-workspace"],
+      dependencies: ["chromium-receivable-client-dialog"],
     },
 
     // Dashboard Panel + sidebar shell — authenticated.
