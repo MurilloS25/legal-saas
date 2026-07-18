@@ -89,7 +89,7 @@ export function DocumentSheet({
                   if (run.kind === "variable" && !run.resolved) {
                     const pendingClass = `rounded border px-1 py-0.5 font-sans text-[0.85em] ${
                       highlighted
-                        ? "border-teal-500 bg-teal-50 text-teal-900 ring-2 ring-teal-300"
+                        ? "border-accent-500 bg-accent-50 text-accent-900 ring-2 ring-accent-300"
                         : "border-amber-300 bg-amber-50 text-amber-900"
                     }`;
                     const pendingText = runText(run, pendingVariableDisplay);
@@ -102,7 +102,7 @@ export function DocumentSheet({
                           data-variable-key={run.key}
                           onClick={() => onVariableClick(run.key)}
                           aria-label={`Variable pendiente ${run.key}: ir a su campo`}
-                          className={`${pendingClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                          className={`${pendingClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-500`}
                         >
                           {pendingText}
                         </button>
@@ -130,7 +130,7 @@ export function DocumentSheet({
                         data-variable-key={run.key}
                         className={
                           highlighted
-                            ? "rounded bg-teal-100 ring-2 ring-teal-300"
+                            ? "rounded bg-accent-100 ring-2 ring-accent-300"
                             : undefined
                         }
                       >

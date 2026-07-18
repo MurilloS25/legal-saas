@@ -130,7 +130,7 @@ export function DocumentComposer(props: Props) {
       {showSavedBanner && (
         <div
           role="status"
-          className="mb-6 rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-800"
+          className="mb-6 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"
         >
           Borrador guardado.
         </div>

@@ -90,7 +90,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
           muestran con su clave. Puedes llenarlas igual, o{" "}
           <Link
             href={`/dashboard/templates/${template.id}`}
-            className="font-medium text-teal-700 underline hover:text-teal-800"
+            className="font-medium text-accent-700 underline hover:text-accent-800"
           >
             configurar el machote
           </Link>{" "}

@@ -115,7 +115,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       {(lifecycle === "finalized" || lifecycle === "reopened") && (
         <p
           role="status"
-          className="mb-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-800"
+          className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm font-medium text-accent-800"
         >
           {lifecycle === "finalized"
             ? "Escritura finalizada correctamente."

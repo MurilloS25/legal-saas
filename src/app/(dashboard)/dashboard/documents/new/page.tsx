@@ -87,7 +87,7 @@ export default async function NewDocumentTemplatePickerPage({
       </div>
 
       {selectedClient && (
-        <div className="mb-6 rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3 text-sm text-teal-800">
+        <div className="mb-6 rounded-lg border border-accent-200 bg-accent-50/60 px-4 py-3 text-sm text-accent-800">
           Cliente principal:{" "}
           <span className="font-semibold">{selectedClient.full_name}</span>. Se
           asociará a la escritura; podrás cambiarlo antes de guardar.
@@ -106,7 +106,7 @@ export default async function NewDocumentTemplatePickerPage({
           </p>
           <Link
             href="/dashboard/templates/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
             Crear machote
           </Link>
@@ -141,7 +141,7 @@ export default async function NewDocumentTemplatePickerPage({
               <div className="mt-auto">
                 <Link
                   href={templateHref(template.id)}
-                  className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors"
+                  className="inline-flex items-center rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
                 >
                   Usar este machote
                 </Link>

@@ -17,10 +17,12 @@ export function documentStatusLabel(status: string): string {
   return DOCUMENT_STATUS_LABEL[status] ?? status;
 }
 
+// "Finalizada" es un estado positivo real (la escritura quedó lista) →
+// verde semántico, no el acento decorativo.
 const STATUS_BADGE_CLASS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-600",
   ready: "bg-amber-50 text-amber-700 border border-amber-200",
-  final: "bg-teal-50 text-teal-700 border border-teal-200",
+  final: "bg-emerald-50 text-emerald-700 border border-emerald-200",
 };
 
 export function documentStatusBadgeClass(status: string): string {

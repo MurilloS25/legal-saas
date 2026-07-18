@@ -9,7 +9,7 @@ import type { DocumentMobileView } from "../hooks/use-document-layout";
 import { DocumentComposerActions } from "./DocumentComposerActions";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 const requiredMark = (
   <span aria-hidden="true" className="text-red-500 ml-0.5">
@@ -46,7 +46,7 @@ type Props = {
 };
 
 function filterButtonClass(active: boolean) {
-  return `rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+  return `rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 ${
     active
       ? "bg-slate-900 text-white"
       : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
@@ -149,7 +149,7 @@ export function DocumentFormPanel({
               aria-hidden="true"
             >
               <div
-                className="h-full rounded-full bg-teal-600 transition-all"
+                className="h-full rounded-full bg-accent-600 transition-all"
                 style={{
                   width: `${Math.round((completedCount / fields.length) * 100)}%`,
                 }}
@@ -185,7 +185,7 @@ export function DocumentFormPanel({
             necesita un título.
           </p>
         ) : visibleFields.length === 0 ? (
-          <p className="text-sm text-teal-700">
+          <p className="text-sm text-accent-700">
             Todos los campos están completos.
           </p>
         ) : (
