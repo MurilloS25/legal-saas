@@ -45,6 +45,9 @@ type Props = {
   initialSection?: ReceivableWorkspaceSection;
   createdJustNow?: boolean;
   paidJustNow?: boolean;
+  /** Ruta ya validada (ver context-return.ts) para volver a la Escritura
+   * desde la que se creó o abrió esta cuenta; `null` si no aplica. */
+  returnTo?: string | null;
 };
 
 function resolveSection(raw: string | null): ReceivableWorkspaceSection {
@@ -61,6 +64,7 @@ export function ReceivableWorkspace({
   initialSection,
   createdJustNow,
   paidJustNow,
+  returnTo,
 }: Props) {
   const [section, setSection] = useState<ReceivableWorkspaceSection>(
     initialSection ?? "account",
@@ -91,6 +95,7 @@ export function ReceivableWorkspace({
   return (
     <div>
       <ReceivableWorkspaceHeader
+        returnTo={returnTo}
         concept={entry.concept}
         statusBadge={
           <span

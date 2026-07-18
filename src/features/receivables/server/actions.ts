@@ -9,6 +9,10 @@ import {
   type ReceivableInput,
 } from "../model/receivables";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  appendReturnTo,
+  parseDocumentReceivablesReturnTo,
+} from "@/lib/navigation/context-return";
 
 type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
 type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
@@ -123,8 +127,17 @@ export async function createReceivableAction(
     };
   }
 
+  // Revalidado server-side de nuevo: el input oculto viaja desde el
+  // cliente, así que nunca se confía en su valor sin volver a chequear el
+  // patrón permitido.
+  const returnTo = parseDocumentReceivablesReturnTo(
+    formData.get("returnTo") as string | null,
+  );
+
   revalidatePath("/dashboard/receivables");
-  redirect(`/dashboard/receivables/${data.id}?created=1`);
+  redirect(
+    appendReturnTo(`/dashboard/receivables/${data.id}?created=1`, returnTo),
+  );
 }
 
 // ------------------------------------------------------------------ update

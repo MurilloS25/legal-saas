@@ -5,17 +5,24 @@ import {
   listDocumentOptions,
 } from "@/features/receivables/server";
 import { listClientOptions } from "@/features/clients/server";
+import { parseDocumentReceivablesReturnTo } from "@/lib/navigation/context-return";
+import { ContextBackLink } from "@/components/navigation/ContextBackLink";
 
 export const metadata = {
   title: "Nueva cuenta por cobrar — LexCR",
 };
 
 type Props = {
-  searchParams: Promise<{ client?: string; document?: string }>;
+  searchParams: Promise<{
+    client?: string;
+    document?: string;
+    returnTo?: string;
+  }>;
 };
 
 export default async function NewReceivablePage({ searchParams }: Props) {
-  const { client, document } = await searchParams;
+  const { client, document, returnTo: rawReturnTo } = await searchParams;
+  const returnTo = parseDocumentReceivablesReturnTo(rawReturnTo);
   const [clients, documents] = await Promise.all([
     listClientOptions(),
     listDocumentOptions(),
@@ -24,6 +31,9 @@ export default async function NewReceivablePage({ searchParams }: Props) {
   return (
     <PageContainer width="form">
       <nav aria-label="Breadcrumb" className="mb-6">
+        {returnTo && (
+          <ContextBackLink href={returnTo} label="Volver a la Escritura" />
+        )}
         <Link
           href="/dashboard/receivables"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
@@ -60,6 +70,7 @@ export default async function NewReceivablePage({ searchParams }: Props) {
         clients={clients}
         documents={documents}
         defaults={{ client_id: client, document_id: document }}
+        returnTo={returnTo}
       />
     </PageContainer>
   );

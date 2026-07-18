@@ -17,6 +17,10 @@ import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { listReceivablesByDocument } from "@/features/receivables/server";
 import {
+  appendReturnTo,
+  buildDocumentReceivablesReturnTo,
+} from "@/lib/navigation/context-return";
+import {
   DocumentComposer,
   DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
@@ -163,7 +167,11 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         <section aria-label="Cuentas por cobrar de la escritura">
         <ReceivableMiniList
           receivables={receivables}
-          newHref={`/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`}
+          newHref={appendReturnTo(
+            `/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
+            buildDocumentReceivablesReturnTo(document.id),
+          )}
+          returnTo={buildDocumentReceivablesReturnTo(document.id)}
           emptyText="Esta escritura todavía no tiene cuentas por cobrar."
         />
         </section>

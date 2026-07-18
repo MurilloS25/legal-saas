@@ -7,6 +7,7 @@ import { createReceivableMiniColumns } from "./receivable-mini-columns";
 
 type Props = {
   rows: ReceivableEntry[];
+  returnTo?: string;
 };
 
 // Columna secundaria: se oculta en viewports angostos para evitar
@@ -15,10 +16,13 @@ const RESPONSIVE_HIDDEN: Record<string, string> = {
   amount_total: "hidden sm:table-cell",
 };
 
-export function ReceivableMiniTable({ rows }: Props) {
+export function ReceivableMiniTable({ rows, returnTo }: Props) {
   "use no memo";
 
-  const columns = useMemo(() => createReceivableMiniColumns(), []);
+  const columns = useMemo(
+    () => createReceivableMiniColumns(returnTo),
+    [returnTo],
+  );
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({

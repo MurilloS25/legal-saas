@@ -12,9 +12,17 @@ type Props = {
   receivables: ReceivableEntry[];
   newHref: string;
   emptyText: string;
+  /** Presente solo cuando se incrusta en una Escritura; habilita el enlace
+   * de regreso en cada fila hacia esa Escritura. */
+  returnTo?: string;
 };
 
-export function ReceivableMiniList({ receivables, newHref, emptyText }: Props) {
+export function ReceivableMiniList({
+  receivables,
+  newHref,
+  emptyText,
+  returnTo,
+}: Props) {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -35,7 +43,7 @@ export function ReceivableMiniList({ receivables, newHref, emptyText }: Props) {
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <ReceivableMiniTable rows={receivables} />
+          <ReceivableMiniTable rows={receivables} returnTo={returnTo} />
         </div>
       )}
     </div>
