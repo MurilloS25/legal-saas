@@ -27,6 +27,17 @@ export const VARIABLE_OUTPUT_TRANSFORM_LABELS: Record<
   number_to_words: "Número completo en palabras",
 };
 
+/**
+ * Normaliza un valor de transformación leído de la base de datos (columna
+ * `text`, no tipada por Postgres) al tipo estricto. Un valor desconocido cae
+ * a `none` en vez de romper el render.
+ */
+export function toVariableOutputTransform(raw: string): VariableOutputTransform {
+  return (VARIABLE_OUTPUT_TRANSFORMS as readonly string[]).includes(raw)
+    ? (raw as VariableOutputTransform)
+    : "none";
+}
+
 const DIGIT_WORDS = [
   "CERO",
   "UNO",

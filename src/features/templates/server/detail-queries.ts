@@ -25,6 +25,8 @@ export type TemplateFieldRow = Pick<
   | "field_type"
   | "required"
   | "sort_order"
+  | "autofill_source"
+  | "output_transform"
 >;
 
 export async function getTemplateById(id: string): Promise<TemplateRow | null> {
@@ -50,7 +52,9 @@ export async function listTemplateFields(
   const { supabase, user } = await requireUser();
   const { data, error } = await supabase
     .from("template_fields")
-    .select("id, template_id, field_key, label, field_type, required, sort_order")
+    .select(
+      "id, template_id, field_key, label, field_type, required, sort_order, autofill_source, output_transform",
+    )
     .eq("template_id", templateId)
     .eq("owner_id", user.id)
     .order("sort_order", { ascending: true })

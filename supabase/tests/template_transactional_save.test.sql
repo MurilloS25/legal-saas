@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(19);
+select plan(26);
 
 create schema template_save_test;
 grant usage on schema template_save_test to public;
@@ -79,6 +79,10 @@ select is((select count(*) from public.template_fields where template_id = (sele
   1::bigint, 'reconciliation leaves exactly the desired fields');
 select is((select field_key from public.template_fields where template_id = (select id from template_save_snapshot)),
   'seller_1.full_name', 'reconciliation removes the old field and inserts the new one');
+select is((select autofill_source from public.template_fields where template_id = (select id from template_save_snapshot)),
+  'none', 'a field omitting autofill_source defaults to none (historical Machotes)');
+select is((select output_transform from public.template_fields where template_id = (select id from template_save_snapshot)),
+  'none', 'a field omitting output_transform defaults to none (historical Machotes)');
 
 update template_save_snapshot
 set updated_at = (select updated_at from public.templates where id = template_save_snapshot.id);
@@ -162,6 +166,44 @@ select ok(
 );
 select is((select count(*) from public.templates where name = 'Machote anónimo'), 0::bigint,
   'anonymous attempt creates no template');
+
+select set_config('request.jwt.claim.sub', '71111111-1111-1111-1111-111111111111', true);
+select lives_ok(format($sql$
+  select * from public.save_template_workspace(
+    %L::uuid, %L::timestamptz, 'Machote fake A editado', null, 'active',
+    '{"version":1,"document":{"type":"doc","content":[]},"text":""}'::jsonb,
+    '',
+    '[{"field_key":"seller_1.full_name","label":"Vendedor","required":false,"autofill_source":"client_full_name","output_transform":"digits_to_words"}]'::jsonb
+  )
+$sql$, (select id from template_save_snapshot),
+  (select updated_at from public.templates where id = (select id from template_save_snapshot))),
+  'accepts an explicit valid autofill_source and output_transform');
+select is((select autofill_source from public.template_fields where template_id = (select id from template_save_snapshot)),
+  'client_full_name', 'persists the explicit autofill_source');
+select is((select output_transform from public.template_fields where template_id = (select id from template_save_snapshot)),
+  'digits_to_words', 'persists the explicit output_transform');
+
+select ok(template_save_test.statement_fails(format($sql$
+  select * from public.save_template_workspace(
+    %L::uuid, %L::timestamptz, 'Machote fake A editado', null, 'active',
+    '{"version":1,"document":{"type":"doc","content":[]},"text":""}'::jsonb,
+    '',
+    '[{"field_key":"seller_1.full_name","label":"Vendedor","required":false,"autofill_source":"client_email"}]'::jsonb
+  )
+$sql$, (select id from template_save_snapshot),
+  (select updated_at from public.templates where id = (select id from template_save_snapshot)))),
+  'rejects an unsupported autofill_source (client_email is out of scope)');
+
+select ok(template_save_test.statement_fails(format($sql$
+  select * from public.save_template_workspace(
+    %L::uuid, %L::timestamptz, 'Machote fake A editado', null, 'active',
+    '{"version":1,"document":{"type":"doc","content":[]},"text":""}'::jsonb,
+    '',
+    '[{"field_key":"seller_1.full_name","label":"Vendedor","required":false,"output_transform":"amount_to_words"}]'::jsonb
+  )
+$sql$, (select id from template_save_snapshot),
+  (select updated_at from public.templates where id = (select id from template_save_snapshot)))),
+  'rejects an unsupported output_transform (amounts are out of scope)');
 
 select * from finish();
 rollback;

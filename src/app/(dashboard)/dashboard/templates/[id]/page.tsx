@@ -7,6 +7,10 @@ import type { TemplateWorkspaceSection } from "@/features/templates";
 import { getTemplateIndexConfiguration } from "@/features/notarial-index/server";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
+import {
+  toVariableAutofillSource,
+  toVariableOutputTransform,
+} from "@/features/templates/model/variable-autofill";
 
 export const metadata = {
   title: "Machote — LexCR",
@@ -60,6 +64,8 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           field_key: field.field_key,
           label: field.label,
           required: field.required,
+          autofill_source: toVariableAutofillSource(field.autofill_source),
+          output_transform: toVariableOutputTransform(field.output_transform),
         }))}
         indexConfiguration={indexConfiguration}
         indexFields={fields.map((field) => ({

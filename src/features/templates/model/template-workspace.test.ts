@@ -36,6 +36,67 @@ describe("parseTemplateWorkspacePayload", () => {
     }
   });
 
+  it("defaults autofill_source and output_transform to 'none' when omitted (historical Machotes)", () => {
+    const result = parseTemplateWorkspacePayload(formDataFrom(validEntries));
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.payload.variables[0].autofill_source).toBe("none");
+      expect(result.payload.variables[0].output_transform).toBe("none");
+    }
+  });
+
+  it("accepts an explicit autofill_source and output_transform", () => {
+    const result = parseTemplateWorkspacePayload(
+      formDataFrom({
+        ...validEntries,
+        variables: JSON.stringify([
+          {
+            field_key: "comprador.nombre",
+            label: "Nombre del comprador",
+            required: true,
+            autofill_source: "client_full_name",
+            output_transform: "digits_to_words",
+          },
+        ]),
+      }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.payload.variables[0].autofill_source).toBe(
+        "client_full_name",
+      );
+      expect(result.payload.variables[0].output_transform).toBe(
+        "digits_to_words",
+      );
+    }
+  });
+
+  it("rejects an invalid autofill_source or output_transform", () => {
+    for (const variables of [
+      [
+        {
+          field_key: "a",
+          label: "A",
+          required: false,
+          autofill_source: "client_email",
+        },
+      ],
+      [
+        {
+          field_key: "a",
+          label: "A",
+          required: false,
+          output_transform: "amount_to_words",
+        },
+      ],
+    ]) {
+      const result = parseTemplateWorkspacePayload(
+        formDataFrom({ ...validEntries, variables: JSON.stringify(variables) }),
+      );
+      expect(result.success).toBe(false);
+    }
+  });
+
   it("accepts an empty variables list and no description", () => {
     const result = parseTemplateWorkspacePayload(
       formDataFrom({

@@ -15,6 +15,7 @@ import { buildEditorExtensions } from "@/lib/editor/tiptap";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { detectLegacyVariables } from "@/lib/editor/legacy-variables";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
+import { suggestAutofillSource } from "../model/variable-autofill";
 import { InsertVariableDialog } from "./InsertVariableDialog";
 import {
   LegacyVariablesReviewDialog,
@@ -247,6 +248,8 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
         field_key: replacement.key,
         label: replacement.label || replacement.key,
         required: false,
+        autofill_source: suggestAutofillSource(replacement.key),
+        output_transform: "none",
       });
     }
   }
@@ -364,7 +367,13 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
             insertVariable(variable.field_key, variable.label)
           }
           onInsertNew={(key, label) => {
-            onCreateVariable({ field_key: key, label, required: false });
+            onCreateVariable({
+              field_key: key,
+              label,
+              required: false,
+              autofill_source: suggestAutofillSource(key),
+              output_transform: "none",
+            });
             insertVariable(key, label);
           }}
           onClose={closeDialog}

@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
+import {
+  VARIABLE_AUTOFILL_SOURCES,
+  VARIABLE_OUTPUT_TRANSFORMS,
+} from "./variable-autofill";
 
 export { FIELD_KEY_PATTERN };
 
@@ -30,6 +34,8 @@ export const TemplateFieldSchema = z.object({
     .number({ error: "El orden debe ser un número" })
     .int("El orden debe ser un número entero")
     .min(0, "El orden no puede ser negativo"),
+  autofill_source: z.enum(VARIABLE_AUTOFILL_SOURCES).default("none"),
+  output_transform: z.enum(VARIABLE_OUTPUT_TRANSFORMS).default("none"),
 });
 
 export type TemplateFieldInput = z.infer<typeof TemplateFieldSchema>;
