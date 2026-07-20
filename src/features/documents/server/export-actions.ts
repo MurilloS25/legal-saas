@@ -12,6 +12,8 @@ import {
   DocumentIdSchema,
   DocumentValuesSchema,
 } from "../model/document-schema";
+import { toVariableOutputTransform } from "@/features/templates/model/variable-autofill";
+import type { VariableTransformsMap } from "@/lib/editor/render";
 
 export class DocumentExportError extends Error {
   constructor(readonly status: number) {
@@ -57,6 +59,19 @@ export async function prepareDocumentDocxExport(
   const values = DocumentValuesSchema.safeParse(document.field_values ?? {});
   if (!values.success) throw new DocumentExportError(422);
 
+  const { data: templateFields, error: fieldsError } = await supabase
+    .from("template_fields")
+    .select("field_key, output_transform")
+    .eq("template_id", document.template_id)
+    .eq("owner_id", user.id);
+  if (fieldsError) throwDataAccessError("load document export fields", fieldsError);
+
+  const transforms: VariableTransformsMap = {};
+  for (const field of templateFields ?? []) {
+    const transform = toVariableOutputTransform(field.output_transform);
+    if (transform !== "none") transforms[field.field_key] = transform;
+  }
+
   let result;
   try {
     result = await buildEscrituraDocx({
@@ -64,6 +79,7 @@ export async function prepareDocumentDocxExport(
       fieldValues: values.data,
       renderedContent: document.rendered_content,
       title: document.title,
+      transforms,
     });
   } catch (error) {
     if (error instanceof DocxGenerationError) {

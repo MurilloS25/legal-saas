@@ -28,6 +28,8 @@ describe("buildFillableFields", () => {
         required: true,
         field_type: "text",
         derived: false,
+        autofill_source: "none",
+        output_transform: "none",
       },
       {
         field_key: "vendedor.nombre",
@@ -35,8 +37,25 @@ describe("buildFillableFields", () => {
         required: false,
         field_type: "text",
         derived: false,
+        autofill_source: "none",
+        output_transform: "none",
       },
     ]);
+  });
+
+  it("carries through a configured autofill_source and output_transform", () => {
+    const result = buildFillableFields(
+      [
+        {
+          ...field("comprador.cedula"),
+          autofill_source: "client_identification",
+          output_transform: "digits_to_words",
+        },
+      ],
+      "{{comprador.cedula}}",
+    );
+    expect(result[0].autofill_source).toBe("client_identification");
+    expect(result[0].output_transform).toBe("digits_to_words");
   });
 
   it("derives optional fields for content variables without configuration", () => {
@@ -52,6 +71,8 @@ describe("buildFillableFields", () => {
         required: false,
         field_type: "text",
         derived: true,
+        autofill_source: "none",
+        output_transform: "none",
       },
       {
         field_key: "vehiculo.placa",
@@ -59,6 +80,8 @@ describe("buildFillableFields", () => {
         required: false,
         field_type: "text",
         derived: true,
+        autofill_source: "none",
+        output_transform: "none",
       },
     ]);
   });

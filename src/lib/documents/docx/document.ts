@@ -21,6 +21,7 @@ import { legacyTextToDocument } from "@/lib/editor/convert";
 import {
   buildDocumentModel,
   renderStructuredTemplate,
+  type VariableTransformsMap,
 } from "@/lib/editor/render";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 import { buildDocxFilename } from "./filename";
@@ -39,6 +40,8 @@ export type EscrituraDocxInput = {
   renderedContent?: string;
   /** Título persistido de la escritura (fuente del nombre de archivo). */
   title: string;
+  /** Transformación de salida configurada por variable (`field_key -> transform`). */
+  transforms?: VariableTransformsMap;
 };
 
 export type EscrituraDocxResult = {
@@ -52,7 +55,11 @@ export async function buildEscrituraDocx(
   input: EscrituraDocxInput,
 ): Promise<EscrituraDocxResult> {
   const { document } = resolveTemplateContent(input.contentJson);
-  const currentRendered = renderStructuredTemplate(document, input.fieldValues);
+  const currentRendered = renderStructuredTemplate(
+    document,
+    input.fieldValues,
+    input.transforms,
+  );
   const usePersistedSnapshot =
     typeof input.renderedContent === "string" &&
     input.renderedContent !== currentRendered;
@@ -60,7 +67,11 @@ export async function buildEscrituraDocx(
     ? legacyTextToDocument(input.renderedContent ?? "")
     : document;
   const sourceValues = usePersistedSnapshot ? {} : input.fieldValues;
-  const model = buildDocumentModel(sourceDocument, sourceValues);
+  const model = buildDocumentModel(
+    sourceDocument,
+    sourceValues,
+    usePersistedSnapshot ? undefined : input.transforms,
+  );
   const buffer = await generateDocumentDocx(model);
 
   return {

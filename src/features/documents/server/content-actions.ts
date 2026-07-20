@@ -14,6 +14,11 @@ import {
 import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
 import { validateDocumentFill } from "../model/document-fill";
 import type { FillableTemplateField } from "@/features/templates";
+import {
+  toVariableAutofillSource,
+  toVariableOutputTransform,
+  type VariableOutputTransform,
+} from "@/features/templates/model/variable-autofill";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { renderStructuredTemplate } from "@/lib/editor/render";
 import type { TemplateDocument } from "@/lib/editor/types";
@@ -61,7 +66,9 @@ async function loadOwnedTemplateWithFields(
 
   const { data: fields, error } = await supabase
     .from("template_fields")
-    .select("field_key, label, field_type, required")
+    .select(
+      "field_key, label, field_type, required, autofill_source, output_transform",
+    )
     .eq("template_id", templateId)
     .eq("owner_id", userId)
     .order("sort_order", { ascending: true });
@@ -77,9 +84,29 @@ async function loadOwnedTemplateWithFields(
   // configurado: un machote sin campos ya no bloquea la creación.
   return {
     template,
-    fields: buildFillableFields(fields ?? [], templateText),
+    fields: buildFillableFields(
+      (fields ?? []).map((field) => ({
+        ...field,
+        autofill_source: toVariableAutofillSource(field.autofill_source),
+        output_transform: toVariableOutputTransform(field.output_transform),
+      })),
+      templateText,
+    ),
     document,
   };
+}
+
+/** Mapa `field_key -> output_transform` para el render compartido. */
+function buildTransformsMap(
+  fields: FillableTemplateField[],
+): Record<string, VariableOutputTransform> {
+  const transforms: Record<string, VariableOutputTransform> = {};
+  for (const field of fields) {
+    if (field.output_transform !== "none") {
+      transforms[field.field_key] = field.output_transform;
+    }
+  }
+  return transforms;
 }
 
 function validateDraftInput(
@@ -133,7 +160,11 @@ function validateDraftInput(
     };
   }
 
-  const rendered = renderStructuredTemplate(document, valuesResult.data);
+  const rendered = renderStructuredTemplate(
+    document,
+    valuesResult.data,
+    buildTransformsMap(fields),
+  );
   const renderedResult = DocumentRenderedContentSchema.safeParse(rendered);
   if (!renderedResult.success) {
     return {

@@ -7,7 +7,9 @@ import type { DocumentDraftState } from "../server/content-actions";
 import type { DocumentStatus } from "../model/lifecycle";
 import { documentFieldInputId } from "../model/composer";
 import type { DocumentMobileView } from "../hooks/use-document-layout";
+import type { DocumentClientOption, RoleVariableGroup } from "../model/role-autofill";
 import { DocumentComposerActions } from "./DocumentComposerActions";
+import { RoleAutofillPanel } from "./RoleAutofillPanel";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
@@ -22,7 +24,7 @@ type FieldFilter = "all" | "pending";
 
 type Props = {
   clientId: string;
-  clients: { id: string; full_name: string }[];
+  clients: DocumentClientOption[];
   completedCount: number;
   dirty: boolean;
   documentId: string | null;
@@ -32,12 +34,14 @@ type Props = {
   pending: boolean;
   pendingVariableCount: number;
   readOnly: boolean;
+  roleGroups: RoleVariableGroup[];
   saveStatusText: string;
   state: DocumentDraftState;
   status: DocumentStatus;
   title: string;
   values: Record<string, string>;
   visibleFields: FillableTemplateField[];
+  onApplyRoleAutofill: (fieldValues: Record<string, string>) => void;
   onClientChange: (value: string) => void;
   onClientCreated: (client: CreatedClient) => void;
   onFieldBlur: () => void;
@@ -67,12 +71,14 @@ export function DocumentFormPanel({
   pending,
   pendingVariableCount,
   readOnly,
+  roleGroups,
   saveStatusText,
   state,
   status,
   title,
   values,
   visibleFields,
+  onApplyRoleAutofill,
   onClientChange,
   onClientCreated,
   onFieldBlur,
@@ -146,6 +152,14 @@ export function DocumentFormPanel({
             </div>
           )}
         </div>
+
+        <RoleAutofillPanel
+          groups={roleGroups}
+          clients={clients}
+          values={values}
+          readOnly={readOnly}
+          onApply={onApplyRoleAutofill}
+        />
 
         {fields.length > 0 && (
           <div>

@@ -68,6 +68,22 @@ describe("buildEscrituraDocx", () => {
     expect(result.pendingVariables).toEqual([]);
   });
 
+  it("applies the configured output transform, matching the render pipeline", async () => {
+    const result = await buildEscrituraDocx({
+      contentJson: { text: "Cédula {{comprador.cedula}}." },
+      fieldValues: { "comprador.cedula": "208390123" },
+      title: "Compraventa",
+      transforms: { "comprador.cedula": "digits_to_words" },
+    });
+
+    const parts = await readDocx(result.buffer);
+    const body = extractDocxText(parts.documentXml);
+    expect(body).toContain(
+      "DOS CERO OCHO TRES NUEVE CERO UNO DOS TRES",
+    );
+    expect(body).not.toContain("208390123");
+  });
+
   it("uses the safe filename fallback for an empty title", async () => {
     const result = await buildEscrituraDocx({
       contentJson: { text: "Texto." },
