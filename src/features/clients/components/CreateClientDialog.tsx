@@ -226,11 +226,17 @@ export function CreateClientDialog({ onCreated }: Props) {
                         placeholder="0-0000-0000"
                         aria-describedby={
                           state.errors?.identification_number
-                            ? "dialog_identification_number-error"
-                            : undefined
+                            ? "dialog_identification_number-error dialog_identification_number-hint"
+                            : "dialog_identification_number-hint"
                         }
                         aria-invalid={!!state.errors?.identification_number}
                       />
+                      <p
+                        id="dialog_identification_number-hint"
+                        className="mt-1 text-xs text-slate-500"
+                      >
+                        La identificación se guardará sin guiones ni espacios.
+                      </p>
                       <FieldError
                         id="dialog_identification_number-error"
                         message={state.errors?.identification_number}

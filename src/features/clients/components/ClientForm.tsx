@@ -178,11 +178,14 @@ export function ClientForm(props: Props) {
                 placeholder="0-0000-0000"
                 aria-describedby={
                   state.errors?.identification_number
-                    ? "identification_number-error"
-                    : undefined
+                    ? "identification_number-error identification_number-hint"
+                    : "identification_number-hint"
                 }
                 aria-invalid={!!state.errors?.identification_number}
               />
+              <p id="identification_number-hint" className="mt-1 text-xs text-slate-500">
+                La identificación se guardará sin guiones ni espacios.
+              </p>
               <FieldError
                 id="identification_number-error"
                 message={state.errors?.identification_number}
