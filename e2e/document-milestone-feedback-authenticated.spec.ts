@@ -18,7 +18,7 @@ test.setTimeout(60_000);
 const registry = new CleanupRegistry();
 
 function contentEditor(page: Page) {
-  return page.getByRole("region", { name: "Documento" });
+  return page.getByRole("region", { name: "Documento", exact: true });
 }
 
 function savedMilestoneBanner(page: Page) {
