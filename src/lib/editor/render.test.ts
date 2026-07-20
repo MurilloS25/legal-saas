@@ -85,6 +85,38 @@ describe("renderStructuredTemplate", () => {
     expect(renderStructuredTemplate(doc, { ajena: "x" })).toBe("Sin variables");
   });
 
+  it("applies the configured transform for a variable's key", () => {
+    const doc = legacyTextToDocument("Cédula {{comprador.cedula}}");
+    const rendered = renderStructuredTemplate(
+      doc,
+      { "comprador.cedula": "208390123" },
+      { "comprador.cedula": "digits_to_words" },
+    );
+    expect(rendered).toBe(
+      "Cédula DOS CERO OCHO TRES NUEVE CERO UNO DOS TRES",
+    );
+  });
+
+  it("leaves a variable untransformed when its transform is 'none' or unconfigured", () => {
+    const doc = legacyTextToDocument("{{a}} y {{b}}");
+    const rendered = renderStructuredTemplate(
+      doc,
+      { a: "1600", b: "1600" },
+      { a: "none" },
+    );
+    expect(rendered).toBe("1600 y 1600");
+  });
+
+  it("applies number_to_words per the configured transform", () => {
+    const doc = legacyTextToDocument("Cilindraje {{vehiculo.cilindraje}}");
+    const rendered = renderStructuredTemplate(
+      doc,
+      { "vehiculo.cilindraje": "1600" },
+      { "vehiculo.cilindraje": "number_to_words" },
+    );
+    expect(rendered).toBe("Cilindraje MIL SEISCIENTOS");
+  });
+
   it("matches the legacy text renderer for converted legacy content", () => {
     const samples: [string, Record<string, string>][] = [
       [
