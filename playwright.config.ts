@@ -127,6 +127,17 @@ export default defineConfig({
       dependencies: ["chromium-template-milestone"],
     },
 
+    // Inline editing of variables directly in the document sheet — authenticated.
+    {
+      name: "chromium-document-inline-editing",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-inline-editing-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents"],
+    },
+
     // Document DOCX download — authenticated.
     {
       name: "chromium-documents-docx",
@@ -135,7 +146,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-docx-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents"],
+      dependencies: ["chromium-document-inline-editing"],
     },
 
     // Document ↔ client relationship — authenticated.

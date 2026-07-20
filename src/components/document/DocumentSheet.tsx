@@ -6,13 +6,20 @@
  * composición React de runs tipados. La usan el preview del workspace de
  * machotes y el compositor de escrituras.
  *
- * - Runs de texto aplican negrita/cursiva/subrayado.
- * - Variables resueltas muestran su valor integrado al texto.
- * - Variables pendientes se resaltan (color + borde, no solo color).
+ * - Runs de texto aplican negrita/cursiva/subrayado (siempre solo lectura:
+ *   el texto fijo del Machote nunca es editable aquí).
+ * - Cuando se pasa `onChangeValue`, las variables se vuelven editables
+ *   inline: un clic las convierte en un `<input>` que edita el valor crudo
+ *   (`values[key]`); sin foco, muestran el valor ya renderizado (con su
+ *   transformación aplicada, si tiene una configurada). Sin `onChangeValue`
+ *   el comportamiento es el de solo lectura de siempre (preview de
+ *   Machote).
  * - Sin paginación real ni números de página fingidos.
  */
 
+import { useMemo } from "react";
 import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
+import { findAdjacentVariableKey } from "@/lib/editor/variable-navigation";
 
 type Props = {
   model: DocumentModel;
@@ -25,13 +32,21 @@ type Props = {
   emptyMessage?: string;
   /** Id de encabezado para aria-labelledby del contenedor con scroll. */
   "aria-labelledby"?: string;
-  /** Variable a resaltar (p. ej. el campo enfocado en el panel). */
+  /** Variable a resaltar (p. ej. el campo enfocado en el panel lateral). */
   highlightKey?: string;
+  /** Valores crudos (sin transformar) por `field_key`, para el modo edición. */
+  values?: Record<string, string>;
+  /** Clave de la variable actualmente en modo edición inline. */
+  editingKey?: string;
   /**
-   * Si se define, las variables pendientes se vuelven botones que invocan
-   * este callback (p. ej. para enfocar su campo en el panel).
+   * Si se define, las variables se vuelven editables inline: un clic las
+   * pone en modo edición (ver `editingKey`).
    */
-  onVariableClick?: (key: string) => void;
+  onStartEdit?: (key: string) => void;
+  /** Cambia el valor crudo de la variable en edición. */
+  onChangeValue?: (key: string, value: string) => void;
+  /** Sale del modo edición (blur, Escape, o Tab sin siguiente variable). */
+  onStopEdit?: () => void;
 };
 
 function runText(run: DocumentRun, display: "label" | "placeholder"): string {
@@ -52,14 +67,45 @@ function isModelEmpty(model: DocumentModel): boolean {
   return model.every((paragraph) => paragraph.runs.length === 0);
 }
 
+/** Ancho aproximado del input en `ch`, acotado para no romper el layout. */
+function inputWidthCh(value: string): number {
+  return Math.min(Math.max(value.length, 3) + 1, 60);
+}
+
 export function DocumentSheet({
   model,
   pendingVariableDisplay = "label",
   emptyMessage = "El documento aún no tiene contenido.",
   "aria-labelledby": ariaLabelledBy,
   highlightKey,
-  onVariableClick,
+  values,
+  editingKey,
+  onStartEdit,
+  onChangeValue,
+  onStopEdit,
 }: Props) {
+  const editable = !!onChangeValue;
+
+  const orderedKeys = useMemo(() => {
+    if (!editable) return [];
+    const keys: string[] = [];
+    for (const paragraph of model) {
+      for (const run of paragraph.runs) {
+        if (run.kind === "variable") keys.push(run.key);
+      }
+    }
+    return keys;
+  }, [model, editable]);
+
+  function moveToAdjacent(currentKey: string, direction: 1 | -1) {
+    const next = findAdjacentVariableKey(orderedKeys, currentKey, direction);
+    if (next) {
+      onStartEdit?.(next);
+    } else {
+      onStopEdit?.();
+    }
+  }
+
   return (
     <div
       className="rounded-xl bg-slate-100 p-4 sm:p-6 lg:p-8 overflow-y-auto"
@@ -86,6 +132,58 @@ export function DocumentSheet({
                   const highlighted =
                     run.kind === "variable" && run.key === highlightKey;
 
+                  if (run.kind === "variable" && editable) {
+                    if (run.key === editingKey) {
+                      const rawValue = values?.[run.key] ?? "";
+                      return (
+                        <input
+                          key={runIndex}
+                          type="text"
+                          autoFocus
+                          value={rawValue}
+                          onChange={(event) =>
+                            onChangeValue!(run.key, event.target.value)
+                          }
+                          onBlur={() => onStopEdit?.()}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              onStopEdit?.();
+                            } else if (event.key === "Tab") {
+                              event.preventDefault();
+                              moveToAdjacent(run.key, event.shiftKey ? -1 : 1);
+                            }
+                          }}
+                          style={{ width: `${inputWidthCh(rawValue)}ch` }}
+                          data-variable-key={run.key}
+                          aria-label={run.label?.trim() || run.key}
+                          className="inline-block rounded border-b-2 border-accent-500 bg-accent-50 px-1 py-0.5 font-sans text-[0.85em] text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                        />
+                      );
+                    }
+
+                    const displayText = runText(run, pendingVariableDisplay);
+                    const editableClass = run.resolved
+                      ? "cursor-text rounded-sm border-b border-dotted border-slate-400 hover:border-accent-500 hover:bg-accent-50/60"
+                      : "cursor-text rounded-sm border-b-2 border-dashed border-accent-400 px-0.5 font-sans text-[0.85em] italic text-accent-700 hover:bg-accent-50";
+                    const highlightClass = highlighted
+                      ? "bg-accent-100 ring-2 ring-accent-300"
+                      : "";
+
+                    return (
+                      <button
+                        key={runIndex}
+                        type="button"
+                        data-variable-key={run.key}
+                        onClick={() => onStartEdit!(run.key)}
+                        aria-label={`Editar ${run.label?.trim() || run.key}`}
+                        className={`${editableClass} ${highlightClass} focus:outline-none focus:ring-2 focus:ring-accent-500`}
+                      >
+                        {displayText}
+                      </button>
+                    );
+                  }
+
                   if (run.kind === "variable" && !run.resolved) {
                     const pendingClass = `rounded border px-1 py-0.5 font-sans text-[0.85em] ${
                       highlighted
@@ -93,21 +191,6 @@ export function DocumentSheet({
                         : "border-amber-300 bg-amber-50 text-amber-900"
                     }`;
                     const pendingText = runText(run, pendingVariableDisplay);
-
-                    if (onVariableClick) {
-                      return (
-                        <button
-                          key={runIndex}
-                          type="button"
-                          data-variable-key={run.key}
-                          onClick={() => onVariableClick(run.key)}
-                          aria-label={`Variable pendiente ${run.key}: ir a su campo`}
-                          className={`${pendingClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-500`}
-                        >
-                          {pendingText}
-                        </button>
-                      );
-                    }
 
                     return (
                       <mark

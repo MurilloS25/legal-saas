@@ -6,20 +6,29 @@ import type { DocumentMobileView } from "../hooks/use-document-layout";
 
 type Props = {
   dirty: boolean;
-  focusedKey?: string;
+  highlightKey?: string;
   mobileView: DocumentMobileView;
   model: DocumentModel;
   templateName: string;
-  onVariableClick: (key: string) => void;
+  /** Ausentes cuando la escritura es de solo lectura: sin edición inline. */
+  values?: Record<string, string>;
+  editingKey?: string;
+  onStartEdit?: (key: string) => void;
+  onChangeValue?: (key: string, value: string) => void;
+  onStopEdit?: () => void;
 };
 
 export function DocumentPreviewPanel({
   dirty,
-  focusedKey,
+  highlightKey,
   mobileView,
   model,
   templateName,
-  onVariableClick,
+  values,
+  editingKey,
+  onStartEdit,
+  onChangeValue,
+  onStopEdit,
 }: Props) {
   return (
     <section
@@ -50,8 +59,12 @@ export function DocumentPreviewPanel({
           pendingVariableDisplay="placeholder"
           emptyMessage="El machote no tiene contenido."
           aria-labelledby="composer-document-heading"
-          highlightKey={focusedKey}
-          onVariableClick={onVariableClick}
+          highlightKey={highlightKey}
+          values={values}
+          editingKey={editingKey}
+          onStartEdit={onStartEdit}
+          onChangeValue={onChangeValue}
+          onStopEdit={onStopEdit}
         />
       </div>
     </section>
