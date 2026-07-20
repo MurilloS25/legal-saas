@@ -13,6 +13,10 @@ import { FIELD_KEY_PATTERN } from "./template-fields";
 import { TEMPLATE_STATUS } from "./templates";
 import { validateTemplateDocument } from "@/lib/editor/validate";
 import { TEMPLATE_DOC_LIMITS, type TemplateDocument } from "@/lib/editor/types";
+import {
+  VARIABLE_AUTOFILL_SOURCES,
+  VARIABLE_OUTPUT_TRANSFORMS,
+} from "./variable-autofill";
 
 const MAX_NAME_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 500;
@@ -57,6 +61,8 @@ export const TemplateWorkspaceVariableSchema = z.object({
       "La etiqueta es demasiado larga",
     ),
   required: z.boolean({ error: "Indica si la variable es obligatoria" }),
+  autofill_source: z.enum(VARIABLE_AUTOFILL_SOURCES).default("none"),
+  output_transform: z.enum(VARIABLE_OUTPUT_TRANSFORMS).default("none"),
 });
 
 export type TemplateWorkspaceVariable = z.infer<

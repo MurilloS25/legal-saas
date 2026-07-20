@@ -203,4 +203,61 @@ test.describe("template variables workspace", () => {
       variableRow(page, configuredKey).getByText(configuredLabel),
     ).toBeVisible();
   });
+
+  test("F: configuring autofill source and output transform for a variable persists after reload", async ({
+    page,
+  }) => {
+    const newKey = "comprador.cedula";
+    const newLabel = "Comprador - Cédula";
+
+    await openWorkspace(page);
+    await page.getByRole("button", { name: "Insertar variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await dialog.getByLabel("Etiqueta").fill(newLabel);
+    await dialog.getByLabel("Clave").fill(newKey);
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+
+    // Insertar una variable nueva la configura de inmediato (con la
+    // sugerencia automática por "cedula" ya aplicada), así que aparece como
+    // "Configurada" y no como pendiente.
+    await goToVariablesTab(page);
+    await expect(
+      variableRow(page, newKey).getByText("Configurada"),
+    ).toBeVisible();
+    await expect(
+      variableRow(page, newKey).getByText(
+        "Autollenado: Identificación del Cliente",
+      ),
+    ).toBeVisible();
+
+    await variableRow(page, newKey)
+      .getByRole("button", { name: `Editar variable ${newKey}` })
+      .click();
+
+    // La sugerencia sigue siendo editable en el editor de la fila.
+    await expect(
+      page.getByLabel("Origen para autollenado"),
+    ).toHaveValue("client_identification");
+
+    await page
+      .getByLabel("Transformación de salida")
+      .selectOption("digits_to_words");
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+
+    await expect(
+      variableRow(page, newKey).getByText("Dígitos en palabras"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    const row = variableRow(page, newKey);
+    await expect(
+      row.getByText("Autollenado: Identificación del Cliente"),
+    ).toBeVisible();
+    await expect(row.getByText("Dígitos en palabras")).toBeVisible();
+  });
 });

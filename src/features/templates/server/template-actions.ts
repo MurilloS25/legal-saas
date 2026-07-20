@@ -33,11 +33,15 @@ type SaveTemplateArgs =
   Database["public"]["Functions"]["save_template_workspace"]["Args"];
 
 function rpcFields(variables: TemplateWorkspaceVariable[]) {
-  return variables.map(({ field_key, label, required }) => ({
-    field_key,
-    label,
-    required,
-  }));
+  return variables.map(
+    ({ field_key, label, required, autofill_source, output_transform }) => ({
+      field_key,
+      label,
+      required,
+      autofill_source,
+      output_transform,
+    }),
+  );
 }
 
 function saveError(code: string | undefined): string {

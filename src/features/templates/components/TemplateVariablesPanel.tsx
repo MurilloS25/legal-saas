@@ -18,6 +18,15 @@
 
 import { useId, useState } from "react";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
+import {
+  VARIABLE_AUTOFILL_SOURCES,
+  VARIABLE_AUTOFILL_SOURCE_LABELS,
+  VARIABLE_OUTPUT_TRANSFORMS,
+  VARIABLE_OUTPUT_TRANSFORM_LABELS,
+  suggestAutofillSource,
+  type VariableAutofillSource,
+  type VariableOutputTransform,
+} from "../model/variable-autofill";
 
 export type VariableRowStatus = "configured" | "pending" | "unused";
 
@@ -26,6 +35,8 @@ export type VariableRow = {
   label?: string;
   required: boolean;
   status: VariableRowStatus;
+  autofill_source: VariableAutofillSource;
+  output_transform: VariableOutputTransform;
 };
 
 const STATUS_UI: Record<
@@ -61,11 +72,19 @@ export function buildVariableRows(
     label: variable.label,
     required: variable.required,
     status: contentKeySet.has(variable.field_key) ? "configured" : "unused",
+    autofill_source: variable.autofill_source,
+    output_transform: variable.output_transform,
   }));
 
   for (const key of contentKeys) {
     if (!configuredKeys.has(key)) {
-      rows.push({ field_key: key, required: false, status: "pending" });
+      rows.push({
+        field_key: key,
+        required: false,
+        status: "pending",
+        autofill_source: suggestAutofillSource(key),
+        output_transform: "none",
+      });
     }
   }
 
@@ -76,7 +95,12 @@ export function buildVariableRows(
 
 type RowEditorProps = {
   row: VariableRow;
-  onSave: (label: string, required: boolean) => void;
+  onSave: (
+    label: string,
+    required: boolean,
+    autofillSource: VariableAutofillSource,
+    outputTransform: VariableOutputTransform,
+  ) => void;
   onCancel: () => void;
 };
 
@@ -84,8 +108,12 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
   const labelId = useId();
   const requiredId = useId();
   const errorId = useId();
+  const autofillId = useId();
+  const transformId = useId();
   const [label, setLabel] = useState(row.label ?? "");
   const [required, setRequired] = useState(row.required);
+  const [autofillSource, setAutofillSource] = useState(row.autofill_source);
+  const [outputTransform, setOutputTransform] = useState(row.output_transform);
   const [error, setError] = useState<string | undefined>();
 
   function save() {
@@ -94,7 +122,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
       setError("La etiqueta de la variable es requerida.");
       return;
     }
-    onSave(trimmed, required);
+    onSave(trimmed, required, autofillSource, outputTransform);
   }
 
   return (
@@ -137,6 +165,54 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
         </label>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor={autofillId}
+            className="block text-xs font-medium text-slate-700 mb-1"
+          >
+            Origen para autollenado
+          </label>
+          <select
+            id={autofillId}
+            value={autofillSource}
+            onChange={(event) =>
+              setAutofillSource(event.target.value as VariableAutofillSource)
+            }
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+          >
+            {VARIABLE_AUTOFILL_SOURCES.map((source) => (
+              <option key={source} value={source}>
+                {VARIABLE_AUTOFILL_SOURCE_LABELS[source]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor={transformId}
+            className="block text-xs font-medium text-slate-700 mb-1"
+          >
+            Transformación de salida
+          </label>
+          <select
+            id={transformId}
+            value={outputTransform}
+            onChange={(event) =>
+              setOutputTransform(event.target.value as VariableOutputTransform)
+            }
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+          >
+            {VARIABLE_OUTPUT_TRANSFORMS.map((transform) => (
+              <option key={transform} value={transform}>
+                {VARIABLE_OUTPUT_TRANSFORM_LABELS[transform]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2">
         <button
           type="button"
@@ -175,14 +251,25 @@ export function TemplateVariablesPanel({
 
   const rows = buildVariableRows(variables, contentKeys);
 
-  function upsertVariable(field_key: string, label: string, required: boolean) {
+  function upsertVariable(
+    field_key: string,
+    label: string,
+    required: boolean,
+    autofill_source: VariableAutofillSource,
+    output_transform: VariableOutputTransform,
+  ) {
     const exists = variables.some((v) => v.field_key === field_key);
+    const next = {
+      field_key,
+      label,
+      required,
+      autofill_source,
+      output_transform,
+    };
     onChange(
       exists
-        ? variables.map((v) =>
-            v.field_key === field_key ? { field_key, label, required } : v,
-          )
-        : [...variables, { field_key, label, required }],
+        ? variables.map((v) => (v.field_key === field_key ? next : v))
+        : [...variables, next],
     );
     setEditingKey(null);
   }
@@ -240,6 +327,16 @@ export function TemplateVariablesPanel({
                           {row.required ? "Obligatoria" : "Opcional"}
                         </span>
                       )}
+                      {row.autofill_source !== "none" && (
+                        <span className="text-xs text-slate-500">
+                          · Autollenado: {VARIABLE_AUTOFILL_SOURCE_LABELS[row.autofill_source]}
+                        </span>
+                      )}
+                      {row.output_transform !== "none" && (
+                        <span className="text-xs text-slate-500">
+                          · {VARIABLE_OUTPUT_TRANSFORM_LABELS[row.output_transform]}
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -274,8 +371,14 @@ export function TemplateVariablesPanel({
                 {isEditing && (
                   <RowEditor
                     row={row}
-                    onSave={(label, required) =>
-                      upsertVariable(row.field_key, label, required)
+                    onSave={(label, required, autofillSource, outputTransform) =>
+                      upsertVariable(
+                        row.field_key,
+                        label,
+                        required,
+                        autofillSource,
+                        outputTransform,
+                      )
                     }
                     onCancel={() => setEditingKey(null)}
                   />
