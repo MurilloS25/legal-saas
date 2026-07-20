@@ -26,7 +26,12 @@ export type DeleteClientState = {
 };
 
 /** Cliente mínimo que devuelve la creación contextual (diálogo). */
-export type CreatedClient = { id: string; full_name: string };
+export type CreatedClient = {
+  id: string;
+  full_name: string;
+  identification_number: string;
+  exact_address: string;
+};
 
 export type ClientDialogState = ClientState & {
   client?: CreatedClient;
@@ -86,7 +91,7 @@ async function createClientRow(
   const { data, error } = await supabase
     .from("clients")
     .insert({ owner_id: user.id, ...result.data })
-    .select("id, full_name")
+    .select("id, full_name, identification_number, exact_address")
     .single();
 
   if (error || !data) {

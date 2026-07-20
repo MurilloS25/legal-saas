@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
+import type { VariableTransformsMap } from "@/lib/editor/render";
 import type { FillableTemplateField } from "@/features/templates";
 import type { CreatedClient } from "@/features/clients";
+import type { DocumentClientOption } from "../model/role-autofill";
+import { groupVariablesByRole } from "../model/role-autofill";
 import {
   createDocumentDraftAction,
   updateDocumentDraftAction,
@@ -30,7 +33,7 @@ type Props = {
   document: TemplateDocument;
   fields: FillableTemplateField[];
   templateName: string;
-  clients: { id: string; full_name: string }[];
+  clients: DocumentClientOption[];
   initialClientId: string | null;
 } & (
   | { mode: "create"; templateId: string; defaultTitle: string }
@@ -83,11 +86,32 @@ export function DocumentComposer(props: Props) {
     markDirty();
   }
 
+  const transforms = useMemo<VariableTransformsMap>(() => {
+    const map: VariableTransformsMap = {};
+    for (const field of fields) {
+      if (field.output_transform !== "none") {
+        map[field.field_key] = field.output_transform;
+      }
+    }
+    return map;
+  }, [fields]);
+
   const { model, persistedPendingCount } = useDocumentPreview(
     document,
     values,
     draft?.field_values,
+    transforms,
   );
+
+  const roleGroups = useMemo(
+    () => groupVariablesByRole(fields).filter((group) => group.hasClientAutofill),
+    [fields],
+  );
+
+  function applyRoleAutofill(fieldValues: Record<string, string>) {
+    setValues((current) => ({ ...current, ...fieldValues }));
+    markDirty();
+  }
   const completedCount = fields.filter(
     (field) => (values[field.field_key] ?? "").trim() !== "",
   ).length;
@@ -211,12 +235,14 @@ export function DocumentComposer(props: Props) {
           pending={pending}
           pendingVariableCount={persistedPendingCount}
           readOnly={readOnly}
+          roleGroups={roleGroups}
           saveStatusText={saveStatusText}
           state={state}
           status={status}
           title={title}
           values={values}
           visibleFields={visibleFields}
+          onApplyRoleAutofill={applyRoleAutofill}
           onClientChange={changeClient}
           onClientCreated={handleClientCreated}
           onFieldBlur={() => setFocusedKey(undefined)}

@@ -160,6 +160,17 @@ export default defineConfig({
       dependencies: ["chromium-documents-client"],
     },
 
+    // Role-based autofill from a registered client — authenticated.
+    {
+      name: "chromium-document-role-autofill",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-role-autofill-authenticated\.spec\.ts/,
+      dependencies: ["chromium-document-client-dialog"],
+    },
+
     // Documents workspace (search/filter/sort) — authenticated.
     {
       name: "chromium-documents-workspace",
@@ -168,7 +179,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-client-dialog"],
+      dependencies: ["chromium-document-role-autofill"],
     },
 
     // Document lifecycle statuses — authenticated.

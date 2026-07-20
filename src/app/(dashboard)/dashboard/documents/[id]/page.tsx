@@ -13,6 +13,10 @@ import {
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
 import { buildFillableFields } from "@/features/templates";
+import {
+  toVariableAutofillSource,
+  toVariableOutputTransform,
+} from "@/features/templates/model/variable-autofill";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { listReceivablesByDocument } from "@/features/receivables/server";
@@ -199,7 +203,11 @@ async function DocumentComposerLoader({
   const { document: templateDocument, templateText } =
     resolveTemplateContent(contentJson);
   const fields = buildFillableFields(
-    templateFields,
+    templateFields.map((field) => ({
+      ...field,
+      autofill_source: toVariableAutofillSource(field.autofill_source),
+      output_transform: toVariableOutputTransform(field.output_transform),
+    })),
     templateText,
   );
   const labeledDocument = applyVariableLabels(
@@ -211,6 +219,8 @@ async function DocumentComposerLoader({
   const clientOptions = clients.map((client) => ({
     id: client.id,
     full_name: client.full_name,
+    identification_number: client.identification_number,
+    exact_address: client.exact_address,
   }));
 
   return (

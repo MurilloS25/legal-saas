@@ -85,6 +85,12 @@ export async function createTestTemplateField(
     label: string;
     required?: boolean;
     sort_order?: number;
+    autofill_source?:
+      | "none"
+      | "client_full_name"
+      | "client_identification"
+      | "client_address";
+    output_transform?: "none" | "digits_to_words" | "number_to_words";
   },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
@@ -97,6 +103,8 @@ export async function createTestTemplateField(
     required: options.required ?? false,
     sort_order: options.sort_order ?? 0,
     source: "manual",
+    autofill_source: options.autofill_source ?? "none",
+    output_transform: options.output_transform ?? "none",
   });
   registry.register("template_fields", id);
   return { id };
@@ -104,7 +112,11 @@ export async function createTestTemplateField(
 
 export async function createTestClient(
   registry: CleanupRegistry,
-  options: { full_name: string; identification_number?: string },
+  options: {
+    full_name: string;
+    identification_number?: string;
+    exact_address?: string;
+  },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
   const id = await restInsert("clients", {
@@ -115,7 +127,7 @@ export async function createTestClient(
     marital_status: "single",
     nationality: "Costa Rican",
     occupation: "Tester",
-    exact_address: "Fake test address",
+    exact_address: options.exact_address ?? "Fake test address",
   });
   registry.register("clients", id);
   return { id };

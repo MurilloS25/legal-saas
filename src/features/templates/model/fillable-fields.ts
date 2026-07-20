@@ -15,6 +15,10 @@
  */
 
 import { extractTemplateVariables } from "./variables";
+import type {
+  VariableAutofillSource,
+  VariableOutputTransform,
+} from "./variable-autofill";
 
 export type ConfiguredTemplateField = {
   field_key: string;
@@ -22,6 +26,8 @@ export type ConfiguredTemplateField = {
   required: boolean;
   /** Legado: solo se usa para elegir el control de UI. */
   field_type?: string;
+  autofill_source?: VariableAutofillSource;
+  output_transform?: VariableOutputTransform;
 };
 
 export type FillableTemplateField = {
@@ -31,6 +37,8 @@ export type FillableTemplateField = {
   field_type: string;
   /** true si la variable viene del contenido sin campo configurado. */
   derived: boolean;
+  autofill_source: VariableAutofillSource;
+  output_transform: VariableOutputTransform;
 };
 
 export function buildFillableFields(
@@ -43,6 +51,8 @@ export function buildFillableFields(
     required: field.required,
     field_type: field.field_type ?? "text",
     derived: false,
+    autofill_source: field.autofill_source ?? "none",
+    output_transform: field.output_transform ?? "none",
   }));
 
   const configuredKeys = new Set(configured.map((field) => field.field_key));
@@ -55,6 +65,8 @@ export function buildFillableFields(
       required: false,
       field_type: "text",
       derived: true,
+      autofill_source: "none" as const,
+      output_transform: "none" as const,
     }));
 
   return [...configured, ...derived];

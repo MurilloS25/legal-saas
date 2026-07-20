@@ -7,6 +7,10 @@ import { buildFillableFields } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { DocumentComposer } from "@/features/documents";
+import {
+  toVariableAutofillSource,
+  toVariableOutputTransform,
+} from "@/features/templates/model/variable-autofill";
 
 export const metadata = {
   title: "Crear escritura — LexCR",
@@ -27,8 +31,13 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
   const { document, templateText } = resolveTemplateContent(
     template.content_json,
   );
+  const templateFields = await listTemplateFields(template.id);
   const fields = buildFillableFields(
-    await listTemplateFields(template.id),
+    templateFields.map((field) => ({
+      ...field,
+      autofill_source: toVariableAutofillSource(field.autofill_source),
+      output_transform: toVariableOutputTransform(field.output_transform),
+    })),
     templateText,
   );
   const labeledDocument = applyVariableLabels(
@@ -42,6 +51,8 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
   const clientOptions = clients.map((client) => ({
     id: client.id,
     full_name: client.full_name,
+    identification_number: client.identification_number,
+    exact_address: client.exact_address,
   }));
   const initialClientId =
     clientParam && clientOptions.some((c) => c.id === clientParam)
