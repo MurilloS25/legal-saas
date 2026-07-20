@@ -103,10 +103,7 @@ export function DocumentComposer(props: Props) {
     transforms,
   );
 
-  const roleGroups = useMemo(
-    () => groupVariablesByRole(fields).filter((group) => group.hasClientAutofill),
-    [fields],
-  );
+  const roleGroups = useMemo(() => groupVariablesByRole(fields), [fields]);
 
   function applyRoleAutofill(fieldValues: Record<string, string>) {
     setValues((current) => ({ ...current, ...fieldValues }));

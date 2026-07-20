@@ -42,7 +42,7 @@ function draftRow(page: Page, title: string) {
 
 /** Hoja documental del compositor. */
 function documentRegion(page: Page) {
-  return page.getByRole("region", { name: "Documento" });
+  return page.getByRole("region", { name: "Documento", exact: true });
 }
 
 /**

@@ -47,18 +47,70 @@ describe("groupVariablesByRole", () => {
     expect(groups).toHaveLength(0);
   });
 
-  it("marks hasClientAutofill only when at least one variable has a configured source", () => {
-    const withAutofill = groupVariablesByRole([
-      field("comprador.nombre", { autofill_source: "client_full_name" }),
+  it("does not require any closed list of roles — any first segment forms its own group", () => {
+    const groups = groupVariablesByRole([
+      field("otorgante.nombre"),
+      field("apoderado.nombre"),
+      field("acreedor.nombre"),
+      field("deudor.nombre"),
+      field("representante.nombre"),
+    ]);
+    expect(groups.map((g) => g.role)).toEqual([
+      "otorgante",
+      "apoderado",
+      "acreedor",
+      "deudor",
+      "representante",
+    ]);
+  });
+
+  it("marks hasClientAutofill from automatic detection even without explicit configuration", () => {
+    const groups = groupVariablesByRole([
+      field("comprador.nombre"),
       field("comprador.vin"),
     ]);
-    expect(withAutofill[0].hasClientAutofill).toBe(true);
+    expect(groups[0].hasClientAutofill).toBe(true);
+    expect(groups[0].variables[0].resolvedAutofillSource).toBe(
+      "client_full_name",
+    );
+    expect(groups[0].variables[1].resolvedAutofillSource).toBe("none");
+  });
 
-    const withoutAutofill = groupVariablesByRole([
+  it("detects nombre_completo, cedula, identificacion, direccion and domicilio automatically", () => {
+    const groups = groupVariablesByRole([
+      field("vendedor.nombre_completo"),
+      field("comprador.cedula"),
+      field("compareciente.identificacion"),
+      field("comprador.direccion"),
+      field("vendedor.domicilio"),
+    ]);
+    const bySource = Object.fromEntries(
+      groups.flatMap((g) => g.variables).map((v) => [v.field_key, v.resolvedAutofillSource]),
+    );
+    expect(bySource["vendedor.nombre_completo"]).toBe("client_full_name");
+    expect(bySource["comprador.cedula"]).toBe("client_identification");
+    expect(bySource["compareciente.identificacion"]).toBe(
+      "client_identification",
+    );
+    expect(bySource["comprador.direccion"]).toBe("client_address");
+    expect(bySource["vendedor.domicilio"]).toBe("client_address");
+  });
+
+  it("does not group a role with no recognizable data as autofillable", () => {
+    const groups = groupVariablesByRole([
       field("vehiculo.vin"),
       field("vehiculo.placa"),
     ]);
-    expect(withoutAutofill[0].hasClientAutofill).toBe(false);
+    expect(groups[0].hasClientAutofill).toBe(false);
+  });
+
+  it("gives explicit configuration priority over automatic detection", () => {
+    const groups = groupVariablesByRole([
+      field("comprador.nombre", { autofill_source: "client_address" }),
+    ]);
+    expect(groups[0].variables[0].resolvedAutofillSource).toBe(
+      "client_address",
+    );
   });
 
   it("preserves the original field order across roles", () => {
@@ -78,21 +130,23 @@ describe("mapClientToRoleVariables", () => {
     exact_address: "San José, Costa Rica",
   };
 
-  it("copies only fields with a configured client source", () => {
-    const result = mapClientToRoleVariables(client, [
-      field("comprador.nombre", { autofill_source: "client_full_name" }),
+  it("copies only fields whose resolved source maps to a client field", () => {
+    const [group] = groupVariablesByRole([
+      field("comprador.nombre"),
       field("comprador.vin"),
     ]);
+    const result = mapClientToRoleVariables(client, group.variables);
     expect(result.values).toEqual({ "comprador.nombre": "María Rodríguez" });
     expect(result.incomplete).toEqual([]);
   });
 
-  it("maps every supported autofill source", () => {
-    const result = mapClientToRoleVariables(client, [
-      field("comprador.nombre", { autofill_source: "client_full_name" }),
-      field("comprador.cedula", { autofill_source: "client_identification" }),
-      field("comprador.direccion", { autofill_source: "client_address" }),
+  it("maps every supported autofill source via automatic detection", () => {
+    const [group] = groupVariablesByRole([
+      field("comprador.nombre"),
+      field("comprador.cedula"),
+      field("comprador.direccion"),
     ]);
+    const result = mapClientToRoleVariables(client, group.variables);
     expect(result.values).toEqual({
       "comprador.nombre": "María Rodríguez",
       "comprador.cedula": "208390123",
@@ -101,19 +155,18 @@ describe("mapClientToRoleVariables", () => {
   });
 
   it("does not apply any transform — copies the raw client value", () => {
-    const result = mapClientToRoleVariables(client, [
-      field("comprador.cedula", {
-        autofill_source: "client_identification",
-        output_transform: "digits_to_words",
-      }),
+    const [group] = groupVariablesByRole([
+      field("comprador.cedula", { output_transform: "digits_to_words" }),
     ]);
+    const result = mapClientToRoleVariables(client, group.variables);
     expect(result.values["comprador.cedula"]).toBe("208390123");
   });
 
   it("reports an empty client field as incomplete instead of copying an empty string", () => {
+    const [group] = groupVariablesByRole([field("comprador.direccion")]);
     const result = mapClientToRoleVariables(
       { ...client, exact_address: "  " },
-      [field("comprador.direccion", { autofill_source: "client_address" })],
+      group.variables,
     );
     expect(result.values).toEqual({});
     expect(result.incomplete).toEqual(["comprador.direccion"]);

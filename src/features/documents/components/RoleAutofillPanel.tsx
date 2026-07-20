@@ -1,22 +1,27 @@
 "use client";
 
 /**
- * Autollenado por rol en la Escritura: para cada rol (`rol.dato`) con al
- * menos una variable configurada con origen de Cliente, permite elegir un
- * Cliente registrado y copiar sus datos hacia las variables del rol.
+ * "Partes del documento": para cada rol (`rol.dato`) detectado —
+ * automáticamente por alias conocidos o por configuración explícita del
+ * Machote— muestra un selector searchable de Cliente y copia sus datos
+ * hacia las variables de ese rol.
  *
- * El Cliente elegido aquí es solo una referencia visual ("Datos copiados
- * desde: X"): no crea ninguna relación formal, no reemplaza el Cliente
- * principal de la Escritura y no dispara actualizaciones futuras. Todos los
- * campos copiados quedan editables de inmediato.
+ * El Cliente elegido aquí es solo una referencia visual de la sesión
+ * ("Datos copiados desde Cliente: X"): no crea ninguna relación formal, no
+ * reemplaza el Cliente principal de la Escritura y no dispara
+ * actualizaciones futuras. Todos los campos copiados quedan editables de
+ * inmediato; al recargar persisten los valores, no la selección visual.
  */
 
 import { useId, useState } from "react";
-import type { RoleVariableGroup, DocumentClientOption } from "../model/role-autofill";
+import type {
+  DocumentClientOption,
+  RoleVariableGroup,
+} from "../model/role-autofill";
 import { fieldsToOverwrite, mapClientToRoleVariables } from "../model/role-autofill";
+import { ClientCombobox } from "./ClientCombobox";
 
 type PendingConfirmation = {
-  role: string;
   client: DocumentClientOption;
   values: Record<string, string>;
   overwriteFields: string[];
@@ -29,9 +34,6 @@ type Props = {
   readOnly: boolean;
   onApply: (fieldValues: Record<string, string>) => void;
 };
-
-const selectClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
 
 function roleLabel(role: string): string {
   return role.charAt(0).toUpperCase() + role.slice(1).replaceAll("_", " ");
@@ -50,29 +52,20 @@ function RoleBlock({
   readOnly: boolean;
   onApply: (fieldValues: Record<string, string>) => void;
 }) {
-  const selectId = useId();
+  const dialogId = useId();
   const [referenceClient, setReferenceClient] = useState<DocumentClientOption | null>(
     null,
   );
   const [incomplete, setIncomplete] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
 
-  function selectClient(clientId: string) {
-    if (clientId === "") return;
-    const client = clients.find((c) => c.id === clientId);
-    if (!client) return;
-
+  function handleSelect(client: DocumentClientOption) {
     const result = mapClientToRoleVariables(client, group.variables);
     const overwriteFields = fieldsToOverwrite(result.values, values);
 
     setIncomplete(result.incomplete);
     if (overwriteFields.length > 0) {
-      setConfirmation({
-        role: group.role,
-        client,
-        values: result.values,
-        overwriteFields,
-      });
+      setConfirmation({ client, values: result.values, overwriteFields });
       return;
     }
 
@@ -91,45 +84,28 @@ function RoleBlock({
     setConfirmation(null);
   }
 
-  const dialogTitleId = `${selectId}-confirm-title`;
-  const dialogDescId = `${selectId}-confirm-desc`;
+  const dialogTitleId = `${dialogId}-confirm-title`;
+  const dialogDescId = `${dialogId}-confirm-desc`;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-3">
       <h3 className="text-sm font-semibold text-slate-900">
         {roleLabel(group.role)}
       </h3>
-      <label htmlFor={selectId} className="mt-1.5 block text-xs text-slate-600">
-        Completar desde Cliente registrado
-      </label>
-      <select
-        id={selectId}
-        value=""
+
+      <ClientCombobox
+        clients={clients}
+        selectedClient={referenceClient}
         disabled={readOnly}
-        onChange={(event) => selectClient(event.target.value)}
-        className={`${selectClass} mt-1`}
-      >
-        <option value="">Seleccionar Cliente</option>
-        {clients.map((client) => (
-          <option key={client.id} value={client.id}>
-            {client.full_name}
-          </option>
-        ))}
-      </select>
+        label="Completar desde Cliente registrado"
+        onSelect={handleSelect}
+        onClear={() => setReferenceClient(null)}
+      />
 
       {referenceClient && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-slate-500">
-            Datos copiados desde: {referenceClient.full_name}
-          </p>
-          <button
-            type="button"
-            onClick={() => setReferenceClient(null)}
-            className="text-xs font-medium text-accent-700 hover:underline focus:outline-none focus:ring-2 focus:ring-accent-500 rounded"
-          >
-            Quitar referencia de autollenado
-          </button>
-        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Datos copiados desde Cliente: {referenceClient.full_name}
+        </p>
       )}
 
       {incomplete.length > 0 && (
@@ -158,14 +134,14 @@ function RoleBlock({
                   id={dialogTitleId}
                   className="text-base font-semibold text-slate-900 mb-2"
                 >
-                  Este rol ya tiene información
+                  Este rol ya contiene información
                 </h2>
                 <p
                   id={dialogDescId}
                   className="text-sm text-slate-600 leading-relaxed"
                 >
-                  ¿Deseas reemplazar los campos disponibles con los datos del
-                  Cliente seleccionado? Se reemplazarán:{" "}
+                  Al continuar se reemplazarán únicamente los campos que
+                  puedan completarse con el Cliente seleccionado:{" "}
                   {confirmation.overwriteFields.join(", ")}.
                 </p>
               </div>
@@ -182,7 +158,7 @@ function RoleBlock({
                   onClick={confirmOverwrite}
                   className="flex-1 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
                 >
-                  Reemplazar
+                  Reemplazar campos
                 </button>
               </div>
             </div>
@@ -194,11 +170,15 @@ function RoleBlock({
 }
 
 export function RoleAutofillPanel({ groups, clients, values, readOnly, onApply }: Props) {
-  if (groups.length === 0 || clients.length === 0) return null;
+  const autofillableGroups = groups.filter((group) => group.hasClientAutofill);
+  if (autofillableGroups.length === 0) return null;
 
   return (
-    <section aria-label="Autollenado por rol" className="space-y-3">
-      {groups.map((group) => (
+    <section aria-label="Partes del documento" className="space-y-3">
+      <h2 className="text-sm font-semibold text-slate-900">
+        Partes del documento
+      </h2>
+      {autofillableGroups.map((group) => (
         <RoleBlock
           key={group.role}
           group={group}

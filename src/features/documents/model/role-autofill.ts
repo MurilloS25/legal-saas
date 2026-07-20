@@ -9,34 +9,56 @@
  */
 
 import type { FillableTemplateField } from "@/features/templates";
+import {
+  resolveAutofillSource,
+  type VariableAutofillSource,
+} from "@/features/templates/model/variable-autofill";
+
+/**
+ * Variable de un rol con su origen de autollenado ya resuelto: configuración
+ * explícita del Machote si existe, si no la detección automática por alias
+ * (ver `resolveAutofillSource`). Nunca requiere que el Machote configure
+ * manualmente nombres comunes de campo.
+ */
+export type ResolvedRoleVariable = FillableTemplateField & {
+  resolvedAutofillSource: VariableAutofillSource;
+};
 
 export type RoleVariableGroup = {
   role: string;
-  variables: FillableTemplateField[];
-  /** true si al menos una variable del grupo tiene un origen de Cliente configurado. */
+  variables: ResolvedRoleVariable[];
+  /** true si al menos una variable del grupo resuelve a un origen de Cliente. */
   hasClientAutofill: boolean;
 };
 
 /**
  * Agrupa las variables cuya clave sigue la convención `rol.dato`. Las
  * variables sin punto, o con el punto al inicio, no se agrupan (no se asume
- * ningún primer segmento como persona/rol por defecto).
+ * ningún primer segmento como persona/rol por defecto). No hay una lista
+ * cerrada de roles: cualquier primer segmento válido forma su propio grupo.
  */
 export function groupVariablesByRole(
   fields: FillableTemplateField[],
 ): RoleVariableGroup[] {
   const order: string[] = [];
-  const groups = new Map<string, FillableTemplateField[]>();
+  const groups = new Map<string, ResolvedRoleVariable[]>();
 
   for (const field of fields) {
     const dotIndex = field.field_key.indexOf(".");
     if (dotIndex <= 0) continue;
     const role = field.field_key.slice(0, dotIndex);
+    const resolved: ResolvedRoleVariable = {
+      ...field,
+      resolvedAutofillSource: resolveAutofillSource(
+        field.field_key,
+        field.autofill_source,
+      ),
+    };
     const existing = groups.get(role);
     if (existing) {
-      existing.push(field);
+      existing.push(resolved);
     } else {
-      groups.set(role, [field]);
+      groups.set(role, [resolved]);
       order.push(role);
     }
   }
@@ -46,7 +68,9 @@ export function groupVariablesByRole(
     return {
       role,
       variables,
-      hasClientAutofill: variables.some((v) => v.autofill_source !== "none"),
+      hasClientAutofill: variables.some(
+        (v) => v.resolvedAutofillSource !== "none",
+      ),
     };
   });
 }
@@ -71,7 +95,7 @@ export type ClientAutofillResult = {
 };
 
 function clientFieldFor(
-  source: FillableTemplateField["autofill_source"],
+  source: VariableAutofillSource,
   client: AutofillClient,
 ): string | null {
   switch (source) {
@@ -96,13 +120,13 @@ function clientFieldFor(
  */
 export function mapClientToRoleVariables(
   client: AutofillClient,
-  variables: FillableTemplateField[],
+  variables: ResolvedRoleVariable[],
 ): ClientAutofillResult {
   const values: Record<string, string> = {};
   const incomplete: string[] = [];
 
   for (const variable of variables) {
-    const raw = clientFieldFor(variable.autofill_source, client);
+    const raw = clientFieldFor(variable.resolvedAutofillSource, client);
     if (raw === null) continue;
     const trimmed = raw.trim();
     if (trimmed === "") {
