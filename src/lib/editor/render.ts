@@ -11,6 +11,10 @@
  */
 
 import type { TemplateDocument } from "./types";
+import {
+  applyVariableTransform,
+  type VariableOutputTransform,
+} from "./text-transforms";
 
 export type RunMarks = {
   bold: boolean;
@@ -55,22 +59,32 @@ export type DocumentModel = DocumentParagraph[];
 
 const NO_MARKS: RunMarks = { bold: false, italic: false, underline: false };
 
+/** Transformación de salida configurada por variable, indexada por `field_key`. */
+export type VariableTransformsMap = Record<string, VariableOutputTransform>;
+
 function resolveValue(
   key: string,
   values: Record<string, string> | undefined,
+  transforms: VariableTransformsMap | undefined,
 ): string | null {
   const value = values?.[key];
   if (value === undefined || value.trim() === "") return null;
-  return value;
+  const transform = transforms?.[key] ?? "none";
+  return applyVariableTransform(value, transform);
 }
 
 /**
  * Convierte el documento en párrafos y runs listos para renderizar.
  * Sin `values` (preview de machote) toda variable queda pendiente.
+ * `transforms` es opcional: mapea `field_key` a la transformación de salida
+ * configurada para esa variable (ver `text-transforms.ts`). Este es el único
+ * punto donde se aplican las transformaciones, para que la previsualización,
+ * el `rendered_content` guardado y el DOCX nunca diverjan.
  */
 export function buildDocumentModel(
   document: TemplateDocument,
   values?: Record<string, string>,
+  transforms?: VariableTransformsMap,
 ): DocumentModel {
   return document.content.map((paragraph) => ({
     kind: "paragraph",
@@ -89,7 +103,7 @@ export function buildDocumentModel(
           };
         }
         case "templateVariable": {
-          const value = resolveValue(node.attrs.key, values);
+          const value = resolveValue(node.attrs.key, values, transforms);
           return value === null
             ? {
                 kind: "variable",
@@ -119,8 +133,9 @@ export function buildDocumentModel(
 export function renderStructuredTemplate(
   document: TemplateDocument,
   values: Record<string, string>,
+  transforms?: VariableTransformsMap,
 ): string {
-  return buildDocumentModel(document, values)
+  return buildDocumentModel(document, values, transforms)
     .map((paragraph) =>
       paragraph.runs
         .map((run) => {
