@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { ClientSchema } from "./client-schema";
+import { ClientSchema, normalizeClientIdentification } from "./client-schema";
+
+describe("normalizeClientIdentification", () => {
+  it("strips dashes", () => {
+    expect(normalizeClientIdentification("2-0839-0123")).toBe("208390123");
+  });
+
+  it("strips spaces", () => {
+    expect(normalizeClientIdentification("2 0839 0123")).toBe("208390123");
+  });
+
+  it("strips both dashes and spaces", () => {
+    expect(normalizeClientIdentification("2-0839 0123")).toBe("208390123");
+  });
+
+  it("leaves an already-normalized value unchanged", () => {
+    expect(normalizeClientIdentification("208390123")).toBe("208390123");
+  });
+});
 
 const valid = {
   full_name: "Test Client One",
@@ -52,6 +70,36 @@ describe("ClientSchema", () => {
     const result = ClientSchema.safeParse({
       ...valid,
       identification_number: "   ",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("strips dashes from identification_number", () => {
+    const result = ClientSchema.safeParse({
+      ...valid,
+      identification_number: "2-0839-0123",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.identification_number).toBe("208390123");
+    }
+  });
+
+  it("strips internal spaces from identification_number", () => {
+    const result = ClientSchema.safeParse({
+      ...valid,
+      identification_number: "2 0839 0123",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.identification_number).toBe("208390123");
+    }
+  });
+
+  it("rejects an identification_number that is only dashes and spaces", () => {
+    const result = ClientSchema.safeParse({
+      ...valid,
+      identification_number: "- - -",
     });
     expect(result.success).toBe(false);
   });

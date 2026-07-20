@@ -112,6 +112,19 @@ test.describe("clients module", () => {
     );
   });
 
+  test("F2: identification number is stored and displayed without dashes or spaces", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/clients");
+    await openClientFromList(page, editedClientName);
+
+    // Entered as "0-0001-0001" in test C — persists normalized.
+    await expect(page.getByLabel("Número de cédula")).toHaveValue("000010001");
+    await expect(
+      page.getByText("La identificación se guardará sin guiones ni espacios."),
+    ).toBeVisible();
+  });
+
   test("G: user can delete a client from the detail page", async ({ page }) => {
     await page.goto("/dashboard/clients");
     await openClientFromList(page, editedClientName);
