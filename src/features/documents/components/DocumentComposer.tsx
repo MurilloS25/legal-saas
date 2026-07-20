@@ -55,13 +55,8 @@ export function DocumentComposer(props: Props) {
     : createDocumentDraftAction.bind(null, props.templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const { dirty, markDirty } = useDocumentDirtyState(state);
-  const {
-    focusedKey,
-    focusField,
-    mobileView,
-    setFocusedKey,
-    setMobileView,
-  } = useDocumentLayout();
+  const { focusedKey, mobileView, setFocusedKey, setMobileView } =
+    useDocumentLayout();
 
   const [title, setTitle] = useState(
     isEdit ? props.draft.title : props.defaultTitle,
@@ -77,6 +72,7 @@ export function DocumentComposer(props: Props) {
   const [clientOptions, setClientOptions] = useState(clients);
   const [fieldFilter, setFieldFilter] = useState<"all" | "pending">("all");
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | undefined>();
 
   // El cliente creado desde el diálogo contextual queda seleccionado de
   // inmediato, sin recargar la página ni tocar el resto del formulario.
@@ -164,6 +160,14 @@ export function DocumentComposer(props: Props) {
     markDirty();
   }
 
+  function startEditingField(key: string) {
+    setEditingKey(key);
+  }
+
+  function stopEditingField() {
+    setEditingKey(undefined);
+  }
+
   return (
     <form action={formAction} noValidate>
       {hiddenFields.map((field) => (
@@ -214,11 +218,15 @@ export function DocumentComposer(props: Props) {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
         <DocumentPreviewPanel
           dirty={dirty}
-          focusedKey={focusedKey}
+          highlightKey={focusedKey}
           mobileView={mobileView}
           model={model}
           templateName={templateName}
-          onVariableClick={focusField}
+          values={readOnly ? undefined : values}
+          editingKey={readOnly ? undefined : editingKey}
+          onStartEdit={readOnly ? undefined : startEditingField}
+          onChangeValue={readOnly ? undefined : changeField}
+          onStopEdit={readOnly ? undefined : stopEditingField}
         />
         <DocumentFormPanel
           clientId={clientId}
