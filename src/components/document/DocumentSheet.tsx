@@ -38,8 +38,6 @@ type Props = {
   emptyMessage?: string;
   /** Id de encabezado para aria-labelledby del contenedor con scroll. */
   "aria-labelledby"?: string;
-  /** Variable a resaltar (p. ej. el campo enfocado en el panel lateral). */
-  highlightKey?: string;
   /** Valores crudos (sin transformar) por `field_key`, para el modo edición. */
   values?: Record<string, string>;
   /** Clave de la variable actualmente en modo edición inline. */
@@ -87,7 +85,6 @@ export function DocumentSheet({
   pendingVariableDisplay = "label",
   emptyMessage = "El documento aún no tiene contenido.",
   "aria-labelledby": ariaLabelledBy,
-  highlightKey,
   values,
   editingKey,
   onStartEdit,
@@ -125,8 +122,6 @@ export function DocumentSheet({
       return <br key={key} />;
     }
 
-    const highlighted = run.kind === "variable" && run.key === highlightKey;
-
     if (run.kind === "variable" && editable) {
       if (run.key === editingKey) {
         const rawValue = values?.[run.key] ?? "";
@@ -135,6 +130,9 @@ export function DocumentSheet({
             key={key}
             type="text"
             autoFocus
+            ref={(element) => {
+              element?.scrollIntoView({ block: "center", behavior: "smooth" });
+            }}
             value={rawValue}
             onChange={(event) => onChangeValue!(run.key, event.target.value)}
             onBlur={() => onStopEdit?.()}
@@ -159,8 +157,6 @@ export function DocumentSheet({
       const editableClass = run.resolved
         ? "cursor-text rounded-sm border-b border-dotted border-slate-400 hover:border-accent-500 hover:bg-accent-50/60"
         : "cursor-text rounded-sm border-b-2 border-dashed border-accent-400 px-0.5 font-sans text-[0.85em] italic text-accent-700 hover:bg-accent-50";
-      const highlightClass = highlighted ? "bg-accent-100 ring-2 ring-accent-300" : "";
-
       return (
         <button
           key={key}
@@ -171,7 +167,7 @@ export function DocumentSheet({
             onStartEdit!(run.key);
           }}
           aria-label={`Editar ${run.label?.trim() || run.key}`}
-          className={`${editableClass} ${highlightClass} focus:outline-none focus:ring-2 focus:ring-accent-500`}
+          className={`${editableClass} focus:outline-none focus:ring-2 focus:ring-accent-500`}
         >
           {displayText}
         </button>
@@ -179,11 +175,8 @@ export function DocumentSheet({
     }
 
     if (run.kind === "variable" && !run.resolved) {
-      const pendingClass = `rounded border px-1 py-0.5 font-sans text-[0.85em] ${
-        highlighted
-          ? "border-accent-500 bg-accent-50 text-accent-900 ring-2 ring-accent-300"
-          : "border-amber-300 bg-amber-50 text-amber-900"
-      }`;
+      const pendingClass =
+        "rounded border px-1 py-0.5 font-sans text-[0.85em] border-amber-300 bg-amber-50 text-amber-900";
       const pendingText = runText(run, pendingVariableDisplay);
 
       return (
@@ -202,11 +195,7 @@ export function DocumentSheet({
       // Valor resuelto, solo lectura: parte natural del texto del documento.
       const text = runText(run, pendingVariableDisplay);
       return (
-        <span
-          key={key}
-          data-variable-key={run.key}
-          className={highlighted ? "rounded bg-accent-100 ring-2 ring-accent-300" : undefined}
-        >
+        <span key={key} data-variable-key={run.key}>
           {text}
         </span>
       );

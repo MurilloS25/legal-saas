@@ -30,16 +30,24 @@ async function activitySection(page: Page) {
   return dialog.getByRole("region", { name: "Actividad" });
 }
 
-function panelField(page: Page, label: string | RegExp) {
-  return page
-    .getByRole("region", { name: "Datos de la escritura" })
-    .getByLabel(label);
+function documentRegion(page: Page) {
+  return page.getByRole("region", { name: "Documento", exact: true });
+}
+
+async function fillInlineField(page: Page, key: string, value: string) {
+  await documentRegion(page)
+    .locator(`[data-variable-key="${key}"]`)
+    .first()
+    .click();
+  const input = documentRegion(page).locator(`input[data-variable-key="${key}"]`);
+  await input.fill(value);
+  await input.blur();
 }
 
 async function openDocument(page: Page) {
   await page.goto(`/dashboard/documents/${documentId}`);
   await expect(
-    page.getByRole("region", { name: "Datos de la escritura" }),
+    page.getByRole("region", { name: "Datos de la Escritura" }),
   ).toBeVisible();
 }
 
@@ -64,7 +72,7 @@ test.describe("document activity history", () => {
 
   test("B: creating a draft records a creation event", async ({ page }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
-    await panelField(page, new RegExp(fieldLabel)).fill("Persona Uno");
+    await fillInlineField(page, "parte.nombre", "Persona Uno");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
@@ -155,7 +163,7 @@ test.describe("document activity history", () => {
     await page.getByRole("button", { name: "Cerrar historial" }).click();
 
     // Vaciar un campo requerido bloquea el guardado (operación fallida).
-    await panelField(page, new RegExp(fieldLabel)).fill("");
+    await fillInlineField(page, "parte.nombre", "");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText(`${fieldLabel} es requerido`),

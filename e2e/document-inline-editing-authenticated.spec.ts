@@ -27,10 +27,13 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-function panelField(page: Page, label: string | RegExp) {
-  return page
-    .getByRole("region", { name: "Datos de la escritura" })
-    .getByLabel(label);
+/**
+ * Valor crudo persistido para una variable: el input oculto que el
+ * formulario envía en el submit, única fuente de verdad ya que el panel de
+ * datos ya no lista los campos uno a uno.
+ */
+function fieldValue(page: Page, key: string) {
+  return page.locator(`input[name="${key}"]`);
 }
 
 function inlineVariable(page: Page, key: string) {
@@ -70,7 +73,6 @@ test.describe("document inline field editing", () => {
     page,
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
-    await expect(panelField(page, "Comprador - Nombre")).toBeVisible();
 
     const inlineName = inlineVariable(page, "comprador.nombre");
     await expect(inlineName).toBeVisible();
@@ -82,8 +84,9 @@ test.describe("document inline field editing", () => {
     await expect(inlineInput).toBeFocused();
     await inlineInput.fill("Cliente Inline Uno");
 
-    // Misma fuente de verdad: el panel refleja el cambio inmediatamente.
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(
+    // Misma fuente de verdad: el valor enviado por el formulario refleja el
+    // cambio inmediatamente.
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       "Cliente Inline Uno",
     );
 
@@ -180,10 +183,10 @@ test.describe("document inline field editing", () => {
     );
 
     await page.reload();
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       "Cliente Persistido",
     );
-    await expect(panelField(page, "Comprador - Cédula")).toHaveValue("101");
+    await expect(fieldValue(page, "comprador.cedula")).toHaveValue("101");
     await expect(
       documentRegion(page).getByText("Cliente Persistido"),
     ).toBeVisible();

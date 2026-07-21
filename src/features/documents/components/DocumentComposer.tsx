@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
 import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
+import { extractActiveDocumentVariables } from "@/lib/editor/variables";
 import type { FillableTemplateField } from "@/features/templates";
 import type { CreatedClient } from "@/features/clients";
 import type { DocumentClientOption } from "../model/role-autofill";
@@ -55,8 +56,7 @@ export function DocumentComposer(props: Props) {
     : createDocumentDraftAction.bind(null, props.templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const { dirty, markDirty } = useDocumentDirtyState(state);
-  const { focusedKey, mobileView, setFocusedKey, setMobileView } =
-    useDocumentLayout();
+  const { mobileView, setMobileView } = useDocumentLayout();
 
   const [title, setTitle] = useState(
     isEdit ? props.draft.title : props.defaultTitle,
@@ -70,7 +70,6 @@ export function DocumentComposer(props: Props) {
   });
   const [clientId, setClientId] = useState(props.initialClientId ?? "");
   const [clientOptions, setClientOptions] = useState(clients);
-  const [fieldFilter, setFieldFilter] = useState<"all" | "pending">("all");
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [editingKey, setEditingKey] = useState<string | undefined>();
   const [optionSelections, setOptionSelections] = useState<OptionSelectionsMap>(
@@ -110,20 +109,32 @@ export function DocumentComposer(props: Props) {
     setValues((current) => ({ ...current, ...fieldValues }));
     markDirty();
   }
-  const completedCount = fields.filter(
-    (field) => (values[field.field_key] ?? "").trim() !== "",
-  ).length;
-  const visibleFields =
-    fieldFilter === "pending"
-      ? fields.filter(
-          (field) =>
-            (values[field.field_key] ?? "").trim() === "" ||
-            field.field_key === focusedKey,
-        )
-      : fields;
-  const hiddenFields = fields.filter(
-    (field) => !visibleFields.includes(field),
+
+  // Solo cuentan las variables activas para la variante elegida de cada
+  // Bloque de opciones — igual que el chequeo de finalización — así el
+  // progreso y "Siguiente pendiente" nunca piden campos de una variante que
+  // no está seleccionada.
+  const activeKeys = useMemo(
+    () => extractActiveDocumentVariables(document, optionSelections),
+    [document, optionSelections],
   );
+  const completedCount = activeKeys.filter(
+    (key) => (values[key] ?? "").trim() !== "",
+  ).length;
+  const totalCount = activeKeys.length;
+
+  function goToNextPending() {
+    if (activeKeys.length === 0) return;
+    const startIndex = editingKey ? activeKeys.indexOf(editingKey) : -1;
+    for (let offset = 1; offset <= activeKeys.length; offset++) {
+      const key = activeKeys[(startIndex + offset) % activeKeys.length];
+      if ((values[key] ?? "").trim() === "") {
+        setEditingKey(key);
+        setMobileView("document");
+        return;
+      }
+    }
+  }
 
   const saveStatusText = pending
     ? "Guardando…"
@@ -186,7 +197,7 @@ export function DocumentComposer(props: Props) {
 
   return (
     <form action={formAction} noValidate>
-      {hiddenFields.map((field) => (
+      {fields.map((field) => (
         <input
           key={field.field_key}
           type="hidden"
@@ -230,6 +241,18 @@ export function DocumentComposer(props: Props) {
           {state.message}
         </div>
       )}
+      {state.errors && Object.keys(state.errors).length > 0 && (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+        >
+          <ul className="list-disc space-y-0.5 pl-5">
+            {Object.entries(state.errors).map(([key, message]) => (
+              <li key={key}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <DocumentMobileViewToggle
         value={mobileView}
@@ -239,7 +262,6 @@ export function DocumentComposer(props: Props) {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
         <DocumentPreviewPanel
           dirty={dirty}
-          highlightKey={focusedKey}
           mobileView={mobileView}
           model={model}
           templateName={templateName}
@@ -256,8 +278,6 @@ export function DocumentComposer(props: Props) {
           completedCount={completedCount}
           dirty={dirty}
           documentId={draft?.id ?? null}
-          fieldFilter={fieldFilter}
-          fields={fields}
           mobileView={mobileView}
           pending={pending}
           pendingVariableCount={persistedPendingCount}
@@ -267,15 +287,12 @@ export function DocumentComposer(props: Props) {
           state={state}
           status={status}
           title={title}
+          totalCount={totalCount}
           values={values}
-          visibleFields={visibleFields}
           onApplyRoleAutofill={applyRoleAutofill}
           onClientChange={changeClient}
           onClientCreated={handleClientCreated}
-          onFieldBlur={() => setFocusedKey(undefined)}
-          onFieldChange={changeField}
-          onFieldFilterChange={setFieldFilter}
-          onFieldFocus={setFocusedKey}
+          onGoToNextPending={goToNextPending}
           onTitleChange={changeTitle}
         />
       </div>

@@ -49,8 +49,12 @@ async function docxText(buffer: Buffer): Promise<string> {
 async function openComposer(page: Page, docId: string) {
   await page.goto(`/dashboard/documents/${docId}`);
   await expect(
-    page.getByRole("region", { name: "Datos de la escritura" }),
+    page.getByRole("region", { name: "Datos de la Escritura" }),
   ).toBeVisible();
+}
+
+function documentRegion(page: Page) {
+  return page.getByRole("region", { name: "Documento", exact: true });
 }
 
 test.describe("document docx download", () => {
@@ -107,9 +111,18 @@ test.describe("document docx download", () => {
     await openComposer(page, completeDocId);
 
     const button = page.getByRole("button", { name: "Descargar Word" });
-    const field = page
-      .getByRole("region", { name: "Datos de la escritura" })
-      .getByLabel(new RegExp(fieldLabel));
+
+    async function fillField(value: string) {
+      await documentRegion(page)
+        .locator(`[data-variable-key="${fieldKey}"]`)
+        .first()
+        .click();
+      const input = documentRegion(page).locator(
+        `input[data-variable-key="${fieldKey}"]`,
+      );
+      await input.fill(value);
+      await input.blur();
+    }
 
     // Provoca un cambio local sin guardar. Se reintenta el fill hasta que el
     // botón quede deshabilitado: si el primer fill ocurre antes de la
@@ -117,12 +130,12 @@ test.describe("document docx download", () => {
     let attempt = 0;
     await expect(async () => {
       attempt += 1;
-      await field.fill(
+      await fillField(
         attempt % 2 === 0 ? "Cliente Uno Editado" : "Cliente Uno Revisado",
       );
       await expect(button).toBeDisabled({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
-    await field.fill("Cliente Uno Editado");
+    await fillField("Cliente Uno Editado");
     await expect(button).toBeDisabled();
 
     await expect(

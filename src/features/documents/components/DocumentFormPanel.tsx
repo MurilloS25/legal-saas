@@ -1,11 +1,9 @@
 "use client";
 
 import { FieldError } from "@/components/forms/FieldError";
-import type { FillableTemplateField } from "@/features/templates";
 import { CreateClientDialog, type CreatedClient } from "@/features/clients";
 import type { DocumentDraftState } from "../server/content-actions";
 import type { DocumentStatus } from "../model/lifecycle";
-import { documentFieldInputId } from "../model/composer";
 import type { DocumentMobileView } from "../hooks/use-document-layout";
 import type { DocumentClientOption, RoleVariableGroup } from "../model/role-autofill";
 import { DocumentComposerActions } from "./DocumentComposerActions";
@@ -20,16 +18,12 @@ const requiredMark = (
   </span>
 );
 
-type FieldFilter = "all" | "pending";
-
 type Props = {
   clientId: string;
   clients: DocumentClientOption[];
   completedCount: number;
   dirty: boolean;
   documentId: string | null;
-  fieldFilter: FieldFilter;
-  fields: FillableTemplateField[];
   mobileView: DocumentMobileView;
   pending: boolean;
   pendingVariableCount: number;
@@ -39,25 +33,14 @@ type Props = {
   state: DocumentDraftState;
   status: DocumentStatus;
   title: string;
+  totalCount: number;
   values: Record<string, string>;
-  visibleFields: FillableTemplateField[];
   onApplyRoleAutofill: (fieldValues: Record<string, string>) => void;
   onClientChange: (value: string) => void;
   onClientCreated: (client: CreatedClient) => void;
-  onFieldBlur: () => void;
-  onFieldChange: (key: string, value: string) => void;
-  onFieldFilterChange: (value: FieldFilter) => void;
-  onFieldFocus: (key: string) => void;
+  onGoToNextPending: () => void;
   onTitleChange: (value: string) => void;
 };
-
-function filterButtonClass(active: boolean) {
-  return `rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 ${
-    active
-      ? "bg-slate-900 text-white"
-      : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
-  }`;
-}
 
 export function DocumentFormPanel({
   clientId,
@@ -65,8 +48,6 @@ export function DocumentFormPanel({
   completedCount,
   dirty,
   documentId,
-  fieldFilter,
-  fields,
   mobileView,
   pending,
   pendingVariableCount,
@@ -76,17 +57,17 @@ export function DocumentFormPanel({
   state,
   status,
   title,
+  totalCount,
   values,
-  visibleFields,
   onApplyRoleAutofill,
   onClientChange,
   onClientCreated,
-  onFieldBlur,
-  onFieldChange,
-  onFieldFilterChange,
-  onFieldFocus,
+  onGoToNextPending,
   onTitleChange,
 }: Props) {
+  const remaining = totalCount - completedCount;
+  const allComplete = totalCount > 0 && remaining <= 0;
+
   return (
     <section
       aria-labelledby="composer-data-heading"
@@ -99,7 +80,7 @@ export function DocumentFormPanel({
           id="composer-data-heading"
           className="text-sm font-semibold text-slate-900"
         >
-          Datos de la escritura
+          Datos de la Escritura
         </h2>
         <p className="text-xs text-slate-500">
           Lo que escribas se refleja de inmediato en el documento.
@@ -161,10 +142,18 @@ export function DocumentFormPanel({
           onApply={onApplyRoleAutofill}
         />
 
-        {fields.length > 0 && (
+        {totalCount > 0 && (
           <div>
+            <h3 className="text-sm font-semibold text-slate-900 mb-1.5">
+              Progreso
+            </h3>
             <p role="status" className="text-xs font-medium text-slate-600">
-              {completedCount} de {fields.length} campos completados
+              {completedCount} de {totalCount} campos completos
+            </p>
+            <p className="text-xs text-slate-500">
+              {allComplete
+                ? "Todos los campos están completos."
+                : `${remaining} pendientes`}
             </p>
             <div
               className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100"
@@ -173,81 +162,34 @@ export function DocumentFormPanel({
               <div
                 className="h-full rounded-full bg-accent-600 transition-all"
                 style={{
-                  width: `${Math.round((completedCount / fields.length) * 100)}%`,
+                  width: `${Math.round((completedCount / totalCount) * 100)}%`,
                 }}
               />
             </div>
           </div>
         )}
 
-        {fields.length > 1 && (
-          <div role="group" aria-label="Filtrar campos" className="flex gap-2">
+        {!readOnly && totalCount > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 mb-1.5">
+              Acción
+            </h3>
             <button
               type="button"
-              onClick={() => onFieldFilterChange("all")}
-              aria-pressed={fieldFilter === "all"}
-              className={filterButtonClass(fieldFilter === "all")}
+              onClick={onGoToNextPending}
+              disabled={allComplete}
+              className="w-full rounded-lg border border-accent-300 bg-accent-50 px-3.5 py-2.5 text-sm font-medium text-accent-800 transition-colors hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Todos
-            </button>
-            <button
-              type="button"
-              onClick={() => onFieldFilterChange("pending")}
-              aria-pressed={fieldFilter === "pending"}
-              className={filterButtonClass(fieldFilter === "pending")}
-            >
-              Pendientes
+              Siguiente pendiente →
             </button>
           </div>
         )}
 
-        {fields.length === 0 ? (
+        {totalCount === 0 && (
           <p className="text-sm text-slate-500">
             Este machote no tiene variables: el documento es texto fijo y solo
             necesita un título.
           </p>
-        ) : visibleFields.length === 0 ? (
-          <p className="text-sm text-accent-700">
-            Todos los campos están completos.
-          </p>
-        ) : (
-          visibleFields.map((field) => {
-            const id = documentFieldInputId(field.field_key);
-            const errorId = `${id}-error`;
-            const error = state.errors?.[field.field_key];
-            return (
-              <div key={field.field_key}>
-                <label htmlFor={id} className={labelClass}>
-                  {field.label}
-                  {field.required ? (
-                    requiredMark
-                  ) : (
-                    <span className="text-slate-400 font-normal">
-                      {" "}
-                      (opcional)
-                    </span>
-                  )}
-                </label>
-                <input
-                  id={id}
-                  name={field.field_key}
-                  type="text"
-                  required={field.required}
-                  value={values[field.field_key] ?? ""}
-                  disabled={readOnly}
-                  onChange={(event) =>
-                    onFieldChange(field.field_key, event.target.value)
-                  }
-                  onFocus={() => onFieldFocus(field.field_key)}
-                  onBlur={onFieldBlur}
-                  className={inputClass}
-                  aria-describedby={error ? errorId : undefined}
-                  aria-invalid={!!error}
-                />
-                <FieldError id={errorId} message={error} />
-              </div>
-            );
-          })
         )}
       </div>
 
