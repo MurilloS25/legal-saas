@@ -6,3 +6,9 @@ export { CreateClientDialog } from "./components/CreateClientDialog";
 export { ClientSchema } from "./model/client-schema";
 export type { ClientInput } from "./model/client-schema";
 export type { CreatedClient } from "./server/actions";
+export {
+  parseClientsQuery,
+  clientsQueryToParams,
+  CLIENTS_PAGE_SIZE,
+} from "./model/workspace-query";
+export type { RawClientsQuery, ClientsQuery } from "./model/workspace-query";

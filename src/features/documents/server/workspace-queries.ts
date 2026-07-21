@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireUser } from "@/lib/server/auth";
-import { throwDataAccessError } from "@/lib/server/errors";
+import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import { extractTemplateVariables } from "@/features/templates";
 import {
   DOCUMENTS_PAGE_SIZE,
@@ -89,7 +89,35 @@ export async function listDocumentsPage(
     .order("id", { ascending: true })
     .range(from, from + DOCUMENTS_PAGE_SIZE - 1);
 
-  if (error) throwDataAccessError("list documents workspace", error);
+  if (error && !isRangeNotSatisfiable(error)) {
+    throwDataAccessError("list documents workspace", error);
+  }
+
+  if (error) {
+    // El offset pedido quedó más allá de las filas disponibles (p. ej. una
+    // página vieja tras borrar/filtrar escrituras): la página está vacía,
+    // no es un error real. Se repite el mismo filtro sin `.range()`.
+    let countRequest = supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id);
+    if (query.status) countRequest = countRequest.eq("status", query.status);
+    if (query.clientId) countRequest = countRequest.eq("client_id", query.clientId);
+    if (query.templateId) {
+      countRequest = countRequest.eq("template_id", query.templateId);
+    }
+    if (orClause) countRequest = countRequest.or(orClause);
+    const { count: totalOnly, error: countError } = await countRequest;
+    if (countError) {
+      throwDataAccessError("count documents workspace", countError);
+    }
+    const total = totalOnly ?? 0;
+    return {
+      rows: [],
+      total,
+      pageCount: Math.max(1, Math.ceil(total / DOCUMENTS_PAGE_SIZE)),
+    };
+  }
 
   const rows = (data ?? []).map(({ rendered_content, ...row }) => ({
     ...row,

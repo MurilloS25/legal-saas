@@ -6,7 +6,7 @@ import {
 } from "./fortnight";
 
 export const MAX_SEARCH_LENGTH = 100;
-export const NOTARIAL_PAGE_SIZE = 15;
+export const NOTARIAL_PAGE_SIZE = 10;
 
 export const NOTARIAL_COMPLETENESS_FILTERS = [
   "complete",
