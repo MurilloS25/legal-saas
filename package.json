@@ -44,7 +44,7 @@
     "playwright": "^1.60.0",
     "supabase": "^2.100.1",
     "tailwindcss": "^4",
-    "typescript": "^6",
+    "typescript": "^7",
     "vitest": "^4.1.6"
   }
 }
