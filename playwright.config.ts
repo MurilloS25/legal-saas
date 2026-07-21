@@ -116,6 +116,17 @@ export default defineConfig({
       dependencies: ["chromium-template-pasted-variables"],
     },
 
+    // Option blocks configuration in templates — authenticated.
+    {
+      name: "chromium-template-option-blocks",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-option-blocks-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-milestone"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
@@ -124,7 +135,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-milestone"],
+      dependencies: ["chromium-template-option-blocks"],
     },
 
     // Inline editing of variables directly in the document sheet — authenticated.

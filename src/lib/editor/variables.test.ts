@@ -86,3 +86,68 @@ describe("findUnresolvedDocumentVariables", () => {
     ).toEqual(["b", "c"]);
   });
 });
+
+const optionBlockDoc = {
+  type: "doc" as const,
+  content: [
+    {
+      type: "paragraph" as const,
+      content: [
+        {
+          type: "optionBlock" as const,
+          attrs: {
+            blockId: "b1",
+            name: "Chasis, VIN y Serie",
+            defaultVariantId: "iguales",
+            variants: [
+              {
+                id: "iguales",
+                label: "Todos iguales",
+                content: [
+                  { type: "templateVariable" as const, attrs: { key: "vehiculo.numero" } },
+                ],
+              },
+              {
+                id: "distintos",
+                label: "Todos distintos",
+                content: [
+                  { type: "templateVariable" as const, attrs: { key: "vehiculo.chasis" } },
+                  { type: "text" as const, text: ", " },
+                  { type: "templateVariable" as const, attrs: { key: "vehiculo.vin" } },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+describe("extractTemplateVariablesFromDocument — optionBlock", () => {
+  it("collects variables from every variant, not only the default one", () => {
+    const keys = extractTemplateVariablesFromDocument(optionBlockDoc);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "vehiculo.numero",
+        "vehiculo.chasis",
+        "vehiculo.vin",
+      ]),
+    );
+  });
+});
+
+describe("applyVariableLabels — optionBlock", () => {
+  it("applies labels to variables nested inside variant content", () => {
+    const labeled = applyVariableLabels(optionBlockDoc, {
+      "vehiculo.chasis": "Número de chasis",
+    });
+    const block = labeled.content[0].content?.[0];
+    if (block?.type !== "optionBlock") throw new Error("expected optionBlock");
+    const distintos = block.attrs.variants.find((v) => v.id === "distintos");
+    expect(distintos?.content[0]).toEqual({
+      type: "templateVariable",
+      attrs: { key: "vehiculo.chasis", label: "Número de chasis" },
+    });
+  });
+});

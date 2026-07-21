@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDocumentModel, renderStructuredTemplate } from "./render";
+import { buildDocumentModel, NO_MARKS, renderStructuredTemplate } from "./render";
 import { legacyTextToDocument } from "./convert";
 import { renderTemplateContent } from "@/features/templates";
 import type { TemplateDocument } from "./types";
@@ -199,5 +199,103 @@ describe("buildDocumentModel", () => {
       ],
     };
     expect(buildDocumentModel(doc)[0].runs[1]).toEqual({ kind: "break" });
+  });
+
+  it("unwraps an optionBlock into its default variant's runs", () => {
+    const doc: TemplateDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Comparecen con " },
+            {
+              type: "optionBlock",
+              attrs: {
+                blockId: "b1",
+                name: "Chasis, VIN y Serie",
+                defaultVariantId: "distintos",
+                variants: [
+                  {
+                    id: "iguales",
+                    label: "Todos iguales",
+                    content: [{ type: "text", text: "un mismo número" }],
+                  },
+                  {
+                    id: "distintos",
+                    label: "Todos distintos",
+                    content: [
+                      { type: "text", text: "CHASIS " },
+                      {
+                        type: "templateVariable",
+                        attrs: { key: "vehiculo.chasis" },
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const model = buildDocumentModel(doc, { "vehiculo.chasis": "ABC123" });
+    expect(model[0].runs).toEqual([
+      { kind: "text", text: "Comparecen con ", marks: NO_MARKS },
+      { kind: "text", text: "CHASIS ", marks: NO_MARKS },
+      {
+        kind: "variable",
+        key: "vehiculo.chasis",
+        label: undefined,
+        resolved: true,
+        value: "ABC123",
+      },
+    ]);
+  });
+
+  it("resolves the same variable consistently whether it appears inside or outside an optionBlock", () => {
+    const doc: TemplateDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "optionBlock",
+              attrs: {
+                blockId: "b1",
+                name: "Hora",
+                defaultVariantId: "con_minutos",
+                variants: [
+                  {
+                    id: "en_punto",
+                    label: "Hora en punto",
+                    content: [{ type: "templateVariable", attrs: { key: "hora.valor" } }],
+                  },
+                  {
+                    id: "con_minutos",
+                    label: "Hora con minutos",
+                    content: [
+                      { type: "templateVariable", attrs: { key: "hora.valor" } },
+                      { type: "text", text: " y " },
+                      { type: "templateVariable", attrs: { key: "hora.minutos" } },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const model = buildDocumentModel(doc, {
+      "hora.valor": "3",
+      "hora.minutos": "15",
+    });
+    expect(model[0].runs).toHaveLength(3);
+    expect(model[0].runs[0]).toMatchObject({ key: "hora.valor", resolved: true, value: "3" });
+    expect(model[0].runs[2]).toMatchObject({ key: "hora.minutos", resolved: true, value: "15" });
   });
 });

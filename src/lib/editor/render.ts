@@ -10,7 +10,7 @@
  * desaparece silenciosamente.
  */
 
-import type { TemplateDocument } from "./types";
+import type { TemplateDocument, TemplateInlineNode } from "./types";
 import {
   applyVariableTransform,
   type VariableOutputTransform,
@@ -81,6 +81,63 @@ function resolveValue(
  * punto donde se aplican las transformaciones, para que la previsualización,
  * el `rendered_content` guardado y el DOCX nunca diverjan.
  */
+function resolveNode(
+  node: TemplateInlineNode,
+  values: Record<string, string> | undefined,
+  transforms: VariableTransformsMap | undefined,
+): DocumentRun[] {
+  switch (node.type) {
+    case "text": {
+      const marks = node.marks ?? [];
+      return [
+        {
+          kind: "text",
+          text: node.text,
+          marks: {
+            bold: marks.some((mark) => mark.type === "bold"),
+            italic: marks.some((mark) => mark.type === "italic"),
+            underline: marks.some((mark) => mark.type === "underline"),
+          },
+        },
+      ];
+    }
+    case "templateVariable": {
+      const value = resolveValue(node.attrs.key, values, transforms);
+      return [
+        value === null
+          ? {
+              kind: "variable",
+              key: node.attrs.key,
+              label: node.attrs.label,
+              resolved: false,
+            }
+          : {
+              kind: "variable",
+              key: node.attrs.key,
+              label: node.attrs.label,
+              value,
+              resolved: true,
+            },
+      ];
+    }
+    case "hardBreak":
+      return [{ kind: "break" }];
+    case "optionBlock": {
+      // Sin una selección persistida por documento (ver PR de uso de
+      // Bloques), se renderiza siempre la variante predeterminada del
+      // Machote. El bloque se "desenvuelve" en sus runs normales: no hay un
+      // tipo de run especial, así que DOCX/preview no necesitan cambios.
+      const variant =
+        node.attrs.variants.find((v) => v.id === node.attrs.defaultVariantId) ??
+        node.attrs.variants[0];
+      if (!variant) return [];
+      return variant.content.flatMap((child) =>
+        resolveNode(child, values, transforms),
+      );
+    }
+  }
+}
+
 export function buildDocumentModel(
   document: TemplateDocument,
   values?: Record<string, string>,
@@ -88,41 +145,9 @@ export function buildDocumentModel(
 ): DocumentModel {
   return document.content.map((paragraph) => ({
     kind: "paragraph",
-    runs: (paragraph.content ?? []).map((node): DocumentRun => {
-      switch (node.type) {
-        case "text": {
-          const marks = node.marks ?? [];
-          return {
-            kind: "text",
-            text: node.text,
-            marks: {
-              bold: marks.some((mark) => mark.type === "bold"),
-              italic: marks.some((mark) => mark.type === "italic"),
-              underline: marks.some((mark) => mark.type === "underline"),
-            },
-          };
-        }
-        case "templateVariable": {
-          const value = resolveValue(node.attrs.key, values, transforms);
-          return value === null
-            ? {
-                kind: "variable",
-                key: node.attrs.key,
-                label: node.attrs.label,
-                resolved: false,
-              }
-            : {
-                kind: "variable",
-                key: node.attrs.key,
-                label: node.attrs.label,
-                value,
-                resolved: true,
-              };
-        }
-        case "hardBreak":
-          return { kind: "break" };
-      }
-    }),
+    runs: (paragraph.content ?? []).flatMap((node) =>
+      resolveNode(node, values, transforms),
+    ),
   }));
 }
 

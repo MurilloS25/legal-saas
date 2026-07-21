@@ -41,10 +41,51 @@ export type TemplateHardBreakNode = {
   type: "hardBreak";
 };
 
-export type TemplateInlineNode =
+/**
+ * Contenido de una variante de Bloque de opciones: el mismo subconjunto de
+ * nodos inline "simples" que existía antes de los Bloques (texto, variable,
+ * salto de línea). Deliberadamente NO incluye `optionBlock`: los bloques no
+ * se anidan.
+ */
+export type TemplateVariantContentNode =
   | TemplateTextNode
   | TemplateVariableNode
   | TemplateHardBreakNode;
+
+export type TemplateOptionVariant = {
+  /** Id estable de la variante dentro del bloque (no cambia al editar). */
+  id: string;
+  /** Etiqueta visible del selector, p. ej. "Todos distintos". */
+  label: string;
+  content: TemplateVariantContentNode[];
+};
+
+export type TemplateOptionBlockAttrs = {
+  /** Id estable del bloque, generado al insertarlo; no cambia al editar. */
+  blockId: string;
+  /** Nombre del bloque, p. ej. "Chasis, VIN y Serie". */
+  name: string;
+  variants: TemplateOptionVariant[];
+  /** Debe coincidir con el `id` de una de las `variants`. */
+  defaultVariantId: string;
+};
+
+/**
+ * Bloque de opciones: una frase o fragmento que cambia entre variantes
+ * predefinidas (p. ej. "Chasis, VIN y Serie" o "Hora"). Se inserta como
+ * nodo estructurado — nunca como texto plano ambiguo ni como un token
+ * `{{SMART:...}}` legacy.
+ */
+export type TemplateOptionBlockNode = {
+  type: "optionBlock";
+  attrs: TemplateOptionBlockAttrs;
+};
+
+export type TemplateInlineNode =
+  | TemplateTextNode
+  | TemplateVariableNode
+  | TemplateHardBreakNode
+  | TemplateOptionBlockNode;
 
 export type TemplateParagraphNode = {
   type: "paragraph";
@@ -85,4 +126,12 @@ export const TEMPLATE_DOC_LIMITS = {
   maxDistinctVariables: 200,
   /** Ocurrencias totales de variables. */
   maxVariableOccurrences: 2_000,
+  /** Longitud del nombre de un Bloque de opciones. */
+  maxOptionBlockNameLength: 200,
+  /** Longitud de la etiqueta de una variante. */
+  maxOptionVariantLabelLength: 200,
+  /** Variantes permitidas por Bloque de opciones. */
+  maxOptionVariantsPerBlock: 10,
+  /** Bloques de opciones permitidos por documento. */
+  maxOptionBlocksPerDocument: 50,
 } as const;

@@ -196,3 +196,181 @@ describe("validateTemplateDocument", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+const optionBlock = (
+  variants: { id: string; label: string; content: unknown[] }[],
+  defaultVariantId: string,
+  overrides: { blockId?: string; name?: string } = {},
+) => ({
+  type: "optionBlock",
+  attrs: {
+    blockId: overrides.blockId ?? "block-1",
+    name: overrides.name ?? "Chasis, VIN y Serie",
+    variants,
+    defaultVariantId,
+  },
+});
+
+describe("validateTemplateDocument — optionBlock", () => {
+  it("accepts a valid option block with several variants", () => {
+    const block = optionBlock(
+      [
+        { id: "v1", label: "Todos iguales", content: [text("Todos iguales")] },
+        {
+          id: "v2",
+          label: "Todos distintos",
+          content: [
+            text("CHASIS número "),
+            variable("vehiculo.chasis"),
+            text(", VIN número "),
+            variable("vehiculo.vin"),
+            text(" y SERIE número "),
+            variable("vehiculo.serie"),
+          ],
+        },
+      ],
+      "v2",
+    );
+    const result = validateTemplateDocument(doc([p([block])]));
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a block with zero variants", () => {
+    const result = validateTemplateDocument(doc([p([optionBlock([], "v1")])]));
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a block with more variants than the limit", () => {
+    const variants = Array.from(
+      { length: TEMPLATE_DOC_LIMITS.maxOptionVariantsPerBlock + 1 },
+      (_, i) => ({ id: `v${i}`, label: `Variante ${i}`, content: [text("x")] }),
+    );
+    const result = validateTemplateDocument(
+      doc([p([optionBlock(variants, "v0")])]),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a defaultVariantId that does not match any variant", () => {
+    const result = validateTemplateDocument(
+      doc([
+        p([
+          optionBlock(
+            [{ id: "v1", label: "Única", content: [text("x")] }],
+            "no-existe",
+          ),
+        ]),
+      ]),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects duplicate variant ids", () => {
+    const result = validateTemplateDocument(
+      doc([
+        p([
+          optionBlock(
+            [
+              { id: "v1", label: "A", content: [text("a")] },
+              { id: "v1", label: "B", content: [text("b")] },
+            ],
+            "v1",
+          ),
+        ]),
+      ]),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects an empty variant label", () => {
+    const result = validateTemplateDocument(
+      doc([
+        p([
+          optionBlock([{ id: "v1", label: "", content: [text("x")] }], "v1"),
+        ]),
+      ]),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects an empty block name", () => {
+    const result = validateTemplateDocument(
+      doc([
+        p([
+          optionBlock(
+            [{ id: "v1", label: "A", content: [text("x")] }],
+            "v1",
+            { name: "" },
+          ),
+        ]),
+      ]),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects an optionBlock nested inside a variant's content", () => {
+    const nested = optionBlock(
+      [{ id: "inner", label: "Interno", content: [text("x")] }],
+      "inner",
+    );
+    const result = validateTemplateDocument(
+      doc([
+        p([
+          optionBlock(
+            [{ id: "v1", label: "A", content: [nested] }],
+            "v1",
+          ),
+        ]),
+      ]),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects unknown attrs on the block or a variant", () => {
+    const withExtraBlockAttr = {
+      type: "optionBlock",
+      attrs: {
+        blockId: "b1",
+        name: "Hora",
+        variants: [{ id: "v1", label: "En punto", content: [text("x")] }],
+        defaultVariantId: "v1",
+        extra: "not allowed",
+      },
+    };
+    expect(validateTemplateDocument(doc([p([withExtraBlockAttr])])).ok).toBe(
+      false,
+    );
+
+    const withExtraVariantAttr = optionBlock(
+      [
+        {
+          id: "v1",
+          label: "En punto",
+          content: [text("x")],
+          // @ts-expect-error intentionally invalid for this test
+          extra: "not allowed",
+        },
+      ],
+      "v1",
+    );
+    expect(
+      validateTemplateDocument(doc([p([withExtraVariantAttr])])).ok,
+    ).toBe(false);
+  });
+
+  it("accepts the Hora example with two variants", () => {
+    const block = optionBlock(
+      [
+        { id: "en_punto", label: "Hora en punto", content: [variable("hora.valor")] },
+        {
+          id: "con_minutos",
+          label: "Hora con minutos",
+          content: [variable("hora.valor"), text(" con "), variable("hora.minutos")],
+        },
+      ],
+      "en_punto",
+      { name: "Hora" },
+    );
+    expect(validateTemplateDocument(doc([p([block])])).ok).toBe(true);
+  });
+});

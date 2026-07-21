@@ -177,3 +177,59 @@ describe("documentToPlainText", () => {
     );
   });
 });
+
+const optionBlockDoc: TemplateDocument = {
+  type: "doc",
+  content: [
+    {
+      type: "paragraph",
+      content: [
+        {
+          type: "optionBlock",
+          attrs: {
+            blockId: "b1",
+            name: "Chasis, VIN y Serie",
+            defaultVariantId: "iguales",
+            variants: [
+              {
+                id: "iguales",
+                label: "Todos iguales",
+                content: [
+                  { type: "text", text: "Chasis, VIN y Serie " },
+                  { type: "templateVariable", attrs: { key: "vehiculo.numero" } },
+                ],
+              },
+              {
+                id: "distintos",
+                label: "Todos distintos",
+                content: [
+                  { type: "text", text: "CHASIS número " },
+                  { type: "templateVariable", attrs: { key: "vehiculo.chasis" } },
+                  { type: "text", text: ", VIN número " },
+                  { type: "templateVariable", attrs: { key: "vehiculo.vin" } },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+describe("serializeDocumentToTemplateText — optionBlock", () => {
+  it("serializes every variant's variables, not only the default one", () => {
+    const text = serializeDocumentToTemplateText(optionBlockDoc);
+    expect(text).toContain("{{vehiculo.numero}}");
+    expect(text).toContain("{{vehiculo.chasis}}");
+    expect(text).toContain("{{vehiculo.vin}}");
+  });
+});
+
+describe("documentToPlainText — optionBlock", () => {
+  it("renders only the default variant's plain text", () => {
+    const text = documentToPlainText(optionBlockDoc);
+    expect(text).toContain("Chasis, VIN y Serie");
+    expect(text).not.toContain("CHASIS número");
+  });
+});
