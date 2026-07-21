@@ -19,7 +19,6 @@
 import { useId, useState } from "react";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import {
-  VARIABLE_AUTOFILL_SOURCES,
   VARIABLE_AUTOFILL_SOURCE_LABELS,
   VARIABLE_OUTPUT_TRANSFORMS,
   VARIABLE_OUTPUT_TRANSFORM_LABELS,
@@ -98,7 +97,6 @@ type RowEditorProps = {
   onSave: (
     label: string,
     required: boolean,
-    autofillSource: VariableAutofillSource,
     outputTransform: VariableOutputTransform,
   ) => void;
   onCancel: () => void;
@@ -108,11 +106,9 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
   const labelId = useId();
   const requiredId = useId();
   const errorId = useId();
-  const autofillId = useId();
   const transformId = useId();
   const [label, setLabel] = useState(row.label ?? "");
   const [required, setRequired] = useState(row.required);
-  const [autofillSource, setAutofillSource] = useState(row.autofill_source);
   const [outputTransform, setOutputTransform] = useState(row.output_transform);
   const [error, setError] = useState<string | undefined>();
 
@@ -122,7 +118,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
       setError("La etiqueta de la variable es requerida.");
       return;
     }
-    onSave(trimmed, required, autofillSource, outputTransform);
+    onSave(trimmed, required, outputTransform);
   }
 
   return (
@@ -165,52 +161,27 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor={autofillId}
-            className="block text-xs font-medium text-slate-700 mb-1"
-          >
-            Origen para autollenado
-          </label>
-          <select
-            id={autofillId}
-            value={autofillSource}
-            onChange={(event) =>
-              setAutofillSource(event.target.value as VariableAutofillSource)
-            }
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-          >
-            {VARIABLE_AUTOFILL_SOURCES.map((source) => (
-              <option key={source} value={source}>
-                {VARIABLE_AUTOFILL_SOURCE_LABELS[source]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label
-            htmlFor={transformId}
-            className="block text-xs font-medium text-slate-700 mb-1"
-          >
-            Transformación de salida
-          </label>
-          <select
-            id={transformId}
-            value={outputTransform}
-            onChange={(event) =>
-              setOutputTransform(event.target.value as VariableOutputTransform)
-            }
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-          >
-            {VARIABLE_OUTPUT_TRANSFORMS.map((transform) => (
-              <option key={transform} value={transform}>
-                {VARIABLE_OUTPUT_TRANSFORM_LABELS[transform]}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label
+          htmlFor={transformId}
+          className="block text-xs font-medium text-slate-700 mb-1"
+        >
+          Transformación de salida
+        </label>
+        <select
+          id={transformId}
+          value={outputTransform}
+          onChange={(event) =>
+            setOutputTransform(event.target.value as VariableOutputTransform)
+          }
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+        >
+          {VARIABLE_OUTPUT_TRANSFORMS.map((transform) => (
+            <option key={transform} value={transform}>
+              {VARIABLE_OUTPUT_TRANSFORM_LABELS[transform]}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex justify-end gap-2">
@@ -239,12 +210,21 @@ type Props = {
   variables: TemplateWorkspaceVariable[];
   contentKeys: string[];
   onChange: (variables: TemplateWorkspaceVariable[]) => void;
+  /**
+   * Cuando se pasa, "Guardar variable" persiste de inmediato (envía el
+   * formulario del workspace) en vez de solo actualizar el estado local —
+   * ver `TemplateWorkspace.tsx`. Sin esta prop (modo creación, donde el
+   * machote todavía no existe), el guardado sigue siendo local hasta el
+   * submit final.
+   */
+  onSaveVariable?: (variables: TemplateWorkspaceVariable[]) => void;
 };
 
 export function TemplateVariablesPanel({
   variables,
   contentKeys,
   onChange,
+  onSaveVariable,
 }: Props) {
   const headingId = useId();
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -266,11 +246,14 @@ export function TemplateVariablesPanel({
       autofill_source,
       output_transform,
     };
-    onChange(
-      exists
-        ? variables.map((v) => (v.field_key === field_key ? next : v))
-        : [...variables, next],
-    );
+    const nextList = exists
+      ? variables.map((v) => (v.field_key === field_key ? next : v))
+      : [...variables, next];
+    if (onSaveVariable) {
+      onSaveVariable(nextList);
+    } else {
+      onChange(nextList);
+    }
     setEditingKey(null);
   }
 
@@ -371,12 +354,12 @@ export function TemplateVariablesPanel({
                 {isEditing && (
                   <RowEditor
                     row={row}
-                    onSave={(label, required, autofillSource, outputTransform) =>
+                    onSave={(label, required, outputTransform) =>
                       upsertVariable(
                         row.field_key,
                         label,
                         required,
-                        autofillSource,
+                        row.autofill_source,
                         outputTransform,
                       )
                     }

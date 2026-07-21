@@ -8,8 +8,22 @@ import {
 } from "./support/factories";
 
 /**
- * Detección automática de variables `{{clave}}` escritas o pegadas en el
- * editor del machote, sin pasar por el diálogo "Insertar variable".
+ * Detección de variables `{{clave}}` escritas o pegadas en el editor del
+ * machote.
+ *
+ * Escribir un `{{clave}}` válido (minúsculas) sigue convirtiendo de
+ * inmediato, sin diálogo — igual que siempre. Pegar es distinto: TODO
+ * `{{...}}` pegado, sea cual sea su mayúscula/minúscula, pasa por el
+ * diálogo "Revisar variables detectadas" antes de convertirse — no hay
+ * conversión silenciosa al pegar, ni siquiera para claves ya en minúsculas.
+ * El diálogo expone la misma configuración que una variable creada a mano
+ * (etiqueta, clave, obligatoria, transformación de salida), así que al
+ * confirmar queda "Configurada" de inmediato, no "Pendiente de configurar".
+ *
+ * La prueba de escritura a mano (I) corre al final a propósito: es la única
+ * que deja el editor en un estado alcanzado por teclado en vez de por el
+ * `paste` sintético que usan las demás — mantenerla al final evita mezclar
+ * ambos mecanismos sobre el mismo documento en crecimiento.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -37,6 +51,10 @@ function previewRegion(page: Page) {
 
 function notarialIndexRegion(page: Page) {
   return page.getByRole("region", { name: "Configuración del índice notarial" });
+}
+
+function reviewDialog(page: Page) {
+  return page.getByRole("dialog", { name: "Revisar variables detectadas" });
 }
 
 async function goToTab(
@@ -98,42 +116,7 @@ test.describe("template pasted/typed variable detection", () => {
     templateUrl = `/dashboard/templates/${template.id}`;
   });
 
-  test("B: pasting a full block of text with several placeholders detects them all", async ({
-    page,
-  }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
-
-    await pasteAtEnd(
-      page,
-      "Comparecen {{comprador.nombre}} y {{vendedor.nombre}}, folio {{folio.inicio}}.",
-    );
-
-    // Cada placeholder queda representado como una ficha real en el editor,
-    // no como texto plano.
-    await expect(
-      contentEditor(page).locator('[data-variable-key="comprador.nombre"]'),
-    ).toBeVisible();
-    await expect(
-      contentEditor(page).locator('[data-variable-key="vendedor.nombre"]'),
-    ).toBeVisible();
-    await expect(
-      contentEditor(page).locator('[data-variable-key="folio.inicio"]'),
-    ).toBeVisible();
-
-    await goToTab(page, "Variables");
-    await expect(
-      variableRow(page, "comprador.nombre").getByText("Pendiente de configurar"),
-    ).toBeVisible();
-    await expect(
-      variableRow(page, "vendedor.nombre").getByText("Pendiente de configurar"),
-    ).toBeVisible();
-    await expect(
-      variableRow(page, "folio.inicio").getByText("Pendiente de configurar"),
-    ).toBeVisible();
-  });
-
-  test("C: pasting an invalid placeholder leaves it as plain text", async ({
+  test("B: pasting an invalid placeholder leaves it as plain text, no dialog", async ({
     page,
   }) => {
     await page.goto(templateUrl);
@@ -141,84 +124,45 @@ test.describe("template pasted/typed variable detection", () => {
 
     await pasteAtEnd(page, " {{Clave Invalida}}");
 
-    // No se crea ninguna ficha nueva para la clave inválida: el texto queda
-    // literal, visible para que el usuario lo corrija a mano.
+    // No hay candidatas: el diálogo ni siquiera aparece, y el texto queda
+    // literal para que el usuario lo corrija a mano.
+    await expect(reviewDialog(page)).toHaveCount(0);
     await expect(
       contentEditor(page).locator('[data-variable-key]'),
     ).toHaveCount(0);
     await expect(contentEditor(page)).toContainText("{{Clave Invalida}}");
   });
 
-  test("D: configuring a detected variable, saving and reloading persists it", async ({
+  test("C: pasting placeholders in any case — lowercase, uppercase or mixed — always opens the review dialog, never converts silently", async ({
     page,
   }) => {
     await page.goto(templateUrl);
     await expect(contentEditor(page)).toBeVisible();
 
-    await pasteAtEnd(page, "Comparece {{parte.unica}}.");
-    await goToTab(page, "Variables");
-
-    const row = variableRow(page, "parte.unica");
-    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
-    await row
-      .getByRole("button", { name: "Configurar variable parte.unica" })
-      .click();
-    await page.getByLabel("Etiqueta").fill("Parte única");
-    await page.getByRole("button", { name: "Guardar variable" }).click();
-    await expect(row.getByText("Configurada")).toBeVisible();
-
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(
-      page.getByText("Machote guardado.", { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
-
-    // La sección activa (Variables, en este punto) viaja en la URL vía
-    // pushState, así que un reload la conserva -- correcto: recargar no debe
-    // devolver al usuario a Documento. Se confirma primero aquí...
-    await expect(async () => {
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(
-        variableRow(page, "parte.unica").getByText("Configurada"),
-      ).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 20_000 });
-
-    // ...y se confirma también en Documento, para probar que la ficha con
-    // la etiqueta configurada persistió en el propio contenido del machote.
-    await goToTab(page, "Documento");
-    await expect(
-      contentEditor(page).getByText("Parte única"),
-    ).toBeVisible();
-  });
-
-  test("E: pasting a legacy uppercase block shows a review dialog and converts on confirm", async ({
-    page,
-  }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
-
-    // Muestra de un machote antiguo real: variables en mayúsculas con la
-    // misma delimitación `{{ }}`, una clave con mayúsculas y punto, un
-    // token con dos puntos que no es una variable de datos (`SMART:`), y
-    // una variable ya válida en el mismo bloque pegado.
+    // Mezcla deliberada: minúsculas (ya válidas hoy sin diálogo antes de
+    // este fix), mayúsculas con guion bajo, una clave con punto en
+    // mayúsculas, y un token con dos puntos que no es una variable
+    // reconocida (`SMART:`).
     await pasteAtEnd(
       page,
-      "Comparece {{NOMBRE_COMPARECIENTE}}, placas {{PLACAS}}, tomo " +
-        "{{NUMERO_ESCRITURA.numero}}, bloque {{SMART:block_fda924b2}} y " +
-        "{{comprador.nombre}}.",
+      "Comparecen {{comprador.nombre}} y {{VENDEDOR_NOMBRE}}, folio " +
+        "{{Folio.Inicio}}, bloque {{SMART:block_fda924b2}}.",
     );
 
-    const dialog = page.getByRole("dialog", {
-      name: "Revisar variables detectadas",
-    });
+    // Nada se convierte todavía: el texto pegado sigue literal en el
+    // documento mientras el diálogo está abierto.
+    await expect(
+      contentEditor(page).locator('[data-variable-key]'),
+    ).toHaveCount(0);
+
+    const dialog = reviewDialog(page);
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByText("Se detectaron 3 posibles variables"),
     ).toBeVisible();
-    await expect(dialog.getByText("{{NOMBRE_COMPARECIENTE}}")).toBeVisible();
-    await expect(dialog.getByText("{{PLACAS}}")).toBeVisible();
-    await expect(
-      dialog.getByText("{{NUMERO_ESCRITURA.numero}}"),
-    ).toBeVisible();
+    await expect(dialog.getByText("{{comprador.nombre}}")).toBeVisible();
+    await expect(dialog.getByText("{{VENDEDOR_NOMBRE}}")).toBeVisible();
+    await expect(dialog.getByText("{{Folio.Inicio}}")).toBeVisible();
     // El token con dos puntos no es una variable reconocida: no aparece en
     // la lista de candidatas del diálogo.
     await expect(dialog.getByText("SMART:block")).toHaveCount(0);
@@ -226,61 +170,49 @@ test.describe("template pasted/typed variable detection", () => {
     await dialog.getByRole("button", { name: "Convertir" }).click();
     await expect(dialog).toBeHidden();
 
-    // La variable ya válida se convierte igual que siempre (sin diálogo),
-    // y las tres variables legacy quedan como fichas reales normalizadas.
+    // Las tres, sin importar el caso original, quedan como fichas reales
+    // con la clave normalizada en minúsculas.
     await expect(
       contentEditor(page).locator('[data-variable-key="comprador.nombre"]'),
     ).toBeVisible();
     await expect(
-      contentEditor(page).locator(
-        '[data-variable-key="nombre_compareciente"]',
-      ),
+      contentEditor(page).locator('[data-variable-key="vendedor_nombre"]'),
     ).toBeVisible();
     await expect(
-      contentEditor(page).locator('[data-variable-key="placas"]'),
+      contentEditor(page).locator('[data-variable-key="folio.inicio"]'),
     ).toBeVisible();
-    await expect(
-      contentEditor(page).locator(
-        '[data-variable-key="numero_escritura.numero"]',
-      ),
-    ).toBeVisible();
-    // El token no reconocido queda literal, sin convertirse.
     await expect(contentEditor(page)).toContainText(
       "{{SMART:block_fda924b2}}",
     );
 
-    // La etiqueta y clave confirmadas en el diálogo son la configuración
-    // real: las variables legacy quedan "Configurada" de inmediato, no
-    // "Pendiente de configurar" — la fuente única de verdad es el mismo
-    // diálogo de revisión, no un segundo paso manual.
+    // La clave/etiqueta confirmadas en el diálogo son la configuración
+    // real: las tres quedan "Configurada" de inmediato, no "Pendiente de
+    // configurar" — nunca se crean dos variables distintas para el mismo
+    // dato solo por diferencias de mayúsculas.
     await goToTab(page, "Variables");
     await expect(
-      variableRow(page, "nombre_compareciente").getByText("Configurada"),
+      variableRow(page, "comprador.nombre").getByText("Configurada"),
     ).toBeVisible();
     await expect(
-      variableRow(page, "nombre_compareciente").getByText(
-        "Nombre compareciente",
-      ),
+      variableRow(page, "vendedor_nombre").getByText("Configurada"),
     ).toBeVisible();
     await expect(
-      variableRow(page, "placas").getByText("Configurada"),
+      variableRow(page, "vendedor_nombre").getByText("Vendedor nombre"),
     ).toBeVisible();
     await expect(
-      variableRow(page, "numero_escritura.numero").getByText("Configurada"),
+      variableRow(page, "folio.inicio").getByText("Configurada"),
     ).toBeVisible();
   });
 
-  test("F: canceling the legacy review dialog leaves the pasted text unmodified", async ({
+  test("D: canceling the review dialog leaves the pasted text unmodified", async ({
     page,
   }) => {
     await page.goto(templateUrl);
     await expect(contentEditor(page)).toBeVisible();
 
-    await pasteAtEnd(page, "Tomo {{TOMO_NUMERO}} folio {{FOLIO_INICIAL}}.");
+    await pasteAtEnd(page, "Tomo {{tomo_numero}} folio {{FOLIO_INICIAL}}.");
 
-    const dialog = page.getByRole("dialog", {
-      name: "Revisar variables detectadas",
-    });
+    const dialog = reviewDialog(page);
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect(dialog).toBeHidden();
@@ -291,11 +223,11 @@ test.describe("template pasted/typed variable detection", () => {
       ),
     ).toHaveCount(0);
     await expect(contentEditor(page)).toContainText(
-      "Tomo {{TOMO_NUMERO}} folio {{FOLIO_INICIAL}}.",
+      "Tomo {{tomo_numero}} folio {{FOLIO_INICIAL}}.",
     );
   });
 
-  test("G: excluding a candidate in the review dialog keeps it as literal text", async ({
+  test("E: excluding a candidate in the review dialog keeps it as literal text", async ({
     page,
   }) => {
     await page.goto(templateUrl);
@@ -303,9 +235,7 @@ test.describe("template pasted/typed variable detection", () => {
 
     await pasteAtEnd(page, "Marca {{MARCA}} combustible {{COMBUSTIBLE}}.");
 
-    const dialog = page.getByRole("dialog", {
-      name: "Revisar variables detectadas",
-    });
+    const dialog = reviewDialog(page);
     await expect(dialog).toBeVisible();
     await dialog.getByRole("checkbox", { name: "Incluir variable MARCA" }).uncheck();
     await dialog.getByRole("button", { name: "Convertir" }).click();
@@ -328,16 +258,56 @@ test.describe("template pasted/typed variable detection", () => {
     await expect(variablesRegion(page).getByText("{{marca}}")).toHaveCount(0);
   });
 
-  test("H: a converted legacy variable persists after saving and reloading, and is selectable in the notarial index", async ({
+  test("F: the review dialog exposes required and output transform, and the choice persists after saving and reloading", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    await pasteAtEnd(page, "Cédula {{CEDULA_COMPARECIENTE}}.");
+    const dialog = reviewDialog(page);
+    await expect(dialog).toBeVisible();
+
+    await dialog
+      .getByRole("checkbox", { name: "Variable obligatoria CEDULA_COMPARECIENTE" })
+      .check();
+    await dialog
+      .getByLabel("Transformación de salida CEDULA_COMPARECIENTE")
+      .selectOption("digits_to_words");
+    await dialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(dialog).toBeHidden();
+
+    await goToTab(page, "Variables");
+    const row = variableRow(page, "cedula_compareciente");
+    await expect(row.getByText("Configurada")).toBeVisible();
+    await expect(row.getByText("Obligatoria")).toBeVisible();
+    await expect(row.getByText("Dígitos en palabras")).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await expect(async () => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedRow = variableRow(page, "cedula_compareciente");
+      await expect(reloadedRow.getByText("Obligatoria")).toBeVisible({
+        timeout: 5_000,
+      });
+      await expect(reloadedRow.getByText("Dígitos en palabras")).toBeVisible({
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 20_000 });
+  });
+
+  test("G: a converted variable persists after saving and reloading, and is selectable in the notarial index", async ({
     page,
   }) => {
     await page.goto(templateUrl);
     await expect(contentEditor(page)).toBeVisible();
 
     await pasteAtEnd(page, "Folio final {{FOLIO_FINAL}}.");
-    const dialog = page.getByRole("dialog", {
-      name: "Revisar variables detectadas",
-    });
+    const dialog = reviewDialog(page);
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Convertir" }).click();
     await expect(dialog).toBeHidden();
@@ -376,16 +346,14 @@ test.describe("template pasted/typed variable detection", () => {
     ).toHaveCount(1);
   });
 
-  test("I: editing a converted variable's label updates the editor chip, the preview and the notarial index", async ({
+  test("H: editing a converted variable's label persists immediately and updates the editor chip, the preview and the notarial index", async ({
     page,
   }) => {
     await page.goto(templateUrl);
     await expect(contentEditor(page)).toBeVisible();
 
     await pasteAtEnd(page, "Marca del vehiculo {{MARCA_VEHICULO}}.");
-    const dialog = page.getByRole("dialog", {
-      name: "Revisar variables detectadas",
-    });
+    const dialog = reviewDialog(page);
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Convertir" }).click();
     await expect(dialog).toBeHidden();
@@ -405,9 +373,13 @@ test.describe("template pasted/typed variable detection", () => {
     await page.getByLabel("Etiqueta").fill("Marca del vehículo");
     await page.getByRole("button", { name: "Guardar variable" }).click();
     await expect(row.getByText("Marca del vehículo")).toBeVisible();
+    // "Guardar variable" envía todo el formulario (documento + variables):
+    // no hace falta un clic adicional en "Guardar cambios" para persistir
+    // ni la etiqueta ni el contenido pegado antes.
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
 
-    // La ficha del editor y la vista previa reflejan la nueva etiqueta de
-    // inmediato, sin guardar todavía.
     await goToTab(page, "Documento");
     await expect(
       contentEditor(page).getByText("Marca del vehículo"),
@@ -419,13 +391,6 @@ test.describe("template pasted/typed variable detection", () => {
       previewRegion(page).getByText("Marca del vehículo"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(
-      page.getByText("Machote guardado.", { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
-
-    // La etiqueta renombrada persiste tras recargar, en el editor y en el
-    // Índice Notarial.
     await expect(async () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(
@@ -439,5 +404,48 @@ test.describe("template pasted/typed variable detection", () => {
         .getByLabel("Número de instrumento", { exact: true })
         .locator("option", { hasText: "Marca del vehículo" }),
     ).toHaveCount(1);
+  });
+
+  test("I: typing a {{clave}} character by character still converts immediately, with no dialog", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await expect(contentEditor(page)).toBeVisible();
+
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type("Comparece {{parte.unica}}.");
+
+    await expect(reviewDialog(page)).toHaveCount(0);
+    await expect(
+      contentEditor(page).locator('[data-variable-key="parte.unica"]'),
+    ).toBeVisible();
+
+    // Escribir a mano sigue dejando la variable pendiente de configurar —
+    // a diferencia de pegar, que ahora siempre pasa por el diálogo.
+    await goToTab(page, "Variables");
+    const row = variableRow(page, "parte.unica");
+    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
+
+    await row
+      .getByRole("button", { name: "Configurar variable parte.unica" })
+      .click();
+    await page.getByLabel("Etiqueta").fill("Parte única");
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+    await expect(row.getByText("Configurada")).toBeVisible();
+    // Persistido de inmediato: "Guardar variable" ya envía el formulario.
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
+
+    await expect(async () => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(
+        variableRow(page, "parte.unica").getByText("Configurada"),
+      ).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 20_000 });
+
+    await goToTab(page, "Documento");
+    await expect(contentEditor(page).getByText("Parte única")).toBeVisible();
   });
 });

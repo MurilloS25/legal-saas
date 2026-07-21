@@ -28,16 +28,19 @@ describe("detectLegacyVariables", () => {
     ]);
   });
 
-  it("does not report placeholders that already use the canonical syntax", () => {
-    expect(detectLegacyVariables("{{comprador.nombre}}")).toEqual([]);
+  it("also reports placeholders already in the canonical (lowercase) syntax — there is no silent conversion path", () => {
+    expect(detectLegacyVariables("{{comprador.nombre}}")).toEqual([
+      { raw: "comprador.nombre", key: "comprador.nombre", label: "Comprador nombre" },
+    ]);
   });
 
-  it("ignores a mixed batch's canonical placeholders but reports the legacy ones", () => {
+  it("reports every placeholder in a mixed-case batch, canonical and uppercase alike", () => {
     const matches = detectLegacyVariables(
       "{{comprador.nombre}} y {{VENDEDOR_NOMBRE}}",
     );
-    expect(matches).toEqual([
-      { raw: "VENDEDOR_NOMBRE", key: "vendedor_nombre", label: "Vendedor nombre" },
+    expect(matches.map((m) => m.key)).toEqual([
+      "comprador.nombre",
+      "vendedor_nombre",
     ]);
   });
 

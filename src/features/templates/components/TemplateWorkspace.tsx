@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
+import { flushSync } from "react-dom";
 import {
   createTemplateWorkspaceAction,
   updateTemplateWorkspaceAction,
@@ -105,6 +106,7 @@ export function TemplateWorkspace(props: Props) {
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<TemplateEditorHandle>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
   // navegación real (evita remontar el editor). `popstate` cubre
@@ -179,6 +181,23 @@ export function TemplateWorkspace(props: Props) {
     markDirty();
   }
 
+  /**
+   * "Guardar variable" en modo edición: persiste de inmediato, sin esperar
+   * a "Guardar cambios". `flushSync` fuerza el commit de `setVariables`
+   * antes de leer el DOM, para que el input oculto `variables` ya refleje
+   * el nuevo valor cuando `requestSubmit` arma el envío — si no, el submit
+   * podría ir con el valor anterior (una carrera entre el render y el
+   * envío). Reutiliza el mismo action/RPC que "Guardar cambios", así que
+   * la protección de concurrencia optimista (`expected_updated_at`) aplica
+   * igual aquí.
+   */
+  function saveVariableNow(next: TemplateWorkspaceVariable[]) {
+    flushSync(() => {
+      handleVariablesChange(next);
+    });
+    formRef.current?.requestSubmit();
+  }
+
   // El hito "recién creado" solo aplica hasta el primer guardado posterior
   // real: en cuanto state.success pasa a true por una acción nueva, el
   // machote deja de ser "recién creado" y vuelve al feedback simple.
@@ -212,7 +231,7 @@ export function TemplateWorkspace(props: Props) {
         />
       )}
 
-      <form action={formAction} noValidate>
+      <form ref={formRef} action={formAction} noValidate>
         {/* Datos serializados que acompañan al submit. */}
         <input
           type="hidden"
@@ -370,6 +389,7 @@ export function TemplateWorkspace(props: Props) {
               variables={variables}
               contentKeys={contentKeys}
               onChange={handleVariablesChange}
+              onSaveVariable={saveVariableNow}
             />
           </div>
         )}

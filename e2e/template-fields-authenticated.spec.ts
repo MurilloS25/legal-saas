@@ -96,7 +96,7 @@ test.describe("template variables workspace", () => {
     ).toBeVisible();
   });
 
-  test("B: a pending variable can be configured and persists", async ({
+  test("B: 'Guardar variable' persists a pending variable immediately, with no separate 'Guardar cambios' click needed", async ({
     page,
   }) => {
     await openWorkspace(page);
@@ -112,12 +112,14 @@ test.describe("template variables workspace", () => {
     await expect(
       variableRow(page, pendingKey).getByText("Configurada"),
     ).toBeVisible();
+    // "Guardar variable" ya envió el formulario: sin un segundo clic en
+    // "Guardar cambios", el estado vuelve a "Guardado".
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(
-      page.getByText("Machote guardado.", { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
-
+    // Recargar ya debe mostrar la variable persistida — no fue necesario
+    // ningún clic adicional en "Guardar cambios".
     await page.reload();
     const row = variableRow(page, pendingKey);
     await expect(row.getByText(pendingLabel)).toBeVisible();
@@ -204,7 +206,7 @@ test.describe("template variables workspace", () => {
     ).toBeVisible();
   });
 
-  test("F: configuring autofill source and output transform for a variable persists after reload", async ({
+  test("F: the automatic autofill suggestion is informational (not editable), and configuring output transform persists after reload", async ({
     page,
   }) => {
     const newKey = "comprador.cedula";
@@ -234,10 +236,9 @@ test.describe("template variables workspace", () => {
       .getByRole("button", { name: `Editar variable ${newKey}` })
       .click();
 
-    // La sugerencia sigue siendo editable en el editor de la fila.
-    await expect(
-      page.getByLabel("Origen para autollenado"),
-    ).toHaveValue("client_identification");
+    // No hay selector de "Origen para autollenado": ya no es configurable
+    // desde la UI, la inferencia automática es la única fuente.
+    await expect(page.getByLabel("Origen para autollenado")).toHaveCount(0);
 
     await page
       .getByLabel("Transformación de salida")
@@ -247,11 +248,10 @@ test.describe("template variables workspace", () => {
     await expect(
       variableRow(page, newKey).getByText("Dígitos en palabras"),
     ).toBeVisible();
-
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(
-      page.getByText("Machote guardado.", { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
+    // Persistido de inmediato, sin un segundo clic en "Guardar cambios".
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
 
     await page.reload();
     const row = variableRow(page, newKey);

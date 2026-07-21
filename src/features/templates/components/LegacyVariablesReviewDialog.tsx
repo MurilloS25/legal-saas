@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Confirmación antes de convertir variables legacy detectadas al pegar.
+ * Confirmación antes de convertir las variables pegadas detectadas.
  *
- * El pegado de `{{clave}}` ya válido convierte directamente, sin diálogo
- * (comportamiento existente, sin cambios). Este diálogo solo aparece cuando
- * el pegado incluye placeholders `{{...}}` con el mismo alfabeto pero en
- * mayúsculas — es decir, cuando `detectLegacyVariables` encontró candidatas.
- * El usuario decide qué convertir y puede editar clave/etiqueta antes de
- * aplicar; cancelar no modifica el contenido pegado.
+ * Este diálogo aparece para TODO `{{...}}` pegado con el alfabeto válido —
+ * mayúsculas, minúsculas o mixto por igual, cuando `detectLegacyVariables`
+ * encontró candidatas. No hay conversión silenciosa para ningún caso. El
+ * usuario decide qué convertir y configura cada variable exactamente igual
+ * que en el panel de Variables (etiqueta, clave, obligatoriedad,
+ * transformación de salida) antes de aplicar; cancelar no modifica el
+ * contenido pegado.
  */
 
 import { useId, useState } from "react";
@@ -16,6 +17,11 @@ import { FieldError } from "@/components/forms/FieldError";
 import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 import { FIELD_KEY_PATTERN } from "../model/template-fields";
 import type { LegacyVariableMatch } from "@/lib/editor/legacy-variables";
+import {
+  VARIABLE_OUTPUT_TRANSFORMS,
+  VARIABLE_OUTPUT_TRANSFORM_LABELS,
+  type VariableOutputTransform,
+} from "../model/variable-autofill";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
@@ -24,6 +30,8 @@ export type LegacyVariableSelection = {
   included: boolean;
   key: string;
   label: string;
+  required: boolean;
+  output_transform: VariableOutputTransform;
 };
 
 type Props = {
@@ -48,7 +56,13 @@ export function LegacyVariablesReviewDialog({
       new Map(
         matches.map((match) => [
           match.raw,
-          { included: true, key: match.key, label: match.label },
+          {
+            included: true,
+            key: match.key,
+            label: match.label,
+            required: false,
+            output_transform: "none" as VariableOutputTransform,
+          },
         ]),
       ),
   );
@@ -114,10 +128,10 @@ export function LegacyVariablesReviewDialog({
             <p className="text-xs text-slate-500 mt-0.5">
               Se detectaron {matches.length} posibles{" "}
               {matches.length === 1 ? "variable" : "variables"} en el
-              contenido pegado. El texto usa el mismo formato{" "}
-              <code className="font-mono">{"{{ }}"}</code> pero con
-              mayúsculas, así que no se convirtieron automáticamente. Revisa
-              cada una antes de aplicar.
+              contenido pegado con formato{" "}
+              <code className="font-mono">{"{{ }}"}</code>. Configura cada una
+              antes de convertirla — no se agregan al documento
+              automáticamente.
             </p>
           </div>
 
@@ -180,6 +194,48 @@ export function LegacyVariablesReviewDialog({
                             className={inputClass + " font-mono text-xs"}
                           />
                         </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={`${match.raw}-required`}
+                          type="checkbox"
+                          checked={selection.required}
+                          disabled={!selection.included}
+                          onChange={(event) =>
+                            update(match.raw, { required: event.target.checked })
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
+                          aria-label={`Variable obligatoria ${match.raw}`}
+                        />
+                        <label
+                          htmlFor={`${match.raw}-required`}
+                          className="text-sm text-slate-700"
+                        >
+                          Variable obligatoria
+                        </label>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                          Transformación de salida
+                        </label>
+                        <select
+                          value={selection.output_transform}
+                          disabled={!selection.included}
+                          onChange={(event) =>
+                            update(match.raw, {
+                              output_transform: event.target
+                                .value as VariableOutputTransform,
+                            })
+                          }
+                          aria-label={`Transformación de salida ${match.raw}`}
+                          className={inputClass}
+                        >
+                          {VARIABLE_OUTPUT_TRANSFORMS.map((transform) => (
+                            <option key={transform} value={transform}>
+                              {VARIABLE_OUTPUT_TRANSFORM_LABELS[transform]}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>
