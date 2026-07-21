@@ -12,7 +12,14 @@ Lawyers can download a saved escritura draft as an editable Word (`.docx`) file.
 
 ## Supported format
 
-A4 portrait, ~1 inch margins, Times New Roman, 1.5 line spacing. Preserves paragraphs, empty lines, hard breaks, bold, italic, underline, and full Unicode (accents, `₡`, `§`, guillemets). Out of scope for now: headers/footers, page numbers, tables, images, imported `.docx` templates, styles configuration, PDF.
+Legal paper (8.5 × 14 in) portrait, always — not a user preference, a fixed product default. Font family, font size, line spacing, and the four margins come from the owner's saved `document_settings` row (`src/app/(dashboard)/dashboard/settings`), resolved through `resolveDocumentFormatting` (`src/lib/documents/docx/formatting.ts`) with product defaults (Times New Roman, 12pt, 1.5 line spacing, 4.7/4.7/3.2/3.2 cm margins) for anything missing or invalid — generation never fails because of a bad preference. Preserves paragraphs, empty lines, hard breaks, bold, italic, underline, and full Unicode (accents, `₡`, `§`, guillemets). Out of scope for now: headers/footers, page numbers, tables, images, imported `.docx` templates, per-run style overrides beyond bold/italic/underline, PDF.
+
+### Formatting preferences → DOCX
+
+- `src/lib/documents/docx/formatting.ts` — single source of truth: `DocumentFormattingPreferences` type, `DOCX_DEFAULT_FORMATTING`, `LEGAL_PAGE_SIZE_TWIPS`, unit conversions (`centimetersToTwip`, `pointsToHalfPoints`, `lineSpacingToDocx`), and `resolveDocumentFormatting(raw)` (saved row → validated preferences, independent per-field fallback to defaults).
+- `src/lib/documents/docx/settings-loader.ts` — `loadDocumentFormattingPreferences(supabase, ownerId)`, the only place that queries `document_settings` for generation.
+- `src/lib/documents/docx/config.ts` — `buildDocxSectionConfig(prefs)` translates preferences into the twips/half-points/`docx` section shape `generateDocumentDocx` consumes.
+- The Índice Notarial exporter (`src/features/notarial-index/export/notarial-docx.ts`) reuses the same preferences and page size, overriding only orientation (landscape) — see the code comment there for why its per-element table/title/footer point sizes stay fixed instead of inheriting the configured font size (the table's column widths are tuned to those specific sizes).
 
 ## Endpoint
 
@@ -29,9 +36,12 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
 ## Modules
 
 - `src/lib/documents/docx/` — server-only generation layer:
-  - `document.ts` — `buildEscrituraDocx({ contentJson, fieldValues, renderedContent?, title })` → `{ buffer, filename, pendingVariables }`.
-  - `generate.ts` — `generateDocumentDocx(model)` (neutral `DocumentModel` → in-memory Buffer).
-  - `config.ts` / `limits.ts` — central format and size limits.
+  - `document.ts` — `buildEscrituraDocx({ contentJson, fieldValues, renderedContent?, title, formatting? })` → `{ buffer, filename, pendingVariables }`.
+  - `generate.ts` — `generateDocumentDocx(model, formatting?)` (neutral `DocumentModel` → in-memory Buffer).
+  - `formatting.ts` — formatting preferences type, defaults, unit conversions, `resolveDocumentFormatting`.
+  - `settings-loader.ts` — `loadDocumentFormattingPreferences(supabase, ownerId)`.
+  - `config.ts` — `buildDocxSectionConfig(prefs)`, translates preferences to the `docx` section shape.
+  - `limits.ts` — size/complexity guardrails, unrelated to formatting.
   - `filename.ts` — safe filename (no path traversal, no reserved Windows names, no control chars/CRLF, accents kept, bounded length, fallback).
   - `http.ts` — MIME + `Content-Disposition` builder.
 - `src/app/api/documents/[id]/docx/route.ts` — the Route Handler.
@@ -53,5 +63,6 @@ Legal content may be sensitive. The feature sends nothing to third parties, adds
 
 ## Tests
 
-- Unit (`src/lib/documents/docx/*.test.ts`): filename safety, generation and OOXML structure (inspected as ZIP: `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`), marks, variable substitution, pending placeholders, Unicode, limits, `Content-Disposition` header safety (CRLF/quotes/RFC 5987), and basic performance (small/medium/near-limit).
+- Unit (`src/lib/documents/docx/*.test.ts`): filename safety, generation and OOXML structure (inspected as ZIP: `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`, `word/styles.xml`), marks, variable substitution, pending placeholders, Unicode, limits, `Content-Disposition` header safety (CRLF/quotes/RFC 5987), basic performance (small/medium/near-limit), unit conversions and `resolveDocumentFormatting` defaulting (`formatting.test.ts`), and end-to-end formatting applied to the generated OOXML — Legal page size, margins, font, size, line spacing (`formatting-applied.test.ts`).
+- `src/features/notarial-index/export/notarial-docx.test.ts`: landscape Legal page size, configured margins, font propagation, and fixed per-element point sizes.
 - E2E (`e2e/documents-docx-authenticated.spec.ts`, project `chromium-documents-docx`): button visibility, unsaved-changes gate, download + ZIP inspection, saved-snapshot regression after a later template edit, MIME/headers, pending-variables confirmation, cancel / download anyway, `404` for missing/foreign, invalid id, anonymous `401`, and mobile.

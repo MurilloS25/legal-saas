@@ -1,6 +1,7 @@
 import "server-only";
 
 import { contentDispositionAttachment, DOCX_MIME } from "@/lib/documents/docx/http";
+import { loadDocumentFormattingPreferences } from "@/lib/documents/docx/settings-loader";
 import { requireApiUser } from "@/lib/server/auth";
 import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
 import type { Database } from "@/lib/supabase/database.types";
@@ -34,14 +35,16 @@ export async function prepareNotarialDocxExport(
   const query = parseNotarialQuery(rawQuery);
 
   const { supabase, user } = await requireApiUser();
-  const [{ data: profile, error: profileError }, exportData] = await Promise.all([
-    supabase
-      .from("lawyer_profiles")
-      .select("full_name")
-      .eq("owner_id", user.id)
-      .maybeSingle(),
-    queryNotarialIndexForExport(supabase, user.id, query),
-  ]);
+  const [{ data: profile, error: profileError }, exportData, formatting] =
+    await Promise.all([
+      supabase
+        .from("lawyer_profiles")
+        .select("full_name")
+        .eq("owner_id", user.id)
+        .maybeSingle(),
+      queryNotarialIndexForExport(supabase, user.id, query),
+      loadDocumentFormattingPreferences(supabase, user.id),
+    ]);
   if (profileError) throwDataAccessError("load notary profile for export", profileError);
   const notaryName = profile?.full_name?.trim();
   if (!notaryName) {
@@ -54,6 +57,7 @@ export async function prepareNotarialDocxExport(
     rows: exportData.rows,
     selection: query.selection,
     notaryName,
+    formatting,
   });
   const bounds = fortnightDateBounds(
     query.selection.year,

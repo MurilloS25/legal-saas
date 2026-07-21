@@ -10,6 +10,8 @@ export type DocxParts = {
   zip: JSZip;
   /** `word/document.xml` como texto. */
   documentXml: string;
+  /** `word/styles.xml` como texto (fuente/tamaño/interlineado por defecto). */
+  stylesXml: string;
   contentTypesXml: string;
   relsXml: string;
   /** Nombres de todas las entradas del ZIP. */
@@ -28,6 +30,7 @@ export async function readDocx(buffer: Buffer | Uint8Array): Promise<DocxParts> 
   return {
     zip,
     documentXml: await read("word/document.xml"),
+    stylesXml: await read("word/styles.xml"),
     contentTypesXml: await read("[Content_Types].xml"),
     relsXml: await read("_rels/.rels"),
     entryNames,

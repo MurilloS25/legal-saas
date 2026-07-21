@@ -26,6 +26,7 @@ import {
 } from "@/lib/editor/render";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 import { buildDocxFilename } from "./filename";
+import { DOCX_DEFAULT_FORMATTING, type DocumentFormattingPreferences } from "./formatting";
 import { generateDocumentDocx } from "./generate";
 
 export type EscrituraDocxInput = {
@@ -45,6 +46,8 @@ export type EscrituraDocxInput = {
   transforms?: VariableTransformsMap;
   /** `documents.option_selections` persistidos (`blockId -> variantId`). */
   optionSelections?: OptionSelectionsMap;
+  /** Preferencias de formato del dueño (ver `formatting.ts`); defaults si se omite. */
+  formatting?: DocumentFormattingPreferences;
 };
 
 export type EscrituraDocxResult = {
@@ -78,7 +81,10 @@ export async function buildEscrituraDocx(
     usePersistedSnapshot ? undefined : input.transforms,
     sourceSelections,
   );
-  const buffer = await generateDocumentDocx(model);
+  const buffer = await generateDocumentDocx(
+    model,
+    input.formatting ?? DOCX_DEFAULT_FORMATTING,
+  );
 
   return {
     buffer,

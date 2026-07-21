@@ -139,7 +139,7 @@ Pending questions:
 
 Purpose:
 
-Stores the lawyer's default formatting preferences for generated Word documents.
+Stores the lawyer's default formatting preferences for generated Word documents. Consumed by every DOCX generator (Escrituras, Índice Notarial) through `resolveDocumentFormatting` — see `docs/DOCX_EXPORT.md`. Paper size is not part of this table: it is a fixed product default (Legal, 8.5 × 14 in), not a per-lawyer preference.
 
 Decision:
 

@@ -7,6 +7,7 @@ import {
   contentDispositionAttachment,
   DOCX_MIME,
   DocxGenerationError,
+  loadDocumentFormattingPreferences,
 } from "@/lib/documents/docx";
 import {
   DocumentIdSchema,
@@ -78,6 +79,8 @@ export async function prepareDocumentDocxExport(
     if (transform !== "none") transforms[field.field_key] = transform;
   }
 
+  const formatting = await loadDocumentFormattingPreferences(supabase, user.id);
+
   let result;
   try {
     result = await buildEscrituraDocx({
@@ -87,6 +90,7 @@ export async function prepareDocumentDocxExport(
       title: document.title,
       transforms,
       optionSelections: optionSelections.data,
+      formatting,
     });
   } catch (error) {
     if (error instanceof DocxGenerationError) {
