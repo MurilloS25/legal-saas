@@ -57,7 +57,7 @@ async function loadOwnedTemplateWithFields(
 ) {
   const { data: template, error: templateError } = await supabase
     .from("templates")
-    .select("id, name, content_json")
+    .select("id, name, status, content_json")
     .eq("id", templateId)
     .eq("owner_id", userId)
     .maybeSingle();
@@ -225,6 +225,15 @@ export async function createDocumentDraftAction(
   const loaded = await loadOwnedTemplateWithFields(supabase, templateId, user.id);
   if (!loaded) {
     return { message: "No se encontró el machote." };
+  }
+  // Solo se pueden crear escrituras nuevas desde machotes activos. Las
+  // escrituras ya existentes siguen editables aunque su machote cambie de
+  // estado después (ver `updateDocumentDraftAction`, que no repite este
+  // chequeo): esta validación es exclusiva de la creación.
+  if (loaded.template.status !== "active") {
+    return {
+      message: "Este machote ya no está activo. Solo se pueden crear escrituras desde machotes activos.",
+    };
   }
 
   const result = validateDraftInput(formData, loaded.fields, loaded.document);

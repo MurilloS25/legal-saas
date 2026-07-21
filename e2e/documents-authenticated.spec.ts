@@ -328,6 +328,49 @@ test.describe("document composer workspace", () => {
     await expect(page.getByText("404")).toBeVisible();
   });
 
+  test("N: a draft template is excluded from the create-document picker, and its direct URL is blocked", async ({
+    page,
+  }) => {
+    const draftName = uniqueName("documents", "machote-borrador");
+    const draftTemplate = await createTestTemplate(registry, {
+      name: draftName,
+      content: "ACTA. Comparece {{persona.nombre}}.",
+      status: "draft",
+    });
+
+    await page.goto("/dashboard/documents/new");
+    await expect(page.locator("li").filter({ hasText: draftName })).toHaveCount(0);
+
+    // Bypassing the picker via a direct URL is also blocked (defense in
+    // depth: the restriction isn't just a UI filter).
+    await page.goto(`/dashboard/documents/new/${draftTemplate.id}`);
+    await expect(
+      page.getByText("Este machote no está activo"),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Título de la escritura"),
+    ).toHaveCount(0);
+  });
+
+  test("O: the template detail page hides 'Crear escritura' for a non-active template", async ({
+    page,
+  }) => {
+    const draftName = uniqueName("documents", "machote-detalle-borrador");
+    const draftTemplate = await createTestTemplate(registry, {
+      name: draftName,
+      content: "ACTA. Comparece {{persona.nombre}}.",
+      status: "draft",
+    });
+
+    await page.goto(`/dashboard/templates/${draftTemplate.id}`);
+    await expect(
+      page.getByRole("link", { name: "Crear escritura" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Activa este machote para crear escrituras"),
+    ).toBeVisible();
+  });
+
   test("J: regression — a template without configured fields still creates a draft", async ({
     page,
   }) => {

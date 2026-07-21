@@ -33,8 +33,9 @@ export default async function NewDocumentTemplatePickerPage({
   searchParams,
 }: Props) {
   const { client: clientParam } = await searchParams;
-  const [templates, clients] = await Promise.all([
-    listTemplateOptions(),
+  const [templates, hasAnyTemplates, clients] = await Promise.all([
+    listTemplateOptions({ status: "active" }),
+    listTemplateOptions().then((all) => all.length > 0),
     listClients(),
   ]);
 
@@ -98,17 +99,20 @@ export default async function NewDocumentTemplatePickerPage({
       {templates.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
           <p className="text-sm font-medium text-slate-900 mb-1">
-            Aún no tienes machotes disponibles
+            {hasAnyTemplates
+              ? "No tienes machotes activos"
+              : "Aún no tienes machotes disponibles"}
           </p>
           <p className="text-xs text-slate-500 mb-6">
-            Para crear una escritura primero necesitas un machote con sus
-            campos configurados.
+            {hasAnyTemplates
+              ? "Solo se pueden crear escrituras a partir de machotes activos. Activa un machote desde su edición para poder usarlo."
+              : "Para crear una escritura primero necesitas un machote con sus campos configurados."}
           </p>
           <Link
-            href="/dashboard/templates/new"
+            href={hasAnyTemplates ? "/dashboard/templates" : "/dashboard/templates/new"}
             className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
-            Crear machote
+            {hasAnyTemplates ? "Ver machotes" : "Crear machote"}
           </Link>
         </div>
       ) : (
