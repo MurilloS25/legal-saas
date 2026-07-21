@@ -58,6 +58,14 @@ const BORDERS = {
   insideVertical: BORDER,
 };
 
+// El interlineado fijo (24pt exacto) y la alineación justificada del cuerpo
+// documental (`FIXED_BODY_LINE_SPACING`/`FIXED_BODY_ALIGNMENT`,
+// `formatting.ts`) no se aplican aquí a propósito: este documento no tiene
+// párrafos de cuerpo con texto que fluye — es un título, una tabla y un pie,
+// todos de una sola línea y explícitamente centrados. Justificar una sola
+// línea no tiene efecto visible, y esa centrado es la estructura correcta
+// para este documento, no una excepción a romper.
+
 type Input = {
   rows: readonly NotarialIndexRow[];
   selection: FortnightSelection;

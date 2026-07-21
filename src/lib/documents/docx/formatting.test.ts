@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   centimetersToTwip,
   DOCX_DEFAULT_FORMATTING,
+  FIXED_BODY_ALIGNMENT,
+  FIXED_BODY_LINE_SPACING,
   LEGAL_PAGE_SIZE_TWIPS,
   lineSpacingToDocx,
   pointsToHalfPoints,
@@ -78,6 +80,22 @@ describe("LEGAL_PAGE_SIZE_TWIPS", () => {
   it("is 8.5 x 14 inches in twips", () => {
     expect(LEGAL_PAGE_SIZE_TWIPS.width).toBe(12240);
     expect(LEGAL_PAGE_SIZE_TWIPS.height).toBe(20160);
+  });
+});
+
+describe("FIXED_BODY_LINE_SPACING", () => {
+  it("is exactly 24pt (480 twentieths of a point)", () => {
+    expect(FIXED_BODY_LINE_SPACING.line).toBe(480);
+  });
+
+  it("uses the exactly rule, not auto or atLeast", () => {
+    expect(FIXED_BODY_LINE_SPACING.lineRule).toBe("exactly");
+  });
+});
+
+describe("FIXED_BODY_ALIGNMENT", () => {
+  it("is justified", () => {
+    expect(FIXED_BODY_ALIGNMENT).toBe("both");
   });
 });
 
