@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
+import { templateStatusLabel } from "@/features/templates/model/templates";
 import { listClients } from "@/features/clients/server";
 import { buildFillableFields } from "@/features/templates";
 import { resolveTemplateContent } from "@/lib/editor/content";
@@ -27,6 +28,36 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
   const template = await getTemplateById(templateId);
 
   if (!template) notFound();
+
+  if (template.status !== "active") {
+    return (
+      <PageContainer>
+        <nav aria-label="Breadcrumb" className="mb-6">
+          <Link
+            href="/dashboard/documents/new"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+          >
+            Nueva escritura
+          </Link>
+        </nav>
+        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
+          <p className="text-sm font-medium text-slate-900 mb-1">
+            Este machote no está activo
+          </p>
+          <p className="text-xs text-slate-500 mb-6">
+            Su estado actual es &ldquo;{templateStatusLabel(template.status)}&rdquo;. Solo
+            se pueden crear escrituras a partir de machotes activos.
+          </p>
+          <Link
+            href="/dashboard/documents/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+          >
+            Elegir otro machote
+          </Link>
+        </div>
+      </PageContainer>
+    );
+  }
 
   const { document, templateText } = resolveTemplateContent(
     template.content_json,

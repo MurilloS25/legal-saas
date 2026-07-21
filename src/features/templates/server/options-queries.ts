@@ -2,6 +2,7 @@ import "server-only";
 
 import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
+import type { TemplateStatus } from "../model/templates";
 
 export type TemplateOption = {
   id: string;
@@ -11,13 +12,23 @@ export type TemplateOption = {
   updated_at: string;
 };
 
-export async function listTemplateOptions(): Promise<TemplateOption[]> {
+export type ListTemplateOptionsFilter = {
+  /** Si se indica, solo devuelve machotes con ese estado exacto. */
+  status?: TemplateStatus;
+};
+
+export async function listTemplateOptions(
+  filter: ListTemplateOptionsFilter = {},
+): Promise<TemplateOption[]> {
   const { supabase, user } = await requireUser();
-  const { data, error } = await supabase
+  let request = supabase
     .from("templates")
     .select("id, name, description, status, updated_at")
-    .eq("owner_id", user.id)
-    .order("updated_at", { ascending: false });
+    .eq("owner_id", user.id);
+
+  if (filter.status) request = request.eq("status", filter.status);
+
+  const { data, error } = await request.order("updated_at", { ascending: false });
 
   if (error) throwDataAccessError("list template options", error);
   return data ?? [];
