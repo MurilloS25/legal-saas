@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   CleanupRegistry,
   createTestDocument,
@@ -46,23 +46,31 @@ function documentRegion(page: Page) {
 }
 
 /**
- * Campo del panel de datos. Se delimita a la región del panel porque las
- * variables pendientes de la hoja también llevan la clave en su aria-label.
+ * Valor crudo persistido para una variable: el input oculto que el
+ * formulario envía en el submit, única fuente de verdad ya que el panel de
+ * datos ya no lista los campos uno a uno.
  */
-function panelField(page: Page, label: string | RegExp) {
-  return page
-    .getByRole("region", { name: "Datos de la escritura" })
-    .getByLabel(label);
+function fieldValue(page: Page, key: string) {
+  return page.locator(`input[name="${key}"]`);
 }
 
 /**
- * Llena un campo y espera a que la hoja refleje el valor en vivo. El bloque
- * se reintenta completo: si el primer fill ocurre antes de la hidratación
- * de React, el siguiente intento lo corrige.
+ * Llena una variable directamente en la hoja documental (edición inline) y
+ * espera a que el valor se refleje en vivo. El bloque se reintenta completo:
+ * si el primer clic/fill ocurre antes de la hidratación de React, el
+ * siguiente intento lo corrige.
  */
-async function fillFieldLive(page: Page, field: Locator, value: string) {
+async function fillFieldLive(page: Page, key: string, value: string) {
   await expect(async () => {
-    await field.fill(value);
+    await documentRegion(page)
+      .locator(`[data-variable-key="${key}"]`)
+      .first()
+      .click();
+    const input = documentRegion(page).locator(
+      `input[data-variable-key="${key}"]`,
+    );
+    await input.fill(value);
+    await input.blur();
     await expect(
       documentRegion(page).getByText(value).first(),
     ).toBeVisible({ timeout: 2_000 });
@@ -129,7 +137,7 @@ test.describe("document composer workspace", () => {
     // El compositor: documento como zona principal + panel de datos.
     await expect(documentRegion(page)).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Datos de la escritura" }),
+      page.getByRole("region", { name: "Datos de la Escritura" }),
     ).toBeVisible();
 
     // The title is pre-generated from the template name.
@@ -143,13 +151,13 @@ test.describe("document composer workspace", () => {
     ).toBeVisible();
 
     // Al escribir, el documento se actualiza ANTES de guardar.
-    await fillFieldLive(page, panelField(page, new RegExp(fieldLabel)), filledValue);
+    await fillFieldLive(page, fieldKey, filledValue);
     await expect(
       page.getByText("Cambios sin guardar").first(),
     ).toBeVisible();
 
     // Progreso sobre los campos (configurado + derivado del contenido).
-    await expect(page.getByText("1 de 2 campos completados")).toBeVisible();
+    await expect(page.getByText("1 de 2 campos completos")).toBeVisible();
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
@@ -203,7 +211,7 @@ test.describe("document composer workspace", () => {
     ).toBeVisible();
     await page.goBack();
     await expect(
-      page.getByRole("region", { name: "Datos de la escritura" }),
+      page.getByRole("region", { name: "Datos de la Escritura" }),
     ).toBeVisible();
 
     const historyTrigger = page.getByRole("button", { name: "Historial" });
@@ -235,12 +243,10 @@ test.describe("document composer workspace", () => {
       timeout: 15_000,
     });
 
-    // Existing values are loaded into the panel.
-    await expect(panelField(page, new RegExp(fieldLabel))).toHaveValue(
-      filledValue,
-    );
+    // Existing values are loaded, mirrored in the hidden form input.
+    await expect(fieldValue(page, fieldKey)).toHaveValue(filledValue);
 
-    await fillFieldLive(page, panelField(page, new RegExp(fieldLabel)), editedValue);
+    await fillFieldLive(page, fieldKey, editedValue);
     // El snapshot persistido no cambia hasta guardar.
     await expect(page.getByText("Cambios sin guardar").first()).toBeVisible();
 
@@ -248,8 +254,8 @@ test.describe("document composer workspace", () => {
     await page.getByLabel("Título de la escritura").fill(editedDraftTitle);
 
     // Completa también la variable derivada del contenido.
-    await fillFieldLive(page, panelField(page, new RegExp(derivedKey)), "ABC-123");
-    await expect(page.getByText("2 de 2 campos completados")).toBeVisible();
+    await fillFieldLive(page, derivedKey, "ABC-123");
+    await expect(page.getByText("2 de 2 campos completos")).toBeVisible();
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
@@ -277,9 +283,7 @@ test.describe("document composer workspace", () => {
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
       editedDraftTitle,
     );
-    await expect(panelField(page, new RegExp(fieldLabel))).toHaveValue(
-      editedValue,
-    );
+    await expect(fieldValue(page, fieldKey)).toHaveValue(editedValue);
     await expect(
       documentRegion(page).getByText(/Cliente Editado 007 \(cero inicial: 012\)/),
     ).toBeVisible();
@@ -288,14 +292,23 @@ test.describe("document composer workspace", () => {
   test("G: an empty required field blocks saving", async ({ page }) => {
     await page.goto(draftPath);
 
-    const requiredField = panelField(page, new RegExp(fieldLabel));
-    await expect(requiredField).toHaveValue(editedValue, { timeout: 15_000 });
+    await expect(fieldValue(page, fieldKey)).toHaveValue(editedValue, {
+      timeout: 15_000,
+    });
 
     // El comportamiento de placeholders ya está cubierto arriba; aquí el
     // contrato crítico es que un campo requerido vacío bloquea el guardado.
     await expect(async () => {
-      await requiredField.fill("");
-      await expect(requiredField).toHaveValue("", { timeout: 2_000 });
+      await documentRegion(page)
+        .locator(`[data-variable-key="${fieldKey}"]`)
+        .first()
+        .click();
+      const input = documentRegion(page).locator(
+        `input[data-variable-key="${fieldKey}"]`,
+      );
+      await input.fill("");
+      await input.blur();
+      await expect(fieldValue(page, fieldKey)).toHaveValue("", { timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
@@ -332,11 +345,7 @@ test.describe("document composer workspace", () => {
     await expect(
       page.getByText(/no tiene campos definidos/),
     ).not.toBeVisible();
-    await fillFieldLive(
-      page,
-      panelField(page, /poderdante\.nombre/),
-      "Poderdante de Prueba",
-    );
+    await fillFieldLive(page, "poderdante.nombre", "Poderdante de Prueba");
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
@@ -410,11 +419,7 @@ test.describe("document composer workspace", () => {
     await expect(sheet.locator("em", { hasText: "Otorgado en" })).toBeVisible();
     await expect(sheet.locator("u", { hasText: "San José" })).toBeVisible();
 
-    await fillFieldLive(
-      page,
-      panelField(page, /otorgante\.nombre/),
-      "Otorgante Estructurado",
-    );
+    await fillFieldLive(page, "otorgante.nombre", "Otorgante Estructurado");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Escritura guardada como borrador", { exact: true }),
@@ -447,11 +452,11 @@ test.describe("document composer workspace", () => {
     );
 
     await page.goto(`/dashboard/documents/${historyDraft.id}`);
-    // El campo huérfano ya no es editable.
-    await expect(panelField(page, /dato\.dos/)).not.toBeVisible();
+    // El campo huérfano ya no es editable: ni siquiera se envía en el form.
+    await expect(fieldValue(page, "dato.dos")).toHaveCount(0);
 
     // Guardar con un cambio no borra el valor histórico.
-    await fillFieldLive(page, panelField(page, /dato\.uno/), "Valor Uno B");
+    await fillFieldLive(page, "dato.uno", "Valor Uno B");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
@@ -463,7 +468,7 @@ test.describe("document composer workspace", () => {
       "Acta con {{dato.uno}} y {{dato.dos}}.",
     );
     await page.goto(`/dashboard/documents/${historyDraft.id}`);
-    await expect(panelField(page, /dato\.dos/)).toHaveValue("Valor Dos");
+    await expect(fieldValue(page, "dato.dos")).toHaveValue("Valor Dos");
   });
 
   test("M: mobile viewport switches between data and document", async ({

@@ -22,10 +22,18 @@ const fieldLabel = "Nombre del comprador";
 
 let clientId = "";
 
-function panelField(page: Page, label: string | RegExp) {
-  return page
-    .getByRole("region", { name: "Datos de la escritura" })
-    .getByLabel(label);
+function documentRegion(page: Page) {
+  return page.getByRole("region", { name: "Documento", exact: true });
+}
+
+async function fillInlineField(page: Page, key: string, value: string) {
+  await documentRegion(page)
+    .locator(`[data-variable-key="${key}"]`)
+    .first()
+    .click();
+  const input = documentRegion(page).locator(`input[data-variable-key="${key}"]`);
+  await input.fill(value);
+  await input.blur();
 }
 
 test.describe("document ↔ client relationship", () => {
@@ -90,7 +98,7 @@ test.describe("document ↔ client relationship", () => {
       clientId,
     );
 
-    await panelField(page, new RegExp(fieldLabel)).fill("Cliente Prueba");
+    await fillInlineField(page, "comprador.nombre", "Cliente Prueba");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
@@ -174,7 +182,7 @@ test.describe("document ↔ client relationship", () => {
     await page
       .getByLabel("Cliente principal (opcional)")
       .selectOption({ label: clientName });
-    await panelField(page, new RegExp(fieldLabel)).fill("Otro Cliente");
+    await fillInlineField(page, "comprador.nombre", "Otro Cliente");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(

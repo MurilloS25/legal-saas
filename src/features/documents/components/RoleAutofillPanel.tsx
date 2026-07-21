@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * "Partes del documento": para cada rol (`rol.dato`) detectado —
+ * "Completar desde Clientes": para cada rol (`rol.dato`) detectado —
  * automáticamente por alias conocidos o por configuración explícita del
  * Machote— muestra un selector searchable de Cliente y copia sus datos
  * hacia las variables de ese rol.
@@ -174,9 +174,9 @@ export function RoleAutofillPanel({ groups, clients, values, readOnly, onApply }
   if (autofillableGroups.length === 0) return null;
 
   return (
-    <section aria-label="Partes del documento" className="space-y-3">
+    <section aria-label="Completar desde Clientes" className="space-y-3">
       <h2 className="text-sm font-semibold text-slate-900">
-        Partes del documento
+        Completar desde Clientes
       </h2>
       {autofillableGroups.map((group) => (
         <RoleBlock

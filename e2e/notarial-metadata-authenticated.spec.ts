@@ -138,9 +138,15 @@ test.describe("notarial index metadata", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await page
-      .getByRole("region", { name: "Datos de la escritura" })
-      .getByLabel("Parte")
-      .fill("Persona Uno Actualizada");
+      .getByRole("region", { name: "Documento", exact: true })
+      .locator('[data-variable-key="parte.nombre"]')
+      .first()
+      .click();
+    const inlineInput = page
+      .getByRole("region", { name: "Documento", exact: true })
+      .locator('input[data-variable-key="parte.nombre"]');
+    await inlineInput.fill("Persona Uno Actualizada");
+    await inlineInput.blur();
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await page.getByRole("button", { name: "Finalizar escritura" }).click();

@@ -27,8 +27,12 @@ let historicalReadyId = "";
 async function open(page: Page, id: string) {
   await page.goto(`/dashboard/documents/${id}`);
   await expect(
-    page.getByRole("region", { name: "Datos de la escritura" }),
+    page.getByRole("region", { name: "Datos de la Escritura" }),
   ).toBeVisible();
+}
+
+function documentRegion(page: Page) {
+  return page.getByRole("region", { name: "Documento", exact: true });
 }
 
 test.describe("document lifecycle statuses", () => {
@@ -156,9 +160,6 @@ test.describe("document lifecycle statuses", () => {
 
   test("F: unsaved changes block a status change", async ({ page }) => {
     await open(page, completeId);
-    const field = page
-      .getByRole("region", { name: "Datos de la escritura" })
-      .getByLabel(new RegExp(fieldLabel));
     const finalButton = page.getByRole("button", {
       name: "Finalizar escritura",
     });
@@ -166,7 +167,15 @@ test.describe("document lifecycle statuses", () => {
     // Reintenta el fill hasta que el gate se active, por si el primer intento
     // ocurre antes de la hidratación (dirty no se dispararía).
     await expect(async () => {
-      await field.fill("Persona Editada");
+      await documentRegion(page)
+        .locator('[data-variable-key="parte.nombre"]')
+        .first()
+        .click();
+      const input = documentRegion(page).locator(
+        'input[data-variable-key="parte.nombre"]',
+      );
+      await input.fill("Persona Editada");
+      await input.blur();
       await expect(finalButton).toBeDisabled({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
 

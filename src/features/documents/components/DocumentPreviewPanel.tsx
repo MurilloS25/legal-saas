@@ -6,7 +6,6 @@ import type { DocumentMobileView } from "../hooks/use-document-layout";
 
 type Props = {
   dirty: boolean;
-  highlightKey?: string;
   mobileView: DocumentMobileView;
   model: DocumentModel;
   templateName: string;
@@ -21,7 +20,6 @@ type Props = {
 
 export function DocumentPreviewPanel({
   dirty,
-  highlightKey,
   mobileView,
   model,
   templateName,
@@ -61,7 +59,6 @@ export function DocumentPreviewPanel({
           pendingVariableDisplay="placeholder"
           emptyMessage="El machote no tiene contenido."
           aria-labelledby="composer-document-heading"
-          highlightKey={highlightKey}
           values={values}
           editingKey={editingKey}
           onStartEdit={onStartEdit}

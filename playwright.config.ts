@@ -160,6 +160,18 @@ export default defineConfig({
       dependencies: ["chromium-document-inline-editing"],
     },
 
+    // Simplified document data sidebar (progress + "Siguiente pendiente") —
+    // authenticated.
+    {
+      name: "chromium-document-data-sidebar",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-data-sidebar-authenticated\.spec\.ts/,
+      dependencies: ["chromium-document-option-blocks"],
+    },
+
     // Document DOCX download — authenticated.
     {
       name: "chromium-documents-docx",
@@ -168,7 +180,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-docx-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-option-blocks"],
+      dependencies: ["chromium-document-data-sidebar"],
     },
 
     // Document ↔ client relationship — authenticated.

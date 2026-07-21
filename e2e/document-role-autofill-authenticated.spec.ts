@@ -10,7 +10,7 @@ import {
 } from "./support/factories";
 
 /**
- * "Partes del documento": autollenado automático de roles (`rol.dato`)
+ * "Completar desde Clientes": autollenado automático de roles (`rol.dato`)
  * desde un Cliente registrado, sin exigir configuración manual en el
  * Machote, con selector searchable y reflejo en la previsualización vía la
  * transformación de salida configurada.
@@ -34,14 +34,27 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-function panelField(page: Page, label: string | RegExp) {
-  return page
-    .getByRole("region", { name: "Datos de la escritura" })
-    .getByLabel(label);
+/**
+ * Valor crudo persistido para una variable: el input oculto que el
+ * formulario envía en el submit, única fuente de verdad ya que el panel de
+ * datos ya no lista los campos uno a uno.
+ */
+function fieldValue(page: Page, key: string) {
+  return page.locator(`input[name="${key}"]`);
+}
+
+async function fillInlineField(page: Page, key: string, value: string) {
+  await documentRegion(page)
+    .locator(`[data-variable-key="${key}"]`)
+    .first()
+    .click();
+  const input = documentRegion(page).locator(`input[data-variable-key="${key}"]`);
+  await input.fill(value);
+  await input.blur();
 }
 
 function partsSection(page: Page) {
-  return page.getByRole("region", { name: "Partes del documento" });
+  return page.getByRole("region", { name: "Completar desde Clientes" });
 }
 
 function roleBlock(page: Page, role: string) {
@@ -131,7 +144,6 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
-    await expect(panelField(page, "Comprador - Nombre")).toBeVisible();
     await expect(
       partsSection(page).getByRole("heading", { name: "Comprador" }),
     ).toBeVisible();
@@ -142,16 +154,16 @@ test.describe("document role autofill", () => {
     await completeRoleFromClient(page, "Comprador", buyerName);
 
     // Los valores copiados son crudos (sin transformar) y editables.
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(buyerName);
-    await expect(panelField(page, "Comprador - Cédula")).toHaveValue(
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(buyerName);
+    await expect(fieldValue(page, "comprador.cedula")).toHaveValue(
       buyerIdentification,
     );
-    await expect(panelField(page, "Comprador - Dirección")).toHaveValue(
+    await expect(fieldValue(page, "comprador.direccion")).toHaveValue(
       buyerAddress,
     );
     // El rol Vendedor no se tocó.
-    await expect(panelField(page, "Vendedor - Nombre completo")).toHaveValue("");
-    await expect(panelField(page, "Vendedor - Identificación")).toHaveValue("");
+    await expect(fieldValue(page, "vendedor.nombre_completo")).toHaveValue("");
+    await expect(fieldValue(page, "vendedor.identificacion")).toHaveValue("");
 
     // La hoja documental muestra la transformación aplicada en render, no el
     // valor crudo.
@@ -174,11 +186,11 @@ test.describe("document role autofill", () => {
     // Ahora completa Vendedor con el mismo Cliente usado en Comprador — se
     // permite reutilizar el mismo Cliente en varios roles.
     await completeRoleFromClient(page, "Vendedor", buyerName);
-    await expect(panelField(page, "Vendedor - Nombre completo")).toHaveValue(
+    await expect(fieldValue(page, "vendedor.nombre_completo")).toHaveValue(
       buyerName,
     );
     // Comprador sigue intacto.
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(buyerName);
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(buyerName);
 
     // Completa Vendedor de nuevo, ahora con el segundo Cliente — cada rol
     // funciona de forma independiente y no requiere confirmación porque el
@@ -187,18 +199,18 @@ test.describe("document role autofill", () => {
     // que aquí confirmamos directamente el reemplazo.
     await completeRoleFromClient(page, "Vendedor", sellerName);
     await page.getByRole("button", { name: "Reemplazar campos" }).click();
-    await expect(panelField(page, "Vendedor - Nombre completo")).toHaveValue(
+    await expect(fieldValue(page, "vendedor.nombre_completo")).toHaveValue(
       sellerName,
     );
-    await expect(panelField(page, "Vendedor - Identificación")).toHaveValue(
+    await expect(fieldValue(page, "vendedor.identificacion")).toHaveValue(
       sellerIdentification,
     );
     // Comprador nunca cambió.
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(buyerName);
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(buyerName);
 
     // Los campos siguen editables tras el autollenado.
-    await panelField(page, "Comprador - Nombre").fill(`${buyerName} (editado)`);
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(
+    await fillInlineField(page, "comprador.nombre", `${buyerName} (editado)`);
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       `${buyerName} (editado)`,
     );
 
@@ -219,13 +231,13 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       `${buyerName} (editado)`,
     );
-    await expect(panelField(page, "Comprador - Cédula")).toHaveValue(
+    await expect(fieldValue(page, "comprador.cedula")).toHaveValue(
       buyerIdentification,
     );
-    await expect(panelField(page, "Vendedor - Nombre completo")).toHaveValue(
+    await expect(fieldValue(page, "vendedor.nombre_completo")).toHaveValue(
       sellerName,
     );
     await expect(
@@ -252,14 +264,14 @@ test.describe("document role autofill", () => {
     // Cancelar no modifica el valor editado manualmente.
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect(dialog).not.toBeVisible();
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       `${buyerName} (editado)`,
     );
 
     // Confirmar sí reemplaza los campos mapeados.
     await completeRoleFromClient(page, "Comprador", buyerName);
     await page.getByRole("button", { name: "Reemplazar campos" }).click();
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(buyerName);
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(buyerName);
   });
 
   test("E: 'Limpiar selección' clears only the visual reference, never the copied values", async ({
@@ -283,7 +295,7 @@ test.describe("document role autofill", () => {
       ),
     ).not.toBeVisible();
     // Los valores copiados no se borran.
-    await expect(panelField(page, "Comprador - Nombre")).toHaveValue(buyerName);
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(buyerName);
   });
 
   test("F: the document's main client selector is unaffected by role autofill", async ({

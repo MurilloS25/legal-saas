@@ -54,7 +54,7 @@ export function toVariableAutofillSource(raw: string): VariableAutofillSource {
 // Única fuente de verdad para reconocer el "dato" de una clave `rol.dato`
 // (p. ej. `vendedor.nombre_completo`) sin exigir configuración manual en el
 // Machote. La usan tanto la sugerencia editable del panel de Variables como
-// la detección automática de "Partes del documento" en la Escritura — no
+// la detección automática de "Completar desde Clientes" en la Escritura — no
 // hay una segunda tabla de alias en ningún otro lugar.
 
 /** Quita diacríticos (tildes, diéresis) preservando el resto del texto. */
