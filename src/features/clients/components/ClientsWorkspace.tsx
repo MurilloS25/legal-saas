@@ -1,11 +1,30 @@
 import { PageContainer } from "@/components/layout/PageContainer";
+import { TablePagination } from "@/components/ui/TablePagination";
 import Link from "next/link";
 import type { ClientRow } from "../model/types";
 import { ClientsTable } from "./ClientsTable";
 
 // ------------------------------------------------------------------ page
 
-export function ClientsWorkspace({ clients }: { clients: ClientRow[] }) {
+type Props = {
+  clients: ClientRow[];
+  page: number;
+  pageCount: number;
+  total: number;
+  pageSize: number;
+  pageHref: (page: number) => string;
+};
+
+export function ClientsWorkspace({
+  clients,
+  page,
+  pageCount,
+  total,
+  pageSize,
+  pageHref,
+}: Props) {
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, total);
   return (
     <PageContainer>
       {/* ---- header ---- */}
@@ -44,7 +63,7 @@ export function ClientsWorkspace({ clients }: { clients: ClientRow[] }) {
       </div>
 
       {/* ---- empty state ---- */}
-      {clients.length === 0 ? (
+      {total === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
             <svg
@@ -84,14 +103,12 @@ export function ClientsWorkspace({ clients }: { clients: ClientRow[] }) {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <ClientsTable rows={clients} />
 
-          {/* Row count footer */}
-          <div className="border-t border-slate-100 bg-slate-50 px-6 py-3">
-            <p className="text-xs text-slate-500">
-              {clients.length === 1
-                ? "1 cliente registrado"
-                : `${clients.length} clientes registrados`}
-            </p>
-          </div>
+          <TablePagination
+            page={page}
+            pageCount={pageCount}
+            countLabel={`${rangeStart}–${rangeEnd} de ${total}`}
+            pageHref={pageHref}
+          />
         </div>
       )}
     </PageContainer>

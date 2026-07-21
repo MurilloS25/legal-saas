@@ -1,7 +1,7 @@
 import "server-only";
 
-export { listTemplates } from "./server/workspace-queries";
-export type { TemplateListRow } from "./server/workspace-queries";
+export { listTemplates, listTemplatesPage } from "./server/workspace-queries";
+export type { TemplateListRow, TemplatesPage } from "./server/workspace-queries";
 export {
   getTemplateById,
   listTemplateFields,

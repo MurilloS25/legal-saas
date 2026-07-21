@@ -23,3 +23,9 @@ export {
   TEMPLATE_STATUS,
 } from "./model/templates";
 export type { TemplateStatus } from "./model/templates";
+export {
+  parseTemplatesQuery,
+  templatesQueryToParams,
+  TEMPLATES_PAGE_SIZE,
+} from "./model/workspace-query";
+export type { RawTemplatesQuery, TemplatesQuery } from "./model/workspace-query";

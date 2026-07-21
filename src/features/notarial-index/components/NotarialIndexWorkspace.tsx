@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { NotarialToolbar } from "./NotarialToolbar";
 import { NotarialIndexTable } from "./NotarialIndexTable";
 import {
@@ -136,28 +137,12 @@ export function NotarialIndexWorkspace({
             total={page.total}
           />
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-3">
-            <p className="text-xs text-slate-500">{`${rangeStart}–${rangeEnd} de ${page.total}`}</p>
-            {page.pageCount > 1 && (
-              <nav aria-label="Paginación" className="flex items-center gap-2">
-                {query.page > 1 ? (
-                  <Link href={pageHref(query.page - 1)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors">
-                    Anterior
-                  </Link>
-                ) : (
-                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-300">Anterior</span>
-                )}
-                <span className="text-xs text-slate-500">Página {query.page} de {page.pageCount}</span>
-                {query.page < page.pageCount ? (
-                  <Link href={pageHref(query.page + 1)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors">
-                    Siguiente
-                  </Link>
-                ) : (
-                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-300">Siguiente</span>
-                )}
-              </nav>
-            )}
-          </div>
+          <TablePagination
+            page={query.page}
+            pageCount={page.pageCount}
+            countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
+            pageHref={pageHref}
+          />
         </div>
       )}
     </PageContainer>
