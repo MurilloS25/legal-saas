@@ -10,6 +10,7 @@ import "server-only";
  */
 
 import {
+  AlignmentType,
   convertInchesToTwip,
   convertMillimetersToTwip,
   LineRuleType,
@@ -53,6 +54,10 @@ export const LEGAL_PAGE_SIZE_TWIPS = {
 const HALF_POINTS_PER_POINT = 2;
 /** Twentieths de punto por unidad de interlineado "sencillo" (100%). */
 const LINE_SPACING_UNIT = 240;
+/** Twentieths de punto por punto — unidad de `spacing.line` en `docx`. */
+const TWENTIETHS_PER_POINT = 20;
+/** 24pt exactos, en twentieths de punto. */
+const FIXED_BODY_LINE_SPACING_PT = 24;
 
 /** Centímetros (márgenes, tal como los ingresa el usuario) → twips. */
 export function centimetersToTwip(valueCm: number): number {
@@ -88,6 +93,21 @@ export function lineSpacingToDocx(value: number): {
     lineRule: LineRuleType.AUTO,
   };
 }
+
+/**
+ * Interlineado fijo del cuerpo documental: exactamente 24pt con regla
+ * "exactly" — una medida absoluta, no un múltiplo de la fuente ("auto").
+ * Deliberadamente independiente de `DocumentFormattingPreferences.lineSpacing`
+ * (ajuste puntual: el interlineado del DOCX generado ya no varía con lo
+ * configurado en Configuración).
+ */
+export const FIXED_BODY_LINE_SPACING = {
+  line: FIXED_BODY_LINE_SPACING_PT * TWENTIETHS_PER_POINT,
+  lineRule: LineRuleType.EXACTLY,
+} as const;
+
+/** Alineación fija del cuerpo documental: justificada. */
+export const FIXED_BODY_ALIGNMENT = AlignmentType.JUSTIFIED;
 
 function isAllowedFontFamily(value: unknown): value is AllowedFontFamily {
   return (

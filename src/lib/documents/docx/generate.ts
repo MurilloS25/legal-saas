@@ -105,6 +105,7 @@ export async function generateDocumentDocx(
             size: section.fontHalfPoints,
           },
           paragraph: {
+            alignment: section.paragraph.alignment,
             spacing: {
               line: section.paragraph.line,
               lineRule: section.paragraph.lineRule,

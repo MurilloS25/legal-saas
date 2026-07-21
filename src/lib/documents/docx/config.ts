@@ -3,15 +3,18 @@
  *
  * Traduce las preferencias de formato del usuario (`DocumentFormattingPreferences`,
  * ver `formatting.ts`) a las unidades y estructura que espera `docx`: página
- * Legal vertical, márgenes en twips, fuente y tamaño en medios puntos,
- * interlineado con `lineRule` explícito. Único lugar que arma esta
- * traducción para no repartir estilos por varias funciones.
+ * Legal vertical, márgenes en twips, fuente y tamaño en medios puntos.
+ * Interlineado y alineación del cuerpo son fijos (24pt exacto, justificado —
+ * ver `FIXED_BODY_LINE_SPACING`/`FIXED_BODY_ALIGNMENT` en `formatting.ts`),
+ * no derivados de la preferencia de interlineado guardada. Único lugar que
+ * arma esta traducción para no repartir estilos por varias funciones.
  */
 
 import {
   centimetersToTwip,
+  FIXED_BODY_ALIGNMENT,
+  FIXED_BODY_LINE_SPACING,
   LEGAL_PAGE_SIZE_TWIPS,
-  lineSpacingToDocx,
   pointsToHalfPoints,
   type DocumentFormattingPreferences,
 } from "./formatting";
@@ -34,8 +37,9 @@ export function buildDocxSectionConfig(prefs: DocumentFormattingPreferences) {
     fontFamily: prefs.fontFamily,
     fontHalfPoints: pointsToHalfPoints(prefs.fontSizePt),
     paragraph: {
-      ...lineSpacingToDocx(prefs.lineSpacing),
+      ...FIXED_BODY_LINE_SPACING,
       after: PARAGRAPH_SPACING_AFTER_TWIPS,
+      alignment: FIXED_BODY_ALIGNMENT,
     },
   } as const;
 }
