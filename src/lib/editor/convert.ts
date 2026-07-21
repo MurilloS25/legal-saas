@@ -21,10 +21,11 @@ import type {
   TemplateDocument,
   TemplateInlineNode,
   TemplateParagraphNode,
+  TemplateVariantContentNode,
 } from "./types";
 import { emptyTemplateDocument } from "./types";
 
-function lineToInlineNodes(line: string): TemplateInlineNode[] {
+export function lineToInlineNodes(line: string): TemplateInlineNode[] {
   const nodes: TemplateInlineNode[] = [];
   let lastIndex = 0;
 
@@ -62,10 +63,25 @@ export function legacyTextToDocument(text: string): TemplateDocument {
   return { type: "doc", content: paragraphs };
 }
 
+export function serializeSimpleNode(node: TemplateVariantContentNode): string {
+  switch (node.type) {
+    case "text":
+      return node.text;
+    case "templateVariable":
+      return `{{${node.attrs.key}}}`;
+    case "hardBreak":
+      return "\n";
+  }
+}
+
 /**
  * Serializa el documento a la sintaxis de compatibilidad con `{{key}}`.
  * Es el texto que se guarda como respaldo legacy y el que consumen las
- * utilidades textuales existentes.
+ * utilidades textuales existentes (incluida la extracción de variables
+ * usadas por un machote). Un Bloque de opciones serializa TODAS sus
+ * variantes (no solo la predeterminada): así cada variable referenciada en
+ * cualquier variante queda registrada como campo llenable, sin importar
+ * cuál variante se elija después en la Escritura.
  */
 export function serializeDocumentToTemplateText(
   document: TemplateDocument,
@@ -74,37 +90,48 @@ export function serializeDocumentToTemplateText(
     .map((paragraph) =>
       (paragraph.content ?? [])
         .map((node) => {
-          switch (node.type) {
-            case "text":
-              return node.text;
-            case "templateVariable":
-              return `{{${node.attrs.key}}}`;
-            case "hardBreak":
-              return "\n";
+          if (node.type === "optionBlock") {
+            return node.attrs.variants
+              .map((variant) => variant.content.map(serializeSimpleNode).join(""))
+              .join(" ");
           }
+          return serializeSimpleNode(node);
         })
         .join(""),
     )
     .join("\n");
 }
 
+function plainTextSimpleNode(node: TemplateVariantContentNode): string {
+  switch (node.type) {
+    case "text":
+      return node.text;
+    case "templateVariable":
+      return node.attrs.label?.trim() || node.attrs.key;
+    case "hardBreak":
+      return "\n";
+  }
+}
+
 /**
  * Texto plano para búsquedas o previews cortos: las variables se muestran
- * por su etiqueta (o su clave) sin llaves.
+ * por su etiqueta (o su clave) sin llaves. Un Bloque de opciones muestra
+ * solo su variante predeterminada (snippet legible, no las variantes
+ * concatenadas).
  */
 export function documentToPlainText(document: TemplateDocument): string {
   return document.content
     .map((paragraph) =>
       (paragraph.content ?? [])
         .map((node) => {
-          switch (node.type) {
-            case "text":
-              return node.text;
-            case "templateVariable":
-              return node.attrs.label?.trim() || node.attrs.key;
-            case "hardBreak":
-              return "\n";
+          if (node.type === "optionBlock") {
+            const variant =
+              node.attrs.variants.find(
+                (v) => v.id === node.attrs.defaultVariantId,
+              ) ?? node.attrs.variants[0];
+            return variant ? variant.content.map(plainTextSimpleNode).join("") : "";
           }
+          return plainTextSimpleNode(node);
         })
         .join(""),
     )

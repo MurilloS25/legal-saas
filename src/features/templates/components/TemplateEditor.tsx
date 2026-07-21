@@ -11,12 +11,14 @@
 
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
-import type { TemplateDocument } from "@/lib/editor/types";
+import type { TemplateDocument, TemplateOptionBlockAttrs } from "@/lib/editor/types";
 import { detectLegacyVariables } from "@/lib/editor/legacy-variables";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import { suggestAutofillSource } from "../model/variable-autofill";
 import { InsertVariableDialog } from "./InsertVariableDialog";
+import { OptionBlockDialog } from "./OptionBlockDialog";
 import {
   LegacyVariablesReviewDialog,
   type LegacyVariableSelection,
@@ -119,6 +121,10 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   const [legacyMatches, setLegacyMatches] = useState<
     ReturnType<typeof detectLegacyVariables>
   >([]);
+  const insertOptionBlockButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [optionBlockDialog, setOptionBlockDialog] = useState<
+    "closed" | "insert" | { mode: "edit"; pos: number; attrs: TemplateOptionBlockAttrs }
+  >("closed");
 
   const editor = useEditor({
     extensions: buildEditorExtensions(),
@@ -156,13 +162,25 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
 
   const editorState = useEditorState({
     editor,
-    selector: (context) => ({
-      bold: context.editor?.isActive("bold") ?? false,
-      italic: context.editor?.isActive("italic") ?? false,
-      underline: context.editor?.isActive("underline") ?? false,
-      canUndo: context.editor?.can().undo() ?? false,
-      canRedo: context.editor?.can().redo() ?? false,
-    }),
+    selector: (context) => {
+      const selection = context.editor?.state.selection;
+      const selectedOptionBlock =
+        selection instanceof NodeSelection &&
+        selection.node.type.name === "optionBlock"
+          ? {
+              pos: selection.from,
+              attrs: selection.node.attrs as TemplateOptionBlockAttrs,
+            }
+          : null;
+      return {
+        bold: context.editor?.isActive("bold") ?? false,
+        italic: context.editor?.isActive("italic") ?? false,
+        underline: context.editor?.isActive("underline") ?? false,
+        canUndo: context.editor?.can().undo() ?? false,
+        canRedo: context.editor?.can().redo() ?? false,
+        selectedOptionBlock,
+      };
+    },
   });
 
   function insertVariable(key: string, label?: string) {
@@ -173,6 +191,47 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   function closeDialog() {
     setDialogOpen(false);
     window.setTimeout(() => insertButtonRef.current?.focus(), 0);
+  }
+
+  function closeOptionBlockDialog() {
+    setOptionBlockDialog("closed");
+    window.setTimeout(() => insertOptionBlockButtonRef.current?.focus(), 0);
+  }
+
+  function saveOptionBlock(attrs: TemplateOptionBlockAttrs) {
+    if (!editor) return;
+    if (optionBlockDialog !== "closed" && optionBlockDialog !== "insert") {
+      // Edición: reemplaza los attrs del nodo en su posición capturada.
+      editor
+        .chain()
+        .focus()
+        .command(({ tr }) => {
+          tr.setNodeMarkup(optionBlockDialog.pos, undefined, attrs);
+          return true;
+        })
+        .run();
+    } else {
+      editor.chain().focus().insertOptionBlock(attrs).run();
+    }
+    closeOptionBlockDialog();
+  }
+
+  function deleteOptionBlock() {
+    if (!editor || optionBlockDialog === "closed" || optionBlockDialog === "insert") {
+      return;
+    }
+    const { pos } = optionBlockDialog;
+    editor
+      .chain()
+      .focus()
+      .command(({ tr }) => {
+        const node = tr.doc.nodeAt(pos);
+        if (!node) return false;
+        tr.delete(pos, pos + node.nodeSize);
+        return true;
+      })
+      .run();
+    closeOptionBlockDialog();
   }
 
   /**
@@ -356,7 +415,42 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           </svg>
           Insertar variable
         </button>
+
+        <button
+          type="button"
+          ref={insertOptionBlockButtonRef}
+          disabled={!editor}
+          onClick={() => setOptionBlockDialog("insert")}
+          className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-40 transition-colors"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="2" strokeDasharray="3 2" />
+          </svg>
+          Insertar bloque de opciones
+        </button>
       </div>
+
+      {editorState?.selectedOptionBlock && optionBlockDialog === "closed" && (
+        <div className="flex items-center justify-between gap-2 border-b border-accent-200 bg-accent-50 px-4 py-2">
+          <p className="text-xs text-accent-800">
+            Bloque seleccionado: <strong>{editorState.selectedOptionBlock.attrs.name}</strong>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (!editorState.selectedOptionBlock) return;
+              setOptionBlockDialog({
+                mode: "edit",
+                pos: editorState.selectedOptionBlock.pos,
+                attrs: editorState.selectedOptionBlock.attrs,
+              });
+            }}
+            className="rounded-md px-2.5 py-1 text-xs font-medium text-accent-800 hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+          >
+            Editar bloque
+          </button>
+        </div>
+      )}
 
       <EditorContent editor={editor} />
 
@@ -377,6 +471,17 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
             insertVariable(key, label);
           }}
           onClose={closeDialog}
+        />
+      )}
+
+      {optionBlockDialog !== "closed" && (
+        <OptionBlockDialog
+          initialAttrs={
+            optionBlockDialog === "insert" ? undefined : optionBlockDialog.attrs
+          }
+          onSave={saveOptionBlock}
+          onDelete={optionBlockDialog === "insert" ? undefined : deleteOptionBlock}
+          onClose={closeOptionBlockDialog}
         />
       )}
 

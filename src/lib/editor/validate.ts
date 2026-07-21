@@ -55,6 +55,7 @@ type Counters = {
   textLength: number;
   variableOccurrences: number;
   variableKeys: Set<string>;
+  optionBlocks: number;
 };
 
 function validateMarks(value: unknown): string | null {
@@ -78,7 +79,12 @@ function validateMarks(value: unknown): string | null {
   return null;
 }
 
-function validateInlineNode(
+/**
+ * Valida un nodo inline "simple" (texto, variable, salto de línea) — el
+ * mismo subconjunto permitido dentro del contenido de una variante de
+ * Bloque de opciones. No admite `optionBlock`: los bloques no se anidan.
+ */
+function validateSimpleInlineNode(
   value: unknown,
   counters: Counters,
 ): string | null {
@@ -173,6 +179,132 @@ function validateInlineNode(
   }
 }
 
+function validateOptionVariant(
+  value: unknown,
+  counters: Counters,
+  seenIds: Set<string>,
+): string | null {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ["id", "label", "content"])) {
+    return "Una variante del Bloque de opciones tiene atributos no permitidos.";
+  }
+
+  const id = value.id;
+  if (
+    typeof id !== "string" ||
+    id.length === 0 ||
+    id.length > TEMPLATE_DOC_LIMITS.maxVariableKeyLength ||
+    DANGEROUS_KEYS.has(id)
+  ) {
+    return "El id de una variante no es válido.";
+  }
+  if (seenIds.has(id)) {
+    return "El Bloque de opciones tiene variantes con id duplicado.";
+  }
+  seenIds.add(id);
+
+  const label = value.label;
+  if (
+    typeof label !== "string" ||
+    label.trim().length === 0 ||
+    label.length > TEMPLATE_DOC_LIMITS.maxOptionVariantLabelLength
+  ) {
+    return "La etiqueta de una variante no es válida.";
+  }
+
+  const content = value.content;
+  if (!Array.isArray(content)) {
+    return "El contenido de una variante debe ser una lista.";
+  }
+  for (const node of content) {
+    const error = validateSimpleInlineNode(node, counters);
+    if (error) return error;
+  }
+
+  return null;
+}
+
+/**
+ * Valida un nodo `optionBlock`: nombre, variantes (cada una con su propio
+ * contenido "simple", sin anidar otro Bloque) y que `defaultVariantId`
+ * apunte a una variante real del propio bloque.
+ */
+function validateOptionBlock(
+  value: Record<string, unknown>,
+  counters: Counters,
+): string | null {
+  if (!hasOnlyKeys(value, ["type", "attrs"])) {
+    return "El documento contiene atributos no permitidos.";
+  }
+  const attrs = value.attrs;
+  if (
+    !isPlainObject(attrs) ||
+    !hasOnlyKeys(attrs, ["blockId", "name", "variants", "defaultVariantId"])
+  ) {
+    return "El Bloque de opciones tiene atributos no permitidos.";
+  }
+
+  const blockId = attrs.blockId;
+  if (
+    typeof blockId !== "string" ||
+    blockId.length === 0 ||
+    blockId.length > TEMPLATE_DOC_LIMITS.maxVariableKeyLength ||
+    DANGEROUS_KEYS.has(blockId)
+  ) {
+    return "El id del Bloque de opciones no es válido.";
+  }
+
+  const name = attrs.name;
+  if (
+    typeof name !== "string" ||
+    name.trim().length === 0 ||
+    name.length > TEMPLATE_DOC_LIMITS.maxOptionBlockNameLength
+  ) {
+    return "El nombre del Bloque de opciones no es válido.";
+  }
+
+  const variants = attrs.variants;
+  if (
+    !Array.isArray(variants) ||
+    variants.length === 0 ||
+    variants.length > TEMPLATE_DOC_LIMITS.maxOptionVariantsPerBlock
+  ) {
+    return "El Bloque de opciones debe tener entre 1 y " +
+      `${TEMPLATE_DOC_LIMITS.maxOptionVariantsPerBlock} variantes.`;
+  }
+
+  const seenIds = new Set<string>();
+  for (const variant of variants) {
+    const error = validateOptionVariant(variant, counters, seenIds);
+    if (error) return error;
+  }
+
+  const defaultVariantId = attrs.defaultVariantId;
+  if (typeof defaultVariantId !== "string" || !seenIds.has(defaultVariantId)) {
+    return "La variante predeterminada del Bloque de opciones no es válida.";
+  }
+
+  counters.optionBlocks += 1;
+  if (counters.optionBlocks > TEMPLATE_DOC_LIMITS.maxOptionBlocksPerDocument) {
+    return "El documento tiene demasiados Bloques de opciones.";
+  }
+
+  return null;
+}
+
+function validateInlineNode(
+  value: unknown,
+  counters: Counters,
+): string | null {
+  if (isPlainObject(value) && value.type === "optionBlock") {
+    counters.nodes += 1;
+    if (counters.nodes > TEMPLATE_DOC_LIMITS.maxNodes) {
+      return "El documento tiene demasiados nodos.";
+    }
+    return validateOptionBlock(value, counters);
+  }
+  return validateSimpleInlineNode(value, counters);
+}
+
 function validateParagraph(value: unknown, counters: Counters): string | null {
   if (!isPlainObject(value) || value.type !== "paragraph") {
     return "El documento solo admite párrafos en el nivel superior.";
@@ -219,6 +351,7 @@ export function validateTemplateDocument(
     textLength: 0,
     variableOccurrences: 0,
     variableKeys: new Set(),
+    optionBlocks: 0,
   };
 
   for (const paragraph of value.content) {
