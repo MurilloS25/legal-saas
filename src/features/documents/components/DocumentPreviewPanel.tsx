@@ -16,6 +16,7 @@ type Props = {
   onStartEdit?: (key: string) => void;
   onChangeValue?: (key: string, value: string) => void;
   onStopEdit?: () => void;
+  onSelectVariant?: (blockId: string, variantId: string) => void;
 };
 
 export function DocumentPreviewPanel({
@@ -29,6 +30,7 @@ export function DocumentPreviewPanel({
   onStartEdit,
   onChangeValue,
   onStopEdit,
+  onSelectVariant,
 }: Props) {
   return (
     <section
@@ -65,6 +67,7 @@ export function DocumentPreviewPanel({
           onStartEdit={onStartEdit}
           onChangeValue={onChangeValue}
           onStopEdit={onStopEdit}
+          onSelectVariant={onSelectVariant}
         />
       </div>
     </section>

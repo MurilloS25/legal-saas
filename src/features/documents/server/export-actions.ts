@@ -10,6 +10,7 @@ import {
 } from "@/lib/documents/docx";
 import {
   DocumentIdSchema,
+  DocumentOptionSelectionsSchema,
   DocumentValuesSchema,
 } from "../model/document-schema";
 import { toVariableOutputTransform } from "@/features/templates/model/variable-autofill";
@@ -38,7 +39,7 @@ export async function prepareDocumentDocxExport(
 
   const { data: document, error: documentError } = await supabase
     .from("documents")
-    .select("id, title, template_id, field_values, rendered_content")
+    .select("id, title, template_id, field_values, option_selections, rendered_content")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -58,6 +59,11 @@ export async function prepareDocumentDocxExport(
 
   const values = DocumentValuesSchema.safeParse(document.field_values ?? {});
   if (!values.success) throw new DocumentExportError(422);
+
+  const optionSelections = DocumentOptionSelectionsSchema.safeParse(
+    document.option_selections ?? {},
+  );
+  if (!optionSelections.success) throw new DocumentExportError(422);
 
   const { data: templateFields, error: fieldsError } = await supabase
     .from("template_fields")
@@ -80,6 +86,7 @@ export async function prepareDocumentDocxExport(
       renderedContent: document.rendered_content,
       title: document.title,
       transforms,
+      optionSelections: optionSelections.data,
     });
   } catch (error) {
     if (error instanceof DocxGenerationError) {

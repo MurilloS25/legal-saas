@@ -149,6 +149,17 @@ export default defineConfig({
       dependencies: ["chromium-documents"],
     },
 
+    // Using option blocks (variant selection) in documents — authenticated.
+    {
+      name: "chromium-document-option-blocks",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-option-blocks-authenticated\.spec\.ts/,
+      dependencies: ["chromium-document-inline-editing"],
+    },
+
     // Document DOCX download — authenticated.
     {
       name: "chromium-documents-docx",
@@ -157,7 +168,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-docx-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-inline-editing"],
+      dependencies: ["chromium-document-option-blocks"],
     },
 
     // Document ↔ client relationship — authenticated.

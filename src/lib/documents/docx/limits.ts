@@ -9,7 +9,7 @@
  * para evitar consumo excesivo de memoria en la ruta de descarga.
  */
 
-import type { DocumentModel } from "@/lib/editor/render";
+import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
 
 export const DOCX_LIMITS = {
   /** Igual que TEMPLATE_DOC_LIMITS.maxParagraphs. */
@@ -30,7 +30,9 @@ export type DocxLimitCode =
 
 /**
  * Verifica el modelo contra los límites antes de generar. Devuelve un código
- * técnico (no sensible) o null si está dentro de rango.
+ * técnico (no sensible) o null si está dentro de rango. Recorre dentro de
+ * cada `optionBlock` (su variante ya resuelta) para que ni el conteo de
+ * runs ni el de caracteres puedan evadirse metiendo contenido ahí.
  */
 export function checkDocumentModelLimits(
   model: DocumentModel,
@@ -39,16 +41,29 @@ export function checkDocumentModelLimits(
 
   let runs = 0;
   let textLength = 0;
-  for (const paragraph of model) {
-    runs += paragraph.runs.length;
+
+  function visit(run: DocumentRun): DocxLimitCode | null {
+    runs += 1;
     if (runs > DOCX_LIMITS.maxRuns) return "too_many_runs";
-    for (const run of paragraph.runs) {
-      if (run.kind === "text") {
-        textLength += run.text.length;
-      } else if (run.kind === "variable") {
-        textLength += run.resolved ? run.value.length : run.key.length + 4;
+
+    if (run.kind === "text") {
+      textLength += run.text.length;
+    } else if (run.kind === "variable") {
+      textLength += run.resolved ? run.value.length : run.key.length + 4;
+    } else if (run.kind === "optionBlock") {
+      for (const child of run.runs) {
+        const error = visit(child);
+        if (error) return error;
       }
-      if (textLength > DOCX_LIMITS.maxTotalTextLength) return "text_too_long";
+    }
+    if (textLength > DOCX_LIMITS.maxTotalTextLength) return "text_too_long";
+    return null;
+  }
+
+  for (const paragraph of model) {
+    for (const run of paragraph.runs) {
+      const error = visit(run);
+      if (error) return error;
     }
   }
 

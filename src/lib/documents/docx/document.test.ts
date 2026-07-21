@@ -84,6 +84,68 @@ describe("buildEscrituraDocx", () => {
     expect(body).not.toContain("208390123");
   });
 
+  it("renders an optionBlock's selected variant in the docx", async () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Comparecen con " },
+            {
+              type: "optionBlock",
+              attrs: {
+                blockId: "b1",
+                name: "Chasis, VIN y Serie",
+                defaultVariantId: "iguales",
+                variants: [
+                  {
+                    id: "iguales",
+                    label: "Todos iguales",
+                    content: [
+                      { type: "text", text: "número " },
+                      { type: "templateVariable", attrs: { key: "vehiculo.numero" } },
+                    ],
+                  },
+                  {
+                    id: "distintos",
+                    label: "Todos distintos",
+                    content: [
+                      { type: "text", text: "CHASIS " },
+                      { type: "templateVariable", attrs: { key: "vehiculo.chasis" } },
+                    ],
+                  },
+                ],
+              },
+            },
+            { type: "text", text: "." },
+          ],
+        },
+      ],
+    };
+
+    const defaultResult = await buildEscrituraDocx({
+      contentJson: { text: "placeholder", doc },
+      fieldValues: { "vehiculo.numero": "999" },
+      title: "Compraventa",
+    });
+    const defaultBody = extractDocxText(
+      (await readDocx(defaultResult.buffer)).documentXml,
+    );
+    expect(defaultBody).toContain("Comparecen con número 999.");
+
+    const selectedResult = await buildEscrituraDocx({
+      contentJson: { text: "placeholder", doc },
+      fieldValues: { "vehiculo.chasis": "ABC123" },
+      title: "Compraventa",
+      optionSelections: { b1: "distintos" },
+    });
+    const selectedBody = extractDocxText(
+      (await readDocx(selectedResult.buffer)).documentXml,
+    );
+    expect(selectedBody).toContain("Comparecen con CHASIS ABC123.");
+  });
+
   it("uses the safe filename fallback for an empty title", async () => {
     const result = await buildEscrituraDocx({
       contentJson: { text: "Texto." },

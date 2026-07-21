@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
+  DocumentOptionSelectionsSchema,
   DocumentRenderedContentSchema,
   DocumentTitleSchema,
   DocumentValuesSchema,
@@ -117,6 +118,7 @@ function validateDraftInput(
 ): { state: DocumentDraftState } | {
   title: string;
   values: Record<string, string>;
+  optionSelections: Record<string, string>;
   rendered: string;
 } {
   const titleResult = DocumentTitleSchema.safeParse(
@@ -160,10 +162,34 @@ function validateDraftInput(
     };
   }
 
+  // Selección de variante por Bloque de opciones (blockId -> variantId). Un
+  // JSON inválido o ausente se trata como "sin selecciones" — no bloquea el
+  // guardado, ya que sin selección cada bloque simplemente usa su variante
+  // predeterminada.
+  let optionSelectionsRaw: unknown = {};
+  try {
+    const raw = String(formData.get("option_selections") ?? "{}");
+    optionSelectionsRaw = raw ? JSON.parse(raw) : {};
+  } catch {
+    optionSelectionsRaw = {};
+  }
+  const optionSelectionsResult =
+    DocumentOptionSelectionsSchema.safeParse(optionSelectionsRaw);
+  if (!optionSelectionsResult.success) {
+    return {
+      state: {
+        message:
+          optionSelectionsResult.error.issues[0]?.message ??
+          "Las selecciones de bloques no son válidas.",
+      },
+    };
+  }
+
   const rendered = renderStructuredTemplate(
     document,
     valuesResult.data,
     buildTransformsMap(fields),
+    optionSelectionsResult.data,
   );
   const renderedResult = DocumentRenderedContentSchema.safeParse(rendered);
   if (!renderedResult.success) {
@@ -178,6 +204,7 @@ function validateDraftInput(
   return {
     title: titleResult.data,
     values: valuesResult.data,
+    optionSelections: optionSelectionsResult.data,
     rendered: renderedResult.data,
   };
 }
@@ -219,6 +246,7 @@ export async function createDocumentDraftAction(
       title: result.title,
       status: "draft",
       field_values: result.values,
+      option_selections: result.optionSelections,
       rendered_content: result.rendered,
     })
     .select("id")
@@ -299,6 +327,7 @@ export async function updateDocumentDraftAction(
       client_id: client.clientId,
       title: result.title,
       field_values: result.values,
+      option_selections: result.optionSelections,
       rendered_content: result.rendered,
     })
     .eq("id", documentId)

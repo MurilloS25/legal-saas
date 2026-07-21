@@ -39,28 +39,36 @@ export class DocxGenerationError extends Error {
   }
 }
 
-function runToTextRun(run: DocumentRun): TextRun {
+function runToTextRuns(run: DocumentRun): TextRun[] {
   switch (run.kind) {
     case "text":
-      return new TextRun({
-        text: run.text,
-        bold: run.marks.bold || undefined,
-        italics: run.marks.italic || undefined,
-        underline: run.marks.underline ? { type: UnderlineType.SINGLE } : undefined,
-      });
+      return [
+        new TextRun({
+          text: run.text,
+          bold: run.marks.bold || undefined,
+          italics: run.marks.italic || undefined,
+          underline: run.marks.underline ? { type: UnderlineType.SINGLE } : undefined,
+        }),
+      ];
     case "variable":
       // Variable resuelta → su valor; pendiente → `{{key}}` visible.
-      return new TextRun({
-        text: run.resolved ? run.value : `{{${run.key}}}`,
-      });
+      return [
+        new TextRun({
+          text: run.resolved ? run.value : `{{${run.key}}}`,
+        }),
+      ];
     case "break":
       // Salto de línea dentro del mismo párrafo (hardBreak).
-      return new TextRun({ break: 1 });
+      return [new TextRun({ break: 1 })];
+    case "optionBlock":
+      // Bloque de opciones → el texto de su variante ya resuelta (ver
+      // `buildDocumentModel`), sin ningún tipo de run especial en el DOCX.
+      return run.runs.flatMap(runToTextRuns);
   }
 }
 
 function paragraphToDocx(runs: DocumentRun[]): Paragraph {
-  return new Paragraph({ children: runs.map(runToTextRun) });
+  return new Paragraph({ children: runs.flatMap(runToTextRuns) });
 }
 
 /**

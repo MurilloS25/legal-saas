@@ -10,6 +10,7 @@ import type {
   TemplateInlineNode,
   TemplateParagraphNode,
 } from "./types";
+import type { OptionSelectionsMap } from "./render";
 
 /**
  * Todas las variables usadas en cualquier variante de un Bloque de
@@ -17,13 +18,13 @@ import type {
  * variante predeterminada — así siguen disponibles como campos llenables
  * sin importar qué variante se elija después en la Escritura.
  */
-function collectVariableKeys(node: TemplateInlineNode, seen: Set<string>) {
+function collectAllVariableKeys(node: TemplateInlineNode, seen: Set<string>) {
   if (node.type === "templateVariable") {
     seen.add(node.attrs.key);
   } else if (node.type === "optionBlock") {
     for (const variant of node.attrs.variants) {
       for (const child of variant.content) {
-        collectVariableKeys(child, seen);
+        collectAllVariableKeys(child, seen);
       }
     }
   }
@@ -36,7 +37,50 @@ export function extractTemplateVariablesFromDocument(
 
   for (const paragraph of document.content) {
     for (const node of paragraph.content ?? []) {
-      collectVariableKeys(node, seen);
+      collectAllVariableKeys(node, seen);
+    }
+  }
+
+  return [...seen];
+}
+
+/**
+ * Igual que `extractTemplateVariablesFromDocument`, pero para una Escritura:
+ * de cada Bloque de opciones solo recorre la variante seleccionada (o la
+ * predeterminada del Machote si no hay selección para ese `blockId`) — las
+ * variables de las otras variantes no cuentan como activas.
+ */
+function collectActiveVariableKeys(
+  node: TemplateInlineNode,
+  seen: Set<string>,
+  optionSelections: OptionSelectionsMap,
+) {
+  if (node.type === "templateVariable") {
+    seen.add(node.attrs.key);
+    return;
+  }
+  if (node.type !== "optionBlock") return;
+
+  const selectedId = optionSelections[node.attrs.blockId];
+  const variant =
+    node.attrs.variants.find((v) => v.id === selectedId) ??
+    node.attrs.variants.find((v) => v.id === node.attrs.defaultVariantId) ??
+    node.attrs.variants[0];
+  if (!variant) return;
+  for (const child of variant.content) {
+    collectActiveVariableKeys(child, seen, optionSelections);
+  }
+}
+
+export function extractActiveDocumentVariables(
+  document: TemplateDocument,
+  optionSelections: OptionSelectionsMap = {},
+): string[] {
+  const seen = new Set<string>();
+
+  for (const paragraph of document.content) {
+    for (const node of paragraph.content ?? []) {
+      collectActiveVariableKeys(node, seen, optionSelections);
     }
   }
 
@@ -92,14 +136,15 @@ export function applyVariableLabels(
 }
 
 /**
- * Variables del documento sin valor (ausente o en blanco), sin duplicados y
- * en orden de aparición.
+ * Variables activas de una Escritura (ver `extractActiveDocumentVariables`)
+ * sin valor —ausente o en blanco—, sin duplicados y en orden de aparición.
  */
 export function findUnresolvedDocumentVariables(
   document: TemplateDocument,
   values: Record<string, string>,
+  optionSelections?: OptionSelectionsMap,
 ): string[] {
-  return extractTemplateVariablesFromDocument(document).filter((key) => {
+  return extractActiveDocumentVariables(document, optionSelections).filter((key) => {
     const value = values[key];
     return value === undefined || value.trim() === "";
   });

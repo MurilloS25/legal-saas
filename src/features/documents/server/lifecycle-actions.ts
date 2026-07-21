@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
+  DocumentOptionSelectionsSchema,
   DocumentValuesSchema,
 } from "../model/document-schema";
 import {
@@ -42,7 +43,7 @@ async function transitionDocument(
 
   const { data: doc, error: documentError } = await supabase
     .from("documents")
-    .select("id, status, template_id, field_values")
+    .select("id, status, template_id, field_values, option_selections")
     .eq("id", documentId)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -81,11 +82,20 @@ async function transitionDocument(
         code: "invalid_json",
       });
     }
+    const optionSelections = DocumentOptionSelectionsSchema.safeParse(
+      doc.option_selections ?? {},
+    );
+    if (!optionSelections.success) {
+      throwDataAccessError("parse lifecycle option selections", {
+        code: "invalid_json",
+      });
+    }
 
     const { document } = resolveTemplateContent(template.content_json);
     const pending = findUnresolvedDocumentVariables(
       document,
       values.data,
+      optionSelections.data,
     );
     if (pending.length > 0) {
       return {

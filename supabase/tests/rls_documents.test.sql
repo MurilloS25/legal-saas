@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(17);
+select plan(20);
 
 create schema rls_doc_test;
 grant usage on schema rls_doc_test to public;
@@ -236,6 +236,35 @@ select ok(
     )
   $$),
   'field_values must be a JSON object, not an array'
+);
+
+select is(
+  (select option_selections from public.documents where id = '31111111-0000-0000-0000-000000000002'),
+  '{}'::jsonb,
+  'option_selections defaults to an empty object'
+);
+
+select ok(
+  rls_doc_test.statement_succeeds($$
+    update public.documents
+    set option_selections = '{"block-1": "variant-2"}'::jsonb
+    where id = '31111111-0000-0000-0000-000000000002'
+  $$),
+  'User A can update option_selections on their own document'
+);
+
+select ok(
+  rls_doc_test.statement_fails($$
+    insert into public.documents (id, owner_id, template_id, title, option_selections)
+    values (
+      'aaaaaaaa-3000-0000-0000-000000000007',
+      '31111111-1111-1111-1111-111111111111',
+      '31111111-0000-0000-0000-000000000001',
+      'Array option_selections document',
+      '["not", "an", "object"]'::jsonb
+    )
+  $$),
+  'option_selections must be a JSON object, not an array'
 );
 
 select is(

@@ -301,6 +301,7 @@ export type Database = {
           created_at: string
           field_values: Json
           id: string
+          option_selections: Json
           owner_id: string
           rendered_content: string
           status: string
@@ -313,6 +314,7 @@ export type Database = {
           created_at?: string
           field_values?: Json
           id?: string
+          option_selections?: Json
           owner_id: string
           rendered_content?: string
           status?: string
@@ -325,6 +327,7 @@ export type Database = {
           created_at?: string
           field_values?: Json
           id?: string
+          option_selections?: Json
           owner_id?: string
           rendered_content?: string
           status?: string
