@@ -64,6 +64,40 @@ export const DocumentValuesSchema = z
 
 export type DocumentValues = z.infer<typeof DocumentValuesSchema>;
 
+const MAX_OPTION_SELECTION_ENTRIES = 100;
+const MAX_OPTION_ID_LENGTH = 120;
+
+/**
+ * Selección de variante por Bloque de opciones: mapa `blockId -> variantId`.
+ * Mismo patrón de guardas que `field_values`. La forma exacta de los ids
+ * (`crypto.randomUUID()`, ver `option-blocks.ts`) no se valida aquí más
+ * allá del largo — la validación real de que un `blockId`/`variantId`
+ * corresponda a un Bloque/variante que existe hoy en el Machote ocurre al
+ * resolver el render (`buildDocumentModel`), no en la persistencia: una
+ * selección para un bloque que el Machote ya no tiene simplemente se
+ * ignora, no bloquea el guardado.
+ */
+export const DocumentOptionSelectionsSchema = z
+  .custom<Record<string, unknown>>(isSafePlainObject, {
+    message: "Las selecciones deben ser un objeto plano sin claves reservadas",
+  })
+  .pipe(
+    z.record(
+      z.string().max(MAX_OPTION_ID_LENGTH, "El id del bloque es demasiado largo"),
+      z
+        .string({ error: "Cada selección debe ser texto" })
+        .max(MAX_OPTION_ID_LENGTH, "El id de la variante es demasiado largo"),
+    ),
+  )
+  .refine(
+    (selections) => Object.keys(selections).length <= MAX_OPTION_SELECTION_ENTRIES,
+    { message: "La escritura tiene demasiadas selecciones de bloques" },
+  );
+
+export type DocumentOptionSelections = z.infer<
+  typeof DocumentOptionSelectionsSchema
+>;
+
 export function mergeDocumentDraftValues(
   existingValues: DocumentValues,
   currentValues: DocumentValues,

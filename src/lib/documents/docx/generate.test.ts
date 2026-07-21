@@ -128,6 +128,29 @@ describe("generateDocumentDocx", () => {
     expect(body).toContain("«acta»");
   });
 
+  it("flattens an optionBlock run into the docx as plain text runs", async () => {
+    const block: DocumentRun = {
+      kind: "optionBlock",
+      blockId: "b1",
+      name: "Chasis, VIN y Serie",
+      selectedVariantId: "distintos",
+      variants: [
+        { id: "iguales", label: "Todos iguales" },
+        { id: "distintos", label: "Todos distintos" },
+      ],
+      runs: [
+        text("CHASIS "),
+        { kind: "variable", key: "vehiculo.chasis", resolved: true, value: "ABC123" },
+      ],
+    };
+    const { parts } = await generateAndRead([
+      paragraph([text("Comparecen con "), block, text(".")]),
+    ]);
+    expect(extractDocxText(parts.documentXml)).toBe(
+      "Comparecen con CHASIS ABC123.",
+    );
+  });
+
   it("throws a typed error when the paragraph limit is exceeded", async () => {
     const tooMany: DocumentModel = Array.from(
       { length: DOCX_LIMITS.maxParagraphs + 1 },

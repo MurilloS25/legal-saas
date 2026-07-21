@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyVariableLabels,
+  extractActiveDocumentVariables,
   extractTemplateVariablesFromDocument,
   findUnresolvedDocumentVariables,
 } from "./variables";
@@ -149,5 +150,54 @@ describe("applyVariableLabels — optionBlock", () => {
       type: "templateVariable",
       attrs: { key: "vehiculo.chasis", label: "Número de chasis" },
     });
+  });
+});
+
+describe("extractActiveDocumentVariables", () => {
+  it("only counts variables from the selected variant, not every variant", () => {
+    const active = extractActiveDocumentVariables(optionBlockDoc, {
+      b1: "distintos",
+    });
+    expect(active).toEqual(
+      expect.arrayContaining(["vehiculo.chasis", "vehiculo.vin"]),
+    );
+    expect(active).not.toContain("vehiculo.numero");
+  });
+
+  it("falls back to the default variant when there is no selection for a block", () => {
+    const active = extractActiveDocumentVariables(optionBlockDoc);
+    expect(active).toEqual(["vehiculo.numero"]);
+  });
+
+  it("falls back to the default variant when the selection references an unknown variant id", () => {
+    const active = extractActiveDocumentVariables(optionBlockDoc, {
+      b1: "no-existe",
+    });
+    expect(active).toEqual(["vehiculo.numero"]);
+  });
+});
+
+describe("findUnresolvedDocumentVariables — optionBlock", () => {
+  it("does not report a non-selected variant's variables as pending", () => {
+    const unresolved = findUnresolvedDocumentVariables(
+      optionBlockDoc,
+      {},
+      { b1: "iguales" },
+    );
+    expect(unresolved).toEqual(["vehiculo.numero"]);
+    expect(unresolved).not.toContain("vehiculo.chasis");
+    expect(unresolved).not.toContain("vehiculo.vin");
+  });
+
+  it("switches which variable is pending when the selection changes", () => {
+    const unresolvedForDistintos = findUnresolvedDocumentVariables(
+      optionBlockDoc,
+      {},
+      { b1: "distintos" },
+    );
+    expect(unresolvedForDistintos).toEqual(
+      expect.arrayContaining(["vehiculo.chasis", "vehiculo.vin"]),
+    );
+    expect(unresolvedForDistintos).not.toContain("vehiculo.numero");
   });
 });

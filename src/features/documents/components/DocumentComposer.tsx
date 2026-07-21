@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
-import type { VariableTransformsMap } from "@/lib/editor/render";
+import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
 import type { FillableTemplateField } from "@/features/templates";
 import type { CreatedClient } from "@/features/clients";
 import type { DocumentClientOption } from "../model/role-autofill";
@@ -73,6 +73,9 @@ export function DocumentComposer(props: Props) {
   const [fieldFilter, setFieldFilter] = useState<"all" | "pending">("all");
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [editingKey, setEditingKey] = useState<string | undefined>();
+  const [optionSelections, setOptionSelections] = useState<OptionSelectionsMap>(
+    () => draft?.option_selections ?? {},
+  );
 
   // El cliente creado desde el diálogo contextual queda seleccionado de
   // inmediato, sin recargar la página ni tocar el resto del formulario.
@@ -97,6 +100,8 @@ export function DocumentComposer(props: Props) {
     values,
     draft?.field_values,
     transforms,
+    optionSelections,
+    draft?.option_selections,
   );
 
   const roleGroups = useMemo(() => groupVariablesByRole(fields), [fields]);
@@ -168,6 +173,17 @@ export function DocumentComposer(props: Props) {
     setEditingKey(undefined);
   }
 
+  // Cambiar de variante actualiza de inmediato el documento/preview/DOCX
+  // (todos derivan de `optionSelections`) y marca la Escritura como sucia,
+  // igual que cualquier otro cambio — se persiste con "Guardar cambios",
+  // nunca de forma automática. Los valores de variables que la nueva
+  // variante ya no usa no se tocan ni se borran: siguen en `values` por si
+  // el usuario vuelve a la variante anterior.
+  function selectVariant(blockId: string, variantId: string) {
+    setOptionSelections((current) => ({ ...current, [blockId]: variantId }));
+    markDirty();
+  }
+
   return (
     <form action={formAction} noValidate>
       {hiddenFields.map((field) => (
@@ -178,6 +194,11 @@ export function DocumentComposer(props: Props) {
           value={values[field.field_key] ?? ""}
         />
       ))}
+      <input
+        type="hidden"
+        name="option_selections"
+        value={JSON.stringify(optionSelections)}
+      />
 
       {bannerKind === "milestone" && draft && (
         <MilestoneFeedback
@@ -227,6 +248,7 @@ export function DocumentComposer(props: Props) {
           onStartEdit={readOnly ? undefined : startEditingField}
           onChangeValue={readOnly ? undefined : changeField}
           onStopEdit={readOnly ? undefined : stopEditingField}
+          onSelectVariant={readOnly ? undefined : selectVariant}
         />
         <DocumentFormPanel
           clientId={clientId}

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   DocumentTitleSchema,
   DocumentValuesSchema,
+  DocumentOptionSelectionsSchema,
   DocumentRenderedContentSchema,
   DocumentIdSchema,
   DocumentStatusSchema,
@@ -125,6 +126,44 @@ describe("DocumentValuesSchema", () => {
     const big: Record<string, string> = {};
     for (let i = 0; i < 201; i++) big[`campo_${i}`] = "x";
     expect(DocumentValuesSchema.safeParse(big).success).toBe(false);
+  });
+});
+
+describe("DocumentOptionSelectionsSchema", () => {
+  it("accepts a flat map of blockId to variantId", () => {
+    const result = DocumentOptionSelectionsSchema.safeParse({
+      "block-1": "variant-2",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts an empty object", () => {
+    expect(DocumentOptionSelectionsSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("rejects a non-object value", () => {
+    expect(DocumentOptionSelectionsSchema.safeParse(["a", "b"]).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects __proto__ as a key", () => {
+    const malicious = JSON.parse('{"__proto__": {"polluted": true}}');
+    expect(DocumentOptionSelectionsSchema.safeParse(malicious).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects a non-string value", () => {
+    expect(
+      DocumentOptionSelectionsSchema.safeParse({ "block-1": 42 }).success,
+    ).toBe(false);
+  });
+
+  it("rejects more than 100 entries", () => {
+    const big: Record<string, string> = {};
+    for (let i = 0; i < 101; i++) big[`block-${i}`] = "variant";
+    expect(DocumentOptionSelectionsSchema.safeParse(big).success).toBe(false);
   });
 });
 

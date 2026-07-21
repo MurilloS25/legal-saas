@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
+  DocumentOptionSelectionsSchema,
   DocumentValuesSchema,
 } from "../model/document-schema";
 
@@ -25,6 +26,7 @@ export type DocumentRow = {
   template_id: string;
   client_id: string | null;
   field_values: Record<string, string>;
+  option_selections: Record<string, string>;
   rendered_content: string;
   created_at: string;
   updated_at: string;
@@ -68,7 +70,7 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
   const { data, error } = await supabase
     .from("documents")
     .select(
-      "id, title, status, template_id, client_id, field_values, rendered_content, created_at, updated_at, clients(id, full_name)",
+      "id, title, status, template_id, client_id, field_values, option_selections, rendered_content, created_at, updated_at, clients(id, full_name)",
     )
     .eq("id", id)
     .eq("owner_id", user.id)
@@ -81,8 +83,20 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
   if (!values.success) {
     throwDataAccessError("parse document field values", { code: "invalid_json" });
   }
+  const selections = DocumentOptionSelectionsSchema.safeParse(
+    data.option_selections ?? {},
+  );
+  if (!selections.success) {
+    throwDataAccessError("parse document option selections", {
+      code: "invalid_json",
+    });
+  }
 
-  return { ...data, field_values: values.data };
+  return {
+    ...data,
+    field_values: values.data,
+    option_selections: selections.data,
+  };
 }
 
 /**

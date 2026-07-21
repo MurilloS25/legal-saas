@@ -135,6 +135,60 @@ describe("renderStructuredTemplate", () => {
       ).toBe(renderTemplateContent(content, values));
     }
   });
+
+  it("renders an optionBlock's selected variant as plain text", () => {
+    const doc: TemplateDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Comparecen con " },
+            {
+              type: "optionBlock",
+              attrs: {
+                blockId: "b1",
+                name: "Chasis, VIN y Serie",
+                defaultVariantId: "iguales",
+                variants: [
+                  {
+                    id: "iguales",
+                    label: "Todos iguales",
+                    content: [
+                      { type: "text", text: "número " },
+                      { type: "templateVariable", attrs: { key: "vehiculo.numero" } },
+                    ],
+                  },
+                  {
+                    id: "distintos",
+                    label: "Todos distintos",
+                    content: [
+                      { type: "text", text: "CHASIS " },
+                      { type: "templateVariable", attrs: { key: "vehiculo.chasis" } },
+                    ],
+                  },
+                ],
+              },
+            },
+            { type: "text", text: "." },
+          ],
+        },
+      ],
+    };
+
+    expect(
+      renderStructuredTemplate(doc, { "vehiculo.numero": "999" }),
+    ).toBe("Comparecen con número 999.");
+
+    expect(
+      renderStructuredTemplate(
+        doc,
+        { "vehiculo.chasis": "ABC123" },
+        undefined,
+        { b1: "distintos" },
+      ),
+    ).toBe("Comparecen con CHASIS ABC123.");
+  });
 });
 
 describe("buildDocumentModel", () => {
@@ -201,7 +255,7 @@ describe("buildDocumentModel", () => {
     expect(buildDocumentModel(doc)[0].runs[1]).toEqual({ kind: "break" });
   });
 
-  it("unwraps an optionBlock into its default variant's runs", () => {
+  it("resolves an optionBlock into an OptionBlockRun wrapping its default variant's runs", () => {
     const doc: TemplateDocument = {
       type: "doc",
       content: [
@@ -243,14 +297,72 @@ describe("buildDocumentModel", () => {
     const model = buildDocumentModel(doc, { "vehiculo.chasis": "ABC123" });
     expect(model[0].runs).toEqual([
       { kind: "text", text: "Comparecen con ", marks: NO_MARKS },
-      { kind: "text", text: "CHASIS ", marks: NO_MARKS },
       {
-        kind: "variable",
-        key: "vehiculo.chasis",
-        label: undefined,
-        resolved: true,
-        value: "ABC123",
+        kind: "optionBlock",
+        blockId: "b1",
+        name: "Chasis, VIN y Serie",
+        selectedVariantId: "distintos",
+        variants: [
+          { id: "iguales", label: "Todos iguales" },
+          { id: "distintos", label: "Todos distintos" },
+        ],
+        runs: [
+          { kind: "text", text: "CHASIS ", marks: NO_MARKS },
+          {
+            kind: "variable",
+            key: "vehiculo.chasis",
+            label: undefined,
+            resolved: true,
+            value: "ABC123",
+          },
+        ],
       },
+    ]);
+  });
+
+  it("uses optionSelections to pick a non-default variant, falling back to the default when unset", () => {
+    const doc: TemplateDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "optionBlock",
+              attrs: {
+                blockId: "b1",
+                name: "Chasis, VIN y Serie",
+                defaultVariantId: "distintos",
+                variants: [
+                  {
+                    id: "iguales",
+                    label: "Todos iguales",
+                    content: [{ type: "text", text: "un mismo número" }],
+                  },
+                  {
+                    id: "distintos",
+                    label: "Todos distintos",
+                    content: [{ type: "text", text: "números distintos" }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const withoutSelection = buildDocumentModel(doc, {});
+    const runWithoutSelection = withoutSelection[0].runs[0];
+    if (runWithoutSelection.kind !== "optionBlock") throw new Error("expected optionBlock");
+    expect(runWithoutSelection.selectedVariantId).toBe("distintos");
+
+    const withSelection = buildDocumentModel(doc, {}, undefined, { b1: "iguales" });
+    const runWithSelection = withSelection[0].runs[0];
+    if (runWithSelection.kind !== "optionBlock") throw new Error("expected optionBlock");
+    expect(runWithSelection.selectedVariantId).toBe("iguales");
+    expect(runWithSelection.runs).toEqual([
+      { kind: "text", text: "un mismo número", marks: NO_MARKS },
     ]);
   });
 
@@ -294,8 +406,11 @@ describe("buildDocumentModel", () => {
       "hora.valor": "3",
       "hora.minutos": "15",
     });
-    expect(model[0].runs).toHaveLength(3);
-    expect(model[0].runs[0]).toMatchObject({ key: "hora.valor", resolved: true, value: "3" });
-    expect(model[0].runs[2]).toMatchObject({ key: "hora.minutos", resolved: true, value: "15" });
+    expect(model[0].runs).toHaveLength(1);
+    const block = model[0].runs[0];
+    if (block.kind !== "optionBlock") throw new Error("expected optionBlock");
+    expect(block.runs).toHaveLength(3);
+    expect(block.runs[0]).toMatchObject({ key: "hora.valor", resolved: true, value: "3" });
+    expect(block.runs[2]).toMatchObject({ key: "hora.minutos", resolved: true, value: "15" });
   });
 });

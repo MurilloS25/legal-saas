@@ -21,6 +21,7 @@ import { legacyTextToDocument } from "@/lib/editor/convert";
 import {
   buildDocumentModel,
   renderStructuredTemplate,
+  type OptionSelectionsMap,
   type VariableTransformsMap,
 } from "@/lib/editor/render";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
@@ -42,6 +43,8 @@ export type EscrituraDocxInput = {
   title: string;
   /** Transformación de salida configurada por variable (`field_key -> transform`). */
   transforms?: VariableTransformsMap;
+  /** `documents.option_selections` persistidos (`blockId -> variantId`). */
+  optionSelections?: OptionSelectionsMap;
 };
 
 export type EscrituraDocxResult = {
@@ -59,6 +62,7 @@ export async function buildEscrituraDocx(
     document,
     input.fieldValues,
     input.transforms,
+    input.optionSelections,
   );
   const usePersistedSnapshot =
     typeof input.renderedContent === "string" &&
@@ -67,10 +71,12 @@ export async function buildEscrituraDocx(
     ? legacyTextToDocument(input.renderedContent ?? "")
     : document;
   const sourceValues = usePersistedSnapshot ? {} : input.fieldValues;
+  const sourceSelections = usePersistedSnapshot ? undefined : input.optionSelections;
   const model = buildDocumentModel(
     sourceDocument,
     sourceValues,
     usePersistedSnapshot ? undefined : input.transforms,
+    sourceSelections,
   );
   const buffer = await generateDocumentDocx(model);
 
@@ -80,6 +86,7 @@ export async function buildEscrituraDocx(
     pendingVariables: findUnresolvedDocumentVariables(
       sourceDocument,
       sourceValues,
+      sourceSelections,
     ),
   };
 }

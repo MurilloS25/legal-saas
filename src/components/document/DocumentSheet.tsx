@@ -9,17 +9,23 @@
  * - Runs de texto aplican negrita/cursiva/subrayado (siempre solo lectura:
  *   el texto fijo del Machote nunca es editable aquí).
  * - Cuando se pasa `onChangeValue`, las variables se vuelven editables
- *   inline: un clic las convierte en un `<input>` que edita el valor crudo
+ *   inline: un clic las convierte en un <input> que edita el valor crudo
  *   (`values[key]`); sin foco, muestran el valor ya renderizado (con su
  *   transformación aplicada, si tiene una configurada). Sin `onChangeValue`
  *   el comportamiento es el de solo lectura de siempre (preview de
  *   Machote).
+ * - Un Bloque de opciones se muestra con su variante ya resuelta (texto y
+ *   variables normales, igualmente editables inline); en modo editable
+ *   agrega un botón compacto que abre un popover para cambiar de variante.
  * - Sin paginación real ni números de página fingidos.
  */
 
-import { useMemo } from "react";
+"use client";
+
+import { useMemo, useState } from "react";
 import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
 import { findAdjacentVariableKey } from "@/lib/editor/variable-navigation";
+import { OptionBlockPopover } from "./OptionBlockPopover";
 
 type Props = {
   model: DocumentModel;
@@ -47,6 +53,8 @@ type Props = {
   onChangeValue?: (key: string, value: string) => void;
   /** Sale del modo edición (blur, Escape, o Tab sin siguiente variable). */
   onStopEdit?: () => void;
+  /** Cambia la variante elegida de un Bloque de opciones. Solo con edición. */
+  onSelectVariant?: (blockId: string, variantId: string) => void;
 };
 
 function runText(run: DocumentRun, display: "label" | "placeholder"): string {
@@ -60,6 +68,8 @@ function runText(run: DocumentRun, display: "label" | "placeholder"): string {
         : `{{${run.key}}}`;
     case "break":
       return "";
+    case "optionBlock":
+      return run.runs.map((child) => runText(child, display)).join("");
   }
 }
 
@@ -83,16 +93,20 @@ export function DocumentSheet({
   onStartEdit,
   onChangeValue,
   onStopEdit,
+  onSelectVariant,
 }: Props) {
   const editable = !!onChangeValue;
+  const [openBlockId, setOpenBlockId] = useState<string | null>(null);
 
   const orderedKeys = useMemo(() => {
     if (!editable) return [];
     const keys: string[] = [];
+    function visit(run: DocumentRun) {
+      if (run.kind === "variable") keys.push(run.key);
+      else if (run.kind === "optionBlock") run.runs.forEach(visit);
+    }
     for (const paragraph of model) {
-      for (const run of paragraph.runs) {
-        if (run.kind === "variable") keys.push(run.key);
-      }
+      for (const run of paragraph.runs) visit(run);
     }
     return keys;
   }, [model, editable]);
@@ -106,6 +120,150 @@ export function DocumentSheet({
     }
   }
 
+  function renderRun(run: DocumentRun, key: string): React.ReactNode {
+    if (run.kind === "break") {
+      return <br key={key} />;
+    }
+
+    const highlighted = run.kind === "variable" && run.key === highlightKey;
+
+    if (run.kind === "variable" && editable) {
+      if (run.key === editingKey) {
+        const rawValue = values?.[run.key] ?? "";
+        return (
+          <input
+            key={key}
+            type="text"
+            autoFocus
+            value={rawValue}
+            onChange={(event) => onChangeValue!(run.key, event.target.value)}
+            onBlur={() => onStopEdit?.()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onStopEdit?.();
+              } else if (event.key === "Tab") {
+                event.preventDefault();
+                moveToAdjacent(run.key, event.shiftKey ? -1 : 1);
+              }
+            }}
+            style={{ width: `${inputWidthCh(rawValue)}ch` }}
+            data-variable-key={run.key}
+            aria-label={run.label?.trim() || run.key}
+            className="inline-block rounded border-b-2 border-accent-500 bg-accent-50 px-1 py-0.5 font-sans text-[0.85em] text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+          />
+        );
+      }
+
+      const displayText = runText(run, pendingVariableDisplay);
+      const editableClass = run.resolved
+        ? "cursor-text rounded-sm border-b border-dotted border-slate-400 hover:border-accent-500 hover:bg-accent-50/60"
+        : "cursor-text rounded-sm border-b-2 border-dashed border-accent-400 px-0.5 font-sans text-[0.85em] italic text-accent-700 hover:bg-accent-50";
+      const highlightClass = highlighted ? "bg-accent-100 ring-2 ring-accent-300" : "";
+
+      return (
+        <button
+          key={key}
+          type="button"
+          data-variable-key={run.key}
+          onClick={(event) => {
+            event.stopPropagation();
+            onStartEdit!(run.key);
+          }}
+          aria-label={`Editar ${run.label?.trim() || run.key}`}
+          className={`${editableClass} ${highlightClass} focus:outline-none focus:ring-2 focus:ring-accent-500`}
+        >
+          {displayText}
+        </button>
+      );
+    }
+
+    if (run.kind === "variable" && !run.resolved) {
+      const pendingClass = `rounded border px-1 py-0.5 font-sans text-[0.85em] ${
+        highlighted
+          ? "border-accent-500 bg-accent-50 text-accent-900 ring-2 ring-accent-300"
+          : "border-amber-300 bg-amber-50 text-amber-900"
+      }`;
+      const pendingText = runText(run, pendingVariableDisplay);
+
+      return (
+        <mark
+          key={key}
+          data-variable-key={run.key}
+          className={pendingClass}
+          title={`Variable pendiente: ${run.key}`}
+        >
+          {pendingText}
+        </mark>
+      );
+    }
+
+    if (run.kind === "variable") {
+      // Valor resuelto, solo lectura: parte natural del texto del documento.
+      const text = runText(run, pendingVariableDisplay);
+      return (
+        <span
+          key={key}
+          data-variable-key={run.key}
+          className={highlighted ? "rounded bg-accent-100 ring-2 ring-accent-300" : undefined}
+        >
+          {text}
+        </span>
+      );
+    }
+
+    if (run.kind === "optionBlock") {
+      const isOpen = openBlockId === run.blockId;
+      const selectedLabel =
+        run.variants.find((v) => v.id === run.selectedVariantId)?.label ?? run.name;
+
+      return (
+        <span
+          key={key}
+          className="relative inline rounded border-b-2 border-dashed border-accent-300 bg-accent-50/40"
+        >
+          {run.runs.map((child, index) => renderRun(child, `${key}-${index}`))}
+          {editable && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpenBlockId(isOpen ? null : run.blockId);
+              }}
+              aria-haspopup="true"
+              aria-expanded={isOpen}
+              aria-label={`Cambiar variante de ${run.name} (actual: ${selectedLabel})`}
+              title={`Bloque: ${run.name}`}
+              className="ml-0.5 rounded px-0.5 font-sans text-[0.75em] text-accent-700 hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500"
+            >
+              ▾
+            </button>
+          )}
+          {editable && isOpen && (
+            <OptionBlockPopover
+              blockName={run.name}
+              variants={run.variants}
+              selectedVariantId={run.selectedVariantId}
+              onSelect={(variantId) => {
+                onSelectVariant?.(run.blockId, variantId);
+                setOpenBlockId(null);
+              }}
+              onClose={() => setOpenBlockId(null)}
+            />
+          )}
+        </span>
+      );
+    }
+
+    // Texto fijo: nunca editable. Aplica marcas de formato.
+    const text = runText(run, pendingVariableDisplay);
+    let content: React.ReactNode = text;
+    if (run.marks.bold) content = <strong>{content}</strong>;
+    if (run.marks.italic) content = <em>{content}</em>;
+    if (run.marks.underline) content = <u>{content}</u>;
+    return <span key={key}>{content}</span>;
+  }
+
   return (
     <div
       className="rounded-xl bg-slate-100 p-4 sm:p-6 lg:p-8 overflow-y-auto"
@@ -114,9 +272,7 @@ export function DocumentSheet({
     >
       <div className="mx-auto w-full max-w-[42rem] min-h-[24rem] rounded-sm bg-white shadow-md ring-1 ring-slate-200 px-8 py-10 sm:px-12 sm:py-14">
         {isModelEmpty(model) ? (
-          <p className="font-serif text-sm text-slate-400 italic">
-            {emptyMessage}
-          </p>
+          <p className="font-serif text-sm text-slate-400 italic">{emptyMessage}</p>
         ) : (
           <div className="font-serif text-[0.95rem] leading-7 text-slate-900">
             {model.map((paragraph, paragraphIndex) => (
@@ -124,110 +280,9 @@ export function DocumentSheet({
                 key={paragraphIndex}
                 className="mb-4 last:mb-0 min-h-[1.75rem] whitespace-pre-wrap break-words"
               >
-                {paragraph.runs.map((run, runIndex) => {
-                  if (run.kind === "break") {
-                    return <br key={runIndex} />;
-                  }
-
-                  const highlighted =
-                    run.kind === "variable" && run.key === highlightKey;
-
-                  if (run.kind === "variable" && editable) {
-                    if (run.key === editingKey) {
-                      const rawValue = values?.[run.key] ?? "";
-                      return (
-                        <input
-                          key={runIndex}
-                          type="text"
-                          autoFocus
-                          value={rawValue}
-                          onChange={(event) =>
-                            onChangeValue!(run.key, event.target.value)
-                          }
-                          onBlur={() => onStopEdit?.()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              onStopEdit?.();
-                            } else if (event.key === "Tab") {
-                              event.preventDefault();
-                              moveToAdjacent(run.key, event.shiftKey ? -1 : 1);
-                            }
-                          }}
-                          style={{ width: `${inputWidthCh(rawValue)}ch` }}
-                          data-variable-key={run.key}
-                          aria-label={run.label?.trim() || run.key}
-                          className="inline-block rounded border-b-2 border-accent-500 bg-accent-50 px-1 py-0.5 font-sans text-[0.85em] text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
-                        />
-                      );
-                    }
-
-                    const displayText = runText(run, pendingVariableDisplay);
-                    const editableClass = run.resolved
-                      ? "cursor-text rounded-sm border-b border-dotted border-slate-400 hover:border-accent-500 hover:bg-accent-50/60"
-                      : "cursor-text rounded-sm border-b-2 border-dashed border-accent-400 px-0.5 font-sans text-[0.85em] italic text-accent-700 hover:bg-accent-50";
-                    const highlightClass = highlighted
-                      ? "bg-accent-100 ring-2 ring-accent-300"
-                      : "";
-
-                    return (
-                      <button
-                        key={runIndex}
-                        type="button"
-                        data-variable-key={run.key}
-                        onClick={() => onStartEdit!(run.key)}
-                        aria-label={`Editar ${run.label?.trim() || run.key}`}
-                        className={`${editableClass} ${highlightClass} focus:outline-none focus:ring-2 focus:ring-accent-500`}
-                      >
-                        {displayText}
-                      </button>
-                    );
-                  }
-
-                  if (run.kind === "variable" && !run.resolved) {
-                    const pendingClass = `rounded border px-1 py-0.5 font-sans text-[0.85em] ${
-                      highlighted
-                        ? "border-accent-500 bg-accent-50 text-accent-900 ring-2 ring-accent-300"
-                        : "border-amber-300 bg-amber-50 text-amber-900"
-                    }`;
-                    const pendingText = runText(run, pendingVariableDisplay);
-
-                    return (
-                      <mark
-                        key={runIndex}
-                        data-variable-key={run.key}
-                        className={pendingClass}
-                        title={`Variable pendiente: ${run.key}`}
-                      >
-                        {pendingText}
-                      </mark>
-                    );
-                  }
-
-                  const text = runText(run, pendingVariableDisplay);
-                  if (run.kind === "variable") {
-                    // Valor resuelto: parte natural del texto del documento.
-                    return (
-                      <span
-                        key={runIndex}
-                        data-variable-key={run.key}
-                        className={
-                          highlighted
-                            ? "rounded bg-accent-100 ring-2 ring-accent-300"
-                            : undefined
-                        }
-                      >
-                        {text}
-                      </span>
-                    );
-                  }
-
-                  let content: React.ReactNode = text;
-                  if (run.marks.bold) content = <strong>{content}</strong>;
-                  if (run.marks.italic) content = <em>{content}</em>;
-                  if (run.marks.underline) content = <u>{content}</u>;
-                  return <span key={runIndex}>{content}</span>;
-                })}
+                {paragraph.runs.map((run, runIndex) =>
+                  renderRun(run, String(runIndex)),
+                )}
               </p>
             ))}
           </div>
