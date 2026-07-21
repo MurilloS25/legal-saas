@@ -14,19 +14,18 @@ test.describe("auth smoke", () => {
     ).toBeVisible();
   });
 
-  test("B: /signup carga correctamente", async ({ page }) => {
+  test("B: /signup está deshabilitado — redirige a /login sin ofrecer un enlace de registro", async ({
+    page,
+  }) => {
     await page.goto("/signup");
 
+    await expect(page).toHaveURL(/\/login/);
     await expect(
-      page.getByRole("heading", { name: "Crear cuenta" }),
+      page.getByRole("heading", { name: "Iniciar sesión" }),
     ).toBeVisible();
-    await expect(page.getByLabel("Correo electrónico")).toBeVisible();
-    await expect(page.getByLabel("Contraseña", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Confirmar contraseña")).toBeVisible();
-    await expect(page.getByText(/Mínimo 12 caracteres/)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Crear cuenta" }),
-    ).toBeVisible();
+      page.getByRole("link", { name: "Crear cuenta" }),
+    ).toHaveCount(0);
   });
 
   test("C: /dashboard sin sesión redirige a /login", async ({ page }) => {

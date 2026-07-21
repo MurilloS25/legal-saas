@@ -1,16 +1,27 @@
 "use client";
 
 import { useActionState } from "react";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { signupAction, type SignupState } from "./actions";
 
 const initialState: SignupState = {};
+
+// Registro público deshabilitado para el piloto privado: los usuarios se
+// crean de forma controlada desde el dashboard de Supabase. La ruta y el
+// formulario se conservan sin usar por si el producto vuelve a habilitar
+// el registro público más adelante.
+const PUBLIC_SIGNUP_ENABLED = false;
 
 export default function SignupPage() {
   const [state, formAction, pending] = useActionState(
     signupAction,
     initialState,
   );
+
+  if (!PUBLIC_SIGNUP_ENABLED) {
+    redirect("/login");
+  }
 
   if (state.requiresConfirmation) {
     return (
