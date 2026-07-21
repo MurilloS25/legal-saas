@@ -1,26 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F8FAFC;
+  --foreground: #0F172A;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * Design system de LexCR — ver DESIGN.md para la documentación completa
+ * (identidad, uso por token, tipografía, espaciado, componentes).
+ *
+ * "ink": azul tinta desaturado, propio del sidebar. "accent": variante más
+ * clara/intensa del MISMO azul — el único acento decorativo de toda la
+ * aplicación (acción primaria, enlaces, hover, foco, badges informativos,
+ * barra de navegación activa). Reemplaza el teal/verde brillante que usaba
+ * el resto de la app antes de esta iteración. Verde, ámbar y rojo quedan
+ * reservados exclusivamente para estados semánticos reales
+ * (positivo/pendiente/error), nunca como decoración.
+ * Contraste verificado (WCAG AA): ink-800 vs blanco ≈14.6:1; accent-400
+ * vs ink-800 ≈4.4:1; accent-600 vs blanco ≈6.7:1; accent-700/800 vs
+ * blanco superan 6.7:1 (más oscuros, más contraste).
+ */
+@theme {
+  --color-ink-900: #14202F;
+  --color-ink-800: #1B2A42;
+  --color-ink-700: #26374F;
+  --color-ink-600: #32455E;
+  --color-ink-400: #90A0BA;
+  --color-ink-200: #D7DEE9;
+
+  --color-accent-50: #EEF3FC;
+  --color-accent-100: #DCE8FA;
+  --color-accent-200: #B7D0F3;
+  --color-accent-300: #8CB3E9;
+  --color-accent-400: #5D91DC;
+  --color-accent-500: #3E73C4;
+  --color-accent-600: #2F5C9E;
+  --color-accent-700: #244B87;
+  --color-accent-800: #1C3A69;
+  --color-accent-900: #142A4D;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

@@ -23,7 +23,8 @@ The MVP must not include:
 - Official notarial index submission.
 - AI-generated legal advice.
 - AI product features.
-- Long-term storage of generated legal documents.
+- Storage of generated Word/PDF files, signed documents, official submission payloads, or generated document storage paths.
+- Full escritura storage outside the approved persistent draft workflow.
 - Full legal case management.
 - Full accounting.
 - Electronic invoicing.
@@ -40,6 +41,8 @@ Allowed data:
 - Reusable client metadata.
 - Template definitions.
 - Template field definitions.
+- Persistent draft `field_values`.
+- Persistent draft `rendered_content` text snapshots.
 - Minimal document metadata.
 - Minimal notarial index metadata.
 - Basic accounts receivable metadata.
@@ -47,9 +50,11 @@ Allowed data:
 
 Disallowed data:
 
-- Generated legal documents.
+- Generated Word/PDF files.
 - Signed documents.
-- Full sensitive escritura content generated for a specific case.
+- Official submission payloads.
+- Generated document storage paths.
+- Full sensitive escritura content outside the approved persistent draft workflow.
 - Complete transaction details that are not required for index or billing metadata.
 - Secrets.
 - Credentials.
@@ -66,9 +71,11 @@ Generated documents must be:
 - Downloaded by the lawyer.
 - Discarded by the application after generation.
 
+Persistent draft escrituras may store validated `field_values` and a server-rendered text snapshot so the lawyer can continue editing later. Draft text is sensitive user-owned data and must be protected by RLS, safe validation, and no-content logging.
+
 Generated documents must not be:
 
-- Stored permanently by default.
+- Stored as Word/PDF files.
 - Logged.
 - Sent to third parties automatically.
 - Submitted to official platforms automatically.
@@ -218,7 +225,8 @@ Required:
 - RLS.
 - Safe logging.
 - Input validation.
-- No generated document storage.
+- No generated Word/PDF file storage.
+- Sensitive draft text protected by RLS and never logged.
 - No service role key in browser code.
 - OWASP Top 10 review mindset.
 

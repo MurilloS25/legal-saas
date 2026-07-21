@@ -2,27 +2,41 @@
 
 MVP foundation for a legal productivity SaaS for independent lawyers in Costa Rica.
 
-The product will help lawyers manage reusable legal document templates ("machotes") and structured metadata for clients, notarial index preparation, and accounts receivable. The MVP must not store generated legal documents or full sensitive escritura content.
+The product helps lawyers manage reusable legal document templates ("machotes"), persistent draft escrituras, and structured metadata for clients, notarial index preparation, and accounts receivable. The MVP may store user-owned draft text snapshots while a lawyer is preparing an escritura, but it must not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 
 ## Stack
 
 - Next.js App Router with TypeScript, Tailwind CSS, ESLint, and `src/`
-- Supabase for Auth, Postgres, and future RLS-based authorization
+- Supabase for Auth, Postgres, and RLS-based authorization
 - Vercel for production hosting
 - Docker only for local development support, mainly alongside the Supabase local stack
-- Modular monolith with Clean Architecture-inspired boundaries
+- Modular monolith organized pragmatically by feature
 - GitHub Actions CI and Dependabot updates
-- Vitest and Playwright reserved for focused tests as features are added
+- Vitest, Supabase SQL/RLS tests, and Playwright for focused automated coverage
 
 ## Getting Started
 
 Install dependencies and run the local app:
 
 ```bash
+pnpm install
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Local Development
+
+Run the app directly and manage Supabase local services through the project CLI:
+
+```bash
+pnpm dev
+pnpm supabase start
+pnpm supabase status
+pnpm supabase stop
+```
+
+Docker Desktop must be running before `pnpm supabase start`.
 
 ## Quality Commands
 
@@ -40,6 +54,7 @@ pnpm build
 - [Security](docs/SECURITY.md)
 - [Database](docs/DATABASE.md)
 - [Accessibility](docs/ACCESSIBILITY.md)
+- [Word (.docx) export](docs/DOCX_EXPORT.md)
 - [Testing](docs/TESTING.md)
 - [CI/CD](docs/CI_CD.md)
 - [Docker](docs/DOCKER.md)
@@ -48,19 +63,24 @@ pnpm build
 
 ## Current Status
 
-This repository is intentionally at foundation stage. Product screens, database tables, document-generation logic, and production deployment configuration are deferred.
+The local MVP currently includes Auth, lawyer settings, clients, reusable templates, persistent draft escrituras, in-memory Word export, document lifecycle and activity, internal notarial index preparation, accounts receivable, payments, RLS, and E2E coverage. Production deployment remains deferred.
 
 ## Non-Negotiables
 
-- Do not store generated legal documents.
-- Do not store full sensitive escritura content.
+- Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Treat persistent draft text (`field_values` and `rendered_content`) as sensitive user-owned data: protect it with RLS, avoid logs, and store only what is needed for the draft workflow.
 - Do not expose Supabase service role keys to client-side code.
 - Enforce per-user authorization with Supabase RLS before handling real user data.
 - Keep security, accessibility, and data minimization visible in every feature review.
 
+## Architecture
+
+The current architecture and incremental modularization plan are documented in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Structural refactors must remain
+behavior-preserving and must not introduce strict Clean Architecture layers by
+default.
+
 ## TODO
 
-- Define the first database schema and RLS policies.
-- Add Supabase client/server helpers.
-- Add Vitest and Playwright configurations when the first testable behavior exists.
-- Add Vercel project and environment configuration.
+- Apply the documented modular-by-feature refactor incrementally.
+- Add Vercel project and production environment configuration when explicitly approved.

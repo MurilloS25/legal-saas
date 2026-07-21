@@ -4,7 +4,7 @@
 
 Testing exists to keep the MVP stable, safe, and maintainable.
 
-The project does not require strict TDD for every UI detail, but critical business logic must be tested.
+The project does not require strict TDD for every UI detail, but new business modules must be built with TDD around the behavior that matters.
 
 The most important areas are:
 
@@ -16,6 +16,43 @@ The most important areas are:
 - Accounts receivable calculations.
 - Authorization-sensitive logic.
 - Document export transformations.
+
+## TDD For New Business Modules
+
+TDD is required for new business modules such as:
+
+- Clients.
+- Templates.
+- Template variables.
+- Document generation.
+- Notarial index.
+- Accounts receivable.
+
+TDD does not mean every change starts with Playwright. Most TDD should begin with faster tests closer to the logic, such as Vitest schema tests, domain tests, server action tests, service/query tests, or local integration tests.
+
+Playwright E2E tests should usually be added near the end to cover the critical user flow.
+
+### Red
+
+- Write or update tests that express the expected behavior first.
+- Confirm the tests fail for the right reason.
+- Do not implement the feature before at least one meaningful test fails.
+- Choose the smallest useful test level for the behavior: unit, schema, server logic, integration, SQL/RLS, or E2E.
+
+### Green
+
+- Implement the smallest reasonable solution that passes the tests.
+- Do not overbuild.
+- Do not add features outside the ticket scope.
+- Confirm the related tests pass.
+
+### Refactor
+
+- Remove duplication.
+- Improve names and structure.
+- Move code to the right architectural layer when needed.
+- Keep tests green.
+- Do not change behavior during refactor unless a new test describes the intended change.
 
 ## Testing Tools
 
@@ -29,22 +66,63 @@ The project uses:
 
 ## Test Types
 
-### Unit Tests
+### Unit / Schema Tests With Vitest
 
-Use unit tests for pure logic.
+Use unit and schema tests for fast, deterministic logic.
 
 Good candidates:
 
+- Zod validations.
+- Helpers.
+- Pure functions.
 - Domain rules.
-- Validation functions.
-- Formatting helpers.
+- Simple business rules.
 - Template parsing.
 - Variable replacement.
+- Parsing and formatting.
+- Mappers.
 - Money calculations.
 - Period/date logic.
-- Access-control helper logic.
+- Permissions or guards that can be tested without a browser.
 
-Unit tests should be fast and deterministic.
+Unit tests should not need a browser, Supabase Cloud, or real secrets.
+
+### Integration-ish Tests / Server Logic
+
+Use integration-ish tests when the behavior crosses a small boundary but still does not need a browser.
+
+Good candidates:
+
+- Server actions.
+- Queries.
+- Repository behavior against Supabase local.
+- Operations that read or write Supabase local.
+- Ownership validation.
+- Form behavior that can be tested without full browser automation.
+
+These tests must use fake data only.
+
+### Supabase SQL / RLS Tests
+
+Use Supabase SQL/RLS tests for database authorization and data safety.
+
+Required for:
+
+- New tables.
+- New RLS policies.
+- Ownership changes.
+- Multi-user permission behavior.
+- Important constraints.
+- Security-sensitive data rules.
+
+RLS tests should include positive and negative cases, such as:
+
+- User A can access User A records.
+- User A cannot access User B records.
+- User A cannot create records owned by User B.
+- User A cannot create child records under User B parents.
+- User A cannot transfer ownership by updating `owner_id`.
+- Anonymous users cannot access private user-owned records.
 
 ### Component Tests
 
@@ -60,77 +138,155 @@ Good candidates:
 
 Avoid over-testing visual details.
 
-### E2E Tests
+### Playwright E2E Tests
 
-Use Playwright for full user workflows.
+Use Playwright for full user workflows that combine UI, Auth, routing, and persistence.
 
 Good candidates:
 
-- User logs in.
-- User creates a client.
-- User creates a template.
-- User generates a Word document.
-- User registers notarial index metadata.
-- User marks a receivable as paid.
+- Login and logout.
+- Protected routes.
+- Important forms.
+- Visible persistence after reload.
+- Main navigation.
+- Flows that combine UI, Auth, and Supabase.
 
-E2E tests should focus on critical flows, not every minor UI detail.
+Do not use Playwright for:
 
-## TDD Policy
+- Every small validation rule.
+- Fragile visual details.
+- Duplicating all unit tests.
+- Logic that can be tested faster with Vitest.
 
-TDD is recommended for critical logic.
+E2E tests should be limited and high value, not exhaustive.
 
-TDD is required or strongly preferred for:
+## E2E Criteria By Module
 
-- Template variable parser.
-- Template rendering/resolution logic.
-- Conditional template blocks.
-- Required field validation.
-- Notarial index period rules.
-- Accounts receivable calculations.
-- Data minimization rules.
-- Authorization-sensitive rules.
+Each important business module should finish with at least one critical E2E flow when the module has UI.
 
-TDD is optional for:
+Examples:
 
-- Layout components.
-- Static pages.
-- Styling-only changes.
-- Basic dashboard shells.
+- Clients: create an individual person client, edit it, reload, and confirm it appears in the expected list or detail view.
+- Templates: create a basic template, add fields or variables, save, reload, and confirm persistence.
+- Document generation: fill minimum data, generate a document, confirm the expected download or result, and confirm the generated document is not stored in the database.
+- Notarial index: register metadata and confirm it appears in the correct period.
+- Accounts receivable: create a receivable, change status, reload, and confirm persistence.
 
-## Temporary Foundation Phase
+Do not expand E2E coverage until the faster test layers already cover the small rules.
 
-During the foundation phase, the test script may use:
+## Playwright Rules
 
-```bash
-vitest run --passWithNoTests
-```
+- Use accessible locators first: `getByRole`, `getByLabel`, and `getByText`.
+- Avoid selectors based on Tailwind classes or fragile DOM structure.
+- Do not commit `playwright/.auth/`.
+- Do not commit storageState files.
+- Do not commit screenshots, traces, videos, or reports.
+- Keep `playwright-report/` and `test-results/` ignored.
+- Authenticated E2E tests require Supabase local running, a correct `.env.local`, `E2E_USER_EMAIL`, and `E2E_USER_PASSWORD`.
+- Use fake test users and fake test data only.
+- Do not depend on Supabase Cloud for local E2E tests.
+- Do not add Playwright to CI unless a task explicitly asks for it.
+- If Playwright is added to CI later, do it as a separate task with browser installation, environment variables, and a clear Supabase local/test strategy.
 
-This is acceptable only while no real features exist.
+## Validation Matrix
 
-Once critical business logic is added, the project should include real tests.
+Agents must choose validation commands based on the type of change.
 
-The long-term goal is to remove reliance on passing with no tests.
+### Documentation-only changes
+
+Run at most:
+
+- Manual review.
+
+Do not run by default:
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm build`
+- `pnpm e2e`
+
+Only run commands if the documentation affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or the user explicitly asks.
+
+### UI/React changes without critical logic
+
+Run:
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm build`
+
+Optional:
+
+- `pnpm test` if related tests exist or behavior changed.
+- `pnpm e2e` if protected routes or critical flows changed.
+
+### Validation, schema, helper, or business logic changes
+
+Run:
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm build`
+
+### Auth, protected routes, settings, or critical flows
+
+Run:
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm build`
+- `pnpm e2e`
+
+### Database, RLS, or migration changes
+
+Run:
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm build`
+- The relevant Supabase SQL/RLS tests.
+
+Run `pnpm e2e` only if the database change also affects UI behavior or critical user flows.
+
+### Large module changes
+
+Run:
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm build`
+- Supabase SQL/RLS tests if applicable.
+- `pnpm e2e` if the module has critical UI.
+
+Agents must explain which commands were skipped and why.
+
+## Test Script Behavior
+
+The test script currently keeps `--passWithNoTests` as a harmless fallback for
+isolated branches, but the repository contains a substantial unit test suite.
+New or changed critical behavior still requires focused tests; the fallback is
+not evidence that an untested feature is acceptable.
 
 ## Recommended Test Structure
 
-```txt
-tests/
-├─ unit/
-│  ├─ domain/
-│  ├─ application/
-│  └─ lib/
-├─ integration/
-└─ e2e/
-```
-
-Alternative feature-local tests are also acceptable if they improve maintainability:
+Prefer tests colocated with the code they verify. Feature-local and shared-lib
+tests follow the modular structure documented in `docs/ARCHITECTURE.md`:
 
 ```txt
-src/features/clients/__tests__/
-src/domain/templates/__tests__/
+src/features/clients/model/client-schema.test.ts
+src/features/receivables/model/status.test.ts
+src/lib/editor/variables.test.ts
+supabase/tests/rls_initial_schema.test.sql
+e2e/clients-authenticated.spec.ts
 ```
 
-The project should choose one convention and stay consistent.
+Do not create global `domain` or `application` test trees solely to imitate a
+layered architecture.
 
 ## Naming Convention
 
@@ -199,7 +355,7 @@ Examples:
 - Invalid template variables are rejected.
 - Unsafe template content is rejected or sanitized.
 
-RLS-specific tests should be added after the database schema and Supabase test workflow are approved.
+RLS-specific tests should be added or updated whenever tables, policies, ownership rules, or important constraints change.
 
 ## Accessibility Testing
 
@@ -222,6 +378,8 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
+
+`pnpm typecheck` runs `next typegen` before `tsc --noEmit` so route/page types are regenerated for the current branch before TypeScript reads `.next/types`.
 
 Future E2E tests may run separately because they are slower.
 
@@ -248,10 +406,128 @@ Critical logic is done only when:
 5. It does not store unnecessary sensitive data.
 6. It passes lint, typecheck, tests, and build.
 
+## Running Tests
+
+### Unit tests (Vitest)
+
+```bash
+pnpm test
+```
+
+### RLS tests (Supabase local)
+
+```bash
+pnpm supabase test db --local supabase/tests/rls_initial_schema.test.sql
+```
+
+Requires Supabase local to be running (`pnpm supabase start`).
+
+### E2E tests (Playwright)
+
+```bash
+pnpm e2e          # headless, list reporter
+pnpm e2e:ui       # interactive Playwright UI
+pnpm e2e:headed   # headed browser
+```
+
+**Requirements before running E2E tests:**
+
+- `.env.local` must be configured with the Supabase local credentials.
+- Supabase local must be running (`pnpm supabase start`) for flows that depend on Auth, such as login, redirect, and error handling.
+- Authenticated E2E tests require `E2E_USER_EMAIL` and `E2E_USER_PASSWORD`.
+- `playwright/.auth/` must stay uncommitted.
+- By default, Playwright starts its own `pnpm dev` server. Do not keep another dev server running on port 3000 during validation.
+- Only reuse an existing local dev server intentionally by setting `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+- Do not run `pnpm build` while an E2E dev server is running, because both commands share `.next/`.
+
+**Phase 1 scope (smoke, unauthenticated — current):**
+
+- Smoke tests for unauthenticated flows: login page, signup page, and protected route redirects.
+- Tests do not create real users or share authentication state between runs.
+- No visual regression tests.
+- Not included in CI yet.
+- Test file: `e2e/auth-smoke.spec.ts`
+- Playwright project: `chromium-public`
+
+**Phase 2 scope (authenticated — current):**
+
+- Authenticated tests using a dedicated local test user and Playwright `storageState`.
+- Not included in CI yet (requires a live Supabase local instance and test credentials).
+- Project execution order: `setup` → `chromium-clients` → `chromium-templates` → `chromium-template-fields` → `chromium-template-pasted-variables` → `chromium-template-milestone` → `chromium-documents` → `chromium-documents-docx` → `chromium-documents-client` → `chromium-document-client-dialog` → `chromium-documents-workspace` → `chromium-documents-lifecycle` → `chromium-document-milestone` → `chromium-documents-activity` → … → `chromium-receivables-workspace` → `chromium-receivable-client-dialog` → `chromium-document-receivable-navigation` → `chromium-dashboard` → `chromium-authenticated` (last, logs out). Authenticated module projects run sequentially to avoid local Supabase/dev-server contention while several flows create or update records.
+
+| Playwright project | Test file | Covers |
+|---|---|---|
+| `chromium-clients` | `e2e/clients-authenticated.spec.ts` | Create, edit, delete client; persistence after reload |
+| `chromium-templates` | `e2e/templates-authenticated.spec.ts` | Template workspace: create/edit with rich editor (bold/italic/underline), insert variable, preview, mobile edit/preview switch, persistence after reload |
+| `chromium-template-fields` | `e2e/template-fields-authenticated.spec.ts` | Template variables in the workspace: legacy conversion, Configurada/Pendiente/No utilizada states, configure/remove configuration, key validation |
+| `chromium-template-pasted-variables` | `e2e/template-pasted-variables-authenticated.spec.ts` | Automatic `{{key}}` detection when typed or pasted into the editor (not via "Insertar variable"): multiple placeholders in one paste, invalid syntax left as plain text, configuring a detected variable, save/reload persistence |
+| `chromium-template-milestone` | `e2e/template-milestone-feedback-authenticated.spec.ts` | Milestone banner after the first template save: shown with both actions ("Revisar Variables", "Configurar Índice Notarial"), `?created=1` cleared from the URL, actions switch tabs without losing the banner, dismiss hides it and it does not reappear on reload, a real subsequent save shows the plain "Machote guardado." message instead, never shown on direct/repeat access |
+| `chromium-documents` | `e2e/documents-authenticated.spec.ts` | Document composer: create/edit drafts with live document sheet, formatting (bold/italic/underline), progress, historical values, required validation, mobile data/document switch |
+| `chromium-documents-docx` | `e2e/documents-docx-authenticated.spec.ts` | Word download: button visibility, unsaved-changes gate, `.docx` download + ZIP inspection, MIME/headers, pending-variables confirmation, 404/invalid-id/anonymous, mobile |
+| `chromium-documents-client` | `e2e/documents-client-authenticated.spec.ts` | Optional client association: start from client, preselection, client detail escrituras section, remove/change association, client shown in list |
+| `chromium-document-client-dialog` | `e2e/document-client-contextual-creation-authenticated.spec.ts` | "+ Crear nuevo cliente" dialog in the document composer: reachable next to the selector, cancel/Escape preserve the form and create nothing, focus returns to the trigger, validation errors keep the dialog open with typed values, successful creation selects the client immediately without remounting the composer, association persists after save + reload, action hidden once the document is finalized (read-only) |
+| `chromium-documents-workspace` | `e2e/documents-workspace-authenticated.spec.ts` | Workspace: search (title/client/template), filters, sort, clear, invalid params, no-results, list download, mobile |
+| `chromium-documents-lifecycle` | `e2e/documents-lifecycle-authenticated.spec.ts` | Status lifecycle: draft↔ready↔final transitions, finalize blocked by pending variables, read-only final, reopen, unsaved-changes gate, status filter, mobile |
+| `chromium-document-milestone` | `e2e/document-milestone-feedback-authenticated.spec.ts` | Milestone banners for Escrituras: first draft save ("Escritura guardada como borrador", "Ver Cuentas por cobrar" link, `?saved=1` cleared, dismiss persists, real subsequent save shows the plain message instead) and finalize ("Escritura finalizada", "Ir al Índice Notarial" link + "Descargar Word" button, `?lifecycle=` cleared, reopen keeps the unchanged plain "reabierta" message) |
+| `chromium-documents-activity` | `e2e/documents-activity-authenticated.spec.ts` | Activity history: creation/client/title/status/word events recorded, timeline order, no event on failed operation, foreign access blocked |
+| `chromium-notarial-workspace` | `e2e/notarial-workspace-authenticated.spec.ts` | Fortnight selection, day 15/16 boundary, fixed instrument order, filters, warnings, pagination, and responsive table |
+| `chromium-notarial-export` | `e2e/notarial-docx-authenticated.spec.ts` | Owner-authenticated `.docx` export, OOXML content, filename/MIME, incomplete rows, empty period, missing profile, anonymous rejection, and retired CSV UI |
+| `chromium-receivable-milestone` | `e2e/receivable-milestone-feedback-authenticated.spec.ts` | Milestone banner after creating a receivable: "Cuenta por cobrar creada", "Ver Pagos" action switches to the Pagos tab without losing the banner, `?created=1` cleared from the URL, dismiss persists across reload, never shown on an existing (not just-created) receivable |
+| `chromium-receivable-client-dialog` | `e2e/receivable-client-contextual-creation-authenticated.spec.ts` | "+ Crear nuevo cliente" dialog in the receivable form: only shown in "Cliente registrado" mode (never "Escribir nombre"), cancel/Escape preserve the form and create nothing, focus returns to the trigger, validation errors keep the dialog open and select nothing, successful creation selects the client immediately without touching document/amount/currency/notes, association persists after save + reload, reachable when editing an existing receivable too |
+| `chromium-document-receivable-navigation` | `e2e/document-receivable-context-navigation-authenticated.spec.ts` | `returnTo` context back link between a document's "Cuentas por cobrar" tab and a receivable: shown on create and on opening an existing receivable, returns to the same document/tab, "Cancelar" honors it, absent on direct access or when created from the general receivables list, malicious `returnTo` values (external URLs, `javascript:`, out-of-allowlist internal routes, malformed ids) rejected |
+| `chromium-dashboard` | `e2e/dashboard-panel-authenticated.spec.ts` | Panel/sidebar shell: no duplicate "Nueva escritura" action, collapse/expand toggle + localStorage persistence + keyboard operability, collapsed nav tooltips without horizontal overflow, real notarial-fortnight incomplete count, real "Necesita tu atención" content (no "urgente" wording), fully clickable cards, quick actions |
+| `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Dashboard; unified settings workspace (profile + document settings in one page, no tabs, single "Guardar cambios" action, dirty detection, discard, validation blocks save without partial writes, persistence, mobile, keyboard nav); logout |
+
+**Setting up authenticated E2E tests:**
+
+1. Start Supabase local:
+   ```bash
+   pnpm supabase start
+   ```
+
+2. Create a dedicated test user via the Supabase local dashboard (http://127.0.0.1:55323) or by signing up through the app at http://localhost:3000/signup. Use a clearly fake address — for example `e2e-test@example.com`.
+
+3. Add the credentials to `.env.local` (never commit this file):
+   ```
+   E2E_USER_EMAIL=e2e-test@example.com
+   E2E_USER_PASSWORD=a-strong-test-password
+   ```
+
+4. Make sure no manual dev server is running on port 3000, unless you intentionally set `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+
+5. Run all E2E tests:
+   ```bash
+   pnpm e2e
+   ```
+
+**Auth state file:**
+
+Playwright saves session cookies/tokens to `playwright/.auth/user.json` after the `setup` project runs.
+
+- This file is listed in `.gitignore` and must never be committed.
+- It is regenerated automatically each time `pnpm e2e` runs.
+- If the file is missing or the session expires, re-run `pnpm e2e` to regenerate it.
+
+**Phase 3 (future):**
+
+- Full workflow flows: generate document from template + client data.
+- CI integration with a Supabase test environment.
+
+## E2E Data Factories
+
+E2E data factories live in `e2e/support/` (`factories.ts`, `cleanup-registry.ts`, `supabase-api.ts`):
+
+- They create rows through the local REST API using the test user's own JWT, so RLS applies exactly as in the app. No service role is used.
+- Names use the `e2e-<spec>-<label>-<uuid>` convention, unique even under parallel runs.
+- Every created resource is registered and deleted in FK-safe order (`documents` → `template_fields` → `templates` → `clients`) in `afterAll`, tolerating rows the test already deleted.
+- Rows created through the UI are registered for cleanup with `registerCreatedViaUi` (lookup by unique name).
+- Cleanup failures are logged with an `[e2e-cleanup:*]` prefix and fail the suite so E2E data accumulation does not become silent.
+- The registry logic is covered by vitest (`e2e/support/cleanup-registry.test.ts`).
+
 ## TODO
 
-- Add Vitest config if needed.
-- Add Playwright config when the first E2E flow exists.
 - Decide between centralized tests or feature-local tests.
-- Add test factories for fake users, clients, templates, and receivables.
+- Extend E2E factories to receivables and notarial records when those modules exist.
 - Add RLS testing strategy after Supabase schema exists.
+- Phase 3: extend authenticated E2E tests to cover document generation workflows.
+- Phase 3: add E2E to CI pipeline with a dedicated Supabase test environment.

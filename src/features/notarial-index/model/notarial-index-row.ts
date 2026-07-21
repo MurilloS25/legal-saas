@@ -1,0 +1,18 @@
+export type NotarialIndexRow = {
+  document_id: string;
+  title: string;
+  client_name: string | null;
+  instrument_number: number | null;
+  authorized_at: string | null;
+  protocol_book: string | null;
+  initial_folio: string | null;
+  final_folio: string | null;
+  act_name: string | null;
+  parties: string | null;
+  period_year: number | null;
+  period_month: number | null;
+  period_half: string | null;
+  version: number | null;
+  has_metadata: boolean;
+  is_complete: boolean;
+};

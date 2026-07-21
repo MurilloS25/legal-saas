@@ -6,7 +6,7 @@ Security and data minimization are mandatory because the product supports legal 
 
 Treat all user data as sensitive by default.
 
-The product must help lawyers work faster without becoming a risky storage system for generated legal documents or unnecessary sensitive legal content.
+The product must help lawyers work faster without becoming a risky storage system for generated Word/PDF files, signed documents, official submissions, or unnecessary sensitive legal content.
 
 ## Core Security Principles
 
@@ -27,9 +27,11 @@ The MVP follows these principles:
 
 The application must not store:
 
-- Generated legal documents.
+- Generated Word/PDF files.
 - Signed documents.
-- Full sensitive escritura content.
+- Official submission payloads.
+- Generated document storage paths.
+- Full sensitive escritura content outside the approved persistent draft workflow.
 - Unnecessary details about legal transactions.
 - Secrets.
 - Credentials.
@@ -40,6 +42,8 @@ The application may store:
 - Lawyer profile data.
 - Template definitions.
 - Template field definitions.
+- Persistent draft `field_values`.
+- Persistent draft `rendered_content` text snapshots.
 - Client metadata.
 - Minimal document metadata.
 - Minimal notarial index metadata.
@@ -114,7 +118,7 @@ Required controls:
 - Use managed HTTPS in production.
 - Do not implement custom cryptography.
 - Do not store unnecessary sensitive legal content.
-- Do not store generated legal documents.
+- Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - Protect secrets and environment variables.
 - Avoid logging sensitive data.
 
@@ -188,7 +192,8 @@ Required controls:
 Required controls:
 
 - Log important security-relevant events without sensitive legal content.
-- Do not log generated document content.
+- Do not log generated document file content.
+- Do not log persistent draft `field_values` or `rendered_content`.
 - Do not log full escritura text.
 - Do not log secrets.
 - Capture enough operational context to investigate failures safely.
@@ -230,14 +235,15 @@ Rules:
 
 ## Document Generation Security
 
-Generated documents must be handled carefully.
+Generated documents and persistent draft text must be handled carefully.
 
 Rules:
 
 - Generate files for immediate download.
-- Do not persist generated legal documents by default.
+- Persist draft `field_values` and server-rendered text snapshots only in the approved user-owned `documents` draft model.
+- Do not persist generated Word/PDF files.
 - Avoid writing generated files to permanent storage.
-- Avoid logging generated content.
+- Avoid logging draft values, rendered snapshots, or generated content.
 - Keep export adapters server-side.
 - Validate all input before export.
 
@@ -245,7 +251,8 @@ Rules:
 
 Logs must not include:
 
-- Generated legal document content.
+- Generated Word/PDF document content.
+- Persistent draft `field_values` or `rendered_content`.
 - Full escritura content.
 - Secrets.
 - Credentials.
@@ -300,6 +307,65 @@ Before merging a new feature, answer:
 10. Does it change document generation behavior?
 11. Does it affect official legal workflows?
 12. Does it require tests?
+
+## Auth Hardening Checklist
+
+The following items are required before production deployment of Supabase Auth.
+They are intentionally deferred from the MVP development phase.
+
+### Rate Limits
+
+Supabase Auth has built-in rate limits for signup, login, OTP, and password reset.
+
+Before production:
+
+- Review the rate limit settings in the Supabase project dashboard.
+- Consider enabling CAPTCHA (hCaptcha or Cloudflare Turnstile) via Supabase Auth settings
+  if bot traffic or credential stuffing becomes a concern.
+- Do not implement manual rate limiting in application code unless Supabase limits are insufficient.
+
+### CAPTCHA
+
+CAPTCHA integration is deferred.
+
+Supabase Auth natively supports hCaptcha and Cloudflare Turnstile.
+Enable and configure via the Supabase Auth project settings when needed.
+
+### Password Policy Alignment
+
+The application enforces a password policy at the form validation layer (Zod schema).
+The Supabase Auth project settings have a separate password strength configuration.
+
+Before production:
+
+- Set the Supabase Auth password minimum length to 12 characters to match the application schema.
+- Enable uppercase, lowercase, digit, and symbol requirements in Supabase Auth settings.
+- Both layers must be aligned — the application layer provides UX feedback;
+  the Supabase layer enforces the policy at the API level.
+
+### Custom SMTP
+
+Before production:
+
+- Configure a custom SMTP server in Supabase project settings.
+- Using Supabase's default SMTP has rate limits not suitable for production.
+
+### Email Confirmation Templates
+
+Before production:
+
+- Update the Supabase email confirmation template to point to:
+  `<your-domain>/auth/confirm?token_hash={{ .TokenHash }}&type=signup`
+- Review all email templates (confirmation, password reset, invite) in Supabase project settings.
+
+### Deferred Auth Features
+
+The following features are intentionally deferred:
+
+- Google OAuth (and other social providers).
+- Magic link / passwordless login.
+- Multi-factor authentication (MFA / TOTP).
+- Passkeys / WebAuthn.
 
 ## TODO
 

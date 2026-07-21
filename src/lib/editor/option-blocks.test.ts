@@ -1,0 +1,207 @@
+import { describe, expect, it } from "vitest";
+import {
+  attrsToDraft,
+  buildOptionBlockAttrs,
+  generateOptionId,
+  parseVariantContentText,
+  serializeVariantContentToText,
+  type OptionBlockDraft,
+} from "./option-blocks";
+import { TEMPLATE_DOC_LIMITS } from "./types";
+
+describe("parseVariantContentText", () => {
+  it("parses text with a single variable placeholder", () => {
+    expect(parseVariantContentText("Chasis número {{vehiculo.chasis}}")).toEqual([
+      { type: "text", text: "Chasis número " },
+      { type: "templateVariable", attrs: { key: "vehiculo.chasis" } },
+    ]);
+  });
+
+  it("parses the Chasis/VIN/Serie 'todos distintos' example verbatim", () => {
+    const content = parseVariantContentText(
+      "CHASIS número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}} y SERIE número {{vehiculo.serie}}",
+    );
+    expect(content).toEqual([
+      { type: "text", text: "CHASIS número " },
+      { type: "templateVariable", attrs: { key: "vehiculo.chasis" } },
+      { type: "text", text: ", VIN número " },
+      { type: "templateVariable", attrs: { key: "vehiculo.vin" } },
+      { type: "text", text: " y SERIE número " },
+      { type: "templateVariable", attrs: { key: "vehiculo.serie" } },
+    ]);
+  });
+
+  it("returns plain text when there are no placeholders", () => {
+    expect(parseVariantContentText("Todos iguales")).toEqual([
+      { type: "text", text: "Todos iguales" },
+    ]);
+  });
+
+  it("returns an empty array for blank input", () => {
+    expect(parseVariantContentText("   ")).toEqual([]);
+  });
+
+  it("collapses embedded newlines into a single line", () => {
+    expect(parseVariantContentText("Línea uno\nLínea dos")).toEqual([
+      { type: "text", text: "Línea uno Línea dos" },
+    ]);
+  });
+
+  it("leaves an invalid placeholder as literal text", () => {
+    expect(parseVariantContentText("Valor {{Clave Mala}} fin")).toEqual([
+      { type: "text", text: "Valor {{Clave Mala}} fin" },
+    ]);
+  });
+});
+
+describe("serializeVariantContentToText", () => {
+  it("round-trips through parseVariantContentText", () => {
+    const original = "CHASIS número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}}";
+    const content = parseVariantContentText(original);
+    expect(serializeVariantContentToText(content)).toBe(original);
+  });
+});
+
+describe("generateOptionId", () => {
+  it("generates distinct ids", () => {
+    const a = generateOptionId();
+    const b = generateOptionId();
+    expect(a).not.toBe(b);
+    expect(a.length).toBeGreaterThan(0);
+  });
+});
+
+function draft(overrides: Partial<OptionBlockDraft> = {}): OptionBlockDraft {
+  return {
+    blockId: "block-1",
+    name: "Chasis, VIN y Serie",
+    variants: [
+      { id: "v1", label: "Todos iguales", contentText: "Todos iguales" },
+      {
+        id: "v2",
+        label: "Todos distintos",
+        contentText:
+          "CHASIS número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}} y SERIE número {{vehiculo.serie}}",
+      },
+    ],
+    defaultVariantId: "v2",
+    ...overrides,
+  };
+}
+
+describe("buildOptionBlockAttrs", () => {
+  it("builds valid attrs from a valid draft", () => {
+    const result = buildOptionBlockAttrs(draft());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.attrs.name).toBe("Chasis, VIN y Serie");
+    expect(result.attrs.variants).toHaveLength(2);
+    expect(result.attrs.defaultVariantId).toBe("v2");
+  });
+
+  it("builds all five Chasis/VIN/Serie variants from the spec", () => {
+    const block = draft({
+      variants: [
+        { id: "v1", label: "Todos iguales", contentText: "Todos iguales, número {{vehiculo.numero}}" },
+        {
+          id: "v2",
+          label: "Todos distintos",
+          contentText:
+            "CHASIS número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}} y SERIE número {{vehiculo.serie}}",
+        },
+        {
+          id: "v3",
+          label: "Chasis y VIN iguales; Serie distinta",
+          contentText:
+            "CHASIS y VIN número {{vehiculo.chasis_vin}}, SERIE número {{vehiculo.serie}}",
+        },
+        {
+          id: "v4",
+          label: "Chasis y Serie iguales; VIN distinto",
+          contentText:
+            "CHASIS y SERIE número {{vehiculo.chasis_serie}}, VIN número {{vehiculo.vin}}",
+        },
+        {
+          id: "v5",
+          label: "VIN y Serie iguales; Chasis distinto",
+          contentText:
+            "VIN y SERIE número {{vehiculo.vin_serie}}, CHASIS número {{vehiculo.chasis}}",
+        },
+      ],
+      defaultVariantId: "v2",
+    });
+    const result = buildOptionBlockAttrs(block);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.attrs.variants).toHaveLength(5);
+  });
+
+  it("builds the Hora block with its two variants", () => {
+    const hora = draft({
+      name: "Hora",
+      variants: [
+        { id: "en_punto", label: "Hora en punto", contentText: "{{hora.valor}}" },
+        {
+          id: "con_minutos",
+          label: "Hora con minutos",
+          contentText: "{{hora.valor}} con {{hora.minutos}}",
+        },
+      ],
+      defaultVariantId: "en_punto",
+    });
+    const result = buildOptionBlockAttrs(hora);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an empty block name", () => {
+    expect(buildOptionBlockAttrs(draft({ name: "  " })).ok).toBe(false);
+  });
+
+  it("rejects a draft with zero variants", () => {
+    expect(buildOptionBlockAttrs(draft({ variants: [] })).ok).toBe(false);
+  });
+
+  it("rejects a draft over the variant limit", () => {
+    const many = Array.from(
+      { length: TEMPLATE_DOC_LIMITS.maxOptionVariantsPerBlock + 1 },
+      (_, i) => ({ id: `v${i}`, label: `Variante ${i}`, contentText: "x" }),
+    );
+    expect(
+      buildOptionBlockAttrs(draft({ variants: many, defaultVariantId: "v0" })).ok,
+    ).toBe(false);
+  });
+
+  it("rejects a variant with an empty label", () => {
+    const bad = draft({
+      variants: [{ id: "v1", label: "  ", contentText: "x" }],
+      defaultVariantId: "v1",
+    });
+    expect(buildOptionBlockAttrs(bad).ok).toBe(false);
+  });
+
+  it("rejects a variant with empty content", () => {
+    const bad = draft({
+      variants: [{ id: "v1", label: "Vacía", contentText: "   " }],
+      defaultVariantId: "v1",
+    });
+    expect(buildOptionBlockAttrs(bad).ok).toBe(false);
+  });
+
+  it("rejects a defaultVariantId that does not match any variant", () => {
+    expect(
+      buildOptionBlockAttrs(draft({ defaultVariantId: "no-existe" })).ok,
+    ).toBe(false);
+  });
+});
+
+describe("attrsToDraft", () => {
+  it("round-trips a built block back to an editable draft", () => {
+    const built = buildOptionBlockAttrs(draft());
+    if (!built.ok) throw new Error("expected ok");
+    const roundTripped = attrsToDraft(built.attrs);
+    expect(roundTripped.name).toBe("Chasis, VIN y Serie");
+    expect(roundTripped.defaultVariantId).toBe("v2");
+    expect(roundTripped.variants[1].contentText).toBe(
+      "CHASIS número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}} y SERIE número {{vehiculo.serie}}",
+    );
+  });
+});

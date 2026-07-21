@@ -40,8 +40,9 @@ AI agents must understand:
 
 - This is a legal productivity SaaS MVP.
 - The primary users are independent lawyers in Costa Rica.
-- The app helps with templates, Word generation, client reuse, notarial index metadata, and receivables.
-- The app does not store generated legal documents.
+- The app helps with templates, persistent draft escrituras, Word generation, client reuse, notarial index metadata, and receivables.
+- The app may store validated draft `field_values` and server-rendered text snapshots.
+- The app does not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - The app does not provide legal advice.
 - The app does not submit official legal documents.
 - The app does not include AI product features in the MVP.
@@ -68,12 +69,104 @@ Recommended workflow:
 
 1. Define the task clearly.
 2. Confirm the task is inside MVP scope.
-3. Ask AI for a plan before code.
-4. Review the plan.
-5. Ask AI to implement only the approved scope.
-6. Review the diff manually.
-7. Run lint, typecheck, tests, and build.
-8. Commit only reviewed changes.
+3. Run `git status` and `git branch --show-current`.
+4. If there are unexpected local changes, stop and ask before editing.
+5. Ask AI for a plan before code when the task changes behavior, data, security, or architecture.
+6. Review the plan.
+7. Ask AI to implement only the approved scope.
+8. Review the diff manually.
+9. Run validation commands according to the Validation Policy.
+10. Commit only reviewed changes.
+
+## Claude / Codex Responsibilities
+
+The normal workflow is:
+
+- Claude implements requested changes.
+- Codex reviews when the user asks for review.
+- Codex must not modify files during review-only tasks.
+- Either tool may implement when the user explicitly asks it to do so.
+
+Do not create Git worktrees unless the user explicitly asks for one.
+
+Work in the current user worktree. When isolation is needed, create or switch to a normal Git branch in the current worktree.
+
+Do not use `.claude/worktrees/` unless explicitly authorized by the user.
+
+## TDD For New Modules
+
+New business modules should follow the Red-Green-Refactor workflow documented in `docs/TESTING.md`.
+
+This applies to modules such as clients, templates, template variables, document generation, notarial index, and receivables.
+
+Start with fast tests close to the logic. Use Playwright E2E only for limited, high-value user flows after the lower-level behavior is covered.
+
+## Validation Policy
+
+Agents must choose validation commands based on the type of change.
+
+The authoritative validation matrix is in `docs/TESTING.md`.
+
+For documentation-only changes:
+
+- Do not run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` by default.
+- Do not run `pnpm e2e` by default.
+- Only run commands if the documentation change affects executable examples, package scripts, CI/CD, framework configuration, Supabase commands, or if the user explicitly asks.
+
+For configuration changes:
+
+- Run the specific command related to the changed configuration.
+- If the change affects CI, package scripts, dependencies, TypeScript, Next.js, ESLint, Tailwind, Supabase, or build behavior, run the relevant validation commands.
+
+For dependency, source code, tests, framework config, Supabase config, or CI changes:
+
+- Run the appropriate checks, normally:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+
+For Supabase local setup changes:
+
+- Run only the relevant Supabase commands when needed:
+  - `pnpm supabase --version`
+  - `pnpm supabase status`
+  - `pnpm supabase start`
+  - `pnpm supabase stop`
+
+Agents must explain which commands were skipped and why.
+
+Examples:
+
+- Updating only `docs/DATABASE.md`: no pnpm validation needed by default.
+- Updating `.github/workflows/ci.yml`: run relevant CI-equivalent checks.
+- Updating `package.json` or `pnpm-lock.yaml`: run install and full validation.
+- Updating application TypeScript/React code: run lint, typecheck, tests, and build.
+
+## Playwright E2E Policy
+
+Use Playwright for critical user workflows that combine UI, Auth, routing, and Supabase persistence.
+
+Do not use Playwright to duplicate every unit test or to assert fragile visual details.
+
+Agents must not commit `playwright/.auth/`, storageState files, screenshots, traces, reports, or `test-results/`.
+
+Keep Playwright out of CI unless a task explicitly asks to add it with browser installation, environment variables, and a clear Supabase local/test strategy.
+
+## Supabase Safety
+
+Never touch Supabase Cloud without explicit user permission.
+
+Never run `supabase db push` without explicit user permission.
+
+For database changes:
+
+1. Use versioned migrations.
+2. Update database/security documentation when decisions change.
+3. Add or update RLS tests for ownership and access-control behavior.
+4. Run local Supabase validation.
+5. Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+6. Persist draft escritura text only through the approved user-owned `documents` draft model, protected by RLS and no-content logging rules.
 
 ## Prompting Rules
 
@@ -106,7 +199,8 @@ AI must not:
 
 - Add features outside MVP scope.
 - Create database tables without approved schema.
-- Store generated documents.
+- Store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+- Store draft text outside the approved `documents` draft model.
 - Add digital signature flows.
 - Add official submission flows.
 - Add AI legal advice features.
@@ -127,12 +221,12 @@ Before accepting AI-generated changes, verify:
 4. Did it expose secrets?
 5. Did it bypass architecture boundaries?
 6. Did it add direct Supabase calls in UI components?
-7. Did it introduce generated document storage?
+7. Did it introduce generated file storage or draft text outside the approved `documents` model?
 8. Did it affect RLS or auth?
 9. Did it include or update tests when needed?
 10. Did it keep accessibility in mind?
 11. Did it update documentation if decisions changed?
-12. Does the project still pass lint, typecheck, tests, and build?
+12. Were validation commands chosen according to the Validation Policy?
 
 ## Suggested AI Commands Or Prompts
 
