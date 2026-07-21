@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(7);
+select plan(10);
 
 create schema rls_docstatus_test;
 grant usage on schema rls_docstatus_test to public;
@@ -115,6 +115,40 @@ select ok(
             '51111111-0000-0000-0000-000000000001', 'Bad status', 'archived')
   $$),
   'A document cannot be created with an out-of-set status'
+);
+
+-- A finalized document cannot be deleted (must be reopened to draft first),
+-- but a draft one can — tested on their own rows so the shared document
+-- above stays intact for the rest of this file.
+insert into public.documents (id, owner_id, template_id, title, status, field_values, rendered_content)
+values (
+  '51111111-d000-0000-0000-000000000002', '51111111-1111-1111-1111-111111111111',
+  '51111111-0000-0000-0000-000000000001', 'Doc finalizado', 'final', '{}'::jsonb, ''
+);
+
+-- Un delete que no matchea ninguna fila por RLS no lanza excepción: solo
+-- afecta 0 filas. `statement_fails` no sirve aquí (no hay error que atrapar).
+select is(
+  rls_docstatus_test.statement_row_count($$
+    delete from public.documents where id = '51111111-d000-0000-0000-000000000002'
+  $$),
+  0::bigint,
+  'A finalized document cannot be deleted'
+);
+
+select ok(
+  rls_docstatus_test.statement_succeeds($$
+    update public.documents set status = 'draft'
+    where id = '51111111-d000-0000-0000-000000000002'
+  $$),
+  'Reopening the document to draft succeeds'
+);
+
+select ok(
+  rls_docstatus_test.statement_succeeds($$
+    delete from public.documents where id = '51111111-d000-0000-0000-000000000002'
+  $$),
+  'The same document can be deleted once reopened to draft'
 );
 
 -- user B cannot change user A's status

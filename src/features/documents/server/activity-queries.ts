@@ -31,8 +31,10 @@ function activityMetadata(value: ActivityRow["metadata"]): Record<string, unknow
 }
 
 /**
- * Página de actividad de una Escritura, más reciente primero. RLS restringe a
- * la actividad propia; el `document_id` acota a la escritura. Paginación por
+ * Página de actividad de una Escritura, más reciente primero. `owner_id` se
+ * filtra explícitamente en la query (defensa en profundidad, igual que el
+ * resto de las consultas del feature) además de estar cubierto por RLS; el
+ * `document_id` acota a la escritura. Paginación por
  * offset con `hasMore` (se pide una fila extra para detectarlo). El actor se
  * resuelve a un nombre legible vía lawyer_profiles.
  */
@@ -52,6 +54,7 @@ export async function listDocumentActivity(
     .from("document_activity")
     .select("id, event_type, summary, metadata, created_at, actor_user_id")
     .eq("document_id", documentId)
+    .eq("owner_id", user.id)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(safeOffset, safeOffset + ACTIVITY_PAGE_SIZE);

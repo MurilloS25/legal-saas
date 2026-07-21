@@ -216,12 +216,16 @@ test.describe("document lifecycle statuses", () => {
     ).toHaveCount(0);
   });
 
-  test("I: a finalized document shows Ver (not Continuar) in the list", async ({
+  test("I: a finalized document shows Ver (not Continuar) in the list, and no delete action", async ({
     page,
   }) => {
     await page.goto("/dashboard/documents?status=final");
     const row = page.locator("tbody tr").filter({ hasText: finalTitle });
     await expect(row.getByRole("link", { name: "Ver" })).toBeVisible();
+    // Una escritura finalizada no puede eliminarse sin reabrirla primero.
+    await expect(
+      row.getByRole("button", { name: `Eliminar ${finalTitle}` }),
+    ).toHaveCount(0);
   });
 
   test("J: status controls are visible on a mobile viewport", async ({
