@@ -103,7 +103,9 @@ export function createDocumentsColumns(): ColumnDef<WorkspaceDocumentRow>[] {
               variant="compact"
               ariaLabel={`Descargar Word de ${doc.title}`}
             />
-            <DeleteDocumentButton documentId={doc.id} documentTitle={doc.title} />
+            {doc.status !== "final" && (
+              <DeleteDocumentButton documentId={doc.id} documentTitle={doc.title} />
+            )}
           </div>
         );
       },

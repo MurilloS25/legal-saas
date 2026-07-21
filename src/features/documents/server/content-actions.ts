@@ -366,6 +366,23 @@ export async function deleteDocumentDraftAction(
     return { message: "No se encontró la escritura." };
   }
 
+  const { data: existing, error: existingError } = await supabase
+    .from("documents")
+    .select("id, status")
+    .eq("id", documentId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  if (existingError) throwDataAccessError("load document for delete", existingError);
+  if (!existing) {
+    return { message: "No se encontró la escritura." };
+  }
+  if (isReadOnlyStatus(existing.status)) {
+    return {
+      message: "Esta escritura está finalizada. Reábrela antes de eliminarla.",
+    };
+  }
+
   const { data, error } = await supabase
     .from("documents")
     .delete()

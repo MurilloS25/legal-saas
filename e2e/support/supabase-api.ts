@@ -238,6 +238,15 @@ export async function restRpc(
 export async function restDelete(
   resource: CleanupResource,
 ): Promise<"deleted" | "missing"> {
+  // Una Escritura finalizada no puede eliminarse (RLS lo bloquea a
+  // propósito): reabrirla primero es seguro y silencioso — si la fila ya no
+  // existe o no está finalizada, el PATCH simplemente no afecta filas.
+  if (resource.table === "documents") {
+    await restUpdate("documents", resource.id, { status: "draft" }).catch(
+      () => undefined,
+    );
+  }
+
   const url = `${restUrl(resource.table)}?id=eq.${resource.id}`;
   const response = await fetch(url, {
     method: "DELETE",
