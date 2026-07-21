@@ -20,7 +20,11 @@ import {
   UnderlineType,
 } from "docx";
 import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
-import { DOCX_CONFIG } from "./config";
+import { buildDocxSectionConfig } from "./config";
+import {
+  DOCX_DEFAULT_FORMATTING,
+  type DocumentFormattingPreferences,
+} from "./formatting";
 import {
   checkDocumentModelLimits,
   DOCX_LIMITS,
@@ -72,12 +76,15 @@ function paragraphToDocx(runs: DocumentRun[]): Paragraph {
 }
 
 /**
- * Genera el `.docx` en memoria desde el modelo documental. Lanza
- * `DocxGenerationError` con un código técnico si el documento excede los
- * límites o si el empaquetado falla.
+ * Genera el `.docx` en memoria desde el modelo documental, aplicando las
+ * preferencias de formato del usuario (fuente, tamaño, interlineado,
+ * márgenes) — o los defaults si no se pasan. Lanza `DocxGenerationError` con
+ * un código técnico si el documento excede los límites o si el empaquetado
+ * falla.
  */
 export async function generateDocumentDocx(
   model: DocumentModel,
+  formatting: DocumentFormattingPreferences = DOCX_DEFAULT_FORMATTING,
 ): Promise<Buffer> {
   const limit = checkDocumentModelLimits(model);
   if (limit) throw new DocxGenerationError(limit);
@@ -87,18 +94,21 @@ export async function generateDocumentDocx(
       ? model.map((paragraph) => paragraphToDocx(paragraph.runs))
       : [new Paragraph({})];
 
+  const section = buildDocxSectionConfig(formatting);
+
   const doc = new Document({
     styles: {
       default: {
         document: {
           run: {
-            font: DOCX_CONFIG.fontFamily,
-            size: DOCX_CONFIG.fontHalfPoints,
+            font: section.fontFamily,
+            size: section.fontHalfPoints,
           },
           paragraph: {
             spacing: {
-              line: DOCX_CONFIG.paragraph.line,
-              after: DOCX_CONFIG.paragraph.after,
+              line: section.paragraph.line,
+              lineRule: section.paragraph.lineRule,
+              after: section.paragraph.after,
             },
           },
         },
@@ -109,11 +119,11 @@ export async function generateDocumentDocx(
         properties: {
           page: {
             size: {
-              width: DOCX_CONFIG.page.width,
-              height: DOCX_CONFIG.page.height,
+              width: section.page.width,
+              height: section.page.height,
               orientation: PageOrientation.PORTRAIT,
             },
-            margin: DOCX_CONFIG.page.margin,
+            margin: section.page.margin,
           },
         },
         children,

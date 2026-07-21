@@ -18,6 +18,12 @@ import {
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import type { FortnightSelection } from "../model/fortnight";
 import {
+  centimetersToTwip,
+  DOCX_DEFAULT_FORMATTING,
+  LEGAL_PAGE_SIZE_TWIPS,
+  type DocumentFormattingPreferences,
+} from "@/lib/documents/docx/formatting";
+import {
   formatIndexDate,
   formatIndexTime,
   formatNotarialGenerationDate,
@@ -37,10 +43,10 @@ const HEADERS = [
 ] as const;
 const COLUMN_WIDTHS = [700, 950, 950, 750, 1250, 900, 3400, 6300] as const;
 // `docx` swaps the supplied dimensions when landscape is selected. Supplying
-// portrait A4 here produces the intended 16838 x 11906 landscape OOXML page.
-const PAGE_WIDTH_INPUT = 11906;
-const PAGE_HEIGHT_INPUT = 16838;
-const PAGE_MARGIN_HORIZONTAL = 567;
+// portrait Legal dims here (papel Legal fijo para todo DOCX generado)
+// produces the intended landscape OOXML page.
+const PAGE_WIDTH_INPUT = LEGAL_PAGE_SIZE_TWIPS.width;
+const PAGE_HEIGHT_INPUT = LEGAL_PAGE_SIZE_TWIPS.height;
 const CELL_MARGIN = { top: 70, bottom: 70, left: 80, right: 80 };
 const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const BORDERS = {
@@ -57,9 +63,24 @@ type Input = {
   selection: FortnightSelection;
   notaryName: string;
   generatedAt?: Date;
+  /**
+   * Preferencias de formato del dueño (ver `formatting.ts`); defaults si se
+   * omite. Solo la familia de fuente y los márgenes se heredan aquí: los
+   * tamaños de texto (16/18/20 medios puntos) son deliberadamente fijos por
+   * elemento — la tabla y sus anchos de columna están ajustados a esos
+   * tamaños específicos, y el tamaño de fuente configurado en Configuración
+   * está pensado para el cuerpo de una Escritura, no para una tabla
+   * horizontal densa.
+   */
+  formatting?: DocumentFormattingPreferences;
 };
 
-function cell(text: string, width: number, bold = false): TableCell {
+function cell(
+  text: string,
+  width: number,
+  fontFamily: string,
+  bold = false,
+): TableCell {
   return new TableCell({
     width: { size: width, type: WidthType.DXA },
     margins: CELL_MARGIN,
@@ -68,7 +89,7 @@ function cell(text: string, width: number, bold = false): TableCell {
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 0, after: 0 },
-        children: [new TextRun({ text, bold, size: 16, font: "Arial" })],
+        children: [new TextRun({ text, bold, size: 16, font: fontFamily })],
       }),
     ],
   });
@@ -92,7 +113,9 @@ export async function generateNotarialIndexDocx({
   selection,
   notaryName,
   generatedAt = new Date(),
+  formatting = DOCX_DEFAULT_FORMATTING,
 }: Input): Promise<Buffer> {
+  const fontFamily = formatting.fontFamily;
   const safeName = notaryName.trim();
   const title =
     `Índice de instrumentos autorizados por el Notario ${safeName} ` +
@@ -103,7 +126,7 @@ export async function generateNotarialIndexDocx({
       tableHeader: true,
       cantSplit: true,
       children: HEADERS.map((header, index) =>
-        cell(header, COLUMN_WIDTHS[index], true),
+        cell(header, COLUMN_WIDTHS[index], fontFamily, true),
       ),
     }),
     ...rows.map(
@@ -111,7 +134,7 @@ export async function generateNotarialIndexDocx({
         new TableRow({
           cantSplit: true,
           children: rowCells(row).map((value, index) =>
-            cell(value, COLUMN_WIDTHS[index]),
+            cell(value, COLUMN_WIDTHS[index], fontFamily),
           ),
         }),
     ),
@@ -121,7 +144,9 @@ export async function generateNotarialIndexDocx({
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 240 },
-      children: [new TextRun({ text: title, bold: true, size: 20, font: "Arial" })],
+      children: [
+        new TextRun({ text: title, bold: true, size: 20, font: fontFamily }),
+      ],
     }),
     new Table({
       width: { size: COLUMN_WIDTHS.reduce((sum, value) => sum + value, 0), type: WidthType.DXA },
@@ -140,7 +165,7 @@ export async function generateNotarialIndexDocx({
                 text: "No hay instrumentos registrados para esta quincena.",
                 italics: true,
                 size: 18,
-                font: "Arial",
+                font: fontFamily,
               }),
             ],
           }),
@@ -153,7 +178,7 @@ export async function generateNotarialIndexDocx({
         new TextRun({
           text: formatNotarialGenerationDate(generatedAt),
           size: 20,
-          font: "Arial",
+          font: fontFamily,
         }),
       ],
     }),
@@ -164,7 +189,7 @@ export async function generateNotarialIndexDocx({
           text: `LIC. ${safeName.toLocaleUpperCase("es-CR")}`,
           bold: true,
           size: 20,
-          font: "Arial",
+          font: fontFamily,
         }),
       ],
     }),
@@ -181,10 +206,10 @@ export async function generateNotarialIndexDocx({
               orientation: PageOrientation.LANDSCAPE,
             },
             margin: {
-              top: 720,
-              right: PAGE_MARGIN_HORIZONTAL,
-              bottom: 720,
-              left: PAGE_MARGIN_HORIZONTAL,
+              top: centimetersToTwip(formatting.marginsCm.top),
+              right: centimetersToTwip(formatting.marginsCm.right),
+              bottom: centimetersToTwip(formatting.marginsCm.bottom),
+              left: centimetersToTwip(formatting.marginsCm.left),
             },
           },
         },
