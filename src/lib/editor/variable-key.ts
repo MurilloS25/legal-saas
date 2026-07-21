@@ -21,13 +21,3 @@ const FIELD_KEY_SOURCE = "[a-z0-9_]+(?:\\.[a-z0-9_]+)*";
 export const VARIABLE_INPUT_RULE_PATTERN = new RegExp(
   `\\{\\{(${FIELD_KEY_SOURCE})\\}\\}$`,
 );
-
-/**
- * Misma sintaxis que `VARIABLE_INPUT_RULE_PATTERN`, pero global y sin ancla:
- * usada como regla de pegado para convertir todas las ocurrencias válidas de
- * un texto pegado de una sola vez.
- */
-export const VARIABLE_PASTE_RULE_PATTERN = new RegExp(
-  `\\{\\{(${FIELD_KEY_SOURCE})\\}\\}`,
-  "g",
-);

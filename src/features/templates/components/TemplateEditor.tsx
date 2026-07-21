@@ -140,12 +140,12 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           "tiptap-editor min-h-[20rem] px-4 py-3 text-sm leading-relaxed " +
           "text-slate-900 focus:outline-none whitespace-pre-wrap",
       },
-      // No intercepta el pegado: lo deja seguir su curso normal (la regla
-      // de pegado existente sigue convirtiendo `{{clave.valida}}` de forma
-      // directa, sin cambios). Solo observa el texto plano pegado para
-      // detectar placeholders legacy (`{{MAYUSCULAS}}`) que esa regla no
-      // reconoce, y programa el diálogo de revisión para después de que el
-      // pegado real ya se haya aplicado al documento.
+      // No intercepta el pegado: lo deja seguir su curso normal (el texto
+      // se pega tal cual, no hay regla de pegado que convierta nada en
+      // silencio). Solo observa el texto plano pegado para detectar TODO
+      // placeholder `{{...}}` válido —cualquier mayúscula/minúscula— y
+      // programa el diálogo de revisión para después de que el pegado real
+      // ya se haya aplicado al documento.
       handlePaste: (_view, event) => {
         const text = event.clipboardData?.getData("text/plain") ?? "";
         const matches = detectLegacyVariables(text);
@@ -235,7 +235,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   }
 
   /**
-   * Convierte las variables legacy que el usuario incluyó: busca el texto
+   * Convierte las variables pegadas que el usuario incluyó: busca el texto
    * literal `{{RAW}}` de cada una en los nodos de texto del documento (tal
    * como quedó tras el pegado normal) y lo reemplaza por una variable real.
    * Las candidatas excluidas, o si el usuario cancela, quedan como texto
@@ -244,11 +244,13 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
    * Se aplican en orden de posición descendente sobre la misma transacción
    * para que los reemplazos previos no invaliden las posiciones siguientes.
    *
-   * La etiqueta y clave confirmadas en el diálogo son la fuente real de
-   * configuración: además de crear el nodo, cada clave nueva (que no esté
-   * ya configurada) se registra vía `onCreateVariable` — el mismo camino
-   * que usa "Insertar variable" — para que quede `Configurada` de inmediato
-   * en vez de reaparecer como pendiente sin etiqueta.
+   * La configuración confirmada en el diálogo (clave, etiqueta, obligatoria,
+   * transformación de salida) es la fuente real: además de crear el nodo,
+   * cada clave nueva (que no esté ya configurada) se registra vía
+   * `onCreateVariable` — el mismo camino que usa "Insertar variable" — para
+   * que quede `Configurada` de inmediato, con la misma configuración
+   * completa que una variable creada a mano, en vez de reaparecer como
+   * pendiente sin etiqueta.
    */
   function convertLegacyVariables(
     selections: Map<string, LegacyVariableSelection>,
@@ -258,7 +260,14 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
     const variableType = state.schema.nodes.templateVariable;
     if (!variableType) return;
 
-    type Replacement = { from: number; to: number; key: string; label: string };
+    type Replacement = {
+      from: number;
+      to: number;
+      key: string;
+      label: string;
+      required: boolean;
+      output_transform: LegacyVariableSelection["output_transform"];
+    };
     const replacements: Replacement[] = [];
 
     state.doc.descendants((node, pos) => {
@@ -273,6 +282,8 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
             to: pos + idx + needle.length,
             key: selection.key.trim(),
             label: selection.label.trim(),
+            required: selection.required,
+            output_transform: selection.output_transform,
           });
           idx = node.text.indexOf(needle, idx + needle.length);
         }
@@ -306,9 +317,9 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
       onCreateVariable({
         field_key: replacement.key,
         label: replacement.label || replacement.key,
-        required: false,
+        required: replacement.required,
         autofill_source: suggestAutofillSource(replacement.key),
-        output_transform: "none",
+        output_transform: replacement.output_transform,
       });
     }
   }
