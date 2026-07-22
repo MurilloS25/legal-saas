@@ -196,6 +196,27 @@ usuario invitará a esas personas por su cuenta fuera de esta
 conversación. Queda como pendiente explícito hasta que existan cuentas
 reales que probar; no se marcó como completada.
 
+## Conexión con Vercel
+
+**Fecha de conexión:** 2026-07-22.
+
+- **URL productiva:** `https://lexcr.vercel.app` (proyecto Vercel `lexcr`).
+- **Site URL en Supabase Auth (Authentication → URL Configuration):**
+  pendiente de que el usuario la configure a `https://lexcr.vercel.app`
+  — ningún tool disponible en este entorno puede leer/escribir
+  configuración de Auth (mismo motivo que el signup/proveedor
+  documentado arriba). Ver `docs/VERCEL_PRODUCTION.md` para las
+  instrucciones exactas dadas al usuario.
+- **Redirect URL necesaria:** únicamente
+  `https://lexcr.vercel.app/auth/confirm` — es el único endpoint de
+  auth que existe en el código (`src/app/auth/confirm/route.ts`,
+  verifica `token_hash`/`type` de invitación/OTP). No hay ruta de
+  reseteo de contraseña ni callback OAuth en la aplicación; no se
+  inventó ninguna ruta adicional.
+- Verificado en vivo contra la Escritura desplegada: `/auth/confirm`
+  sin parámetros redirige a `/login` sin error (comportamiento
+  esperado del código).
+
 ## Variables para Vercel (solo nombres, nunca valores)
 
 ```text
