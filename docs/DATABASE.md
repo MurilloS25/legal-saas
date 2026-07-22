@@ -598,6 +598,25 @@ Column and derivation decisions:
   contain the full escritura.
 - `version` supports optimistic concurrency when metadata is reviewed.
 
+Deterministic mapped-value normalization:
+
+- Template mappings read the original source from `documents.field_values`,
+  never from `rendered_content`. Output transforms such as `number_to_words`
+  continue to affect only the rendered Escritura and its DOCX.
+- The `es-CR` normalization layer assigns semantic types to each destination:
+  instrument number, protocol book, and folios are interpreted as integers;
+  authorization date and time are parsed separately; act name and parties
+  remain text.
+- Parsed values prefill the existing structured metadata fields. A manual
+  correction is persisted through the same metadata row and wins over future
+  prefill, while the original value remains available from the user-owned
+  document draft for review.
+- Ambiguous or unsupported text is never guessed and remains pending manual
+  review. No legal content is sent to external services or written to logs.
+- The text database types for `protocol_book` and folios remain unchanged for
+  historical compatibility. This iteration does not rewrite existing saved
+  values or require a migration.
+
 Derived `period_half` values:
 
 ```txt

@@ -44,12 +44,12 @@ const configuration: TemplateIndexConfiguration = {
 
 const suggestions = {
   instrumentNumber: 42,
-  protocolBook: "SUGERIDO",
-  initialFolio: "10F",
+  protocolBook: "08",
+  initialFolio: "10",
 };
 
 describe("resolveNotarialMetadataPrefill", () => {
-  it("copies mapped values without interpreting natural language", () => {
+  it("normalizes mapped values without changing the rendered document", () => {
     const result = resolveNotarialMetadataPrefill({
       metadata: null,
       configuration,
@@ -69,21 +69,33 @@ describe("resolveNotarialMetadataPrefill", () => {
     });
 
     expect(result.instrumentNumber).toMatchObject({
-      value: "",
+      value: "61",
       source: "template",
       rawValue: "sesenta y uno",
-      compatible: false,
+      compatible: true,
     });
     expect(result.authorizedAt).toMatchObject({
-      value: "",
+      value: "2026-07-15T16:30",
       source: "template",
-      compatible: false,
+      compatible: true,
       rawDate: "quince de julio de dos mil veintiséis",
       rawTime: "dieciséis horas con treinta minutos",
     });
-    expect(result.protocolBook.value).toBe("Tomo IX");
-    expect(result.initialFolio.value).toBe("40F");
-    expect(result.finalFolio.value).toBe("40V");
+    expect(result.protocolBook).toMatchObject({
+      value: "",
+      rawValue: "Tomo IX",
+      compatible: false,
+    });
+    expect(result.initialFolio).toMatchObject({
+      value: "",
+      rawValue: "40F",
+      compatible: false,
+    });
+    expect(result.finalFolio).toMatchObject({
+      value: "",
+      rawValue: "40V",
+      compatible: false,
+    });
     expect(result.actName).toMatchObject({
       value: "Compraventa",
       source: "template",
@@ -151,9 +163,11 @@ describe("resolveNotarialMetadataPrefill", () => {
     });
 
     expect(result.instrumentNumber).toMatchObject({ value: "7", source: "saved" });
+    expect(result.instrumentNumber.rawValue).toBe("99");
     expect(result.protocolBook).toMatchObject({
       value: "Guardado",
       source: "saved",
+      rawValue: "Nuevo",
     });
     expect(result.actName).toMatchObject({
       value: "Corrección manual",
@@ -190,10 +204,10 @@ describe("resolveNotarialMetadataPrefill", () => {
       source: "suggestion",
     });
     expect(result.protocolBook).toMatchObject({
-      value: "SUGERIDO",
+      value: "8",
       source: "suggestion",
     });
-    expect(result.initialFolio.value).toBe("10F");
-    expect(result.finalFolio.value).toBe("10F");
+    expect(result.initialFolio.value).toBe("10");
+    expect(result.finalFolio.value).toBe("10");
   });
 });
