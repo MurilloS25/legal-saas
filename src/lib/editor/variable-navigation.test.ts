@@ -1,39 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { findAdjacentVariableKey } from "./variable-navigation";
+import { findAdjacentVariableOccurrence } from "./variable-navigation";
 
-describe("findAdjacentVariableKey", () => {
-  const keys = ["a", "b", "c"];
+const occurrences = [
+  { nodeId: "a-1", variableKey: "a" },
+  { nodeId: "b-1", variableKey: "b" },
+  { nodeId: "a-2", variableKey: "a" },
+  { nodeId: "c-1", variableKey: "c" },
+];
 
-  it("returns the next key", () => {
-    expect(findAdjacentVariableKey(keys, "a", 1)).toBe("b");
-    expect(findAdjacentVariableKey(keys, "b", 1)).toBe("c");
+describe("findAdjacentVariableOccurrence", () => {
+  it("anchors navigation to the concrete nodeId", () => {
+    expect(findAdjacentVariableOccurrence(occurrences, "a-1", 1)).toEqual(
+      occurrences[1],
+    );
+    expect(findAdjacentVariableOccurrence(occurrences, "a-2", 1)).toEqual(
+      occurrences[3],
+    );
   });
 
-  it("returns the previous key", () => {
-    expect(findAdjacentVariableKey(keys, "c", -1)).toBe("b");
-    expect(findAdjacentVariableKey(keys, "b", -1)).toBe("a");
+  it("moves backwards from the concrete occurrence", () => {
+    expect(findAdjacentVariableOccurrence(occurrences, "a-2", -1)).toEqual(
+      occurrences[1],
+    );
   });
 
-  it("returns undefined past the last key", () => {
-    expect(findAdjacentVariableKey(keys, "c", 1)).toBeUndefined();
+  it("skips adjacent occurrences that share the same value", () => {
+    const adjacent = [
+      { nodeId: "a-1", variableKey: "a" },
+      { nodeId: "a-2", variableKey: "a" },
+      { nodeId: "b-1", variableKey: "b" },
+    ];
+    expect(findAdjacentVariableOccurrence(adjacent, "a-1", 1)).toEqual(
+      adjacent[2],
+    );
   });
 
-  it("returns undefined before the first key", () => {
-    expect(findAdjacentVariableKey(keys, "a", -1)).toBeUndefined();
-  });
-
-  it("returns undefined when the current key is not in the list", () => {
-    expect(findAdjacentVariableKey(keys, "z", 1)).toBeUndefined();
-  });
-
-  it("skips consecutive duplicate occurrences of the current key", () => {
-    const withDuplicates = ["a", "a", "b", "c"];
-    expect(findAdjacentVariableKey(withDuplicates, "a", 1)).toBe("b");
-  });
-
-  it("moves from a later occurrence of a repeated key using the first occurrence as the anchor", () => {
-    // indexOf finds the first "a"; from there the next distinct key is "b".
-    const repeated = ["a", "b", "a", "c"];
-    expect(findAdjacentVariableKey(repeated, "a", 1)).toBe("b");
+  it("returns undefined at a boundary or for an unknown node", () => {
+    expect(
+      findAdjacentVariableOccurrence(occurrences, "a-1", -1),
+    ).toBeUndefined();
+    expect(
+      findAdjacentVariableOccurrence(occurrences, "c-1", 1),
+    ).toBeUndefined();
+    expect(
+      findAdjacentVariableOccurrence(occurrences, "missing", 1),
+    ).toBeUndefined();
   });
 });

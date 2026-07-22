@@ -26,6 +26,70 @@ let secondDocumentId = "";
 let templateId = "";
 let previousProfile: TestLawyerProfile | null = null;
 const mappedFieldIds: Record<string, string> = {};
+const timeBlockId = "hora-autorizacion";
+const onTheHourVariantId = "hora-en-punto";
+const withMinutesVariantId = "hora-con-minutos";
+
+const templateDocument = {
+  type: "doc" as const,
+  content: [
+    {
+      type: "paragraph" as const,
+      content: [
+        { type: "text" as const, text: "VENDE " },
+        { type: "templateVariable" as const, attrs: { key: "seller.name" } },
+        { type: "text" as const, text: " A " },
+        { type: "templateVariable" as const, attrs: { key: "buyer.name" } },
+        { type: "text" as const, text: ". Autorizada " },
+        {
+          type: "optionBlock" as const,
+          attrs: {
+            blockId: timeBlockId,
+            name: "Hora",
+            defaultVariantId: onTheHourVariantId,
+            variants: [
+              {
+                id: onTheHourVariantId,
+                label: "Hora en punto",
+                content: [
+                  { type: "text" as const, text: "a las " },
+                  { type: "templateVariable" as const, attrs: { key: "hora.valor" } },
+                  { type: "text" as const, text: " horas" },
+                ],
+              },
+              {
+                id: withMinutesVariantId,
+                label: "Hora y minutos",
+                content: [
+                  { type: "text" as const, text: "a las " },
+                  { type: "templateVariable" as const, attrs: { key: "hora.valor" } },
+                  { type: "text" as const, text: " horas con " },
+                  { type: "templateVariable" as const, attrs: { key: "hora.minutos" } },
+                  { type: "text" as const, text: " minutos" },
+                ],
+              },
+            ],
+            structuredOutput: {
+              type: "time" as const,
+              variants: [
+                {
+                  variantId: onTheHourVariantId,
+                  hourFieldKey: "hora.valor",
+                  minuteFieldKey: null,
+                },
+                {
+                  variantId: withMinutesVariantId,
+                  hourFieldKey: "hora.valor",
+                  minuteFieldKey: "hora.minutos",
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  ],
+};
 
 function configurationSection(page: Page) {
   return page.getByRole("region", {
@@ -76,6 +140,7 @@ test.describe("template notarial index configuration", () => {
     const template = await createTestTemplate(registry, {
       name: templateName,
       content: "VENDE {{seller.name}} A {{buyer.name}}.",
+      doc: templateDocument,
     });
     templateId = template.id;
     await createTestTemplateField(registry, template.id, {
@@ -91,7 +156,6 @@ test.describe("template notarial index configuration", () => {
     for (const [fieldKey, label, sortOrder] of [
       ["instrument.number", "Número del instrumento", 2],
       ["authorized.date", "Fecha autorizada", 3],
-      ["authorized.time", "Hora autorizada", 4],
       ["protocol.book", "Tomo del protocolo", 5],
       ["folio.initial", "Folio inicial del instrumento", 6],
       ["folio.final", "Folio final del instrumento", 7],
@@ -104,6 +168,16 @@ test.describe("template notarial index configuration", () => {
         })
       ).id;
     }
+    await createTestTemplateField(registry, template.id, {
+      field_key: "hora.valor",
+      label: "Hora",
+      sort_order: 8,
+    });
+    await createTestTemplateField(registry, template.id, {
+      field_key: "hora.minutos",
+      label: "Minutos",
+      sort_order: 9,
+    });
     const instrumentWords = integerToUppercaseWords(String(firstInstrument));
     if (!instrumentWords.ok) throw new Error(instrumentWords.error);
     firstDocumentId = (
@@ -115,11 +189,13 @@ test.describe("template notarial index configuration", () => {
           "buyer.name": "María Rodríguez",
           "instrument.number": instrumentWords.value,
           "authorized.date": "catorce de julio de dos mil veintiséis",
-          "authorized.time": "diez horas con treinta minutos",
+          "hora.valor": "diez",
+          "hora.minutos": "veinte",
           "protocol.book": "tomo siete",
           "folio.initial": "veinticinco",
           "folio.final": "veintiséis",
         },
+        option_selections: { [timeBlockId]: withMinutesVariantId },
         rendered_content: "VENDE Juan Pérez A María Rodríguez.",
       })
     ).id;
@@ -132,11 +208,12 @@ test.describe("template notarial index configuration", () => {
           "buyer.name": "Luis Solano",
           "instrument.number": "siete ocho",
           "authorized.date": "2026-07-15",
-          "authorized.time": "11:45",
+          "hora.valor": "once",
           "protocol.book": "Tomo IX",
           "folio.initial": "41F",
           "folio.final": "41V",
         },
+        option_selections: { [timeBlockId]: onTheHourVariantId },
         rendered_content: "VENDE Ana Mora A Luis Solano.",
       })
     ).id;
@@ -157,7 +234,7 @@ test.describe("template notarial index configuration", () => {
       .selectOption(mappedFieldIds["authorized.date"]);
     await section
       .getByLabel("Hora de autorización", { exact: true })
-      .selectOption(mappedFieldIds["authorized.time"]);
+      .selectOption(`block:${timeBlockId}`);
     await section
       .getByLabel("Tomo", { exact: true })
       .selectOption(mappedFieldIds["protocol.book"]);
@@ -196,6 +273,9 @@ test.describe("template notarial index configuration", () => {
     await expect(section.getByLabel("Número de instrumento")).toHaveValue(
       mappedFieldIds["instrument.number"],
     );
+    await expect(section.getByLabel("Hora de autorización")).toHaveValue(
+      `block:${timeBlockId}`,
+    );
     await expect(
       section.getByRole("checkbox", { name: /Nombre del vendedor/ }),
     ).toBeChecked();
@@ -223,8 +303,17 @@ test.describe("template notarial index configuration", () => {
       section.getByText(`Interpretado: ${firstInstrument}`, { exact: true }),
     ).toBeVisible();
     await expect(section.getByLabel("Fecha y hora de autorización")).toHaveValue(
-      "2026-07-14T10:30",
+      "2026-07-14T10:20",
     );
+    await expect(
+      section.getByText("Fuente: Bloque de opciones · Hora", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      section.getByText("Variante: Hora y minutos", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      section.getByText("Interpretado: 2026-07-14T10:20", { exact: true }),
+    ).toBeVisible();
     await expect(section.getByLabel("Tomo")).toHaveValue("7");
     await expect(section.getByLabel("Folio inicial")).toHaveValue("25");
     await expect(section.getByLabel("Folio final")).toHaveValue("26");
@@ -279,6 +368,12 @@ test.describe("template notarial index configuration", () => {
   }) => {
     await open(page, secondDocumentId);
     const section = metadataSection(page);
+    await expect(section.getByLabel("Fecha y hora de autorización")).toHaveValue(
+      "2026-07-15T11:00",
+    );
+    await expect(
+      section.getByText("Variante: Hora en punto", { exact: true }),
+    ).toBeVisible();
     await expect(section.getByLabel("Número de instrumento")).toHaveValue("");
     await expect(
       section.getByText("Original: “siete ocho”", { exact: true }),

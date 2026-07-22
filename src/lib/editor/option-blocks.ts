@@ -6,18 +6,50 @@
  */
 
 import { lineToInlineNodes, serializeSimpleNode } from "./convert";
+import { FIELD_KEY_PATTERN } from "./variable-key";
 import { TEMPLATE_DOC_LIMITS } from "./types";
 import type {
   TemplateOptionBlockAttrs,
+  TemplateDocument,
   TemplateOptionVariant,
+  TemplateTimeStructuredVariant,
   TemplateVariantContentNode,
 } from "./types";
+
+export type StructuredOutputOptionBlock = {
+  blockId: string;
+  name: string;
+  type: "time";
+};
+
+export function extractStructuredOutputOptionBlocks(
+  document: TemplateDocument,
+): StructuredOutputOptionBlock[] {
+  return document.content.flatMap((paragraph) =>
+    (paragraph.content ?? []).flatMap((node) =>
+      node.type === "optionBlock" && node.attrs.structuredOutput?.type === "time"
+        ? [
+            {
+              blockId: node.attrs.blockId,
+              name: node.attrs.name,
+              type: "time" as const,
+            },
+          ]
+        : [],
+    ),
+  );
+}
 
 /** Borrador de variante tal como lo edita el diálogo (texto plano, no nodos). */
 export type OptionVariantDraft = {
   id: string;
   label: string;
   contentText: string;
+  timeOutput?: {
+    hourFieldKey: string;
+    /** null representa minutos fijos en 00. */
+    minuteFieldKey: string | null;
+  };
 };
 
 /** Borrador del bloque completo tal como lo edita el diálogo. */
@@ -26,6 +58,7 @@ export type OptionBlockDraft = {
   name: string;
   variants: OptionVariantDraft[];
   defaultVariantId: string;
+  structuredOutputType?: "none" | "time";
 };
 
 /**
@@ -99,6 +132,46 @@ export function buildOptionBlockAttrs(
     variants.push({ id: variantDraft.id, label, content });
   }
 
+  const structuredOutputType = draft.structuredOutputType ?? "none";
+  const structuredVariants: TemplateTimeStructuredVariant[] = [];
+  if (structuredOutputType === "time") {
+    for (const variant of variants) {
+      const draftVariant = draft.variants.find((item) => item.id === variant.id);
+      const output = draftVariant?.timeOutput;
+      if (!output || !FIELD_KEY_PATTERN.test(output.hourFieldKey)) {
+        return { ok: false, error: "Selecciona la variable de Hora en cada variante." };
+      }
+      if (
+        output.minuteFieldKey !== null &&
+        !FIELD_KEY_PATTERN.test(output.minuteFieldKey)
+      ) {
+        return {
+          ok: false,
+          error: "Selecciona una variable válida para los minutos.",
+        };
+      }
+      const keys = new Set(
+        variant.content.flatMap((node) =>
+          node.type === "templateVariable" ? [node.attrs.key] : [],
+        ),
+      );
+      if (
+        !keys.has(output.hourFieldKey) ||
+        (output.minuteFieldKey !== null && !keys.has(output.minuteFieldKey))
+      ) {
+        return {
+          ok: false,
+          error: "La salida estructurada solo puede usar variables de su variante.",
+        };
+      }
+      structuredVariants.push({
+        variantId: variant.id,
+        hourFieldKey: output.hourFieldKey,
+        minuteFieldKey: output.minuteFieldKey,
+      });
+    }
+  }
+
   if (!draft.variants.some((v) => v.id === draft.defaultVariantId)) {
     return {
       ok: false,
@@ -113,6 +186,10 @@ export function buildOptionBlockAttrs(
       name,
       variants,
       defaultVariantId: draft.defaultVariantId,
+      structuredOutput:
+        structuredOutputType === "time"
+          ? { type: "time", variants: structuredVariants }
+          : null,
     },
   };
 }
@@ -123,10 +200,25 @@ export function attrsToDraft(attrs: TemplateOptionBlockAttrs): OptionBlockDraft 
     blockId: attrs.blockId,
     name: attrs.name,
     defaultVariantId: attrs.defaultVariantId,
+    structuredOutputType: attrs.structuredOutput?.type ?? "none",
     variants: attrs.variants.map((variant) => ({
       id: variant.id,
       label: variant.label,
       contentText: serializeVariantContentToText(variant.content),
+      timeOutput:
+        attrs.structuredOutput?.type === "time"
+          ? (() => {
+              const configured = attrs.structuredOutput.variants.find(
+                (item) => item.variantId === variant.id,
+              );
+              return configured
+                ? {
+                    hourFieldKey: configured.hourFieldKey,
+                    minuteFieldKey: configured.minuteFieldKey,
+                  }
+                : undefined;
+            })()
+          : undefined,
     })),
   };
 }

@@ -487,6 +487,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
 
       {optionBlockDialog !== "closed" && (
         <OptionBlockDialog
+          variables={variables}
           initialAttrs={
             optionBlockDialog === "insert" ? undefined : optionBlockDialog.attrs
           }

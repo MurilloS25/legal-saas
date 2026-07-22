@@ -7,6 +7,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { extractDocxText, readDocx } from "../test/support/docx";
 
 /**
  * Edición inline de variables directamente en la hoja documental de la
@@ -22,6 +23,65 @@ const registry = new CleanupRegistry();
 const templateName = uniqueName("document-inline-editing", "machote");
 let templateId = "";
 let documentUrl = "";
+
+const repeatedVariableDocument = {
+  type: "doc" as const,
+  content: [
+    {
+      type: "paragraph" as const,
+      content: [
+        { type: "text" as const, text: "Comparece " },
+        {
+          type: "templateVariable" as const,
+          attrs: { key: "comprador.nombre" },
+        },
+        { type: "text" as const, text: ", cédula " },
+        {
+          type: "templateVariable" as const,
+          attrs: { key: "comprador.cedula" },
+        },
+        { type: "text" as const, text: "." },
+      ],
+    },
+    {
+      type: "paragraph" as const,
+      content: [
+        { type: "text" as const, text: "Se identifica nuevamente como " },
+        {
+          type: "templateVariable" as const,
+          attrs: { key: "comprador.nombre" },
+        },
+        { type: "text" as const, text: "." },
+      ],
+    },
+    {
+      type: "paragraph" as const,
+      content: [
+        {
+          type: "optionBlock" as const,
+          attrs: {
+            blockId: "repeticion-final",
+            name: "Repetición final",
+            defaultVariantId: "repite",
+            variants: [
+              {
+                id: "repite",
+                label: "Repetir nombre",
+                content: [
+                  { type: "text" as const, text: "Firma " },
+                  {
+                    type: "templateVariable" as const,
+                    attrs: { key: "comprador.nombre" },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
 
 function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
@@ -50,8 +110,8 @@ test.describe("document inline field editing", () => {
   }) => {
     const template = await createTestTemplate(registry, {
       name: templateName,
-      content:
-        "Comparece {{comprador.nombre}}, cédula {{comprador.cedula}}.",
+      content: "placeholder",
+      doc: repeatedVariableDocument,
     });
     templateId = template.id;
 
@@ -74,7 +134,7 @@ test.describe("document inline field editing", () => {
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
 
-    const inlineName = inlineVariable(page, "comprador.nombre");
+    const inlineName = inlineVariable(page, "comprador.nombre").first();
     await expect(inlineName).toBeVisible();
     await inlineName.click();
 
@@ -91,11 +151,35 @@ test.describe("document inline field editing", () => {
     );
 
     await inlineInput.blur();
-    await expect(
-      documentRegion(page).getByText("Cliente Inline Uno"),
-    ).toBeVisible();
+    await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
+    await expect(inlineVariable(page, "comprador.nombre").nth(2)).toHaveText(
+      "Cliente Inline Uno",
+    );
     // Ya no queda como <input> tras perder el foco.
     await expect(inlineInput).toHaveCount(0);
+  });
+
+  test("B2: editing the last repeated occurrence updates every occurrence immediately", async ({
+    page,
+  }) => {
+    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await inlineVariable(page, "comprador.nombre").nth(2).click();
+    const input = documentRegion(page).locator(
+      'input[data-variable-key="comprador.nombre"]',
+    );
+    await expect(input).toHaveCount(1);
+    await input.fill("Valor Compartido");
+    await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
+      "Valor Compartido",
+    );
+    await input.blur();
+    await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
+    for (const occurrence of await inlineVariable(
+      page,
+      "comprador.nombre",
+    ).all()) {
+      await expect(occurrence).toHaveText("Valor Compartido");
+    }
   });
 
   test("C: the inline field shows the raw value while editing and the transformed value once blurred", async ({
@@ -130,7 +214,7 @@ test.describe("document inline field editing", () => {
     page,
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
-    await inlineVariable(page, "comprador.nombre").click();
+    await inlineVariable(page, "comprador.nombre").first().click();
     const nameInput = documentRegion(page).locator(
       'input[data-variable-key="comprador.nombre"]',
     );
@@ -145,16 +229,14 @@ test.describe("document inline field editing", () => {
     // Escape sale del modo edición sin borrar el valor ya escrito.
     await cedulaInput.press("Escape");
     await expect(cedulaInput).toHaveCount(0);
-    await expect(
-      documentRegion(page).getByText("Otro Cliente"),
-    ).toBeVisible();
+    await expect(documentRegion(page).getByText("Otro Cliente")).toHaveCount(3);
   });
 
   test("E: saving and reloading persists inline-edited values in both the document and the panel", async ({
     page,
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
-    await inlineVariable(page, "comprador.nombre").click();
+    await inlineVariable(page, "comprador.nombre").nth(1).click();
     await documentRegion(page)
       .locator('input[data-variable-key="comprador.nombre"]')
       .fill("Cliente Persistido");
@@ -187,15 +269,36 @@ test.describe("document inline field editing", () => {
       "Cliente Persistido",
     );
     await expect(fieldValue(page, "comprador.cedula")).toHaveValue("101");
-    await expect(
-      documentRegion(page).getByText("Cliente Persistido"),
-    ).toBeVisible();
+    await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
+    for (const occurrence of await inlineVariable(
+      page,
+      "comprador.nombre",
+    ).all()) {
+      await expect(occurrence).toHaveText("Cliente Persistido");
+    }
     await expect(
       documentRegion(page).getByText("UNO CERO UNO"),
     ).toBeVisible();
   });
 
-  test("F: a finalized document is read-only — variables are no longer clickable or editable inline", async ({
+  test("F: preview and DOCX contain every repeated occurrence", async ({
+    page,
+    request,
+  }) => {
+    await page.goto(documentUrl);
+    await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
+    const documentId = new URL(documentUrl).pathname.split("/").pop();
+    const response = await request.get(
+      `/api/documents/${documentId}/docx`,
+    );
+    expect(response.status()).toBe(200);
+    const text = extractDocxText(
+      (await readDocx(await response.body())).documentXml,
+    );
+    expect(text.match(/Cliente Persistido/g)).toHaveLength(3);
+  });
+
+  test("G: a finalized document is read-only — variables are no longer clickable or editable inline", async ({
     page,
   }) => {
     await page.goto(documentUrl);
@@ -214,9 +317,7 @@ test.describe("document inline field editing", () => {
         'button[data-variable-key="comprador.nombre"]',
       ),
     ).toHaveCount(0);
-    await expect(
-      documentRegion(page).getByText("Cliente Persistido"),
-    ).toBeVisible();
+    await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
 
     // Reabrir para no dejar el documento finalizado tras el test.
     await page.getByRole("button", { name: "Reabrir escritura" }).click();

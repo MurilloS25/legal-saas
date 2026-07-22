@@ -60,6 +60,18 @@ export type TemplateOptionVariant = {
   content: TemplateVariantContentNode[];
 };
 
+export type TemplateTimeStructuredVariant = {
+  variantId: string;
+  hourFieldKey: string;
+  /** null significa minutos fijos en 00. */
+  minuteFieldKey: string | null;
+};
+
+export type TemplateOptionBlockStructuredOutput = {
+  type: "time";
+  variants: TemplateTimeStructuredVariant[];
+};
+
 export type TemplateOptionBlockAttrs = {
   /** Id estable del bloque, generado al insertarlo; no cambia al editar. */
   blockId: string;
@@ -68,6 +80,8 @@ export type TemplateOptionBlockAttrs = {
   variants: TemplateOptionVariant[];
   /** Debe coincidir con el `id` de una de las `variants`. */
   defaultVariantId: string;
+  /** Ausente/null conserva exactamente el comportamiento histórico. */
+  structuredOutput?: TemplateOptionBlockStructuredOutput | null;
 };
 
 /**

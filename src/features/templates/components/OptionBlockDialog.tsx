@@ -16,6 +16,7 @@ import {
   attrsToDraft,
   buildOptionBlockAttrs,
   generateOptionId,
+  parseVariantContentText,
   type OptionBlockDraft,
   type OptionVariantDraft,
 } from "@/lib/editor/option-blocks";
@@ -35,12 +36,14 @@ function emptyDraft(): OptionBlockDraft {
     name: "",
     variants: [first],
     defaultVariantId: first.id,
+    structuredOutputType: "none",
   };
 }
 
 type Props = {
   /** Presente en modo edición; ausente al insertar un bloque nuevo. */
   initialAttrs?: TemplateOptionBlockAttrs;
+  variables: Array<{ field_key: string; label: string }>;
   onSave: (attrs: TemplateOptionBlockAttrs) => void;
   /** Solo disponible en modo edición. */
   onDelete?: () => void;
@@ -49,6 +52,7 @@ type Props = {
 
 export function OptionBlockDialog({
   initialAttrs,
+  variables,
   onSave,
   onDelete,
   onClose,
@@ -70,6 +74,36 @@ export function OptionBlockDialog({
       variants: current.variants.map((v) =>
         v.id === id ? { ...v, ...patch } : v,
       ),
+    }));
+  }
+
+  function setStructuredOutputType(type: "none" | "time") {
+    setDraft((current) => ({
+      ...current,
+      structuredOutputType: type,
+      variants: current.variants.map((variant) => ({
+        ...variant,
+        timeOutput:
+          type === "time"
+            ? (variant.timeOutput ?? {
+                hourFieldKey: "",
+                minuteFieldKey: null,
+              })
+            : variant.timeOutput,
+      })),
+    }));
+  }
+
+  function variableOptions(variant: OptionVariantDraft) {
+    const keys = new Set(
+      parseVariantContentText(variant.contentText).flatMap((node) =>
+        node.type === "templateVariable" ? [node.attrs.key] : [],
+      ),
+    );
+    return [...keys].map((key) => ({
+      key,
+      label:
+        variables.find((variable) => variable.field_key === key)?.label ?? key,
     }));
   }
 
@@ -168,6 +202,30 @@ export function OptionBlockDialog({
               />
             </div>
 
+            <div>
+              <label
+                htmlFor={`${titleId}-structured-output`}
+                className="block text-sm font-medium text-slate-700 mb-1.5"
+              >
+                Tipo de salida estructurada
+              </label>
+              <select
+                id={`${titleId}-structured-output`}
+                value={draft.structuredOutputType ?? "none"}
+                onChange={(event) =>
+                  setStructuredOutputType(event.target.value as "none" | "time")
+                }
+                className={inputClass}
+              >
+                <option value="none">Sin salida estructurada</option>
+                <option value="time">Hora</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Produce un dato para integraciones sin cambiar el texto de la
+                variante.
+              </p>
+            </div>
+
             <fieldset>
               <legend className="text-sm font-medium text-slate-700 mb-2">
                 Variantes
@@ -177,6 +235,7 @@ export function OptionBlockDialog({
                   const labelId = `${variant.id}-label`;
                   const contentId = `${variant.id}-content`;
                   const defaultRadioId = `${variant.id}-default`;
+                  const availableVariables = variableOptions(variant);
                   return (
                     <div
                       key={variant.id}
@@ -228,6 +287,77 @@ export function OptionBlockDialog({
                           placeholder="Ej: CHASIS número {{vehiculo.chasis}}"
                         />
                       </div>
+
+                      {draft.structuredOutputType === "time" && (
+                        <fieldset className="rounded-md border border-slate-200 bg-white p-3">
+                          <legend className="px-1 text-xs font-medium text-slate-700">
+                            Componentes de Hora
+                          </legend>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label
+                                htmlFor={`${variant.id}-time-hour`}
+                                className="mb-1 block text-xs text-slate-700"
+                              >
+                                Hora
+                              </label>
+                              <select
+                                id={`${variant.id}-time-hour`}
+                                value={variant.timeOutput?.hourFieldKey ?? ""}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    timeOutput: {
+                                      hourFieldKey: event.target.value,
+                                      minuteFieldKey:
+                                        variant.timeOutput?.minuteFieldKey ?? null,
+                                    },
+                                  })
+                                }
+                                className={inputClass}
+                              >
+                                <option value="">Seleccionar variable</option>
+                                {availableVariables.map((variable) => (
+                                  <option key={variable.key} value={variable.key}>
+                                    {variable.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label
+                                htmlFor={`${variant.id}-time-minute`}
+                                className="mb-1 block text-xs text-slate-700"
+                              >
+                                Minutos
+                              </label>
+                              <select
+                                id={`${variant.id}-time-minute`}
+                                value={variant.timeOutput?.minuteFieldKey ?? "__zero__"}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    timeOutput: {
+                                      hourFieldKey:
+                                        variant.timeOutput?.hourFieldKey ?? "",
+                                      minuteFieldKey:
+                                        event.target.value === "__zero__"
+                                          ? null
+                                          : event.target.value,
+                                    },
+                                  })
+                                }
+                                className={inputClass}
+                              >
+                                <option value="__zero__">00 (hora en punto)</option>
+                                {availableVariables.map((variable) => (
+                                  <option key={variable.key} value={variable.key}>
+                                    {variable.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </fieldset>
+                      )}
 
                       <div className="flex items-center gap-2">
                         <input

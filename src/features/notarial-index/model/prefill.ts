@@ -11,6 +11,11 @@ import {
   normalizeNotarialValue,
   NOTARIAL_SEMANTIC_TYPES,
 } from "./normalization";
+import type { TemplateDocument } from "@/lib/editor/types";
+import {
+  resolveOptionBlockTime,
+  type OptionBlockTimeResult,
+} from "./option-block-time";
 
 export type NotarialPrefillSource =
   | "saved"
@@ -28,6 +33,8 @@ export type NotarialPrefillField = {
 export type NotarialAuthorizedAtPrefill = NotarialPrefillField & {
   rawDate?: string;
   rawTime?: string;
+  optionBlockName?: string;
+  optionVariantLabel?: string;
 };
 
 export type NotarialMetadataPrefill = {
@@ -47,6 +54,8 @@ type ResolveInput = {
   configuration: TemplateIndexConfiguration | null;
   availableFields: readonly AvailableField[];
   fieldValues: Record<string, unknown>;
+  templateDocument?: TemplateDocument;
+  optionSelections?: Record<string, string>;
   templateName: string | null;
   generatedParties: string | null;
   suggestions: NotarialMetadataSuggestions;
@@ -111,9 +120,11 @@ function integerPrefill(
 
 function authorizedAtPrefill(
   rawDate: string | null,
-  rawTime: string | null,
+  timeValue: string | null,
+  rawTime: string | null = timeValue,
+  optionBlock?: OptionBlockTimeResult,
 ): NotarialAuthorizedAtPrefill {
-  if (rawDate === null && rawTime === null) return emptyField();
+  if (rawDate === null && rawTime === null && !optionBlock) return emptyField();
   const date =
     rawDate === null
       ? null
@@ -123,20 +134,23 @@ function authorizedAtPrefill(
           locale: "es-CR",
         });
   const time =
-    rawTime === null
+    timeValue === null
       ? null
       : normalizeNotarialValue({
-          value: rawTime,
+          value: timeValue,
           type: NOTARIAL_SEMANTIC_TYPES.authorized_time,
           locale: "es-CR",
         });
-  const compatible = date?.ok === true && time?.ok === true;
+  const compatible =
+    date?.ok === true && time?.ok === true && optionBlock?.ok !== false;
   return {
     value: compatible ? `${date.value}T${time.value}` : "",
     source: "template",
     compatible,
     rawDate: rawDate ?? undefined,
     rawTime: rawTime ?? undefined,
+    optionBlockName: optionBlock?.blockName,
+    optionVariantLabel: optionBlock?.variantLabel,
   };
 }
 
@@ -145,12 +159,29 @@ export function resolveNotarialMetadataPrefill({
   configuration,
   availableFields,
   fieldValues,
+  templateDocument,
+  optionSelections = {},
   templateName,
   generatedParties,
   suggestions,
 }: ResolveInput): NotarialMetadataPrefill {
   const mapped = (key: SimpleIndexMappingKey) =>
     mappedValue(key, configuration, availableFields, fieldValues);
+  const optionBlockTime =
+    configuration?.authorizedTimeOptionBlockId && templateDocument
+      ? resolveOptionBlockTime(
+          templateDocument,
+          configuration.authorizedTimeOptionBlockId,
+          optionSelections,
+          fieldValues,
+        )
+      : undefined;
+  const mappedTime = optionBlockTime?.ok
+    ? optionBlockTime.value
+    : mapped("authorized_time");
+  const rawTime = optionBlockTime
+    ? (optionBlockTime.rawValue ?? null)
+    : mappedTime;
 
   if (metadata) {
     return {
@@ -161,7 +192,9 @@ export function resolveNotarialMetadataPrefill({
       authorizedAt: {
         ...savedField(isoToCostaRicaLocal(metadata.authorized_at)),
         rawDate: mapped("authorized_date") ?? undefined,
-        rawTime: mapped("authorized_time") ?? undefined,
+        rawTime: rawTime ?? undefined,
+        optionBlockName: optionBlockTime?.blockName,
+        optionVariantLabel: optionBlockTime?.variantLabel,
       },
       protocolBook: savedField(
         metadata.protocol_book,
@@ -192,7 +225,9 @@ export function resolveNotarialMetadataPrefill({
     ),
     authorizedAt: authorizedAtPrefill(
       mapped("authorized_date"),
-      mapped("authorized_time"),
+      mappedTime,
+      rawTime,
+      optionBlockTime,
     ),
     protocolBook: integerPrefill(
       "protocol_book",

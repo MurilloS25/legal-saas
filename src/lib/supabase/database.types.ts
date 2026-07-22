@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       clients: {
@@ -773,6 +748,7 @@ export type Database = {
           allow_empty: boolean
           authorized_date_field_id: string | null
           authorized_time_field_id: string | null
+          authorized_time_option_block_id: string | null
           created_at: string
           final_folio_field_id: string | null
           fixed_suffix: string | null
@@ -791,6 +767,7 @@ export type Database = {
           allow_empty?: boolean
           authorized_date_field_id?: string | null
           authorized_time_field_id?: string | null
+          authorized_time_option_block_id?: string | null
           created_at?: string
           final_folio_field_id?: string | null
           fixed_suffix?: string | null
@@ -809,6 +786,7 @@ export type Database = {
           allow_empty?: boolean
           authorized_date_field_id?: string | null
           authorized_time_field_id?: string | null
+          authorized_time_option_block_id?: string | null
           created_at?: string
           final_folio_field_id?: string | null
           fixed_suffix?: string | null
@@ -1062,6 +1040,18 @@ export type Database = {
         }
         Returns: string
       }
+      save_template_index_mapping_with_block_source: {
+        Args: {
+          p_allow_empty: boolean
+          p_authorized_time_option_block_id: string
+          p_fixed_suffix: string
+          p_party_fields: Json
+          p_party_separator: string
+          p_simple_fields: Json
+          p_template_id: string
+        }
+        Returns: string
+      }
       save_template_workspace: {
         Args: {
           p_content_json: Json
@@ -1210,9 +1200,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

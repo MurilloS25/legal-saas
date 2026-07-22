@@ -326,6 +326,7 @@ Examples:
 Rules:
 
 - If a variable appears multiple times in a machote, the user fills it once and the value replaces every occurrence.
+- Each rendered occurrence has a deterministic `nodeId` used only for focus and inline editing. The shared value remains keyed exclusively by `field_key`; repeated occurrences never create duplicated fields.
 - For multiple buyers/sellers in the MVP, use fixed role keys such as `buyer_1`, `buyer_2`, `seller_1`, and `seller_2`.
 - Do not implement complex dynamic lists in the MVP.
 - Variables must be validated against known `template_fields`.
@@ -414,6 +415,25 @@ optional fixed suffix, explicit-empty choice, and reconciliation state.
 `template_index_configuration_fields` stores the selected `template_fields`
 and their deterministic order.
 
+The authorization time may alternatively come from a structured Option Block.
+The block definition remains in `templates.content_json`, where an optional
+`structuredOutput` describes how each variant produces a canonical time from
+existing variables. The index configuration stores only the selected stable
+block id in `authorized_time_option_block_id`; it is mutually exclusive with
+`authorized_time_field_id`.
+
+Initial structured output types:
+
+```txt
+none
+time
+```
+
+For `time`, every variant identifies an hour variable and either a minute
+variable or fixed `00` minutes. Resolution uses the selected variant,
+`documents.option_selections`, and raw `field_values`. It never parses
+`rendered_content` or the legal wording of the variant.
+
 Rules:
 
 - The configuration is unique per `owner_id + template_id`.
@@ -425,9 +445,14 @@ Rules:
   marks it incomplete for explicit reconciliation.
 - Saving is transactional through `save_template_index_configuration`, which
   derives the owner from `auth.uid()` and validates all relationships.
+- Saving an Option Block time source uses the owner-validated transactional
+  RPC `save_template_index_mapping_with_block_source`.
 - RLS is owner-only on both tables; anonymous access is not allowed.
 - The configuration stores no client values or escritura text. Generated
   `Partes` is snapshotted only in the document's notarial metadata.
+- Existing variable mappings remain valid. Historical blocks without
+  `structuredOutput` continue to render normally but are not offered as an
+  index source.
 
 ### `documents`
 

@@ -202,6 +202,68 @@ describe("renderStructuredTemplate", () => {
 });
 
 describe("buildDocumentModel", () => {
+  it("assigns a distinct nodeId to every repeated variable occurrence", () => {
+    const doc: TemplateDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "templateVariable", attrs: { key: "numero_escritura" } },
+            { type: "text", text: " y " },
+            { type: "templateVariable", attrs: { key: "numero_escritura" } },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "optionBlock",
+              attrs: {
+                blockId: "cierre",
+                name: "Cierre",
+                defaultVariantId: "repite",
+                variants: [
+                  {
+                    id: "repite",
+                    label: "Repite número",
+                    content: [
+                      {
+                        type: "templateVariable",
+                        attrs: { key: "numero_escritura" },
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const variableRuns = buildDocumentModel(doc, { numero_escritura: "7" })
+      .flatMap((paragraph) => paragraph.runs)
+      .flatMap((run) =>
+        run.kind === "optionBlock" ? run.runs : [run],
+      )
+      .filter((run) => run.kind === "variable");
+
+    expect(variableRuns.map((run) => run.key)).toEqual([
+      "numero_escritura",
+      "numero_escritura",
+      "numero_escritura",
+    ]);
+    expect(
+      new Set(
+        variableRuns.map(
+          (run) => (run as typeof run & { nodeId?: string }).nodeId,
+        ),
+      ).size,
+    ).toBe(3);
+    expect(variableRuns.every((run) => "nodeId" in run)).toBe(true);
+  });
+
   it("produces paragraphs with typed runs and mark flags", () => {
     const model = buildDocumentModel(structuredDoc, {
       "comprador.nombre": "Cliente Uno",
@@ -215,6 +277,7 @@ describe("buildDocumentModel", () => {
     });
     expect(model[0].runs[1]).toEqual({
       kind: "variable",
+      nodeId: "paragraph:0:node:1",
       key: "comprador.nombre",
       label: "Nombre del comprador",
       resolved: true,
@@ -227,6 +290,7 @@ describe("buildDocumentModel", () => {
     });
     expect(model[0].runs[3]).toEqual({
       kind: "variable",
+      nodeId: "paragraph:0:node:3",
       key: "comprador.cedula",
       label: undefined,
       resolved: false,
@@ -320,6 +384,7 @@ describe("buildDocumentModel", () => {
           { kind: "text", text: "CHASIS ", marks: NO_MARKS },
           {
             kind: "variable",
+            nodeId: "paragraph:0:node:1:variant:distintos:node:1",
             key: "vehiculo.chasis",
             label: undefined,
             resolved: true,

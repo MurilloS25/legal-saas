@@ -143,6 +143,7 @@ export async function createTestDocument(
   options: {
     title: string;
     field_values?: Record<string, string>;
+    option_selections?: Record<string, string>;
     rendered_content?: string;
     client_id?: string;
     status?: "draft" | "ready" | "final";
@@ -156,6 +157,7 @@ export async function createTestDocument(
     title: options.title,
     status: options.status ?? "draft",
     field_values: options.field_values ?? {},
+    option_selections: options.option_selections ?? {},
     rendered_content: options.rendered_content ?? "",
   });
   registry.register("documents", id);

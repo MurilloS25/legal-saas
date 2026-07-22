@@ -27,6 +27,7 @@ describe("TemplateIndexConfigurationSchema", () => {
       fixed_suffix: "en calidad personal",
       allow_empty: false,
       simple_fields: emptySimpleFields,
+      authorized_time_option_block_id: null,
       template_field_ids: [fieldA, fieldB],
     });
   });
@@ -114,6 +115,29 @@ describe("TemplateIndexConfigurationSchema", () => {
           instrument_number: fieldA,
           protocol_book: fieldA,
         },
+        template_field_ids: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a block time source and rejects two time sources", () => {
+    expect(
+      TemplateIndexConfigurationSchema.safeParse({
+        party_separator: " Y ",
+        fixed_suffix: "",
+        allow_empty: true,
+        simple_fields: emptySimpleFields,
+        authorized_time_option_block_id: "hora-block",
+        template_field_ids: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      TemplateIndexConfigurationSchema.safeParse({
+        party_separator: " Y ",
+        fixed_suffix: "",
+        allow_empty: true,
+        simple_fields: { ...emptySimpleFields, authorized_time: fieldA },
+        authorized_time_option_block_id: "hora-block",
         template_field_ids: [],
       }).success,
     ).toBe(false);
