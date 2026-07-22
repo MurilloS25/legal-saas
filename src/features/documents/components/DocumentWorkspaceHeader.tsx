@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { DocumentActivityPage } from "../server/activity-queries";
 import { documentStatusBadgeClass, documentStatusLabel } from "../model/status";
 import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
+import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
 
 export type DocumentWorkspaceSection = "document" | "receivables" | "notarial";
 
@@ -55,7 +56,14 @@ export function DocumentWorkspaceHeader({
             Cliente: {clientName ?? "Sin cliente"}
           </p>
         </div>
-        <DocumentHistoryDialog documentId={documentId} activity={activity} />
+        <div className="flex items-center gap-2 shrink-0">
+          <DuplicateDocumentButton
+            documentId={documentId}
+            documentTitle={title}
+            variant="full"
+          />
+          <DocumentHistoryDialog documentId={documentId} activity={activity} />
+        </div>
       </div>
       <nav aria-label="Secciones de la escritura" className="mt-6 border-b border-slate-200">
         <div className="flex gap-1 overflow-x-auto">

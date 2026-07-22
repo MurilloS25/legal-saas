@@ -238,6 +238,17 @@ export default defineConfig({
       dependencies: ["chromium-documents-workspace"],
     },
 
+    // Duplicating documents (draft and finalized) as new drafts — authenticated.
+    {
+      name: "chromium-documents-duplication",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /documents-duplication-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents-lifecycle"],
+    },
+
     // Milestone feedback after the first draft save and after finalizing —
     // authenticated.
     {
@@ -247,7 +258,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-milestone-feedback-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-lifecycle"],
+      dependencies: ["chromium-documents-duplication"],
     },
 
     // Document activity history — authenticated.
