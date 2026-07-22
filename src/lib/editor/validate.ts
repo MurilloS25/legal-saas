@@ -238,7 +238,13 @@ function validateOptionBlock(
   const attrs = value.attrs;
   if (
     !isPlainObject(attrs) ||
-    !hasOnlyKeys(attrs, ["blockId", "name", "variants", "defaultVariantId"])
+    !hasOnlyKeys(attrs, [
+      "blockId",
+      "name",
+      "variants",
+      "defaultVariantId",
+      "structuredOutput",
+    ])
   ) {
     return "El Bloque de opciones tiene atributos no permitidos.";
   }
@@ -281,6 +287,59 @@ function validateOptionBlock(
   const defaultVariantId = attrs.defaultVariantId;
   if (typeof defaultVariantId !== "string" || !seenIds.has(defaultVariantId)) {
     return "La variante predeterminada del Bloque de opciones no es válida.";
+  }
+
+  const structuredOutput = attrs.structuredOutput;
+  if (structuredOutput !== undefined && structuredOutput !== null) {
+    if (
+      !isPlainObject(structuredOutput) ||
+      !hasOnlyKeys(structuredOutput, ["type", "variants"]) ||
+      structuredOutput.type !== "time" ||
+      !Array.isArray(structuredOutput.variants) ||
+      structuredOutput.variants.length !== variants.length
+    ) {
+      return "La salida estructurada del Bloque de opciones no es válida.";
+    }
+    const configuredIds = new Set<string>();
+    for (const output of structuredOutput.variants) {
+      if (
+        !isPlainObject(output) ||
+        !hasOnlyKeys(output, ["variantId", "hourFieldKey", "minuteFieldKey"]) ||
+        typeof output.variantId !== "string" ||
+        !seenIds.has(output.variantId) ||
+        configuredIds.has(output.variantId) ||
+        typeof output.hourFieldKey !== "string" ||
+        !FIELD_KEY_PATTERN.test(output.hourFieldKey) ||
+        (output.minuteFieldKey !== null &&
+          (typeof output.minuteFieldKey !== "string" ||
+            !FIELD_KEY_PATTERN.test(output.minuteFieldKey)))
+      ) {
+        return "La salida estructurada del Bloque de opciones no es válida.";
+      }
+      const variant = variants.find(
+        (candidate) =>
+          isPlainObject(candidate) && candidate.id === output.variantId,
+      ) as Record<string, unknown> | undefined;
+      const content = Array.isArray(variant?.content) ? variant.content : [];
+      const keys = new Set(
+        content.flatMap((node) =>
+          isPlainObject(node) &&
+          node.type === "templateVariable" &&
+          isPlainObject(node.attrs) &&
+          typeof node.attrs.key === "string"
+            ? [node.attrs.key]
+            : [],
+        ),
+      );
+      if (
+        !keys.has(output.hourFieldKey) ||
+        (typeof output.minuteFieldKey === "string" &&
+          !keys.has(output.minuteFieldKey))
+      ) {
+        return "La salida estructurada debe usar variables de su variante.";
+      }
+      configuredIds.add(output.variantId);
+    }
   }
 
   counters.optionBlocks += 1;

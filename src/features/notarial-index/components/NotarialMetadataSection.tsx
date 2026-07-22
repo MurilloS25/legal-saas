@@ -393,20 +393,36 @@ export function NotarialMetadataSection({
 }
 
 function PrefillHelp({ field }: { field: NotarialPrefillField }) {
-  if (field.source !== "template") return null;
-  if (!field.compatible && field.rawValue) {
+  if (!field.rawValue) {
+    if (field.source !== "template") return null;
     return (
-      <p className="mt-1 text-xs text-amber-700">
-        Valor del machote: “{field.rawValue}”. No se convirtió automáticamente;
-        ajústalo al formato requerido.
+      <p className="mt-1 text-xs text-slate-500">
+        El valor fue precargado desde el machote. Revísalo antes de preparar el
+        índice.
       </p>
     );
   }
+
+  if (!field.compatible) {
+    return (
+      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="font-medium">
+          No pudimos interpretar este valor para el Índice Notarial.
+        </p>
+        <p className="mt-1">Original: “{field.rawValue}”</p>
+        <p>Estado: Requiere revisión y corrección manual.</p>
+      </div>
+    );
+  }
+
   return (
-    <p className="mt-1 text-xs text-slate-500">
-      El valor fue precargado desde el machote. Revísalo y ajústalo al formato
-      requerido para el índice.
-    </p>
+    <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+      <p>Original: “{field.rawValue}”</p>
+      <p>Interpretado: {field.value}</p>
+      <p>
+        Estado: Listo{field.source === "saved" ? " · corrección guardada" : ""}
+      </p>
+    </div>
   );
 }
 
@@ -415,15 +431,34 @@ function AuthorizedAtPrefillHelp({
 }: {
   field: NotarialAuthorizedAtPrefill;
 }) {
-  if (field.source !== "template") return null;
-  if (!field.compatible) {
-    const values = [field.rawDate, field.rawTime].filter(Boolean).join(" / ");
+  const rawValue = [field.rawDate, field.rawTime].filter(Boolean).join(" / ");
+  if (field.optionBlockName) {
     return (
-      <p className="mt-1 text-xs text-amber-700">
-        Valor del machote: “{values}”. No se convirtió automáticamente; ingresa
-        la fecha y hora en el formato requerido.
-      </p>
+      <div
+        className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
+          field.compatible
+            ? "border-slate-200 bg-slate-50 text-slate-600"
+            : "border-amber-200 bg-amber-50 text-amber-900"
+        }`}
+      >
+        <p>Fuente: Bloque de opciones · {field.optionBlockName}</p>
+        {field.optionVariantLabel && (
+          <p>Variante: {field.optionVariantLabel}</p>
+        )}
+        {rawValue && <p>Original: “{rawValue}”</p>}
+        {field.compatible ? (
+          <>
+            <p>Interpretado: {field.value}</p>
+            <p>
+              Estado: Listo
+              {field.source === "saved" ? " · corrección guardada" : ""}
+            </p>
+          </>
+        ) : (
+          <p>Estado: Requiere revisión y corrección manual.</p>
+        )}
+      </div>
     );
   }
-  return <PrefillHelp field={field} />;
+  return <PrefillHelp field={{ ...field, rawValue: rawValue || undefined }} />;
 }

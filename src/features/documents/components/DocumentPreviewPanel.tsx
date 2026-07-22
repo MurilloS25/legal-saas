@@ -11,8 +11,8 @@ type Props = {
   templateName: string;
   /** Ausentes cuando la escritura es de solo lectura: sin edición inline. */
   values?: Record<string, string>;
-  editingKey?: string;
-  onStartEdit?: (key: string) => void;
+  editingNodeId?: string;
+  onStartEdit?: (nodeId: string, variableKey: string) => void;
   onChangeValue?: (key: string, value: string) => void;
   onStopEdit?: () => void;
   onSelectVariant?: (blockId: string, variantId: string) => void;
@@ -24,7 +24,7 @@ export function DocumentPreviewPanel({
   model,
   templateName,
   values,
-  editingKey,
+  editingNodeId,
   onStartEdit,
   onChangeValue,
   onStopEdit,
@@ -60,7 +60,7 @@ export function DocumentPreviewPanel({
           emptyMessage="El machote no tiene contenido."
           aria-labelledby="composer-document-heading"
           values={values}
-          editingKey={editingKey}
+          editingNodeId={editingNodeId}
           onStartEdit={onStartEdit}
           onChangeValue={onChangeValue}
           onStopEdit={onStopEdit}

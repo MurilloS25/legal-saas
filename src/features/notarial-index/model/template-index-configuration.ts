@@ -46,11 +46,28 @@ export const TemplateIndexConfigurationSchema = z
       initial_folio: optionalFieldId,
       final_folio: optionalFieldId,
     }),
+    authorized_time_option_block_id: z
+      .string()
+      .trim()
+      .min(1, "Bloque inválido")
+      .max(120, "Bloque inválido")
+      .nullable()
+      .default(null),
     template_field_ids: z
       .array(z.string().regex(POSTGRES_UUID, "Campo inválido"))
       .max(50, "Selecciona como máximo 50 campos"),
   })
   .superRefine((value, ctx) => {
+    if (
+      value.simple_fields.authorized_time !== null &&
+      value.authorized_time_option_block_id !== null
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["simple_fields"],
+        message: "La hora solo puede tener una fuente",
+      });
+    }
     if (!value.allow_empty && value.template_field_ids.length === 0) {
       ctx.addIssue({
         code: "custom",
@@ -89,6 +106,7 @@ export type TemplateIndexConfiguration = {
   allowEmpty: boolean;
   isComplete: boolean;
   simpleFields: Record<SimpleIndexMappingKey, string | null>;
+  authorizedTimeOptionBlockId: string | null;
   invalidMappings: InvalidIndexMapping[];
   fields: Array<{
     templateFieldId: string;

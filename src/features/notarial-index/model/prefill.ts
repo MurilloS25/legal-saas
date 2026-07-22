@@ -7,6 +7,15 @@ import type {
   SimpleIndexMappingKey,
   TemplateIndexConfiguration,
 } from "./template-index-configuration";
+import {
+  normalizeNotarialValue,
+  NOTARIAL_SEMANTIC_TYPES,
+} from "./normalization";
+import type { TemplateDocument } from "@/lib/editor/types";
+import {
+  resolveOptionBlockTime,
+  type OptionBlockTimeResult,
+} from "./option-block-time";
 
 export type NotarialPrefillSource =
   | "saved"
@@ -24,6 +33,8 @@ export type NotarialPrefillField = {
 export type NotarialAuthorizedAtPrefill = NotarialPrefillField & {
   rawDate?: string;
   rawTime?: string;
+  optionBlockName?: string;
+  optionVariantLabel?: string;
 };
 
 export type NotarialMetadataPrefill = {
@@ -43,6 +54,8 @@ type ResolveInput = {
   configuration: TemplateIndexConfiguration | null;
   availableFields: readonly AvailableField[];
   fieldValues: Record<string, unknown>;
+  templateDocument?: TemplateDocument;
+  optionSelections?: Record<string, string>;
   templateName: string | null;
   generatedParties: string | null;
   suggestions: NotarialMetadataSuggestions;
@@ -54,11 +67,15 @@ const emptyField = (): NotarialPrefillField => ({
   compatible: true,
 });
 
-function savedField(value: string | number | null): NotarialPrefillField {
+function savedField(
+  value: string | number | null,
+  rawValue?: string,
+): NotarialPrefillField {
   return {
     value: value === null ? "" : String(value),
     source: "saved",
     compatible: true,
+    rawValue,
   };
 }
 
@@ -77,59 +94,63 @@ function mappedValue(
   return value;
 }
 
-function textPrefill(
+function integerPrefill(
+  key:
+    | "instrument_number"
+    | "protocol_book"
+    | "initial_folio"
+    | "final_folio",
   mapped: string | null,
-  suggestion: string | null,
+  suggestion: string | number | null,
 ): NotarialPrefillField {
-  if (mapped !== null) {
-    return { value: mapped, source: "template", compatible: true };
-  }
-  if (suggestion !== null && suggestion !== "") {
-    return { value: suggestion, source: "suggestion", compatible: true };
-  }
-  return emptyField();
-}
-
-function instrumentPrefill(
-  mapped: string | null,
-  suggestion: number | null,
-): NotarialPrefillField {
-  if (mapped !== null) {
-    const compatible = /^[1-9]\d*$/.test(mapped);
-    return {
-      value: compatible ? mapped : "",
-      source: "template",
-      compatible,
-      rawValue: mapped,
-    };
-  }
-  if (suggestion !== null) {
-    return {
-      value: String(suggestion),
-      source: "suggestion",
-      compatible: true,
-    };
-  }
-  return emptyField();
+  const candidate = mapped ?? (suggestion === null ? null : String(suggestion));
+  if (candidate === null) return emptyField();
+  const normalized = normalizeNotarialValue({
+    value: candidate,
+    type: NOTARIAL_SEMANTIC_TYPES[key],
+    locale: "es-CR",
+  });
+  return {
+    value: normalized.ok ? String(normalized.value) : "",
+    source: mapped === null ? "suggestion" : "template",
+    compatible: normalized.ok,
+    rawValue: candidate,
+  };
 }
 
 function authorizedAtPrefill(
   rawDate: string | null,
-  rawTime: string | null,
+  timeValue: string | null,
+  rawTime: string | null = timeValue,
+  optionBlock?: OptionBlockTimeResult,
 ): NotarialAuthorizedAtPrefill {
-  if (rawDate === null && rawTime === null) return emptyField();
-  const dateCompatible =
-    rawDate !== null && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(rawDate);
-  const timeCompatible =
-    rawTime !== null &&
-    /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(rawTime);
-  const compatible = dateCompatible && timeCompatible;
+  if (rawDate === null && rawTime === null && !optionBlock) return emptyField();
+  const date =
+    rawDate === null
+      ? null
+      : normalizeNotarialValue({
+          value: rawDate,
+          type: NOTARIAL_SEMANTIC_TYPES.authorized_date,
+          locale: "es-CR",
+        });
+  const time =
+    timeValue === null
+      ? null
+      : normalizeNotarialValue({
+          value: timeValue,
+          type: NOTARIAL_SEMANTIC_TYPES.authorized_time,
+          locale: "es-CR",
+        });
+  const compatible =
+    date?.ok === true && time?.ok === true && optionBlock?.ok !== false;
   return {
-    value: compatible ? `${rawDate}T${rawTime}` : "",
+    value: compatible ? `${date.value}T${time.value}` : "",
     source: "template",
     compatible,
     rawDate: rawDate ?? undefined,
     rawTime: rawTime ?? undefined,
+    optionBlockName: optionBlock?.blockName,
+    optionVariantLabel: optionBlock?.variantLabel,
   };
 }
 
@@ -138,19 +159,55 @@ export function resolveNotarialMetadataPrefill({
   configuration,
   availableFields,
   fieldValues,
+  templateDocument,
+  optionSelections = {},
   templateName,
   generatedParties,
   suggestions,
 }: ResolveInput): NotarialMetadataPrefill {
+  const mapped = (key: SimpleIndexMappingKey) =>
+    mappedValue(key, configuration, availableFields, fieldValues);
+  const optionBlockTime =
+    configuration?.authorizedTimeOptionBlockId && templateDocument
+      ? resolveOptionBlockTime(
+          templateDocument,
+          configuration.authorizedTimeOptionBlockId,
+          optionSelections,
+          fieldValues,
+        )
+      : undefined;
+  const mappedTime = optionBlockTime?.ok
+    ? optionBlockTime.value
+    : mapped("authorized_time");
+  const rawTime = optionBlockTime
+    ? (optionBlockTime.rawValue ?? null)
+    : mappedTime;
+
   if (metadata) {
     return {
-      instrumentNumber: savedField(metadata.instrument_number),
+      instrumentNumber: savedField(
+        metadata.instrument_number,
+        mapped("instrument_number") ?? undefined,
+      ),
       authorizedAt: {
         ...savedField(isoToCostaRicaLocal(metadata.authorized_at)),
+        rawDate: mapped("authorized_date") ?? undefined,
+        rawTime: rawTime ?? undefined,
+        optionBlockName: optionBlockTime?.blockName,
+        optionVariantLabel: optionBlockTime?.variantLabel,
       },
-      protocolBook: savedField(metadata.protocol_book),
-      initialFolio: savedField(metadata.initial_folio),
-      finalFolio: savedField(metadata.final_folio),
+      protocolBook: savedField(
+        metadata.protocol_book,
+        mapped("protocol_book") ?? undefined,
+      ),
+      initialFolio: savedField(
+        metadata.initial_folio,
+        mapped("initial_folio") ?? undefined,
+      ),
+      finalFolio: savedField(
+        metadata.final_folio,
+        mapped("final_folio") ?? undefined,
+      ),
       actName: savedField(
         metadata.act_name_override ?? metadata.act_name_snapshot,
       ),
@@ -160,27 +217,30 @@ export function resolveNotarialMetadataPrefill({
     };
   }
 
-  const mapped = (key: SimpleIndexMappingKey) =>
-    mappedValue(key, configuration, availableFields, fieldValues);
-
   return {
-    instrumentNumber: instrumentPrefill(
+    instrumentNumber: integerPrefill(
+      "instrument_number",
       mapped("instrument_number"),
       suggestions.instrumentNumber,
     ),
     authorizedAt: authorizedAtPrefill(
       mapped("authorized_date"),
-      mapped("authorized_time"),
+      mappedTime,
+      rawTime,
+      optionBlockTime,
     ),
-    protocolBook: textPrefill(
+    protocolBook: integerPrefill(
+      "protocol_book",
       mapped("protocol_book"),
       suggestions.protocolBook,
     ),
-    initialFolio: textPrefill(
+    initialFolio: integerPrefill(
+      "initial_folio",
       mapped("initial_folio"),
       suggestions.initialFolio,
     ),
-    finalFolio: textPrefill(
+    finalFolio: integerPrefill(
+      "final_folio",
       mapped("final_folio"),
       suggestions.initialFolio,
     ),

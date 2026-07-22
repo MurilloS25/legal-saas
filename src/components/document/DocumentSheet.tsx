@@ -24,7 +24,10 @@
 
 import { useMemo, useState } from "react";
 import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
-import { findAdjacentVariableKey } from "@/lib/editor/variable-navigation";
+import {
+  findAdjacentVariableOccurrence,
+  type VariableOccurrence,
+} from "@/lib/editor/variable-navigation";
 import { OptionBlockPopover } from "./OptionBlockPopover";
 
 type Props = {
@@ -40,13 +43,13 @@ type Props = {
   "aria-labelledby"?: string;
   /** Valores crudos (sin transformar) por `field_key`, para el modo edición. */
   values?: Record<string, string>;
-  /** Clave de la variable actualmente en modo edición inline. */
-  editingKey?: string;
+  /** Id de la aparición visual actualmente en edición inline. */
+  editingNodeId?: string;
   /**
    * Si se define, las variables se vuelven editables inline: un clic las
    * pone en modo edición (ver `editingKey`).
    */
-  onStartEdit?: (key: string) => void;
+  onStartEdit?: (nodeId: string, variableKey: string) => void;
   /** Cambia el valor crudo de la variable en edición. */
   onChangeValue?: (key: string, value: string) => void;
   /** Sale del modo edición (blur, Escape, o Tab sin siguiente variable). */
@@ -86,7 +89,7 @@ export function DocumentSheet({
   emptyMessage = "El documento aún no tiene contenido.",
   "aria-labelledby": ariaLabelledBy,
   values,
-  editingKey,
+  editingNodeId,
   onStartEdit,
   onChangeValue,
   onStopEdit,
@@ -95,23 +98,29 @@ export function DocumentSheet({
   const editable = !!onChangeValue;
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
 
-  const orderedKeys = useMemo(() => {
+  const orderedOccurrences = useMemo(() => {
     if (!editable) return [];
-    const keys: string[] = [];
+    const occurrences: VariableOccurrence[] = [];
     function visit(run: DocumentRun) {
-      if (run.kind === "variable") keys.push(run.key);
+      if (run.kind === "variable") {
+        occurrences.push({ nodeId: run.nodeId, variableKey: run.key });
+      }
       else if (run.kind === "optionBlock") run.runs.forEach(visit);
     }
     for (const paragraph of model) {
       for (const run of paragraph.runs) visit(run);
     }
-    return keys;
+    return occurrences;
   }, [model, editable]);
 
-  function moveToAdjacent(currentKey: string, direction: 1 | -1) {
-    const next = findAdjacentVariableKey(orderedKeys, currentKey, direction);
+  function moveToAdjacent(currentNodeId: string, direction: 1 | -1) {
+    const next = findAdjacentVariableOccurrence(
+      orderedOccurrences,
+      currentNodeId,
+      direction,
+    );
     if (next) {
-      onStartEdit?.(next);
+      onStartEdit?.(next.nodeId, next.variableKey);
     } else {
       onStopEdit?.();
     }
@@ -123,7 +132,7 @@ export function DocumentSheet({
     }
 
     if (run.kind === "variable" && editable) {
-      if (run.key === editingKey) {
+      if (run.nodeId === editingNodeId) {
         const rawValue = values?.[run.key] ?? "";
         return (
           <input
@@ -142,7 +151,7 @@ export function DocumentSheet({
                 onStopEdit?.();
               } else if (event.key === "Tab") {
                 event.preventDefault();
-                moveToAdjacent(run.key, event.shiftKey ? -1 : 1);
+                moveToAdjacent(run.nodeId, event.shiftKey ? -1 : 1);
               }
             }}
             style={{ width: `${inputWidthCh(rawValue)}ch` }}
@@ -164,7 +173,7 @@ export function DocumentSheet({
           data-variable-key={run.key}
           onClick={(event) => {
             event.stopPropagation();
-            onStartEdit!(run.key);
+            onStartEdit!(run.nodeId, run.key);
           }}
           aria-label={`Editar ${run.label?.trim() || run.key}`}
           className={`${editableClass} focus:outline-none focus:ring-2 focus:ring-accent-500`}

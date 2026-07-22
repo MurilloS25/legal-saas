@@ -139,17 +139,64 @@ describe("buildOptionBlockAttrs", () => {
     const hora = draft({
       name: "Hora",
       variants: [
-        { id: "en_punto", label: "Hora en punto", contentText: "{{hora.valor}}" },
+        {
+          id: "en_punto",
+          label: "Hora en punto",
+          contentText: "{{hora.valor}} horas",
+          timeOutput: { hourFieldKey: "hora.valor", minuteFieldKey: null },
+        },
         {
           id: "con_minutos",
           label: "Hora con minutos",
           contentText: "{{hora.valor}} con {{hora.minutos}}",
+          timeOutput: {
+            hourFieldKey: "hora.valor",
+            minuteFieldKey: "hora.minutos",
+          },
         },
       ],
       defaultVariantId: "en_punto",
+      structuredOutputType: "time",
     });
     const result = buildOptionBlockAttrs(hora);
     expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.attrs.structuredOutput).toEqual({
+      type: "time",
+      variants: [
+        {
+          variantId: "en_punto",
+          hourFieldKey: "hora.valor",
+          minuteFieldKey: null,
+        },
+        {
+          variantId: "con_minutos",
+          hourFieldKey: "hora.valor",
+          minuteFieldKey: "hora.minutos",
+        },
+      ],
+    });
+  });
+
+  it("rejects a structured component that is not present in its variant", () => {
+    const result = buildOptionBlockAttrs(
+      draft({
+        structuredOutputType: "time",
+        variants: [
+          {
+            id: "v1",
+            label: "Hora",
+            contentText: "{{hora}} horas",
+            timeOutput: {
+              hourFieldKey: "otra_hora",
+              minuteFieldKey: null,
+            },
+          },
+        ],
+        defaultVariantId: "v1",
+      }),
+    );
+    expect(result).toMatchObject({ ok: false });
   });
 
   it("rejects an empty block name", () => {

@@ -31,6 +31,8 @@ export type TextRun = {
 export type VariableRun =
   | {
       kind: "variable";
+      /** Identifica esta aparición visual, no el valor compartido. */
+      nodeId: string;
       key: string;
       label?: string;
       resolved: true;
@@ -39,6 +41,8 @@ export type VariableRun =
     }
   | {
       kind: "variable";
+      /** Identifica esta aparición visual, no el valor compartido. */
+      nodeId: string;
       key: string;
       label?: string;
       resolved: false;
@@ -94,6 +98,7 @@ function resolveValue(
 
 function resolveSimpleNode(
   node: TemplateVariantContentNode,
+  nodeId: string,
   values: Record<string, string> | undefined,
   transforms: VariableTransformsMap | undefined,
 ): DocumentRun {
@@ -115,12 +120,14 @@ function resolveSimpleNode(
       return value === null
         ? {
             kind: "variable",
+            nodeId,
             key: node.attrs.key,
             label: node.attrs.label,
             resolved: false,
           }
         : {
             kind: "variable",
+            nodeId,
             key: node.attrs.key,
             label: node.attrs.label,
             value,
@@ -134,12 +141,13 @@ function resolveSimpleNode(
 
 function resolveParagraphNode(
   node: TemplateInlineNode,
+  nodeId: string,
   values: Record<string, string> | undefined,
   transforms: VariableTransformsMap | undefined,
   optionSelections: OptionSelectionsMap | undefined,
 ): DocumentRun {
   if (node.type !== "optionBlock") {
-    return resolveSimpleNode(node, values, transforms);
+    return resolveSimpleNode(node, nodeId, values, transforms);
   }
 
   const selectedId = optionSelections?.[node.attrs.blockId];
@@ -155,7 +163,14 @@ function resolveParagraphNode(
     variants: node.attrs.variants.map((v) => ({ id: v.id, label: v.label })),
     selectedVariantId: variant?.id ?? node.attrs.defaultVariantId,
     runs: variant
-      ? variant.content.map((child) => resolveSimpleNode(child, values, transforms))
+      ? variant.content.map((child, childIndex) =>
+          resolveSimpleNode(
+            child,
+            `${nodeId}:variant:${variant.id}:node:${childIndex}`,
+            values,
+            transforms,
+          ),
+        )
       : [],
   };
 }
@@ -177,10 +192,16 @@ export function buildDocumentModel(
   transforms?: VariableTransformsMap,
   optionSelections?: OptionSelectionsMap,
 ): DocumentModel {
-  return document.content.map((paragraph) => ({
+  return document.content.map((paragraph, paragraphIndex) => ({
     kind: "paragraph",
-    runs: (paragraph.content ?? []).map((node) =>
-      resolveParagraphNode(node, values, transforms, optionSelections),
+    runs: (paragraph.content ?? []).map((node, nodeIndex) =>
+      resolveParagraphNode(
+        node,
+        `paragraph:${paragraphIndex}:node:${nodeIndex}`,
+        values,
+        transforms,
+        optionSelections,
+      ),
     ),
   }));
 }

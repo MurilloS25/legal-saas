@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TemplateIndexConfiguration } from "./template-index-configuration";
 import type { NotarialMetadata } from "./notarial";
 import { resolveNotarialMetadataPrefill } from "./prefill";
+import type { TemplateDocument } from "@/lib/editor/types";
 
 const fieldIds = {
   instrument: "11111111-1111-4111-8111-111111111111",
@@ -34,6 +35,7 @@ const configuration: TemplateIndexConfiguration = {
     initial_folio: fieldIds.initialFolio,
     final_folio: fieldIds.finalFolio,
   },
+  authorizedTimeOptionBlockId: null,
   invalidMappings: [],
   partySeparator: " Y ",
   fixedSuffix: null,
@@ -44,12 +46,118 @@ const configuration: TemplateIndexConfiguration = {
 
 const suggestions = {
   instrumentNumber: 42,
-  protocolBook: "SUGERIDO",
-  initialFolio: "10F",
+  protocolBook: "08",
+  initialFolio: "10",
+};
+
+const timeBlockDocument: TemplateDocument = {
+  type: "doc",
+  content: [
+    {
+      type: "paragraph",
+      content: [
+        {
+          type: "optionBlock",
+          attrs: {
+            blockId: "hora-block",
+            name: "Hora",
+            defaultVariantId: "en_punto",
+            variants: [
+              {
+                id: "en_punto",
+                label: "Hora en punto",
+                content: [
+                  { type: "templateVariable", attrs: { key: "hora" } },
+                ],
+              },
+              {
+                id: "con_minutos",
+                label: "Hora y minutos",
+                content: [
+                  { type: "templateVariable", attrs: { key: "hora" } },
+                  { type: "templateVariable", attrs: { key: "minutos" } },
+                ],
+              },
+            ],
+            structuredOutput: {
+              type: "time",
+              variants: [
+                {
+                  variantId: "en_punto",
+                  hourFieldKey: "hora",
+                  minuteFieldKey: null,
+                },
+                {
+                  variantId: "con_minutos",
+                  hourFieldKey: "hora",
+                  minuteFieldKey: "minutos",
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  ],
 };
 
 describe("resolveNotarialMetadataPrefill", () => {
-  it("copies mapped values without interpreting natural language", () => {
+  it("combines a mapped date with the selected Hora block output", () => {
+    const result = resolveNotarialMetadataPrefill({
+      metadata: null,
+      configuration: {
+        ...configuration,
+        simpleFields: { ...configuration.simpleFields, authorized_time: null },
+        authorizedTimeOptionBlockId: "hora-block",
+      },
+      availableFields: fields,
+      fieldValues: {
+        "authorized.date": "2026-07-15",
+        hora: "diez",
+        minutos: "veinte",
+      },
+      templateDocument: timeBlockDocument,
+      optionSelections: { "hora-block": "con_minutos" },
+      templateName: "Compraventa",
+      generatedParties: null,
+      suggestions,
+    });
+
+    expect(result.authorizedAt).toMatchObject({
+      value: "2026-07-15T10:20",
+      compatible: true,
+      rawTime: "diez / veinte",
+      optionBlockName: "Hora",
+      optionVariantLabel: "Hora y minutos",
+    });
+  });
+
+  it("leaves an invalid Hora block output for manual review", () => {
+    const result = resolveNotarialMetadataPrefill({
+      metadata: null,
+      configuration: {
+        ...configuration,
+        simpleFields: { ...configuration.simpleFields, authorized_time: null },
+        authorizedTimeOptionBlockId: "hora-block",
+      },
+      availableFields: fields,
+      fieldValues: { "authorized.date": "2026-07-15", hora: "25" },
+      templateDocument: timeBlockDocument,
+      optionSelections: { "hora-block": "en_punto" },
+      templateName: "Compraventa",
+      generatedParties: null,
+      suggestions,
+    });
+
+    expect(result.authorizedAt).toMatchObject({
+      value: "",
+      compatible: false,
+      rawTime: "25 / 00",
+      optionBlockName: "Hora",
+    });
+  });
+
+  it("normalizes mapped values without changing the rendered document", () => {
     const result = resolveNotarialMetadataPrefill({
       metadata: null,
       configuration,
@@ -69,21 +177,33 @@ describe("resolveNotarialMetadataPrefill", () => {
     });
 
     expect(result.instrumentNumber).toMatchObject({
-      value: "",
+      value: "61",
       source: "template",
       rawValue: "sesenta y uno",
-      compatible: false,
+      compatible: true,
     });
     expect(result.authorizedAt).toMatchObject({
-      value: "",
+      value: "2026-07-15T16:30",
       source: "template",
-      compatible: false,
+      compatible: true,
       rawDate: "quince de julio de dos mil veintiséis",
       rawTime: "dieciséis horas con treinta minutos",
     });
-    expect(result.protocolBook.value).toBe("Tomo IX");
-    expect(result.initialFolio.value).toBe("40F");
-    expect(result.finalFolio.value).toBe("40V");
+    expect(result.protocolBook).toMatchObject({
+      value: "",
+      rawValue: "Tomo IX",
+      compatible: false,
+    });
+    expect(result.initialFolio).toMatchObject({
+      value: "",
+      rawValue: "40F",
+      compatible: false,
+    });
+    expect(result.finalFolio).toMatchObject({
+      value: "",
+      rawValue: "40V",
+      compatible: false,
+    });
     expect(result.actName).toMatchObject({
       value: "Compraventa",
       source: "template",
@@ -151,9 +271,11 @@ describe("resolveNotarialMetadataPrefill", () => {
     });
 
     expect(result.instrumentNumber).toMatchObject({ value: "7", source: "saved" });
+    expect(result.instrumentNumber.rawValue).toBe("99");
     expect(result.protocolBook).toMatchObject({
       value: "Guardado",
       source: "saved",
+      rawValue: "Nuevo",
     });
     expect(result.actName).toMatchObject({
       value: "Corrección manual",
@@ -190,10 +312,10 @@ describe("resolveNotarialMetadataPrefill", () => {
       source: "suggestion",
     });
     expect(result.protocolBook).toMatchObject({
-      value: "SUGERIDO",
+      value: "8",
       source: "suggestion",
     });
-    expect(result.initialFolio.value).toBe("10F");
-    expect(result.finalFolio.value).toBe("10F");
+    expect(result.initialFolio.value).toBe("10");
+    expect(result.finalFolio.value).toBe("10");
   });
 });

@@ -71,7 +71,9 @@ export function DocumentComposer(props: Props) {
   const [clientId, setClientId] = useState(props.initialClientId ?? "");
   const [clientOptions, setClientOptions] = useState(clients);
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
-  const [editingKey, setEditingKey] = useState<string | undefined>();
+  const [editingTarget, setEditingTarget] = useState<
+    { nodeId: string; variableKey: string } | undefined
+  >();
   const [optionSelections, setOptionSelections] = useState<OptionSelectionsMap>(
     () => draft?.option_selections ?? {},
   );
@@ -125,11 +127,21 @@ export function DocumentComposer(props: Props) {
 
   function goToNextPending() {
     if (activeKeys.length === 0) return;
-    const startIndex = editingKey ? activeKeys.indexOf(editingKey) : -1;
+    const startIndex = editingTarget
+      ? activeKeys.indexOf(editingTarget.variableKey)
+      : -1;
     for (let offset = 1; offset <= activeKeys.length; offset++) {
       const key = activeKeys[(startIndex + offset) % activeKeys.length];
       if ((values[key] ?? "").trim() === "") {
-        setEditingKey(key);
+        const occurrence = model
+          .flatMap((paragraph) => paragraph.runs)
+          .flatMap((run) =>
+            run.kind === "optionBlock" ? run.runs : [run],
+          )
+          .find((run) => run.kind === "variable" && run.key === key);
+        if (occurrence?.kind === "variable") {
+          setEditingTarget({ nodeId: occurrence.nodeId, variableKey: key });
+        }
         setMobileView("document");
         return;
       }
@@ -176,12 +188,12 @@ export function DocumentComposer(props: Props) {
     markDirty();
   }
 
-  function startEditingField(key: string) {
-    setEditingKey(key);
+  function startEditingField(nodeId: string, variableKey: string) {
+    setEditingTarget({ nodeId, variableKey });
   }
 
   function stopEditingField() {
-    setEditingKey(undefined);
+    setEditingTarget(undefined);
   }
 
   // Cambiar de variante actualiza de inmediato el documento/preview/DOCX
@@ -266,7 +278,7 @@ export function DocumentComposer(props: Props) {
           model={model}
           templateName={templateName}
           values={readOnly ? undefined : values}
-          editingKey={readOnly ? undefined : editingKey}
+          editingNodeId={readOnly ? undefined : editingTarget?.nodeId}
           onStartEdit={readOnly ? undefined : startEditingField}
           onChangeValue={readOnly ? undefined : changeField}
           onStopEdit={readOnly ? undefined : stopEditingField}

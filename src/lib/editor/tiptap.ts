@@ -237,6 +237,25 @@ export const OptionBlockNode = Node.create({
           "data-default-variant-id": String(attributes.defaultVariantId ?? ""),
         }),
       },
+      structuredOutput: {
+        default: null,
+        parseHTML: (element) => {
+          try {
+            const raw = element.getAttribute("data-structured-output");
+            return raw ? JSON.parse(raw) : null;
+          } catch {
+            return null;
+          }
+        },
+        renderHTML: (attributes) =>
+          attributes.structuredOutput
+            ? {
+                "data-structured-output": JSON.stringify(
+                  attributes.structuredOutput,
+                ),
+              }
+            : {},
+      },
     };
   },
 
