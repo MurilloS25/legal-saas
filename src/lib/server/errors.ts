@@ -61,6 +61,19 @@ type DatabaseError = {
   code?: string;
 };
 
+/**
+ * PostgREST devuelve este código cuando el `.range()` solicitado empieza más
+ * allá de las filas disponibles (p. ej. un `?page=` obsoleto o manipulado a
+ * mano tras borrar registros). No es un error real: significa "esta página
+ * no tiene filas", así que las consultas paginadas lo detectan para
+ * responder con una página vacía en vez de un 500.
+ */
+const RANGE_NOT_SATISFIABLE_CODE = "PGRST103";
+
+export function isRangeNotSatisfiable(error: DatabaseError): boolean {
+  return error.code === RANGE_NOT_SATISFIABLE_CODE;
+}
+
 export function throwDataAccessError(
   operation: string,
   error: DatabaseError,

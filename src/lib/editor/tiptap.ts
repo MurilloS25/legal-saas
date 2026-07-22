@@ -15,15 +15,10 @@ import {
   Node,
   mergeAttributes,
   nodeInputRule,
-  nodePasteRule,
   type Extensions,
 } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import {
-  FIELD_KEY_PATTERN,
-  VARIABLE_INPUT_RULE_PATTERN,
-  VARIABLE_PASTE_RULE_PATTERN,
-} from "./variable-key";
+import { FIELD_KEY_PATTERN, VARIABLE_INPUT_RULE_PATTERN } from "./variable-key";
 import { TEMPLATE_DOC_LIMITS } from "./types";
 import type { TemplateOptionBlockAttrs } from "./types";
 
@@ -153,32 +148,18 @@ export const TemplateVariableNode = Node.create({
   // llaves vacías— simplemente no coincide y queda como texto plano. No hay
   // interpretación de expresiones ni ejecución de código: el "clave" nunca
   // se evalúa, solo se copia como atributo del nodo.
+  // Solo aplica a lo que se escribe a mano, carácter por carácter. El
+  // pegado NUNCA convierte en silencio (ver `handlePaste` en
+  // `TemplateEditor.tsx`): todo `{{...}}` pegado, sea cual sea su
+  // mayúscula/minúscula, pasa siempre por el diálogo "Revisar variables
+  // detectadas" antes de convertirse — así el usuario confirma clave,
+  // etiqueta, obligatoriedad y transformación en un solo paso.
   addInputRules() {
     return [
       nodeInputRule({
         find: VARIABLE_INPUT_RULE_PATTERN,
         type: this.type,
         getAttributes: (match) => ({ key: match[1] }),
-      }),
-    ];
-  },
-
-  // Misma conversión para texto pegado; a diferencia de la regla de entrada,
-  // las reglas de pegado sí pueden abortar la coincidencia (devolviendo
-  // `false`) — se usa para descartar claves más largas que el límite
-  // persistido, en vez de crear una variable que el guardado rechazaría.
-  addPasteRules() {
-    return [
-      nodePasteRule({
-        find: VARIABLE_PASTE_RULE_PATTERN,
-        type: this.type,
-        getAttributes: (match) => {
-          const key = match[1];
-          if (key.length > TEMPLATE_DOC_LIMITS.maxVariableKeyLength) {
-            return false;
-          }
-          return { key };
-        },
       }),
     ];
   },

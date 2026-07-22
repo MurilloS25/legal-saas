@@ -53,7 +53,11 @@ export async function createTestTemplate(
     owner_id: userId,
     name: options.name,
     description: options.description ?? null,
-    status: options.status ?? "draft",
+    // Activo por default: la mayoría de specs crean un machote y de
+    // inmediato lo usan para crear una escritura (solo permitido desde
+    // machotes activos). Los tests que necesitan un borrador lo piden
+    // explícito con `status: "draft"`.
+    status: options.status ?? "active",
     content_json: options.doc
       ? { text: options.content, doc: options.doc }
       : { text: options.content },

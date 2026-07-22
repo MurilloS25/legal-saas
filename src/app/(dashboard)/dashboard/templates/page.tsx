@@ -1,7 +1,15 @@
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { TablePagination } from "@/components/ui/TablePagination";
 import Link from "next/link";
-import { listTemplates } from "@/features/templates/server";
-import { TemplatesTable } from "@/features/templates";
+import { listTemplatesPage } from "@/features/templates/server";
+import {
+  TemplatesTable,
+  parseTemplatesQuery,
+  templatesQueryToParams,
+  TEMPLATES_PAGE_SIZE,
+  type RawTemplatesQuery,
+} from "@/features/templates";
 
 export const metadata = {
   title: "Machotes — LexCR",
@@ -9,8 +17,26 @@ export const metadata = {
 
 // ------------------------------------------------------------------ page
 
-export default async function TemplatesPage() {
-  const templates = await listTemplates();
+type Props = {
+  searchParams: Promise<RawTemplatesQuery>;
+};
+
+export default async function TemplatesPage({ searchParams }: Props) {
+  const query = parseTemplatesQuery(await searchParams);
+  const page = await listTemplatesPage(query);
+
+  const pageHref = (targetPage: number) => {
+    const params = templatesQueryToParams({ page: targetPage });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/templates?${qs}` : "/dashboard/templates";
+  };
+
+  if (page.total > 0 && query.page > page.pageCount) {
+    redirect(pageHref(page.pageCount));
+  }
+
+  const rangeStart = page.total === 0 ? 0 : (query.page - 1) * TEMPLATES_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(query.page * TEMPLATES_PAGE_SIZE, page.total);
 
   return (
     <PageContainer>
@@ -46,7 +72,7 @@ export default async function TemplatesPage() {
       </div>
 
       {/* ---- empty state ---- */}
-      {templates.length === 0 ? (
+      {page.total === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
             <svg
@@ -84,16 +110,14 @@ export default async function TemplatesPage() {
       ) : (
         /* ---- templates table ---- */
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <TemplatesTable rows={templates} />
+          <TemplatesTable rows={page.rows} />
 
-          {/* Footer */}
-          <div className="border-t border-slate-100 bg-slate-50 px-6 py-3">
-            <p className="text-xs text-slate-500">
-              {templates.length === 1
-                ? "1 machote registrado"
-                : `${templates.length} machotes registrados`}
-            </p>
-          </div>
+          <TablePagination
+            page={query.page}
+            pageCount={page.pageCount}
+            countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
+            pageHref={pageHref}
+          />
         </div>
       )}
     </PageContainer>

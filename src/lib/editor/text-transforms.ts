@@ -220,6 +220,36 @@ export function integerToUppercaseWords(raw: string): IntegerToWordsResult {
 }
 
 /**
+ * Candidato a token numérico dentro de texto libre: dígitos con signo
+ * opcional, parte decimal opcional (`.`/`,`) y notación científica
+ * opcional. Se usa para RECONOCER estos patrones y excluirlos a propósito
+ * — nunca se convierten, solo se detectan para no partirlos a la mitad
+ * (p. ej. no confundir "3.14" con los enteros "3" y "14" por separado).
+ */
+const NUMERIC_TOKEN_PATTERN = /[+-]?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?/g;
+
+/**
+ * Convierte todos los enteros no negativos embebidos en un texto libre a su
+ * representación en palabras, dejando el resto del texto en MAYÚSCULAS sin
+ * modificar. Cada grupo numérico se convierte de forma independiente (no hay
+ * interpretación de fechas ni de unidades): "25 de julio" -> "VEINTICINCO DE
+ * JULIO"; "10 horas con 30 minutos" -> "DIEZ HORAS CON TREINTA MINUTOS".
+ *
+ * Un token que no sea un entero simple no negativo — decimales ("3.14"),
+ * negativos ("-5"), notación científica ("1e10") o fuera de
+ * `MAX_NUMBER_TO_WORDS` — se deja tal cual (solo mayúsculas), nunca se
+ * malinterpreta ni se parte.
+ */
+export function textToUppercaseWords(raw: string): string {
+  const upper = raw.toUpperCase();
+  return upper.replace(NUMERIC_TOKEN_PATTERN, (token) => {
+    if (!/^\d+$/.test(token)) return token;
+    const result = integerToUppercaseWords(token);
+    return result.ok ? result.value : token;
+  });
+}
+
+/**
  * Aplica la transformación configurada a un valor ya resuelto. Si la
  * transformación no puede aplicarse (p. ej. `number_to_words` sobre un valor
  * que no es un entero válido), se conserva el valor original sin transformar
@@ -234,9 +264,7 @@ export function applyVariableTransform(
       return value;
     case "digits_to_words":
       return digitsToUppercaseWords(value);
-    case "number_to_words": {
-      const result = integerToUppercaseWords(value);
-      return result.ok ? result.value : value;
-    }
+    case "number_to_words":
+      return textToUppercaseWords(value);
   }
 }

@@ -132,6 +132,14 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           Escritura reabierta como borrador.
         </p>
       )}
+      {lifecycle === "duplicated" && (
+        <p
+          role="status"
+          className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm font-medium text-accent-800"
+        >
+          Escritura duplicada como borrador nuevo.
+        </p>
+      )}
 
       {section === "document" && !template ? (
         <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">

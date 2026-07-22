@@ -1,18 +1,16 @@
 /**
- * Detección de variables legacy al pegar contenido en el editor.
+ * Detección de variables pegadas en el editor.
  *
- * La sintaxis oficial es `{{clave}}` con el alfabeto de `FIELD_KEY_PATTERN`
- * (minúsculas, números, guion bajo, puntos). Los machotes antiguos usan la
- * misma delimitación `{{ }}` pero con claves en MAYÚSCULAS_CON_GUION_BAJO
- * (p. ej. `{{TOMO_NUMERO}}`), que hoy no coincide con ese patrón y por eso
- * el pegado no las detecta.
- *
- * Este módulo NO amplía la sintaxis aceptada por el editor: sigue exigiendo
- * el mismo alfabeto (letras, números, guion bajo, puntos) dentro de `{{ }}`,
- * solo que sin distinguir mayúsculas/minúsculas. Cualquier `{{...}}` con
- * otro contenido (espacios, dos puntos, símbolos) no se reconoce como
- * variable y se deja como texto literal — por ejemplo `{{SMART:block_id}}`,
- * que usa `:` y por tanto nunca coincide con este patrón.
+ * La sintaxis es `{{clave}}` con el alfabeto de `FIELD_KEY_PATTERN`
+ * (letras, números, guion bajo, puntos) — sin distinguir mayúsculas de
+ * minúsculas: `{{NOMBRE}}`, `{{nombre}}` y `{{Nombre}}` se detectan por
+ * igual y normalizan a la misma clave en minúsculas. El pegado nunca
+ * convierte en silencio (no hay una regla de pegado en el editor): TODO
+ * `{{...}}` con este alfabeto pasa por el diálogo de revisión antes de
+ * convertirse, sin importar el caso. Cualquier `{{...}}` con otro contenido
+ * (espacios, dos puntos, símbolos) no se reconoce como variable y se deja
+ * como texto literal — por ejemplo `{{SMART:block_id}}`, que usa `:` y por
+ * tanto nunca coincide con este patrón.
  *
  * Sin `eval`, sin expresiones, sin inferencia semántica: solo un regex
  * simple (sin backtracking catastrófico posible, alfabeto acotado) más una
@@ -32,10 +30,9 @@ const INVISIBLE_CHARS_PATTERN = /[​‌‍﻿]/g;
 
 /**
  * Mismo alfabeto que `FIELD_KEY_PATTERN` pero sin distinguir mayúsculas —
- * es la única ampliación: sigue delimitado por `{{ }}` y sin espacios,
- * dos puntos ni otros símbolos.
+ * sigue delimitado por `{{ }}` y sin espacios, dos puntos ni otros símbolos.
  */
-const LEGACY_PLACEHOLDER_PATTERN = /\{\{([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)\}\}/g;
+const PLACEHOLDER_ALPHABET_PATTERN = /\{\{([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)\}\}/g;
 
 /** Límite defensivo de candidatas por pegado (independiente del límite de variables distintas del documento). */
 const MAX_CANDIDATES_PER_PASTE = TEMPLATE_DOC_LIMITS.maxDistinctVariables;
@@ -66,12 +63,10 @@ export function humanizeLegacyLabel(raw: string): string {
 }
 
 /**
- * Detecta placeholders `{{...}}` con el alfabeto legacy (mismo que el
- * oficial, sin distinguir mayúsculas) que AÚN NO son válidos según
- * `FIELD_KEY_PATTERN` — es decir, los que la regla de pegado actual ya
- * ignora. Los placeholders ya válidos (`{{clave.valida}}`) se excluyen a
- * propósito: esos los sigue convirtiendo directamente la regla de pegado
- * existente, sin pasar por el diálogo de revisión.
+ * Detecta todos los placeholders `{{...}}` con el alfabeto válido (letras,
+ * números, guion bajo, puntos), sin distinguir mayúsculas de minúsculas.
+ * Es la única vía de detección al pegar contenido: no hay conversión
+ * silenciosa para ningún caso, ni siquiera para claves ya en minúsculas.
  *
  * Deduplicado por clave normalizada, en orden de primera aparición, con un
  * tope defensivo de candidatas por pegado.
@@ -81,9 +76,8 @@ export function detectLegacyVariables(text: string): LegacyVariableMatch[] {
   const seen = new Set<string>();
   const matches: LegacyVariableMatch[] = [];
 
-  for (const match of clean.matchAll(LEGACY_PLACEHOLDER_PATTERN)) {
+  for (const match of clean.matchAll(PLACEHOLDER_ALPHABET_PATTERN)) {
     const raw = match[1];
-    if (FIELD_KEY_PATTERN.test(raw)) continue; // ya válido: lo maneja la regla de pegado existente.
     if (raw.length > TEMPLATE_DOC_LIMITS.maxVariableKeyLength) continue;
 
     const key = raw.toLowerCase();

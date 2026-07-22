@@ -117,6 +117,16 @@ describe("renderStructuredTemplate", () => {
     expect(rendered).toBe("Cilindraje MIL SEISCIENTOS");
   });
 
+  it("applies number_to_words to a number embedded in surrounding text", () => {
+    const doc = legacyTextToDocument("Fecha: {{fecha_texto}}");
+    const rendered = renderStructuredTemplate(
+      doc,
+      { fecha_texto: "25 de julio" },
+      { fecha_texto: "number_to_words" },
+    );
+    expect(rendered).toBe("Fecha: VEINTICINCO DE JULIO");
+  });
+
   it("matches the legacy text renderer for converted legacy content", () => {
     const samples: [string, Record<string, string>][] = [
       [

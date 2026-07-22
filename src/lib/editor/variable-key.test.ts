@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  FIELD_KEY_PATTERN,
-  VARIABLE_INPUT_RULE_PATTERN,
-  VARIABLE_PASTE_RULE_PATTERN,
-} from "./variable-key";
+import { FIELD_KEY_PATTERN, VARIABLE_INPUT_RULE_PATTERN } from "./variable-key";
 
 describe("VARIABLE_INPUT_RULE_PATTERN", () => {
   it("matches a simple placeholder right after the closing braces", () => {
@@ -44,48 +40,5 @@ describe("VARIABLE_INPUT_RULE_PATTERN", () => {
   it("matched keys always satisfy FIELD_KEY_PATTERN", () => {
     const match = "{{vehiculo.placa}}".match(VARIABLE_INPUT_RULE_PATTERN);
     expect(FIELD_KEY_PATTERN.test(match![1])).toBe(true);
-  });
-});
-
-describe("VARIABLE_PASTE_RULE_PATTERN", () => {
-  it("matches every valid placeholder in pasted content", () => {
-    const text =
-      "Comparecen {{comprador.nombre}} y {{vendedor.nombre}}, folio {{folio.inicio}}.";
-    const matches = [...text.matchAll(VARIABLE_PASTE_RULE_PATTERN)].map(
-      (m) => m[1],
-    );
-    expect(matches).toEqual([
-      "comprador.nombre",
-      "vendedor.nombre",
-      "folio.inicio",
-    ]);
-  });
-
-  it("matches a duplicated placeholder each time it appears", () => {
-    const text = "{{a.b}} ... {{a.b}}";
-    const matches = [...text.matchAll(VARIABLE_PASTE_RULE_PATTERN)].map(
-      (m) => m[1],
-    );
-    expect(matches).toEqual(["a.b", "a.b"]);
-  });
-
-  it("skips invalid placeholders without matching partial content", () => {
-    const text = "{{Clave Invalida}} pero {{clave.valida}} sí";
-    const matches = [...text.matchAll(VARIABLE_PASTE_RULE_PATTERN)].map(
-      (m) => m[1],
-    );
-    expect(matches).toEqual(["clave.valida"]);
-  });
-
-  it("returns no matches for plain text", () => {
-    expect([...("sin variables aquí").matchAll(VARIABLE_PASTE_RULE_PATTERN)]).toEqual(
-      [],
-    );
-  });
-
-  it("returns no matches for incomplete braces", () => {
-    expect([...("{{comprador} y {vendedor}}").matchAll(VARIABLE_PASTE_RULE_PATTERN)]).toEqual(
-      [],
-    );
   });
 });
