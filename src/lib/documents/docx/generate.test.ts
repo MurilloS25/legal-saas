@@ -140,7 +140,13 @@ describe("generateDocumentDocx", () => {
       ],
       runs: [
         text("CHASIS "),
-        { kind: "variable", key: "vehiculo.chasis", resolved: true, value: "ABC123" },
+        {
+          kind: "variable",
+          nodeId: "paragraph:0:node:1:variant:distintos:node:1",
+          key: "vehiculo.chasis",
+          resolved: true,
+          value: "ABC123",
+        },
       ],
     };
     const { parts } = await generateAndRead([

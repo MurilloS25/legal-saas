@@ -432,5 +432,33 @@ function AuthorizedAtPrefillHelp({
   field: NotarialAuthorizedAtPrefill;
 }) {
   const rawValue = [field.rawDate, field.rawTime].filter(Boolean).join(" / ");
+  if (field.optionBlockName) {
+    return (
+      <div
+        className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
+          field.compatible
+            ? "border-slate-200 bg-slate-50 text-slate-600"
+            : "border-amber-200 bg-amber-50 text-amber-900"
+        }`}
+      >
+        <p>Fuente: Bloque de opciones · {field.optionBlockName}</p>
+        {field.optionVariantLabel && (
+          <p>Variante: {field.optionVariantLabel}</p>
+        )}
+        {rawValue && <p>Original: “{rawValue}”</p>}
+        {field.compatible ? (
+          <>
+            <p>Interpretado: {field.value}</p>
+            <p>
+              Estado: Listo
+              {field.source === "saved" ? " · corrección guardada" : ""}
+            </p>
+          </>
+        ) : (
+          <p>Estado: Requiere revisión y corrección manual.</p>
+        )}
+      </div>
+    );
+  }
   return <PrefillHelp field={{ ...field, rawValue: rawValue || undefined }} />;
 }

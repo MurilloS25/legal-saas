@@ -205,8 +205,27 @@ test.describe("template option blocks", () => {
     const dialog = await openInsertDialog(page);
     await dialog.getByLabel("Nombre del bloque").fill("Hora");
     await dialog.getByLabel("Etiqueta de variante").fill("Hora en punto");
-    await dialog.getByLabel("Contenido de variante").fill("{{hora.valor}}");
+    await dialog
+      .getByLabel("Contenido de variante")
+      .fill("a las {{hora.valor}} horas");
     await dialog.getByLabel("Variante predeterminada").check();
+    await dialog.getByRole("button", { name: "Agregar variante" }).click();
+    await dialog
+      .getByLabel("Etiqueta de variante")
+      .nth(1)
+      .fill("Hora y minutos");
+    await dialog
+      .getByLabel("Contenido de variante")
+      .nth(1)
+      .fill("a las {{hora.valor}} horas con {{hora.minutos}} minutos");
+    await dialog.getByLabel("Tipo de salida estructurada").selectOption("time");
+    await dialog.getByLabel("Hora", { exact: true }).nth(0).selectOption("hora.valor");
+    await dialog.getByLabel("Minutos", { exact: true }).nth(0).selectOption("__zero__");
+    await dialog.getByLabel("Hora", { exact: true }).nth(1).selectOption("hora.valor");
+    await dialog
+      .getByLabel("Minutos", { exact: true })
+      .nth(1)
+      .selectOption("hora.minutos");
     await dialog.getByRole("button", { name: "Insertar bloque" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -220,6 +239,18 @@ test.describe("template option blocks", () => {
     await expect(
       contentEditor(page).getByText("Bloque: Hora"),
     ).toBeVisible();
+    await contentEditor(page).getByText("Bloque: Hora").click();
+    await page.getByRole("button", { name: "Editar bloque" }).click();
+    const savedDialog = page.getByRole("dialog", {
+      name: "Editar bloque de opciones",
+    });
+    await expect(savedDialog.getByLabel("Tipo de salida estructurada")).toHaveValue(
+      "time",
+    );
+    await expect(savedDialog.getByLabel("Hora", { exact: true }).nth(0)).toHaveValue(
+      "hora.valor",
+    );
+    await savedDialog.getByRole("button", { name: "Cancelar", exact: true }).click();
     await goToVariablesTab(page);
     await expect(
       variablesRegion(page).getByText("hora.valor"),

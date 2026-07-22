@@ -84,6 +84,9 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     })),
     document.field_values,
   );
+  const resolvedTemplateContent = template
+    ? resolveTemplateContent(template.content_json)
+    : null;
   const notarialPrefill = resolveNotarialMetadataPrefill({
     metadata: notarialMetadata,
     configuration: indexConfiguration,
@@ -92,6 +95,8 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       fieldKey: field.field_key,
     })),
     fieldValues: document.field_values,
+    templateDocument: resolvedTemplateContent?.document,
+    optionSelections: document.option_selections,
     templateName: template?.name ?? null,
     generatedParties: generatedPartiesPreview,
     suggestions: notarialSuggestions,

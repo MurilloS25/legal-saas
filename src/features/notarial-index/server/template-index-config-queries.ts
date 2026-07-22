@@ -19,7 +19,7 @@ export async function queryTemplateIndexConfiguration(
   const { data: configuration, error } = await supabase
     .from("template_index_configurations")
     .select(
-      "id, template_id, instrument_number_field_id, authorized_date_field_id, authorized_time_field_id, protocol_book_field_id, initial_folio_field_id, final_folio_field_id, invalid_mappings, party_separator, fixed_suffix, allow_empty, is_complete",
+      "id, template_id, instrument_number_field_id, authorized_date_field_id, authorized_time_field_id, authorized_time_option_block_id, protocol_book_field_id, initial_folio_field_id, final_folio_field_id, invalid_mappings, party_separator, fixed_suffix, allow_empty, is_complete",
     )
     .eq("owner_id", ownerId)
     .eq("template_id", templateId)
@@ -55,6 +55,8 @@ export async function queryTemplateIndexConfiguration(
       initial_folio: configuration.initial_folio_field_id,
       final_folio: configuration.final_folio_field_id,
     },
+    authorizedTimeOptionBlockId:
+      configuration.authorized_time_option_block_id,
     invalidMappings: configuration.invalid_mappings.filter(
       (key): key is InvalidIndexMapping =>
         (INDEX_MAPPING_KEYS as readonly string[]).includes(key),

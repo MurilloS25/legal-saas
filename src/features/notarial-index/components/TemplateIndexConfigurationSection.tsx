@@ -18,9 +18,16 @@ export type IndexConfigurationField = {
   label: string;
 };
 
+export type IndexConfigurationOptionBlock = {
+  blockId: string;
+  name: string;
+  type: "time";
+};
+
 type Props = {
   templateId: string;
   fields: IndexConfigurationField[];
+  optionBlocks: IndexConfigurationOptionBlock[];
   configuration: TemplateIndexConfiguration | null;
 };
 
@@ -53,6 +60,7 @@ const inputClass =
 export function TemplateIndexConfigurationSection({
   templateId,
   fields,
+  optionBlocks,
   configuration,
 }: Props) {
   const availableIds = useMemo(
@@ -189,16 +197,52 @@ export function TemplateIndexConfigurationSection({
                 </label>
                 <select
                   id={`${key}_field_id`}
-                  name={`${key}_field_id`}
-                  defaultValue={configuration?.simpleFields[key] ?? ""}
+                  name={
+                    key === "authorized_time"
+                      ? "authorized_time_source"
+                      : `${key}_field_id`
+                  }
+                  defaultValue={
+                    key === "authorized_time"
+                      ? configuration?.authorizedTimeOptionBlockId
+                        ? `block:${configuration.authorizedTimeOptionBlockId}`
+                        : configuration?.simpleFields[key]
+                          ? `field:${configuration.simpleFields[key]}`
+                          : ""
+                      : (configuration?.simpleFields[key] ?? "")
+                  }
                   className={inputClass}
                 >
                   <option value="">Sin asignar / ingreso manual</option>
-                  {fields.map((field) => (
-                    <option key={field.id} value={field.id}>
-                      {field.label}
-                    </option>
-                  ))}
+                  {key === "authorized_time" ? (
+                    <>
+                      <optgroup label="Variables">
+                        {fields.map((field) => (
+                          <option key={field.id} value={`field:${field.id}`}>
+                            {field.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {optionBlocks.length > 0 && (
+                        <optgroup label="Bloques de opciones">
+                          {optionBlocks.map((block) => (
+                            <option
+                              key={block.blockId}
+                              value={`block:${block.blockId}`}
+                            >
+                              {block.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </>
+                  ) : (
+                    fields.map((field) => (
+                      <option key={field.id} value={field.id}>
+                        {field.label}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             ))}

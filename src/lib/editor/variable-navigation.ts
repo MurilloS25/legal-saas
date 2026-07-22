@@ -11,18 +11,32 @@
  * (el llamador decide qué hacer al llegar al límite, p. ej. salir del modo
  * edición).
  */
-export function findAdjacentVariableKey(
-  keys: string[],
-  currentKey: string,
+export type VariableOccurrence = {
+  nodeId: string;
+  variableKey: string;
+};
+
+export function findAdjacentVariableOccurrence(
+  occurrences: readonly VariableOccurrence[],
+  currentNodeId: string,
   direction: 1 | -1,
-): string | undefined {
-  const currentIndex = keys.indexOf(currentKey);
+): VariableOccurrence | undefined {
+  const currentIndex = occurrences.findIndex(
+    (occurrence) => occurrence.nodeId === currentNodeId,
+  );
   if (currentIndex === -1) return undefined;
 
+  const currentKey = occurrences[currentIndex].variableKey;
   let index = currentIndex;
   do {
     index += direction;
-  } while (index >= 0 && index < keys.length && keys[index] === currentKey);
+  } while (
+    index >= 0 &&
+    index < occurrences.length &&
+    occurrences[index].variableKey === currentKey
+  );
 
-  return index >= 0 && index < keys.length ? keys[index] : undefined;
+  return index >= 0 && index < occurrences.length
+    ? occurrences[index]
+    : undefined;
 }

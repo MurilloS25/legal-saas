@@ -45,6 +45,7 @@ import { useTemplatePreview } from "../hooks/use-template-preview";
 import {
   TemplateIndexConfigurationSection,
   type IndexConfigurationField,
+  type IndexConfigurationOptionBlock,
   type TemplateIndexConfiguration,
 } from "@/features/notarial-index";
 import {
@@ -69,6 +70,7 @@ type EditModeProps = {
   initialSection?: TemplateWorkspaceSection;
   indexConfiguration: TemplateIndexConfiguration | null;
   indexFields: IndexConfigurationField[];
+  indexOptionBlocks: IndexConfigurationOptionBlock[];
   headerActions?: React.ReactNode;
 };
 
@@ -418,6 +420,7 @@ export function TemplateWorkspace(props: Props) {
             templateId={props.template.id}
             configuration={props.indexConfiguration}
             fields={props.indexFields}
+            optionBlocks={props.indexOptionBlocks}
           />
         </div>
       )}
