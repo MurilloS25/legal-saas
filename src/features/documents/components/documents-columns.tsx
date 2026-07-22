@@ -7,6 +7,7 @@ import {
 } from "../model/status";
 import { DownloadDocxButton } from "./DownloadDocxButton";
 import { DeleteDocumentButton } from "./DeleteDocumentButton";
+import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
 
 export const DOCUMENTS_COLUMN_IDS = [
   "title",
@@ -103,6 +104,7 @@ export function createDocumentsColumns(): ColumnDef<WorkspaceDocumentRow>[] {
               variant="compact"
               ariaLabel={`Descargar Word de ${doc.title}`}
             />
+            <DuplicateDocumentButton documentId={doc.id} documentTitle={doc.title} />
             {doc.status !== "final" && (
               <DeleteDocumentButton documentId={doc.id} documentTitle={doc.title} />
             )}

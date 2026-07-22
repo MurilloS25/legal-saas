@@ -9,6 +9,7 @@ export { DocumentsTable } from "./components/DocumentsTable";
 export { ClientDocumentsTable } from "./components/ClientDocumentsTable";
 export { DocumentsToolbar } from "./components/DocumentsToolbar";
 export { DownloadDocxButton } from "./components/DownloadDocxButton";
+export { DuplicateDocumentButton } from "./components/DuplicateDocumentButton";
 export {
   documentStatusBadgeClass,
   documentStatusLabel,
@@ -25,3 +26,4 @@ export type {
   RawDocumentsQuery,
 } from "./model/workspace-query";
 export { DocumentIdSchema } from "./model/document-schema";
+export { buildDuplicateDocumentTitle } from "./model/duplicate";
