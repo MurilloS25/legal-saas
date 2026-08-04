@@ -2,11 +2,19 @@
 
 ## Estado
 
-Este documento es **solo diagnóstico y diseño**, per el alcance explícito de
-la Iteración 3 (`03_AUDITORIA_Y_DISENO_WORKSPACES_MULTIUSUARIO.md`). No se
-creó ninguna migración, política RLS, invitación, ni cambio de UI en esta
-tarea. Las iteraciones 4-6 (implementación) no deben comenzar hasta que este
-diseño esté aprobado explícitamente por el usuario.
+Este documento describía originalmente **solo diagnóstico y diseño**
+(Iteración 3, `03_AUDITORIA_Y_DISENO_WORKSPACES_MULTIUSUARIO.md`) — sin
+migraciones, RLS, invitaciones ni UI.
+
+**Iteración 4 (`04_FUNDACION_WORKSPACES_Y_MEMBRESIAS.md`) ya está
+implementada** — ver §11 más abajo para el estado real (qué se implementó
+exactamente, cómo difiere del diseño original, y el runbook de rollback).
+Solo cubre la "Fase A" de este diseño (aditiva) más el corte de RLS a
+membresía, con un único rol funcional (`propietario`) — sin invitaciones,
+sin `notary_profiles`, sin permisos personalizados. Las iteraciones 5-6
+(invitaciones reales, roles adicionales, separación de identidad
+profesional) siguen sin implementar y no deben comenzar hasta aprobación
+explícita.
 
 ## Objetivo
 
@@ -580,3 +588,124 @@ Por instrucción directa del spec:
 Este documento requiere aprobación explícita del usuario antes de que
 cualquier iteración de implementación (4, 5 o 6, según
 `00_ORDEN_DE_TRABAJO.md`) pueda comenzar.
+
+## 11. Iteración 4 — estado real de la implementación
+
+Migración: `supabase/migrations/20260804200000_workspace_foundation.sql`.
+Test: `supabase/tests/rls_workspace_foundation.test.sql` (18 aserciones —
+propietario, miembro activo, externo, suspendido, manipulación de IDs).
+
+### 11.1 Simplificación clave frente al diseño de la Iteración 3
+
+El diseño original (§2.2) proponía `workspace_id` como columna
+independiente, poblada explícitamente por cada Server Action/RPC. La
+implementación real usa un atajo mucho más seguro, posible exactamente
+porque esta iteración solo tiene un rol funcional (`propietario`):
+
+- El `workspaces.id` de cada Workspace "bootstrap" (uno por cada usuario
+  existente, y uno automático para cada usuario futuro vía un trigger en
+  `auth.users`) es **el mismo uuid** que el `auth.users.id` de su
+  propietario.
+- `workspace_id` en las 14 tablas de negocio es
+  `generated always as (owner_id) stored` — una función determinista de
+  `owner_id`, no una columna independiente.
+
+Esto significa que, mientras el sistema tenga un único rol funcional:
+
+- **Cero cambios de TypeScript fueron necesarios** — ningún Server Action
+  ni RPC necesitó empezar a pasar `workspace_id`; se calcula solo. Verificado
+  end-to-end (no solo en pgTAP): los 757 tests unitarios, el build, y la
+  suite completa de E2E autenticado (Clientes, Machotes, Escrituras, Índice,
+  Cuentas por cobrar, Pagos, Configuración, DOCX, historial) pasan sin
+  ninguna modificación al código de aplicación.
+- **La manipulación de IDs es estructuralmente imposible**, no solo
+  bloqueada por RLS: Postgres rechaza cualquier INSERT/UPDATE que intente
+  fijar un valor explícito en una columna generada
+  (`cannot insert a non-DEFAULT value into column ... generated column`).
+- **Limitación real y documentada**: un miembro no-propietario (p. ej. un
+  "asistente" agregado directamente a `workspace_members` por SQL, ya que
+  todavía no existe UI de invitación) puede ver los datos del Workspace del
+  que es miembro, pero **no puede escribir "dentro" de él** — cualquier fila
+  que inserte con su propio `owner_id` cae automáticamente en su propio
+  Workspace (generado desde su propio `owner_id`), nunca en el Workspace
+  ajeno. Verificado explícitamente en
+  `rls_workspace_foundation.test.sql`. Esto se resuelve en la iteración que
+  implemente invitaciones reales, convirtiendo `workspace_id` en columna
+  independiente (`alter table ... alter column workspace_id drop expression`)
+  y actualizando los Server Actions/RPCs para que un asistente pueda escribir
+  explícitamente en el Workspace del que es miembro — trabajo real, no
+  cubierto por esta iteración.
+- `notary_profiles` **no se creó** — no estaba en el alcance de la
+  Iteración 4 (`Crear o adaptar: workspaces, workspace_members`
+  únicamente). `lawyer_profiles`/`document_settings` ganaron `workspace_id`
+  (misma columna generada) pero conservan su forma; la separación
+  `notary_profile` vs `actor_user` (§7) sigue pendiente.
+- La corrección legal de numeración de protocolo (§2.3, mover
+  `dnm_owner_year_instrument_key` de `owner_id` a `notary_profile_id`)
+  **tampoco se hizo** — sigue escrita sobre `owner_id`, correcto hoy porque
+  solo existe el rol propietario (sin riesgo real de colisión entre
+  notario y asistente todavía), pero queda pendiente para cuando
+  `notary_profiles` exista.
+
+### 11.2 RLS: qué cambió realmente
+
+Cada tabla reemplazó su condición externa `owner_id = auth.uid()` por
+`is_workspace_member(workspace_id, ...)` (lectura: cualquier miembro
+activo; escritura: solo rol `propietario`, el único que existe hoy). Los
+`exists(...)` anidados que validan relaciones padre/hijo (p. ej. "el
+machote de este campo es mío") se dejaron con su forma original
+`owner_id = auth.uid()` — siguen siendo correctos porque `workspace_id` es
+una función determinista de `owner_id` en esta iteración; quedan marcados
+en el propio archivo de migración como el punto que la iteración de
+asistentes reales sí tendrá que revisar.
+
+Las funciones `SECURITY DEFINER` invocadas directamente por Server Actions
+(`register_receivable_payment`, `void_receivable_payment`,
+`save_template_workspace`, `save_template_index_configuration`,
+`save_template_index_mapping`, `save_template_index_mapping_with_block_source`,
+`log_document_word_generated`, `log_notarial_index_export`) reciben el
+mismo chequeo `is_workspace_member` — son la única puerta que RLS no cierra
+por sí sola, porque por definición evitan RLS. Los triggers que solo se
+disparan como efecto secundario de una mutación ya autorizada por esa
+misma RLS (`record_document_activity`, `record_receivable_activity`,
+`enforce_receivable_payment_consistency`,
+`sync_receivable_client_name_snapshot`,
+`mark_template_index_configuration_incomplete`,
+`enforce_notarial_metadata_editable`, `record_notarial_metadata_activity`)
+no se tocaron — heredan la protección de la tabla que los dispara.
+
+### 11.3 Runbook de rollback
+
+Cada paso es reversible de forma aislada porque `owner_id` se conservó sin
+tocar en las 14 tablas (nunca se eliminó ni se dejó de mantener):
+
+1. **Revertir solo el corte de RLS** (si `workspace_id`/`workspaces` deben
+   quedarse pero el comportamiento de acceso debe volver a como era):
+   recrear las 4 políticas `<tabla>_*_own` originales
+   (`owner_id = auth.uid()`, con los mismos `exists(...)` anidados —
+   texto exacto disponible en el historial de git de cada migración
+   anterior a `20260804200000_workspace_foundation.sql`) y hacer
+   `drop policy` de las `_workspace` nuevas. Cero riesgo de pérdida de
+   datos: `owner_id` sigue siendo la fuente de verdad subyacente.
+2. **Revertir también las columnas `workspace_id`**: `alter table <tabla>
+   drop column workspace_id` en las 14 tablas (Postgres permite eliminar
+   una columna generada como cualquier otra). `workspaces`/
+   `workspace_members` pueden eliminarse (`drop table`) o dejarse huérfanas
+   sin ningún efecto, ya que ninguna tabla de negocio las referenciaría
+   después de este paso.
+3. **Revertir el bootstrap automático**: `drop trigger
+   auth_users_bootstrap_workspace on auth.users` y `drop function
+   public.bootstrap_workspace_for_new_user()` — usuarios nuevos dejan de
+   recibir un Workspace (vuelve al comportamiento anterior a esta
+   iteración, donde el concepto no existía).
+4. **No reversible sin restaurar desde backup**: si en algún momento
+   posterior se elimina la columna `owner_id` de alguna tabla (Fase D del
+   diseño original, explícitamente NO parte de esta iteración) — por eso
+   esa fase se sigue posponiendo.
+
+Ningún paso de este runbook requiere tocar Supabase Cloud, porque esta
+migración **no se desplegó a Cloud** en esta iteración (restricción
+explícita del spec: "No desplegar a Supabase Cloud antes de CI, pgTAP,
+prueba local y revisión manual del plan" — CI/pgTAP/local ya están verdes;
+la revisión manual y el despliegue a Cloud quedan como paso separado,
+explícito, a decidir por el usuario).
