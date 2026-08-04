@@ -4,6 +4,30 @@ import { requireUser } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { ReceivablePayment } from "../model/types";
 
+type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
+
+/**
+ * Si existe CUALQUIER pago histórico (activo o anulado) para la cuenta.
+ * Un pago anulado igual cuenta: la inmutabilidad financiera no se libera al
+ * anular, ya que el pago existió y afectó la operación real.
+ */
+export async function receivableHasPaymentHistory(
+  supabase: Supabase,
+  receivableId: string,
+  ownerId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("receivable_payments")
+    .select("id")
+    .eq("receivable_id", receivableId)
+    .eq("owner_id", ownerId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throwDataAccessError("check receivable payment history", error);
+  return data !== null;
+}
+
 export async function listPaymentsByReceivable(
   receivableId: string,
 ): Promise<ReceivablePayment[]> {

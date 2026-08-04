@@ -13,6 +13,7 @@ import {
   appendReturnTo,
   parseDocumentReceivablesReturnTo,
 } from "@/lib/navigation/context-return";
+import { receivableHasPaymentHistory } from "./payment-queries";
 
 type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
 type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
@@ -153,6 +154,45 @@ export async function updateReceivableAction(
   if (!result.success) return fieldErrors(result);
 
   const mutation: ReceivableUpdate = buildReceivableMutation(result.data);
+
+  // Inmutabilidad financiera: con cualquier pago histórico (activo o
+  // anulado), monto/moneda/Cliente/Escritura quedan bloqueados. Esto es
+  // defensa adicional a la UI (que ya deshabilita estos campos) y al
+  // trigger de base de datos — un request manipulado que solo ocultara los
+  // inputs no bastaría para pasar esto.
+  const hasPayments = await receivableHasPaymentHistory(supabase, id, user.id);
+  if (hasPayments) {
+    const { data: existing, error: existingError } = await supabase
+      .from("receivables")
+      .select("client_id, client_name_snapshot, document_id, currency, amount_total")
+      .eq("id", id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (existingError) {
+      return {
+        message: "No fue posible actualizar la cuenta por cobrar. Intenta de nuevo.",
+      };
+    }
+    if (!existing) {
+      return { message: "No se encontró la cuenta por cobrar." };
+    }
+
+    const financialFieldsChanged =
+      mutation.client_id !== existing.client_id ||
+      (mutation.client_id === null &&
+        mutation.client_name_snapshot !== existing.client_name_snapshot) ||
+      mutation.document_id !== existing.document_id ||
+      mutation.currency !== existing.currency ||
+      Number(mutation.amount_total) !== Number(existing.amount_total);
+
+    if (financialFieldsChanged) {
+      return {
+        message:
+          "Esta cuenta ya tiene pagos registrados: el monto, la moneda, el cliente y la escritura relacionada no se pueden modificar.",
+      };
+    }
+  }
 
   const { error } = await supabase
     .from("receivables")

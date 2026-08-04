@@ -191,6 +191,24 @@ export async function createTestReceivable(
   return { id };
 }
 
+export async function registerTestReceivablePayment(
+  receivableId: string,
+  options: {
+    amount: number;
+    paidAt?: string;
+    method?: "cash" | "bank_transfer" | "sinpe" | "card" | "other";
+    reference?: string;
+  },
+): Promise<string> {
+  return restRpc<string>("register_receivable_payment", {
+    p_receivable_id: receivableId,
+    p_amount: options.amount,
+    p_paid_at: options.paidAt ?? null,
+    p_method: options.method ?? "cash",
+    p_reference: options.reference ?? null,
+  });
+}
+
 export async function voidActiveTestReceivablePayments(
   receivableId: string,
 ): Promise<void> {

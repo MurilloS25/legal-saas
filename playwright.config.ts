@@ -349,6 +349,18 @@ export default defineConfig({
       dependencies: ["chromium-receivable-milestone"],
     },
 
+    // Financial immutability of receivables once payment history exists —
+    // authenticated.
+    {
+      name: "chromium-receivable-financial-immutability",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /receivable-financial-immutability-authenticated\.spec\.ts/,
+      dependencies: ["chromium-receivable-payments"],
+    },
+
     // Receivables workspace (filters, totals) — authenticated.
     {
       name: "chromium-receivables-workspace",
@@ -357,7 +369,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivables-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivable-payments"],
+      dependencies: ["chromium-receivable-financial-immutability"],
     },
 
     // Contextual client creation from the receivable form — authenticated.
