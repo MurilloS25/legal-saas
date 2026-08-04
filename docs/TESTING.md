@@ -449,6 +449,19 @@ pnpm e2e:headed   # headed browser
 - Test file: `e2e/auth-smoke.spec.ts`
 - Playwright project: `chromium-public`
 
+**Auth security hardening (current):**
+
+- Login válido, logout, sesión persistente tras reload, usuario revocado
+  pierde acceso de inmediato, y recuperación de contraseña de punta a
+  punta (correo real vía Mailpit local). Self-contained: cada test crea y
+  borra su propio usuario desechable vía la Admin API de Supabase
+  (`e2e/support/supabase-admin.ts`) — no depende de `E2E_USER_EMAIL` ni
+  de `playwright/.auth/user.json`. Corre serial (no en paralelo) para no
+  saturar la compilación bajo demanda de un dev server recién arrancado.
+  Detalle completo en `docs/AUTH_SECURITY.md`.
+- Test file: `e2e/auth-security-hardening.spec.ts`
+- Playwright project: `chromium-auth-security`
+
 **Phase 2 scope (authenticated — current):**
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
@@ -523,6 +536,7 @@ E2E data factories live in `e2e/support/` (`factories.ts`, `cleanup-registry.ts`
 - Rows created through the UI are registered for cleanup with `registerCreatedViaUi` (lookup by unique name).
 - Cleanup failures are logged with an `[e2e-cleanup:*]` prefix and fail the suite so E2E data accumulation does not become silent.
 - The registry logic is covered by vitest (`e2e/support/cleanup-registry.test.ts`).
+- Exception: `e2e/support/supabase-admin.ts` uses the service-role key (not the anon key + RLS pattern above) — creating and banning users is only possible through the Admin API. Used exclusively by `e2e/auth-security-hardening.spec.ts`. Requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (get it with `pnpm supabase status -o env`).
 
 ## TODO
 

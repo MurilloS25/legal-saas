@@ -61,6 +61,17 @@ export default defineConfig({
       testMatch: /auth-smoke\.spec\.ts/,
     },
 
+    // Auth hardening (login, logout, session persistence, revoked user,
+    // password recovery). Self-contained: each test creates and deletes its
+    // own disposable user via the Admin API, so it does not use storageState
+    // or depend on `setup`/E2E_USER_EMAIL like the rest of the authenticated
+    // chain below.
+    {
+      name: "chromium-auth-security",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /auth-security-hardening\.spec\.ts/,
+    },
+
     // Clients module — authenticated.
     {
       name: "chromium-clients",
