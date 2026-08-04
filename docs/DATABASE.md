@@ -897,6 +897,30 @@ RLS tests should include:
 - User cannot update `owner_id` to another user.
 - Anonymous users cannot access private user-owned data.
 
+### Workspaces (added, Iteration 4)
+
+`supabase/migrations/20260804200000_workspace_foundation.sql` adds
+`workspaces` and `workspace_members` (role + active/invited/revoked
+status), and a `workspace_id` column on every table above (plus
+`notarial_index_exports`, `receivable_activity`, `receivable_payments`,
+`document_activity`, `template_index_configurations`,
+`template_index_configuration_fields`) — the base policy concept above
+becomes `is_workspace_member(workspace_id, [roles])` instead of a raw
+`owner_id = auth.uid()` comparison, so a workspace membership can be
+suspended independently of Supabase Auth. `document_metadata` and
+`notarial_records` did **not** get `workspace_id` — they are unused
+scaffolding from the first migration, never referenced by application
+code.
+
+This iteration only implements one functional role (`propietario`); no
+invitations, no other roles in practice, and `workspace_id` is a
+`generated always as (owner_id) stored` column — a deliberate
+simplification possible only because a workspace and its sole owner are
+1:1 today. Full rationale, what's simplified vs. the original design, and
+the rollback runbook are in `docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md`
+§11 — read that before changing any RLS policy or `SECURITY DEFINER`
+function touched there.
+
 ## Indexing Considerations
 
 Potential indexes:

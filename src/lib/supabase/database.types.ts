@@ -22,6 +22,7 @@ export type Database = {
           occupation: string
           owner_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -35,6 +36,7 @@ export type Database = {
           occupation: string
           owner_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -48,8 +50,17 @@ export type Database = {
           occupation?: string
           owner_id?: string
           updated_at?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_activity: {
         Row: {
@@ -61,6 +72,7 @@ export type Database = {
           metadata: Json
           owner_id: string
           summary: string | null
+          workspace_id: string
         }
         Insert: {
           actor_user_id: string
@@ -71,6 +83,7 @@ export type Database = {
           metadata?: Json
           owner_id: string
           summary?: string | null
+          workspace_id?: string
         }
         Update: {
           actor_user_id?: string
@@ -81,6 +94,7 @@ export type Database = {
           metadata?: Json
           owner_id?: string
           summary?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -96,6 +110,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "notarial_index_entries"
             referencedColumns: ["document_id", "owner_id"]
+          },
+          {
+            foreignKeyName: "document_activity_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -174,6 +195,7 @@ export type Database = {
           protocol_book: string | null
           updated_at: string
           version: number
+          workspace_id: string
         }
         Insert: {
           act_name_override?: string | null
@@ -192,6 +214,7 @@ export type Database = {
           protocol_book?: string | null
           updated_at?: string
           version?: number
+          workspace_id?: string
         }
         Update: {
           act_name_override?: string | null
@@ -210,6 +233,7 @@ export type Database = {
           protocol_book?: string | null
           updated_at?: string
           version?: number
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -226,6 +250,13 @@ export type Database = {
             referencedRelation: "notarial_index_entries"
             referencedColumns: ["document_id", "owner_id"]
           },
+          {
+            foreignKeyName: "document_notarial_metadata_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       document_settings: {
@@ -241,6 +272,7 @@ export type Database = {
           margin_top_cm: number
           owner_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -254,6 +286,7 @@ export type Database = {
           margin_top_cm: number
           owner_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -267,8 +300,17 @@ export type Database = {
           margin_top_cm?: number
           owner_id?: string
           updated_at?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_settings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -283,6 +325,7 @@ export type Database = {
           template_id: string
           title: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           client_id?: string | null
@@ -296,6 +339,7 @@ export type Database = {
           template_id: string
           title: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           client_id?: string | null
@@ -309,6 +353,7 @@ export type Database = {
           template_id?: string
           title?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -325,6 +370,13 @@ export type Database = {
             referencedRelation: "templates"
             referencedColumns: ["id", "owner_id"]
           },
+          {
+            foreignKeyName: "documents_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       lawyer_profiles: {
@@ -337,6 +389,7 @@ export type Database = {
           phone: string | null
           professional_code: string | null
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -347,6 +400,7 @@ export type Database = {
           phone?: string | null
           professional_code?: string | null
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -357,8 +411,17 @@ export type Database = {
           phone?: string | null
           professional_code?: string | null
           updated_at?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lawyer_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notarial_index_exports: {
         Row: {
@@ -369,6 +432,7 @@ export type Database = {
           owner_id: string
           row_count: number
           to_date: string | null
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -378,6 +442,7 @@ export type Database = {
           owner_id: string
           row_count?: number
           to_date?: string | null
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -387,8 +452,17 @@ export type Database = {
           owner_id?: string
           row_count?: number
           to_date?: string | null
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notarial_index_exports_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notarial_records: {
         Row: {
@@ -464,6 +538,7 @@ export type Database = {
           metadata: Json
           owner_id: string
           receivable_id: string
+          workspace_id: string
         }
         Insert: {
           actor_user_id: string
@@ -473,6 +548,7 @@ export type Database = {
           metadata?: Json
           owner_id: string
           receivable_id: string
+          workspace_id?: string
         }
         Update: {
           actor_user_id?: string
@@ -482,6 +558,7 @@ export type Database = {
           metadata?: Json
           owner_id?: string
           receivable_id?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -497,6 +574,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "receivables"
             referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "receivable_activity_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -516,6 +600,7 @@ export type Database = {
           void_reason: string | null
           voided_at: string | null
           voided_by: string | null
+          workspace_id: string
         }
         Insert: {
           amount: number
@@ -532,6 +617,7 @@ export type Database = {
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
+          workspace_id?: string
         }
         Update: {
           amount?: number
@@ -548,8 +634,16 @@ export type Database = {
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
+          workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "receivable_payments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rp_receivable_owner_fk"
             columns: ["receivable_id", "owner_id"]
@@ -581,6 +675,7 @@ export type Database = {
           notes: string | null
           owner_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           amount_total: number
@@ -596,6 +691,7 @@ export type Database = {
           notes?: string | null
           owner_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           amount_total?: number
@@ -611,6 +707,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -634,6 +731,13 @@ export type Database = {
             referencedRelation: "notarial_index_entries"
             referencedColumns: ["document_id", "owner_id"]
           },
+          {
+            foreignKeyName: "receivables_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       template_fields: {
@@ -652,6 +756,7 @@ export type Database = {
           source: string | null
           template_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           autofill_source?: string
@@ -668,6 +773,7 @@ export type Database = {
           source?: string | null
           template_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           autofill_source?: string
@@ -684,6 +790,7 @@ export type Database = {
           source?: string | null
           template_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -692,6 +799,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "templates"
             referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "template_fields_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -705,6 +819,7 @@ export type Database = {
           template_field_id: string
           template_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           configuration_id: string
@@ -715,6 +830,7 @@ export type Database = {
           template_field_id: string
           template_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           configuration_id?: string
@@ -725,8 +841,16 @@ export type Database = {
           template_field_id?: string
           template_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "template_index_configuration_fields_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "template_index_fields_configuration_fk"
             columns: ["configuration_id", "owner_id", "template_id"]
@@ -762,6 +886,7 @@ export type Database = {
           protocol_book_field_id: string | null
           template_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           allow_empty?: boolean
@@ -781,6 +906,7 @@ export type Database = {
           protocol_book_field_id?: string | null
           template_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           allow_empty?: boolean
@@ -800,6 +926,7 @@ export type Database = {
           protocol_book_field_id?: string | null
           template_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -851,6 +978,13 @@ export type Database = {
             referencedRelation: "template_fields"
             referencedColumns: ["id", "owner_id", "template_id"]
           },
+          {
+            foreignKeyName: "template_index_configurations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       templates: {
@@ -865,6 +999,7 @@ export type Database = {
           status: string
           text_preview: string | null
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           category?: string | null
@@ -877,6 +1012,7 @@ export type Database = {
           status?: string
           text_preview?: string | null
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           category?: string | null
@@ -888,6 +1024,77 @@ export type Database = {
           owner_id?: string
           status?: string
           text_preview?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by: string | null
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -975,6 +1182,10 @@ export type Database = {
       }
     }
     Functions: {
+      is_workspace_member: {
+        Args: { p_roles?: string[]; p_workspace_id: string }
+        Returns: boolean
+      }
       log_document_word_generated: {
         Args: { p_document_id: string }
         Returns: undefined
