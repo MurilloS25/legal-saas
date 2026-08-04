@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { signupAction, type SignupState } from "./actions";
+import { PasswordRequirementsHint } from "@/components/forms/PasswordRequirementsHint";
 
 const initialState: SignupState = {};
 
@@ -124,21 +125,7 @@ export default function SignupPage() {
               aria-describedby="password-requirements password-error"
               aria-invalid={!!state.errors?.password}
             />
-            {/* Password requirements — always visible to guide the user */}
-            <div
-              id="password-requirements"
-              className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5"
-            >
-              <p className="text-xs font-medium text-slate-500 mb-1.5">
-                La contraseña debe incluir:
-              </p>
-              <ul className="space-y-1 text-xs text-slate-400">
-                <li>· Mínimo 12 caracteres</li>
-                <li>· Al menos una mayúscula y una minúscula</li>
-                <li>· Al menos un número</li>
-                <li>· Al menos un símbolo (p. ej. ! @ # $)</li>
-              </ul>
-            </div>
+            <PasswordRequirementsHint id="password-requirements" />
             {state.errors?.password && (
               <p
                 id="password-error"

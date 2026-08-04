@@ -207,12 +207,20 @@ reales que probar; no se marcó como completada.
   configuración de Auth (mismo motivo que el signup/proveedor
   documentado arriba). Ver `docs/VERCEL_PRODUCTION.md` para las
   instrucciones exactas dadas al usuario.
-- **Redirect URL necesaria:** únicamente
-  `https://lexcr.vercel.app/auth/confirm` — es el único endpoint de
-  auth que existe en el código (`src/app/auth/confirm/route.ts`,
-  verifica `token_hash`/`type` de invitación/OTP). No hay ruta de
-  reseteo de contraseña ni callback OAuth en la aplicación; no se
-  inventó ninguna ruta adicional.
+- **Redirect URLs necesarias:** `https://lexcr.vercel.app/auth/confirm`
+  (endpoint de auth único que existe en el código,
+  `src/app/auth/confirm/route.ts`, verifica `token_hash`/`type` de
+  invitación/OTP/recuperación) y, desde la iteración de hardening de
+  Auth, también `https://lexcr.vercel.app/update-password` (destino del
+  enlace de recuperación de contraseña — ver `docs/AUTH_SECURITY.md`).
+  No hay callback OAuth en la aplicación; no se inventó ninguna ruta
+  adicional.
+- **Pendiente Cloud (hardening de Auth, ver `docs/AUTH_SECURITY.md`):**
+  agregar la redirect URL de `/update-password` de arriba, replicar la
+  política de contraseñas (`mínimo 12, mayúscula/minúscula/número/símbolo`)
+  en Authentication → Policies, y configurar la plantilla de correo
+  "Reset Password" para que apunte a `/auth/confirm?...&type=recovery&...`
+  igual que la plantilla local (`supabase/templates/recovery.html`).
 - Verificado en vivo contra la Escritura desplegada: `/auth/confirm`
   sin parámetros redirige a `/login` sin error (comportamiento
   esperado del código).

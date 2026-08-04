@@ -13,7 +13,11 @@ const supabaseKey =
 const PRIVATE_ROUTE_PREFIXES = ["/dashboard"];
 
 // Public auth routes — authenticated users are redirected away from these.
-const AUTH_ROUTES = ["/login", "/signup"];
+// /update-password is deliberately NOT here: its own page (Server
+// Component) decides what to show based on whether a session exists —
+// treating it as a plain "auth route" would bounce an already-logged-in
+// user away before they could use it from a recovery link.
+const AUTH_ROUTES = ["/login", "/signup", "/forgot-password"];
 
 export async function proxy(request: NextRequest) {
   // supabaseResponse must be returned at the end so session cookies are forwarded.
@@ -46,6 +50,14 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Banning a user only blocks *new* sign-ins/refreshes — it does not
+  // invalidate an access token already issued (JWTs are validated
+  // statelessly and getUser() still returns 200 for it). Checking
+  // banned_until here is what actually cuts off access immediately, which
+  // matters for revoking a pilot user's session on request.
+  const isBanned =
+    !!user?.banned_until && new Date(user.banned_until) > new Date();
+
   const { pathname } = request.nextUrl;
 
   const isPrivateRoute = PRIVATE_ROUTE_PREFIXES.some((prefix) =>
@@ -56,13 +68,17 @@ export async function proxy(request: NextRequest) {
     (route) => pathname === route || pathname.startsWith(route + "/"),
   );
 
-  if (!user && isPrivateRoute) {
+  if (isBanned) {
+    await supabase.auth.signOut();
+  }
+
+  if ((!user || isBanned) && isPrivateRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && !isBanned && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

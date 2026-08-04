@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { LoginSchema, SignupSchema } from "./auth";
+import {
+  ForgotPasswordSchema,
+  LoginSchema,
+  SignupSchema,
+  UpdatePasswordSchema,
+} from "./auth";
 
 // ---------------------------------------------------------------------------
 // LoginSchema
@@ -144,5 +149,60 @@ describe("SignupSchema — password policy", () => {
       confirmPassword: strong,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ForgotPasswordSchema
+// ---------------------------------------------------------------------------
+
+describe("ForgotPasswordSchema", () => {
+  it("accepts a valid email", () => {
+    expect(
+      ForgotPasswordSchema.safeParse({ email: VALID_EMAIL }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an invalid email", () => {
+    const result = ForgotPasswordSchema.safeParse({ email: "no-es-un-email" });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UpdatePasswordSchema — reuses the same passwordSchema as SignupSchema, so
+// only the shape/confirmation behavior is re-tested here (character-class
+// rules are already covered above).
+// ---------------------------------------------------------------------------
+
+describe("UpdatePasswordSchema", () => {
+  it("accepts a strong password with matching confirmation", () => {
+    const result = UpdatePasswordSchema.safeParse({
+      password: VALID_PASSWORD,
+      confirmPassword: VALID_PASSWORD,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a weak password", () => {
+    const result = UpdatePasswordSchema.safeParse({
+      password: "corta1",
+      confirmPassword: "corta1",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects when confirmPassword does not match", () => {
+    const result = UpdatePasswordSchema.safeParse({
+      password: VALID_PASSWORD,
+      confirmPassword: VALID_PASSWORD + "X",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      expect(
+        errors.confirmPassword?.some((m) => m.includes("no coinciden")),
+      ).toBe(true);
+    }
   });
 });

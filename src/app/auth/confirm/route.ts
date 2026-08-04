@@ -9,10 +9,26 @@ import { createClient } from "@/lib/supabase/server";
 //   <your-domain>/auth/confirm?token_hash={{ .TokenHash }}&type=signup
 //
 // The optional `next` parameter controls where to redirect after confirmation.
-// Only internal paths (starting with "/") are accepted to prevent open redirects.
-
-function isSafeRedirectPath(path: string | null): boolean {
-  return typeof path === "string" && path.startsWith("/") && !path.startsWith("//");
+// It may arrive as a bare relative path OR as an absolute URL: Supabase's
+// email templates substitute {{ .RedirectTo }} with whatever absolute
+// `redirectTo` was passed to the *ForEmail() call (e.g. resetPasswordForEmail),
+// since that same value must also satisfy Supabase's allow-list, which expects
+// full URLs. Either way, only the path is used — the redirect always happens
+// on the CURRENT request's origin (never a host parsed out of `next`), because
+// verifyOtp() below sets the session cookie scoped to this origin, and
+// redirecting to a different host would lose that cookie.
+function extractSafeRedirectPath(next: string | null): string {
+  if (!next) return "/dashboard";
+  let path = next;
+  if (!path.startsWith("/")) {
+    try {
+      const url = new URL(next);
+      path = `${url.pathname}${url.search}`;
+    } catch {
+      return "/dashboard";
+    }
+  }
+  return path.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
 }
 
 export async function GET(request: NextRequest) {
@@ -22,7 +38,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next");
 
-  const redirectTo = isSafeRedirectPath(next) ? (next as string) : "/dashboard";
+  const redirectPath = extractSafeRedirectPath(next);
 
   if (!token_hash || !type) {
     // Missing required parameters — redirect to login with a generic notice.
@@ -49,10 +65,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const url = request.nextUrl.clone();
-  url.pathname = redirectTo;
-  url.searchParams.delete("token_hash");
-  url.searchParams.delete("type");
-  url.searchParams.delete("next");
-  return NextResponse.redirect(url);
+  const destination = new URL(redirectPath, request.nextUrl.origin);
+  return NextResponse.redirect(destination);
 }
