@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(36);
+select plan(42);
 
 create schema rls_rp_test;
 grant usage on schema rls_rp_test to public;
@@ -50,7 +50,14 @@ insert into public.clients (id, owner_id, full_name, identification_type,
   identification_number, marital_status, nationality, occupation, exact_address)
 values
   ('91111111-c000-0000-0000-000000000001','91111111-1111-1111-1111-111111111111','Cliente A','cedula_fisica','1-1','soltero','CR','x','y'),
+  ('91111111-c000-0000-0000-000000000002','91111111-1111-1111-1111-111111111111','Cliente A2','cedula_fisica','1-2','soltero','CR','x','y'),
   ('92222222-c000-0000-0000-000000000001','92222222-2222-2222-2222-222222222222','Cliente B','cedula_fisica','2-2','casado','CR','x','y');
+
+insert into public.templates (id, owner_id, name, status, content_json) values
+  ('91111111-0000-0000-0000-000000000001','91111111-1111-1111-1111-111111111111','Tpl A','draft','{}'::jsonb);
+
+insert into public.documents (id, owner_id, template_id, client_id, title, field_values, rendered_content) values
+  ('91111111-d000-0000-0000-000000000001','91111111-1111-1111-1111-111111111111','91111111-0000-0000-0000-000000000001','91111111-c000-0000-0000-000000000001','Doc A','{}'::jsonb,'');
 
 insert into public.receivables (id, owner_id, client_id, concept, currency, amount_total, issued_at)
 values
@@ -154,6 +161,28 @@ select ok(rls_rp_test.statement_fails($$
    where id = '91111111-a000-0000-0000-000000000001'
 $$), 'Receivable currency cannot change after payments exist');
 
+-- Cliente y Escritura también quedan bloqueados tras cualquier pago (activo).
+select ok(rls_rp_test.statement_fails($$
+  update public.receivables set client_id = '91111111-c000-0000-0000-000000000002'
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Receivable client cannot change after payments exist');
+
+select ok(rls_rp_test.statement_fails($$
+  update public.receivables set document_id = '91111111-d000-0000-0000-000000000001'
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Receivable document cannot change after payments exist');
+
+-- Campos no financieros siguen editables aunque existan pagos.
+select ok(rls_rp_test.statement_succeeds($$
+  update public.receivables set concept = 'Honorarios (editado)'
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Concept remains editable after payments exist');
+
+select ok(rls_rp_test.statement_succeeds($$
+  update public.receivables set due_at = '2026-08-01', notes = 'Recordatorio de pago'
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Due date and notes remain editable after payments exist');
+
 select ok(rls_rp_test.statement_fails($$
   delete from public.receivables
    where id = '91111111-a000-0000-0000-000000000001'
@@ -165,6 +194,18 @@ select ok(rls_rp_test.statement_succeeds($$
       where receivable_id = '91111111-a000-0000-0000-000000000001' and amount = 60000 and status = 'active'),
     'cleanup de prueba')
 $$), 'User A can void the remaining active payment before deletion');
+
+-- Con solo pagos anulados (sin activos), el bloqueo financiero se mantiene:
+-- anular NO libera la inmutabilidad, el pago existió y afectó la operación.
+select ok(rls_rp_test.statement_fails($$
+  update public.receivables set amount_total = 1
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Amount stays locked with only voided payment history');
+
+select ok(rls_rp_test.statement_fails($$
+  update public.receivables set client_id = '91111111-c000-0000-0000-000000000002'
+   where id = '91111111-a000-0000-0000-000000000001'
+$$), 'Client stays locked with only voided payment history');
 
 select is(rls_rp_test.statement_row_count($$
   delete from public.receivables

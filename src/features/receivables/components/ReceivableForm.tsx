@@ -39,7 +39,16 @@ type Props = {
        * Escritura de origen; ausente cuando se crea desde otro lugar. */
       returnTo?: string | null;
     }
-  | { mode: "edit"; receivable: ReceivableRow }
+  | {
+      mode: "edit";
+      receivable: ReceivableRow;
+      /** Si la cuenta tiene cualquier pago histórico (activo o anulado):
+       * monto, moneda, Cliente y Escritura quedan bloqueados en la UI.
+       * Esto es solo la primera capa — el server action y el trigger de
+       * base de datos rechazan el cambio igual aunque se manipule el
+       * request. */
+      hasPaymentHistory: boolean;
+    }
 );
 
 const initialState: ReceivableState = {};
@@ -49,6 +58,7 @@ export function ReceivableForm(props: Props) {
   const receivable = isEdit ? props.receivable : null;
   const defaults = !isEdit ? props.defaults : undefined;
   const returnTo = !isEdit ? (props.returnTo ?? null) : null;
+  const financialFieldsLocked = isEdit ? props.hasPaymentHistory : false;
 
   const action = isEdit
     ? updateReceivableAction.bind(null, receivable!.id)
@@ -130,6 +140,17 @@ export function ReceivableForm(props: Props) {
             {state.message}
           </div>
         )}
+        {financialFieldsLocked && (
+          <div
+            role="note"
+            className="mb-6 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800"
+          >
+            Esta cuenta ya tiene pagos registrados. El monto, la moneda, el
+            cliente y la escritura relacionada no se pueden modificar, aunque
+            los pagos se hayan anulado después. Vencimiento, concepto y notas
+            siguen editables.
+          </div>
+        )}
 
         <div className="space-y-5">
           {/* Cliente */}
@@ -151,12 +172,19 @@ export function ReceivableForm(props: Props) {
                     value={mode}
                     checked={clientMode === mode}
                     onChange={() => setClientMode(mode)}
-                    className="h-4 w-4 border-slate-300 text-accent-700 focus:ring-accent-500"
+                    disabled={financialFieldsLocked}
+                    className="h-4 w-4 border-slate-300 text-accent-700 focus:ring-accent-500 disabled:opacity-50"
                   />
                   {mode === "registered" ? "Cliente registrado" : "Escribir nombre"}
                 </label>
               ))}
             </div>
+            {/* Un <select>/radio deshabilitado no viaja en el FormData: se
+             * agrega un input oculto con el valor vigente para que el modo
+             * bloqueado siga enviándose sin permitir edición. */}
+            {financialFieldsLocked && (
+              <input type="hidden" name="client_mode" value={clientMode} />
+            )}
 
             {clientMode === "registered" ? (
               <>
@@ -167,6 +195,7 @@ export function ReceivableForm(props: Props) {
                   id="client_id"
                   name="client_id"
                   required
+                  disabled={financialFieldsLocked}
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   className={inputClass}
@@ -188,9 +217,14 @@ export function ReceivableForm(props: Props) {
                   id="client_id-error"
                   message={state.errors?.client_id}
                 />
-                <div className="mt-2">
-                  <CreateClientDialog onCreated={handleClientCreated} />
-                </div>
+                {financialFieldsLocked && (
+                  <input type="hidden" name="client_id" value={clientId} />
+                )}
+                {!financialFieldsLocked && (
+                  <div className="mt-2">
+                    <CreateClientDialog onCreated={handleClientCreated} />
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -203,12 +237,17 @@ export function ReceivableForm(props: Props) {
                   type="text"
                   required
                   maxLength={200}
+                  readOnly={financialFieldsLocked}
                   defaultValue={
                     isEdit && !receivable!.client_id
                       ? receivable!.client_name_snapshot
                       : ""
                   }
-                  className={inputClass}
+                  className={
+                    financialFieldsLocked
+                      ? `${inputClass} cursor-not-allowed bg-slate-50`
+                      : inputClass
+                  }
                   placeholder="Nombre del cliente"
                   aria-describedby={
                     state.errors?.client_name ? "client_name-error" : undefined
@@ -234,6 +273,7 @@ export function ReceivableForm(props: Props) {
             <select
               id="document_id"
               name="document_id"
+              disabled={financialFieldsLocked}
               defaultValue={defaultDocumentId}
               className={inputClass}
               aria-describedby={
@@ -252,6 +292,9 @@ export function ReceivableForm(props: Props) {
               id="document_id-error"
               message={state.errors?.document_id}
             />
+            {financialFieldsLocked && (
+              <input type="hidden" name="document_id" value={defaultDocumentId} />
+            )}
           </div>
 
           {/* Concepto */}
@@ -286,6 +329,7 @@ export function ReceivableForm(props: Props) {
                 id="currency"
                 name="currency"
                 required
+                disabled={financialFieldsLocked}
                 defaultValue={receivable?.currency ?? "CRC"}
                 className={inputClass}
                 aria-describedby={
@@ -303,6 +347,13 @@ export function ReceivableForm(props: Props) {
                 id="currency-error"
                 message={state.errors?.currency}
               />
+              {financialFieldsLocked && (
+                <input
+                  type="hidden"
+                  name="currency"
+                  value={receivable?.currency ?? "CRC"}
+                />
+              )}
             </div>
 
             <div>
@@ -315,8 +366,13 @@ export function ReceivableForm(props: Props) {
                 type="text"
                 inputMode="decimal"
                 required
+                readOnly={financialFieldsLocked}
                 defaultValue={receivable?.amount_total ?? ""}
-                className={inputClass}
+                className={
+                  financialFieldsLocked
+                    ? `${inputClass} cursor-not-allowed bg-slate-50`
+                    : inputClass
+                }
                 placeholder="150000.00"
                 aria-describedby={
                   state.errors?.amount_total

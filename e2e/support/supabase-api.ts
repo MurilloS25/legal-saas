@@ -213,11 +213,16 @@ export async function restSelect<T>(path: string): Promise<T[]> {
   return (await response.json()) as T[];
 }
 
-/** Ejecuta un RPC vía REST bajo la RLS/Auth normal del usuario de prueba. */
-export async function restRpc(
+/**
+ * Ejecuta un RPC vía REST bajo la RLS/Auth normal del usuario de prueba.
+ * Devuelve el cuerpo de la respuesta ya parseado (p. ej. el uuid que
+ * devuelve `register_receivable_payment`); los llamadores que no lo
+ * necesitan simplemente lo ignoran.
+ */
+export async function restRpc<T = void>(
   functionName: string,
   body: Record<string, unknown>,
-): Promise<void> {
+): Promise<T> {
   const response = await fetch(
     `${requireEnv("NEXT_PUBLIC_SUPABASE_URL")}/rest/v1/rpc/${functionName}`,
     {
@@ -232,6 +237,9 @@ export async function restRpc(
       `RPC ${functionName} failed: ${response.status} ${await response.text()}`,
     );
   }
+
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 /** Deleter para CleanupRegistry: borra por id, tolerando filas ya inexistentes. */

@@ -172,6 +172,7 @@ export function ReceivableWorkspace({
           receivable={editable}
           clients={clients}
           documents={documents}
+          hasPaymentHistory={payments.length > 0}
         />
       </div>
 
