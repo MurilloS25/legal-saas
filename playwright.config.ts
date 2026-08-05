@@ -72,6 +72,16 @@ export default defineConfig({
       testMatch: /auth-security-hardening\.spec\.ts/,
     },
 
+    // Roles, invitaciones y permisos de equipo (Iteración 5). Autocontenido
+    // igual que chromium-auth-security: cada test crea/borra sus propios
+    // usuarios y Workspaces desechables vía la Admin API, así que no usa
+    // storageState ni depende de `setup`.
+    {
+      name: "chromium-team-management",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /team-management-authenticated\.spec\.ts/,
+    },
+
     // Clients module — authenticated.
     {
       name: "chromium-clients",

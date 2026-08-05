@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   NOTARIAL_PAGE_SIZE,
@@ -26,7 +26,7 @@ export type NotarialIndexPage = {
 export async function listNotarialIndex(
   query: NotarialQuery,
 ): Promise<NotarialIndexPage> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   if (notarialSearchHasNoSafeTerm(query.search)) {
     return { rows: [], total: 0, pageCount: 1 };
@@ -38,7 +38,7 @@ export async function listNotarialIndex(
   let countRequest = supabase
     .from("notarial_index_entries")
     .select("document_id", { count: "exact", head: true })
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (query.completeness === "complete") {
     countRequest = countRequest.eq("has_metadata", true).eq("is_complete", true);
@@ -78,7 +78,7 @@ export async function listNotarialIndex(
   let request = supabase
     .from("notarial_index_entries")
     .select(NOTARIAL_INDEX_SELECT)
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (query.completeness === "complete") {
     request = request.eq("has_metadata", true).eq("is_complete", true);
@@ -127,12 +127,12 @@ export async function listNotarialIndex(
 
 /** Tipos de acto distintos del usuario, para el filtro. */
 export async function listNotarialActTypes(): Promise<string[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const { data, error } = await supabase
     .from("notarial_index_entries")
     .select("act_name")
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .not("act_name", "is", null);
 
   if (error) throwDataAccessError("list notarial act types", error);

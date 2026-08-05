@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import {
   ReceivableSchema,
   parseReceivableFormData,
@@ -86,7 +86,7 @@ function receivableMutationMessage(code: string | undefined): string {
  */
 function buildReceivableMutation(
   data: ReceivableInput,
-): Omit<ReceivableInsert, "owner_id"> {
+): Omit<ReceivableInsert, "owner_id" | "workspace_id"> {
   const isRegistered = data.client_mode === "registered";
   return {
     client_id: isRegistered ? data.client_id : null,
@@ -109,7 +109,7 @@ export async function createReceivableAction(
   _prevState: ReceivableState,
   formData: FormData,
 ): Promise<ReceivableState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
@@ -118,7 +118,7 @@ export async function createReceivableAction(
 
   const { data, error } = await supabase
     .from("receivables")
-    .insert({ owner_id: user.id, ...mutation })
+    .insert({ owner_id: user.id, workspace_id: workspaceId, ...mutation })
     .select("id")
     .single();
 
@@ -148,7 +148,7 @@ export async function updateReceivableAction(
   _prevState: ReceivableState,
   formData: FormData,
 ): Promise<ReceivableState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
@@ -160,13 +160,13 @@ export async function updateReceivableAction(
   // defensa adicional a la UI (que ya deshabilita estos campos) y al
   // trigger de base de datos — un request manipulado que solo ocultara los
   // inputs no bastaría para pasar esto.
-  const hasPayments = await receivableHasPaymentHistory(supabase, id, user.id);
+  const hasPayments = await receivableHasPaymentHistory(supabase, id, workspaceId);
   if (hasPayments) {
     const { data: existing, error: existingError } = await supabase
       .from("receivables")
       .select("client_id, client_name_snapshot, document_id, currency, amount_total")
       .eq("id", id)
-      .eq("owner_id", user.id)
+      .eq("workspace_id", workspaceId)
       .maybeSingle();
 
     if (existingError) {
@@ -198,7 +198,7 @@ export async function updateReceivableAction(
     .from("receivables")
     .update(mutation)
     .eq("id", id)
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return {
@@ -221,13 +221,13 @@ export async function deleteReceivableAction(
   void _prevState;
   void _formData;
 
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const { data, error } = await supabase
     .from("receivables")
     .delete()
     .eq("id", id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .select("id")
     .maybeSingle();
 

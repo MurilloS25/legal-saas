@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { ReceivableActivityEvent } from "../model/activity-format";
 import type { ReceivableEntry, ReceivableRow } from "../model/types";
@@ -17,12 +17,12 @@ const ACTIVITY_LIMIT = 50;
 export async function getReceivableEntry(
   id: string,
 ): Promise<ReceivableEntry | null> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)
     .eq("id", id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (error) throwDataAccessError("get receivable entry", error);
@@ -32,14 +32,14 @@ export async function getReceivableEntry(
 export async function getReceivableForEdit(
   id: string,
 ): Promise<ReceivableRow | null> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivables")
     .select(
       "id, client_id, client_name_snapshot, document_id, concept, currency, amount_total, issued_at, due_at, notes",
     )
     .eq("id", id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (error) throwDataAccessError("get receivable for edit", error);
@@ -51,11 +51,11 @@ export async function getReceivableForEdit(
 export async function listReceivablesByClient(
   clientId: string,
 ): Promise<ReceivableEntry[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
@@ -66,11 +66,11 @@ export async function listReceivablesByClient(
 export async function listReceivablesByDocument(
   documentId: string,
 ): Promise<ReceivableEntry[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .eq("document_id", documentId)
     .order("created_at", { ascending: false });
 
@@ -81,12 +81,12 @@ export async function listReceivablesByDocument(
 export async function listReceivableActivity(
   receivableId: string,
 ): Promise<ReceivableActivityEvent[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_activity")
     .select("id, event_type, metadata, created_at, actor_user_id")
     .eq("receivable_id", receivableId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(ACTIVITY_LIMIT);

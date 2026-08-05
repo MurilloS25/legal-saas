@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { Database } from "@/lib/supabase/database.types";
 import { DocumentIdSchema } from "../model/document-schema";
@@ -31,18 +31,24 @@ function activityMetadata(value: ActivityRow["metadata"]): Record<string, unknow
 }
 
 /**
- * Página de actividad de una Escritura, más reciente primero. `owner_id` se
- * filtra explícitamente en la query (defensa en profundidad, igual que el
- * resto de las consultas del feature) además de estar cubierto por RLS; el
- * `document_id` acota a la escritura. Paginación por
- * offset con `hasMore` (se pide una fila extra para detectarlo). El actor se
- * resuelve a un nombre legible vía lawyer_profiles.
+ * Página de actividad de una Escritura, más reciente primero. `workspace_id`
+ * se filtra explícitamente en la query (defensa en profundidad, igual que
+ * el resto de las consultas del feature) además de estar cubierto por RLS;
+ * el `document_id` acota a la escritura. Paginación por offset con
+ * `hasMore` (se pide una fila extra para detectarlo).
+ *
+ * El actor se resuelve solo como "Tú" vs. "Otro miembro del equipo" —
+ * `lawyer_profiles` es la identidad profesional del Workspace (una sola
+ * fila compartida, no un perfil por miembro), así que no sirve para
+ * distinguir QUIÉN de varios miembros hizo cada acción. Resolver un nombre
+ * real por actor (`actor_name_snapshot`) es trabajo explícito de la
+ * Iteración 6 (identidad notarial y auditoría de actores).
  */
 export async function listDocumentActivity(
   documentId: string,
   offset = 0,
 ): Promise<DocumentActivityPage> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
 
@@ -54,7 +60,7 @@ export async function listDocumentActivity(
     .from("document_activity")
     .select("id, event_type, summary, metadata, created_at, actor_user_id")
     .eq("document_id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(safeOffset, safeOffset + ACTIVITY_PAGE_SIZE);
@@ -68,19 +74,9 @@ export async function listDocumentActivity(
   const hasMore = rows.length > ACTIVITY_PAGE_SIZE;
   const pageRows = hasMore ? rows.slice(0, ACTIVITY_PAGE_SIZE) : rows;
 
-  // Nombre del actor. En el MVP el actor es siempre el propio usuario; se
-  // resuelve una sola vez desde su perfil (fallback si no lo tiene).
-  const { data: profile, error: profileError } = await supabase
-    .from("lawyer_profiles")
-    .select("full_name")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-  if (profileError) throwDataAccessError("load document activity actor", profileError);
-  const ownName = profile?.full_name?.trim() || "Tú";
-
   const items: ActivityListItem[] = pageRows.map((row) => ({
     ...row,
-    actorName: row.actor_user_id === user.id ? ownName : "Otro usuario",
+    actorName: row.actor_user_id === user.id ? "Tú" : "Otro miembro del equipo",
   }));
 
   return {

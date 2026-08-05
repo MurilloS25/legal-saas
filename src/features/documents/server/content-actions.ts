@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
@@ -43,23 +43,23 @@ export type DeleteDocumentState = {
 
 // ------------------------------------------------------------------ helpers
 
-type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
+type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
 
 /**
- * Carga el machote y sus campos, verificando ownership server-side.
- * El contenido renderizado SIEMPRE se genera aquí a partir del machote y de
- * los valores validados — nunca se acepta desde el cliente.
+ * Carga el machote y sus campos, verificando que pertenezcan al Workspace
+ * server-side. El contenido renderizado SIEMPRE se genera aquí a partir del
+ * machote y de los valores validados — nunca se acepta desde el cliente.
  */
 async function loadOwnedTemplateWithFields(
   supabase: Supabase,
   templateId: string,
-  userId: string,
+  workspaceId: string,
 ) {
   const { data: template, error: templateError } = await supabase
     .from("templates")
     .select("id, name, status, content_json")
     .eq("id", templateId)
-    .eq("owner_id", userId)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (templateError) throwDataAccessError("load document template", templateError);
@@ -71,7 +71,7 @@ async function loadOwnedTemplateWithFields(
       "field_key, label, field_type, required, autofill_source, output_transform",
     )
     .eq("template_id", templateId)
-    .eq("owner_id", userId)
+    .eq("workspace_id", workspaceId)
     .order("sort_order", { ascending: true });
 
   if (error) throwDataAccessError("load document template fields", error);
@@ -216,13 +216,13 @@ export async function createDocumentDraftAction(
   _prevState: DocumentDraftState,
   formData: FormData,
 ): Promise<DocumentDraftState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   if (!TemplateIdSchema.safeParse(templateId).success) {
     return { message: "No se encontró el machote." };
   }
 
-  const loaded = await loadOwnedTemplateWithFields(supabase, templateId, user.id);
+  const loaded = await loadOwnedTemplateWithFields(supabase, templateId, workspaceId);
   if (!loaded) {
     return { message: "No se encontró el machote." };
   }
@@ -242,7 +242,7 @@ export async function createDocumentDraftAction(
   const client = await resolveOptionalClientId(
     supabase,
     formData.get("client_id"),
-    user.id,
+    workspaceId,
   );
   if ("error" in client) return { message: client.error };
 
@@ -250,6 +250,7 @@ export async function createDocumentDraftAction(
     .from("documents")
     .insert({
       owner_id: user.id,
+      workspace_id: workspaceId,
       template_id: templateId,
       client_id: client.clientId,
       title: result.title,
@@ -276,7 +277,7 @@ export async function updateDocumentDraftAction(
   _prevState: DocumentDraftState,
   formData: FormData,
 ): Promise<DocumentDraftState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
@@ -286,7 +287,7 @@ export async function updateDocumentDraftAction(
     .from("documents")
     .select("id, template_id, field_values, status")
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (existingError) throwDataAccessError("load document for update", existingError);
@@ -302,7 +303,7 @@ export async function updateDocumentDraftAction(
   const loaded = await loadOwnedTemplateWithFields(
     supabase,
     existing.template_id,
-    user.id,
+    workspaceId,
   );
   if (!loaded) {
     return { message: "El machote de esta escritura ya no está disponible." };
@@ -326,7 +327,7 @@ export async function updateDocumentDraftAction(
   const client = await resolveOptionalClientId(
     supabase,
     formData.get("client_id"),
-    user.id,
+    workspaceId,
   );
   if ("error" in client) return { message: client.error };
 
@@ -340,7 +341,7 @@ export async function updateDocumentDraftAction(
       rendered_content: result.rendered,
     })
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .neq("status", "final")
     .select("id")
     .maybeSingle();
@@ -369,7 +370,7 @@ export async function deleteDocumentDraftAction(
   void _prevState;
   void _formData;
 
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
@@ -379,7 +380,7 @@ export async function deleteDocumentDraftAction(
     .from("documents")
     .select("id, status")
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (existingError) throwDataAccessError("load document for delete", existingError);
@@ -396,7 +397,7 @@ export async function deleteDocumentDraftAction(
     .from("documents")
     .delete()
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .select("id")
     .maybeSingle();
 

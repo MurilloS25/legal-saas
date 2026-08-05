@@ -76,3 +76,46 @@ export async function deleteUser(userId: string): Promise<void> {
     );
   }
 }
+
+/**
+ * Lectura directa vía PostgREST con la service role key — solo para
+ * verificar en E2E un efecto de base de datos que no tiene una superficie
+ * en la UI (p. ej. que la auditoría de equipo sobrevive a la remoción de un
+ * miembro). Nunca se usa para mutar datos: eso siempre pasa por la app real
+ * (Server Actions / RPCs), que es lo que estos tests están verificando.
+ */
+export async function restSelect<T>(
+  table: string,
+  query: string,
+): Promise<T[]> {
+  const response = await fetch(
+    `${requireEnv("NEXT_PUBLIC_SUPABASE_URL")}/rest/v1/${table}?${query}`,
+    { headers: adminHeaders() },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Admin rest select failed: ${response.status} ${await response.text()}`,
+    );
+  }
+  return (await response.json()) as T[];
+}
+
+/**
+ * Borrado directo vía PostgREST — solo para limpieza de recursos que no
+ * tienen cascada desde auth.users (workspace_activity.actor_user_id /
+ * target_user_id no tienen ON DELETE CASCADE a propósito, para que la
+ * auditoría sobreviva a una remoción real de la app). Sin esto, borrar un
+ * usuario de prueba que generó actividad de equipo falla por violación de
+ * llave foránea.
+ */
+export async function restDelete(table: string, query: string): Promise<void> {
+  const response = await fetch(
+    `${requireEnv("NEXT_PUBLIC_SUPABASE_URL")}/rest/v1/${table}?${query}`,
+    { method: "DELETE", headers: adminHeaders() },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Admin rest delete failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}

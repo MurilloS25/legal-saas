@@ -99,10 +99,17 @@ select is(
 );
 
 -- El usuario "assistant" se agrega como miembro ACTIVO (no propietario) del
--- Workspace del owner — simula lo que una futura invitación haría, sin
--- necesitar la UI de invitaciones (fuera de alcance de esta iteración).
+-- Workspace del owner, y se le retira su membresía del Workspace personal
+-- que el bootstrap le creó — exactamente lo que hace
+-- accept_workspace_invitation() (Iteración 5) al aceptar una invitación
+-- real, y lo que mantiene el invariante "1 Workspace activo por usuario"
+-- del que depende default_workspace_id_from_actor().
 insert into public.workspace_members (workspace_id, user_id, role, status)
 values ('a1111111-1111-1111-1111-111111111111', 'a2222222-2222-2222-2222-222222222222', 'asistente', 'active');
+
+delete from public.workspace_members
+ where workspace_id = 'a2222222-2222-2222-2222-222222222222'
+   and user_id = 'a2222222-2222-2222-2222-222222222222';
 
 -- Cliente de referencia, creado por el propietario.
 insert into public.clients (
@@ -197,14 +204,12 @@ select is(
   'Miembro activo (asistente) ve los clientes del Workspace del que es miembro'
 );
 
--- El insert en sí "succeeds" (el asistente SIEMPRE puede insertar con su
--- propio owner_id) — pero como workspace_id se genera desde owner_id en
--- esta iteración, la fila resultante cae en el Workspace PROPIO del
--- asistente, nunca en el Workspace ajeno del que es miembro. Escribir
--- "dentro" de un Workspace ajeno como no-propietario requiere que
--- workspace_id deje de ser una columna generada (iteración futura, cuando
--- existan invitaciones reales) — se documenta aquí como limitación conocida
--- de esta iteración, no como un hallazgo a corregir ahora.
+-- A partir de la Iteración 5, workspace_id ya no es una columna generada:
+-- el trigger default_workspace_id_from_actor() la rellena con el ÚNICO
+-- Workspace activo del actor — que para un miembro invitado (tras aceptar,
+-- sin su Workspace personal) ES el Workspace compartido. La fila del
+-- asistente cae correctamente dentro del Workspace ajeno del que es
+-- miembro, no en uno propio — la limitación de la Iteración 4 ya no existe.
 select ok(
   rls_test.statement_succeeds($$
     insert into public.clients (
@@ -217,13 +222,13 @@ select ok(
       'single', 'Costa Rican', 'Engineer', 'Fake address'
     )
   $$),
-  'Miembro puede insertar con su propio owner_id (no se bloquea a nivel de Workspace ajeno)'
+  'Miembro puede insertar con su propio owner_id dentro del Workspace compartido'
 );
 
 select is(
   (select workspace_id from public.clients where id = 'c1111111-0000-0000-0000-000000000003'),
-  'a2222222-2222-2222-2222-222222222222'::uuid,
-  'Limitación conocida: la fila del miembro cae en su propio Workspace, no en el Workspace ajeno del que es miembro (se resuelve cuando workspace_id deje de ser generada)'
+  'a1111111-1111-1111-1111-111111111111'::uuid,
+  'La fila del asistente cae en el Workspace compartido del que es miembro (Iteración 5 resuelve la limitación de la Iteración 4)'
 );
 
 reset role;

@@ -709,3 +709,135 @@ explícita del spec: "No desplegar a Supabase Cloud antes de CI, pgTAP,
 prueba local y revisión manual del plan" — CI/pgTAP/local ya están verdes;
 la revisión manual y el despliegue a Cloud quedan como paso separado,
 explícito, a decidir por el usuario).
+
+## 12. Iteración 5 — Roles, invitaciones y permisos: estado real de la implementación
+
+Migraciones:
+`supabase/migrations/20260804210000_workspace_roles_and_invitations.sql`
+(el grueso), `20260804220000_pending_workspace_invitation_lookup.sql`
+(`get_pending_workspace_invitation()`) y
+`20260804230000_list_workspace_members.sql`
+(`list_workspace_members()`). Tests:
+`rls_workspace_roles_and_invitations.test.sql` (30 aserciones),
+`rls_pending_workspace_invitation.test.sql` (5),
+`rls_list_workspace_members.test.sql` (4), más el ajuste de una aserción
+en `rls_workspace_foundation.test.sql` (ver 12.2). E2E:
+`e2e/team-management-authenticated.spec.ts` (proyecto autocontenido
+`chromium-team-management`, sin `storageState` compartido). Unit:
+`src/lib/server/permissions.test.ts`.
+
+### 12.1 `workspace_id` deja de ser una columna generada
+
+La simplificación de la Iteración 4 (§11.1) — `workspace_id` como
+`generated always as (owner_id) stored` — dependía de que solo existiera
+un rol funcional. En cuanto un asistente necesita escribir dentro del
+Workspace de su propietario (un `owner_id` distinto del suyo), esa
+columna generada se vuelve la limitación exacta que §11.1 ya anticipaba.
+Esta iteración la revierte:
+
+- `alter table <14 tablas> alter column workspace_id drop expression` —
+  ahora es una columna normal, escribible.
+- Un nuevo trigger BEFORE INSERT, `default_workspace_id_from_actor()`
+  (nombrado `<tabla>_default_workspace_id` en cada tabla — el orden
+  alfabético de triggers de Postgres importa: debe ejecutarse antes que
+  `dnm_enforce_editable`/`receivables_sync_client_name_snapshot`), rellena
+  `workspace_id` desde la membresía activa de
+  `coalesce(auth.uid(), new.owner_id)` cuando el caller no lo pasa
+  explícito. El `coalesce` con `owner_id` es necesario porque los fixtures
+  de pgTAP insertan como superusuario de Postgres, sin JWT — sin él, cada
+  test de la suite existente habría fallado con `workspace_id` nulo.
+- Efecto colateral importante: el tipo `Insert` generado por
+  `supabase gen types` sigue marcando `workspace_id` como requerido
+  (Postgres no expone defaults basados en triggers al generador de tipos),
+  así que cada INSERT explícito en TypeScript debe seguir pasando
+  `workspace_id` aunque la base de datos lo rellenaría sola si se omitiera.
+- 13 FKs compuestas que emparejaban `(hijo_id, owner_id)` con
+  `(padre.id, padre.owner_id)` pasan a `(hijo_id, workspace_id)` — de lo
+  contrario, un asistente (con su propio `owner_id`) no podía insertar un
+  campo bajo un machote que no le pertenece a él sino a su propietario.
+  Se agregaron 6 unique constraints nuevas para soportarlas.
+
+### 12.2 RLS y permisos: matriz aplicada en tres capas
+
+La matriz de §5.2 se aplicó tal cual, sin permisos personalizados por
+casilla ni rol "Personalizado" (restricción explícita del spec de esta
+iteración). Las políticas INSERT/UPDATE de clients/templates/
+template_fields/documents/receivables/document_notarial_metadata se
+ampliaron a `['propietario', 'administrador', 'asistente']`;
+lawyer_profiles/document_settings a `['propietario', 'administrador']`.
+`documents.finalize` no se puede expresar como una condición RLS simple
+(un UPDATE que solo cambia `status` a `final` debe distinguirse de
+cualquier otro UPDATE), así que tiene su propio trigger dedicado,
+`enforce_document_finalize_permission` — mismo patrón que
+`enforce_notarial_metadata_editable`/`block_delete_final_documents`, ya
+existentes en este código base.
+
+Durante la reescritura de las políticas se detectó (vía pgTAP, no por
+inspección) una regresión real de seguridad: las nuevas condiciones
+`is_workspace_member(...)` habían quedado sin el `owner_id = auth.uid()`
+que las políticas originales sí tenían, permitiendo a cualquier miembro
+forjar el `owner_id` de una fila ajena dentro del mismo Workspace. Se
+corrigió reintroduciendo `owner_id = auth.uid() and` al inicio de cada
+`with check`. Registrado aquí porque es exactamente el tipo de regresión
+que una migración de este tamaño puede introducir sin que ningún test
+*nuevo* la detecte — solo los tests *existentes* de "no se puede forjar
+owner_id" (`rls_documents.test.sql` y análogos) la atraparon, al pasar
+inesperadamente.
+
+`rls_workspace_foundation.test.sql` (Iteración 4) tenía una aserción que
+codificaba la limitación que esta iteración existe para resolver: un
+asistente insertando una fila terminaba en su propio Workspace, no en el
+compartido. Esa aserción se actualizó para reflejar el comportamiento
+correcto (termina en el Workspace compartido) — un cambio de test
+deliberado, no una regresión encubierta.
+
+### 12.3 Invitaciones: un Workspace activo por usuario, sin selector
+
+Cada usuario pertenece a exactamente un Workspace activo a la vez — una
+decisión de diseño propia (no está en el spec) para evitar construir un
+selector de "Workspace actual" en la UI. `accept_workspace_invitation`
+elimina la fila `workspace_members` del Workspace personal del invitado
+al aceptar una invitación real, reutilizando el trigger de limpieza de
+Workspaces huérfanos de la Iteración 4 (`cleanup_orphaned_workspace`) para
+borrar también la fila `workspaces` correspondiente.
+
+**Efecto secundario no cubierto por esta iteración**: un miembro
+*removido* (no suspendido, no baneado) se queda sin ninguna membresía
+activa — su Workspace personal ya no existe. `requireWorkspace()` lo
+manda de vuelta a `/login` en el siguiente intento aunque sus credenciales
+sigan siendo válidas. Verificado explícitamente en
+`e2e/team-management-authenticated.spec.ts`. Si un removido debe poder
+seguir usando la cuenta con un Workspace propio nuevo, hace falta decidir
+y construir ese flujo — no implementado aquí.
+
+El flujo de correo reutiliza el patrón de `/auth/confirm` de la Iteración
+2 (`token_hash` + `type`, ya genérico para cualquier `EmailOtpType`):
+`admin.inviteUserByEmail` (service role, `src/lib/supabase/admin.ts`,
+nunca importado desde el cliente) crea la cuenta y dispara el correo con
+la plantilla `supabase/templates/invite.html`
+(`config.toml` → `[auth.email.template.invite]`); el enlace apunta a
+`/auth/confirm?type=invite&next=/accept-invite`. `/accept-invite` exige
+fijar contraseña (`updateUser`, mismo patrón que `/update-password`) y
+llama a `accept_workspace_invitation` en el mismo submit.
+
+### 12.4 Jerarquía de gestión de miembros
+
+`assert_can_manage_target_member(caller_role, target_role)` (SQL) y
+`canManageMember()` (`src/lib/server/permissions.ts`, espejo exacto para
+la UI) implementan: el propietario es inmutable (nadie puede cambiarle el
+rol, suspenderlo ni removerlo); un administrador puede gestionar
+asistente/solo_lectura pero no a otro administrador ni al propietario.
+`remove_workspace_member` registra el evento de auditoría **antes** del
+`delete` (comentario explícito en la migración: así la auditoría queda
+escrita incluso si una futura constraint llegara a bloquear el delete).
+
+### 12.5 Qué NO se implementó (fuera de alcance explícito)
+
+- Permisos personalizados por casilla ni rol "Personalizado" — restricción
+  explícita del spec de esta iteración.
+- La separación `actor_user` vs `notary_profile` (§7) — el Índice y el
+  historial de actividad siguen sin distinguir "quién generó el borrador"
+  de "a nombre de qué Notario aparece en el documento". Es exactamente el
+  alcance de la Iteración 6, deliberadamente no empezada (ver §9 y la
+  decisión explícita de secuenciar las iteraciones una a la vez).
+- Firma digital ni envío oficial — no aplica a esta iteración tampoco.

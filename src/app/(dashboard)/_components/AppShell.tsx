@@ -26,6 +26,7 @@ import {
   MenuIcon,
   ScrollIcon,
   StackIcon,
+  TeamIcon,
   UsersIcon,
   WalletIcon,
   XIcon,
@@ -59,15 +60,18 @@ function setCollapsedStorage(next: boolean) {
 
 // ------------------------------------------------------------------ nav config
 
-const ACTIVE_LINKS = [
+const BASE_LINKS = [
   { label: "Panel", href: "/dashboard", Icon: CompassIcon },
   { label: "Clientes", href: "/dashboard/clients", Icon: UsersIcon },
   { label: "Machotes", href: "/dashboard/templates", Icon: StackIcon },
   { label: "Escrituras", href: "/dashboard/documents", Icon: ScrollIcon },
   { label: "Cuentas por cobrar", href: "/dashboard/receivables", Icon: WalletIcon },
   { label: "Índice Notarial", href: "/dashboard/notarial-index", Icon: BookmarkIcon },
-  { label: "Configuración", href: "/dashboard/settings", Icon: GearIcon },
 ] as const;
+
+const TEAM_LINK = { label: "Mi equipo", href: "/dashboard/team", Icon: TeamIcon } as const;
+
+const SETTINGS_LINK = { label: "Configuración", href: "/dashboard/settings", Icon: GearIcon } as const;
 
 function isLinkActive(pathname: string, href: string): boolean {
   return href === "/dashboard"
@@ -80,15 +84,21 @@ function isLinkActive(pathname: string, href: string): boolean {
 function SidebarNav({
   pathname,
   collapsed,
+  showTeamLink,
   onNavigate,
 }: {
   pathname: string;
   collapsed: boolean;
+  showTeamLink: boolean;
   onNavigate?: () => void;
 }) {
+  const links = showTeamLink
+    ? [...BASE_LINKS, TEAM_LINK, SETTINGS_LINK]
+    : [...BASE_LINKS, SETTINGS_LINK];
+
   return (
     <>
-      {ACTIVE_LINKS.map(({ label, href, Icon }) => {
+      {links.map(({ label, href, Icon }) => {
         const isActive = isLinkActive(pathname, href);
 
         return (
@@ -145,6 +155,7 @@ function SidebarInner({
   collapsed,
   userLabel,
   userEmail,
+  showTeamLink,
   onNavigate,
   onToggleCollapsed,
 }: {
@@ -152,6 +163,7 @@ function SidebarInner({
   collapsed: boolean;
   userLabel: string | null;
   userEmail: string | null;
+  showTeamLink: boolean;
   onNavigate?: () => void;
   /** Presente solo en el sidebar de escritorio (el móvil no colapsa). */
   onToggleCollapsed?: () => void;
@@ -218,7 +230,12 @@ function SidebarInner({
         className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-4 ${collapsed ? "px-2.5" : "px-3"}`}
         aria-label="Navegación principal"
       >
-        <SidebarNav pathname={pathname} collapsed={collapsed} onNavigate={onNavigate} />
+        <SidebarNav
+          pathname={pathname}
+          collapsed={collapsed}
+          showTeamLink={showTeamLink}
+          onNavigate={onNavigate}
+        />
       </nav>
 
       {/* User + logout */}
@@ -276,9 +293,10 @@ type Props = {
   children: React.ReactNode;
   userLabel: string | null;
   userEmail: string | null;
+  showTeamLink: boolean;
 };
 
-export function AppShell({ children, userLabel, userEmail }: Props) {
+export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const collapsed = useSyncExternalStore(
@@ -303,6 +321,7 @@ export function AppShell({ children, userLabel, userEmail }: Props) {
           collapsed={collapsed}
           userLabel={userLabel}
           userEmail={userEmail}
+          showTeamLink={showTeamLink}
           onToggleCollapsed={toggleCollapsed}
         />
       </aside>
@@ -338,6 +357,7 @@ export function AppShell({ children, userLabel, userEmail }: Props) {
           collapsed={false}
           userLabel={userLabel}
           userEmail={userEmail}
+          showTeamLink={showTeamLink}
           onNavigate={() => setSidebarOpen(false)}
         />
       </aside>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
@@ -44,14 +44,14 @@ export type ClientDocumentRow = {
 
 /** Borradores del usuario, el modificado más recientemente primero. */
 export async function listDocuments(): Promise<DocumentListRow[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const { data, error } = await supabase
     .from("documents")
     .select(
       "id, title, status, template_id, client_id, updated_at, templates(name), clients(id, full_name)",
     )
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("updated_at", { ascending: false });
 
   if (error) throwDataAccessError("list documents", error);
@@ -63,7 +63,7 @@ export async function listDocuments(): Promise<DocumentListRow[]> {
  * existe como si pertenece a otro usuario — sin filtrar la diferencia.
  */
 export async function getDocumentById(id: string): Promise<DocumentRow | null> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(id).success) return null;
 
@@ -73,7 +73,7 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
       "id, title, status, template_id, client_id, field_values, option_selections, rendered_content, created_at, updated_at, clients(id, full_name)",
     )
     .eq("id", id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (error) throwDataAccessError("get document detail", error);
@@ -106,14 +106,14 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
 export async function listDocumentsByClient(
   clientId: string,
 ): Promise<ClientDocumentRow[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(clientId).success) return [];
 
   const { data, error } = await supabase
     .from("documents")
     .select("id, title, status, updated_at, templates(name)")
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .eq("client_id", clientId)
     .order("updated_at", { ascending: false });
 

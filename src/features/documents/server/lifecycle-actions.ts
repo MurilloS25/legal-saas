@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
+import { hasPermission } from "@/lib/server/permissions";
 import {
   DocumentIdSchema,
   DocumentOptionSelectionsSchema,
@@ -35,7 +36,7 @@ async function transitionDocument(
   documentId: string,
   action: DocumentAction,
 ): Promise<DocumentStatusState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId, role } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
@@ -45,7 +46,7 @@ async function transitionDocument(
     .from("documents")
     .select("id, status, template_id, field_values, option_selections")
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (documentError) throwDataAccessError("load document lifecycle", documentError);
@@ -60,13 +61,19 @@ async function transitionDocument(
     return { message: "Esa transición de estado no está permitida." };
   }
 
+  if (target === "final" && !hasPermission(role, "documents.finalize")) {
+    return {
+      message: "Solo el propietario o un administrador puede finalizar una escritura.",
+    };
+  }
+
   // Finalizar exige que no queden variables sin valor.
   if (target === "final") {
     const { data: template, error: templateError } = await supabase
       .from("templates")
       .select("content_json")
       .eq("id", doc.template_id)
-      .eq("owner_id", user.id)
+      .eq("workspace_id", workspaceId)
       .maybeSingle();
 
     if (templateError) {
@@ -112,7 +119,7 @@ async function transitionDocument(
     .from("documents")
     .update({ status: target })
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .eq("status", doc.status)
     .select("id")
     .maybeSingle();
