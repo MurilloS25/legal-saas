@@ -1,11 +1,11 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { generateConfiguredPartiesPreview } from "../model/parties";
 import { queryTemplateIndexConfiguration } from "./template-index-config-queries";
 
-type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
+type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
 
 export type ConfiguredPartiesResult =
   | { status: "missing" | "incomplete"; value: null }
@@ -13,13 +13,13 @@ export type ConfiguredPartiesResult =
 
 export async function generateConfiguredParties(
   supabase: Supabase,
-  ownerId: string,
+  workspaceId: string,
   templateId: string,
   fieldValues: unknown,
 ): Promise<ConfiguredPartiesResult> {
   const configuration = await queryTemplateIndexConfiguration(
     supabase,
-    ownerId,
+    workspaceId,
     templateId,
   );
   if (!configuration) return { status: "missing", value: null };
@@ -33,7 +33,7 @@ export async function generateConfiguredParties(
     const { data, error } = await supabase
       .from("template_fields")
       .select("id, field_key")
-      .eq("owner_id", ownerId)
+      .eq("workspace_id", workspaceId)
       .eq("template_id", templateId)
       .in("id", selectedIds);
     if (error) throwDataAccessError("load configured index fields", error);

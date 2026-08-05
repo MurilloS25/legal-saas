@@ -257,19 +257,17 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
-
-# Enlace de recuperación de contraseña: apunta a la propia app
-# (/auth/confirm, verificación server-side vía token_hash) en vez del
-# endpoint hospedado por Supabase, igual que /auth/confirm ya documenta
-# para signup/invite. Sin esto, Supabase Cloud debe configurarse igual
-# manualmente (ver docs/AUTH_SECURITY.md) — este archivo solo cubre local.
+# Enlace de recuperación/invitación: apunta a la propia app (/auth/confirm,
+# verificación server-side vía token_hash) en vez del endpoint hospedado por
+# Supabase. Sin esto, Supabase Cloud debe configurarse igual manualmente
+# (ver docs/AUTH_SECURITY.md) — este archivo solo cubre local.
 [auth.email.template.recovery]
 subject = "Restablece tu contraseña de LexCR"
 content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "Te invitaron a un equipo en LexCR"
+content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

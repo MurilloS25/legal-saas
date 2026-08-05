@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import { mapNotarialIndexRows, NOTARIAL_INDEX_SELECT } from "./mappers";
@@ -11,7 +11,7 @@ import {
   type NotarialQuery,
 } from "../model/query";
 
-type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
+type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
 export const NOTARIAL_EXPORT_LIMIT = 2000;
 
 export type NotarialExportData = {
@@ -22,13 +22,13 @@ export type NotarialExportData = {
 export async function listNotarialIndexForExport(
   query: NotarialQuery,
 ): Promise<NotarialExportData> {
-  const { supabase, user } = await requireUser();
-  return queryNotarialIndexForExport(supabase, user.id, query);
+  const { supabase, workspaceId } = await requireWorkspace();
+  return queryNotarialIndexForExport(supabase, workspaceId, query);
 }
 
 export async function queryNotarialIndexForExport(
   supabase: Supabase,
-  userId: string,
+  workspaceId: string,
   query: NotarialQuery,
 ): Promise<NotarialExportData> {
   if (notarialSearchHasNoSafeTerm(query.search)) {
@@ -40,7 +40,7 @@ export async function queryNotarialIndexForExport(
   let request = supabase
     .from("notarial_index_entries")
     .select(NOTARIAL_INDEX_SELECT, { count: "exact" })
-    .eq("owner_id", userId)
+    .eq("workspace_id", workspaceId)
     .gte("authorized_at", fromIso)
     .lte("authorized_at", toIso);
 
@@ -83,11 +83,11 @@ export async function queryNotarialIndexForExport(
 }
 
 export async function getLatestNotarialExportAt(): Promise<string | null> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("notarial_index_exports")
     .select("created_at")
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

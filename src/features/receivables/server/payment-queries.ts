@@ -1,10 +1,10 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { ReceivablePayment } from "../model/types";
 
-type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
+type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
 
 /**
  * Si existe CUALQUIER pago histórico (activo o anulado) para la cuenta.
@@ -14,13 +14,13 @@ type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
 export async function receivableHasPaymentHistory(
   supabase: Supabase,
   receivableId: string,
-  ownerId: string,
+  workspaceId: string,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("receivable_payments")
     .select("id")
     .eq("receivable_id", receivableId)
-    .eq("owner_id", ownerId)
+    .eq("workspace_id", workspaceId)
     .limit(1)
     .maybeSingle();
 
@@ -31,14 +31,14 @@ export async function receivableHasPaymentHistory(
 export async function listPaymentsByReceivable(
   receivableId: string,
 ): Promise<ReceivablePayment[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_payments")
     .select(
       "id, amount, currency, paid_at, method, reference, status, voided_at, void_reason, created_at",
     )
     .eq("receivable_id", receivableId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
   if (error) throwDataAccessError("list receivable payments", error);

@@ -1,6 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { listClients } from "@/features/clients/server";
 import { listTemplates } from "@/features/templates/server";
 import { listDocuments } from "@/features/documents/server";
@@ -96,7 +96,7 @@ const QUICK_ACTIONS = [
 // ------------------------------------------------------------------ page
 
 export default async function DashboardPage() {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const now = new Date();
 
   const [
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
     supabase
       .from("lawyer_profiles")
       .select("full_name, professional_code")
-      .eq("owner_id", user.id)
+      .eq("workspace_id", workspaceId)
       .maybeSingle(),
     listClients(),
     listTemplates(),

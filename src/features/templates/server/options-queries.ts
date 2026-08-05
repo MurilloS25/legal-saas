@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { TemplateStatus } from "../model/templates";
 
@@ -20,11 +20,11 @@ export type ListTemplateOptionsFilter = {
 export async function listTemplateOptions(
   filter: ListTemplateOptionsFilter = {},
 ): Promise<TemplateOption[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   let request = supabase
     .from("templates")
     .select("id, name, description, status, updated_at")
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (filter.status) request = request.eq("status", filter.status);
 

@@ -921,6 +921,33 @@ the rollback runbook are in `docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md`
 §11 — read that before changing any RLS policy or `SECURITY DEFINER`
 function touched there.
 
+### Roles, invitations and permissions (added, Iteration 5)
+
+`supabase/migrations/20260804210000_workspace_roles_and_invitations.sql`
+drops the Iteration 4 `generated always as` expression on `workspace_id`
+(now an independently-writable column, defaulted by a new
+`default_workspace_id_from_actor()` BEFORE INSERT trigger on all 14
+business tables when the caller doesn't set it explicitly) and widens
+write RLS to `administrador`/`asistente` per the permission matrix, while
+`documents.finalize`/`notarial_index.generate`/`payments.void`/
+`members.manage`/`settings.manage` stay `propietario`/`administrador`
+only. All 13 composite FKs that used to pair `(child_id, owner_id)` now
+pair `(child_id, workspace_id)`, so a non-owning member can write child
+rows under a parent they don't own. Two follow-up migrations add
+`get_pending_workspace_invitation()` and `list_workspace_members()` —
+both `SECURITY DEFINER`, needed because `is_workspace_member()` requires
+`status = 'active'` and PostgREST can't read `auth.users` directly.
+
+New `workspace_activity` table (workspace_id, actor_user_id,
+target_user_id, event_type, metadata) is an immutable audit log written
+only by the 6 new team-management RPCs (`invite_workspace_member`,
+`accept_workspace_invitation`, `change_workspace_member_role`,
+`suspend_workspace_member`, `reactivate_workspace_member`,
+`remove_workspace_member`) — removing a member does not delete their
+activity history. Full design rationale, the role hierarchy rules, and
+the "1 workspace per user" invariant are in
+`docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §12.
+
 ## Indexing Considerations
 
 Potential indexes:

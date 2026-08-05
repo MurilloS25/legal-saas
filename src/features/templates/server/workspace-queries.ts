@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import type { Tables } from "@/lib/supabase/database.types";
 import { TEMPLATES_PAGE_SIZE, type TemplatesQuery } from "../model/workspace-query";
@@ -21,11 +21,11 @@ const TEMPLATE_COLUMNS =
 
 /** Todos los machotes del dueño, sin paginar (para resúmenes/selectores). */
 export async function listTemplates(): Promise<TemplateListRow[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("templates")
     .select(TEMPLATE_COLUMNS)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("updated_at", { ascending: false });
 
   if (error) throwDataAccessError("list templates", error);
@@ -42,12 +42,12 @@ export type TemplatesPage = {
 export async function listTemplatesPage(
   query: TemplatesQuery,
 ): Promise<TemplatesPage> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const from = (query.page - 1) * TEMPLATES_PAGE_SIZE;
   const { data, count, error } = await supabase
     .from("templates")
     .select(TEMPLATE_COLUMNS, { count: "exact" })
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("updated_at", { ascending: false })
     .range(from, from + TEMPLATES_PAGE_SIZE - 1);
 
@@ -62,7 +62,7 @@ export async function listTemplatesPage(
     const { count: totalOnly, error: countError } = await supabase
       .from("templates")
       .select("id", { count: "exact", head: true })
-      .eq("owner_id", user.id);
+      .eq("workspace_id", workspaceId);
     if (countError) throwDataAccessError("count templates page", countError);
     const total = totalOnly ?? 0;
     return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / TEMPLATES_PAGE_SIZE)) };

@@ -1,6 +1,5 @@
 import { PageContainer } from "@/components/layout/PageContainer";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireWorkspace } from "@/lib/server/auth";
 import { SettingsWorkspace } from "./_components/SettingsWorkspace";
 
 export const metadata = {
@@ -8,27 +7,21 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, workspaceId } = await requireWorkspace();
 
   // Fetch profile and settings in parallel; both may return null for new users.
   const [profileResult, settingsResult] = await Promise.all([
     supabase
       .from("lawyer_profiles")
       .select("full_name, professional_code, email, phone")
-      .eq("owner_id", user.id)
+      .eq("workspace_id", workspaceId)
       .maybeSingle(),
     supabase
       .from("document_settings")
       .select(
         "font_family, font_size, margin_top_cm, margin_bottom_cm, margin_left_cm, margin_right_cm, line_spacing",
       )
-      .eq("owner_id", user.id)
+      .eq("workspace_id", workspaceId)
       .maybeSingle(),
   ]);
 
