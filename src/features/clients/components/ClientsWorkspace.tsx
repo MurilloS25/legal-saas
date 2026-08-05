@@ -13,6 +13,7 @@ type Props = {
   total: number;
   pageSize: number;
   pageHref: (page: number) => string;
+  canWrite: boolean;
 };
 
 export function ClientsWorkspace({
@@ -22,6 +23,7 @@ export function ClientsWorkspace({
   total,
   pageSize,
   pageHref,
+  canWrite,
 }: Props) {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
@@ -37,29 +39,31 @@ export function ClientsWorkspace({
             Gestiona y reutiliza los datos de tus clientes en los machotes.
           </p>
         </div>
-        <Link
-          href="/dashboard/clients/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        {canWrite && (
+          <Link
+            href="/dashboard/clients/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
           >
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <line x1="19" y1="8" x2="19" y2="14" />
-            <line x1="22" y1="11" x2="16" y2="11" />
-          </svg>
-          Nuevo cliente
-        </Link>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" y1="8" x2="19" y2="14" />
+              <line x1="22" y1="11" x2="16" y2="11" />
+            </svg>
+            Nuevo cliente
+          </Link>
+        )}
       </div>
 
       {/* ---- empty state ---- */}
@@ -91,12 +95,14 @@ export function ClientsWorkspace({
           <p className="text-xs text-slate-500 mb-6">
             Agrega tu primer cliente para reutilizar sus datos en los machotes.
           </p>
-          <Link
-            href="/dashboard/clients/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-          >
-            Agregar cliente
-          </Link>
+          {canWrite && (
+            <Link
+              href="/dashboard/clients/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+            >
+              Agregar cliente
+            </Link>
+          )}
         </div>
       ) : (
         /* ---- client table ---- */

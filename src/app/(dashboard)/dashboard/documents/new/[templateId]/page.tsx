@@ -1,6 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { templateStatusLabel } from "@/features/templates/model/templates";
 import { listClients } from "@/features/clients/server";
@@ -23,6 +25,10 @@ type Props = {
 };
 
 export default async function NewDocumentPage({ params, searchParams }: Props) {
+  const { role } = await requireWorkspace();
+  if (!hasPermission(role, "documents.create")) {
+    redirect("/dashboard/documents");
+  }
   const { templateId } = await params;
   const { client: clientParam } = await searchParams;
   const template = await getTemplateById(templateId);

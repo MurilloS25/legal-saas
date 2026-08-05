@@ -1,12 +1,20 @@
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { ClientForm } from "@/features/clients";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Nuevo cliente — LexCR",
 };
 
-export default function NewClientPage() {
+export default async function NewClientPage() {
+  const { role } = await requireWorkspace();
+  if (!hasPermission(role, "clients.write")) {
+    redirect("/dashboard/clients");
+  }
+
   return (
     <PageContainer width="form">
       {/* Breadcrumb */}

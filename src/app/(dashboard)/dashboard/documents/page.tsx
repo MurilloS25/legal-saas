@@ -6,6 +6,8 @@ import { listDocumentsPage } from "@/features/documents/server";
 import { listClients } from "@/features/clients/server";
 import { listTemplateOptions } from "@/features/templates/server";
 import { DOCUMENT_STATUS_LABEL } from "@/features/documents";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 import {
   DOCUMENT_SORT_OPTIONS,
   DOCUMENTS_PAGE_SIZE,
@@ -41,6 +43,8 @@ type Props = {
 };
 
 export default async function DocumentsPage({ searchParams }: Props) {
+  const { role } = await requireWorkspace();
+  const canCreate = hasPermission(role, "documents.create");
   const query = parseDocumentsQuery(await searchParams);
 
   const [page, clients, templates] = await Promise.all([
@@ -77,9 +81,11 @@ export default async function DocumentsPage({ searchParams }: Props) {
             de un machote.
           </p>
         </div>
-        <Link href="/dashboard/documents/new" className={newDocumentButtonClass}>
-          Nueva escritura
-        </Link>
+        {canCreate && (
+          <Link href="/dashboard/documents/new" className={newDocumentButtonClass}>
+            Nueva escritura
+          </Link>
+        )}
       </div>
 
       {/* ---- toolbar ---- */}
@@ -124,9 +130,11 @@ export default async function DocumentsPage({ searchParams }: Props) {
               Crea tu primera escritura seleccionando un machote y llenando sus
               datos. El borrador quedará guardado para continuar después.
             </p>
-            <Link href="/dashboard/documents/new" className={newDocumentButtonClass}>
-              Crear primera escritura
-            </Link>
+            {canCreate && (
+              <Link href="/dashboard/documents/new" className={newDocumentButtonClass}>
+                Crear primera escritura
+              </Link>
+            )}
           </div>
         )
       ) : (

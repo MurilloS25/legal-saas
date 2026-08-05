@@ -29,7 +29,7 @@ const requiredMark = (
 
 type Props =
   | { mode: "create" }
-  | { mode: "edit"; client: ClientRow };
+  | { mode: "edit"; client: ClientRow; canWrite: boolean };
 
 const initialState: ClientState = {};
 
@@ -38,6 +38,11 @@ const initialState: ClientState = {};
 export function ClientForm(props: Props) {
   const isEdit = props.mode === "edit";
   const client = isEdit ? props.client : null;
+  // El modo "create" solo se alcanza si la página ya validó clients.write
+  // (ver /dashboard/clients/new); "edit" sí puede llegar aquí con
+  // canWrite=false, porque la página de detalle es de lectura para
+  // cualquier miembro activo.
+  const canWrite = isEdit ? props.canWrite : true;
 
   const action = isEdit
     ? updateClientAction.bind(null, client!.id)
@@ -79,7 +84,7 @@ export function ClientForm(props: Props) {
             son obligatorios.
           </p>
         </div>
-        {isEdit && client && (
+        {isEdit && client && canWrite && (
           <div className="ml-auto shrink-0">
             <DeleteClientButton
               clientId={client.id}
@@ -92,6 +97,14 @@ export function ClientForm(props: Props) {
 
       {/* ---- Form body ---- */}
       <form action={formAction} noValidate className="px-6 py-6">
+        {!canWrite && (
+          <div
+            role="status"
+            className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+          >
+            Tu rol no permite editar clientes. Lo ves en modo lectura.
+          </div>
+        )}
         {/* Global feedback */}
         {state.success && (
           <div
@@ -122,6 +135,7 @@ export function ClientForm(props: Props) {
                 name="full_name"
                 type="text"
                 required
+                disabled={!canWrite}
                 defaultValue={client?.full_name ?? ""}
                 className={inputClass}
                 placeholder="Juan Pérez Rodríguez"
@@ -144,6 +158,7 @@ export function ClientForm(props: Props) {
                 id="identification_type"
                 name="identification_type"
                 required
+                disabled={!canWrite}
                 defaultValue={client?.identification_type ?? "cedula_fisica"}
                 className={inputClass}
                 aria-describedby={
@@ -173,6 +188,7 @@ export function ClientForm(props: Props) {
                 name="identification_number"
                 type="text"
                 required
+                disabled={!canWrite}
                 defaultValue={client?.identification_number ?? ""}
                 className={inputClass}
                 placeholder="0-0000-0000"
@@ -200,6 +216,7 @@ export function ClientForm(props: Props) {
                 id="marital_status"
                 name="marital_status"
                 required
+                disabled={!canWrite}
                 defaultValue={client?.marital_status ?? ""}
                 className={inputClass}
                 aria-describedby={
@@ -236,6 +253,7 @@ export function ClientForm(props: Props) {
                 name="nationality"
                 type="text"
                 required
+                disabled={!canWrite}
                 defaultValue={client?.nationality ?? ""}
                 className={inputClass}
                 placeholder="Costarricense"
@@ -259,6 +277,7 @@ export function ClientForm(props: Props) {
                 name="occupation"
                 type="text"
                 required
+                disabled={!canWrite}
                 defaultValue={client?.occupation ?? ""}
                 className={inputClass}
                 placeholder="Ingeniero civil"
@@ -284,6 +303,7 @@ export function ClientForm(props: Props) {
               name="exact_address"
               required
               rows={3}
+              disabled={!canWrite}
               defaultValue={client?.exact_address ?? ""}
               className={inputClass}
               placeholder="San José, Escazú, del parque 200 metros norte…"
@@ -307,6 +327,7 @@ export function ClientForm(props: Props) {
           >
             Cancelar
           </Link>
+          {canWrite && (
           <button
             type="submit"
             disabled={pending}
@@ -343,6 +364,7 @@ export function ClientForm(props: Props) {
               "Crear cliente"
             )}
           </button>
+          )}
         </div>
       </form>
     </div>
