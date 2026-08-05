@@ -40,6 +40,19 @@ export async function GET(request: NextRequest) {
 
   const redirectPath = extractSafeRedirectPath(next);
 
+  // Invitaciones ya no pasan por aquí: el correo enlaza directo a
+  // /accept-invite, que solo consume el token en un POST explícito (ver
+  // ese route para el porqué — un GET que ejecuta verifyOtp es vulnerable
+  // a que un prefetch/escáner de enlaces lo consuma antes del clic real).
+  // Si de todos modos llega un enlace viejo con type=invite, se descarta
+  // sin tocar el token en vez de reproducir ese problema aquí.
+  if (type === "invite") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/accept-invite";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (!token_hash || !type) {
     // Missing required parameters — redirect to login with a generic notice.
     const url = request.nextUrl.clone();

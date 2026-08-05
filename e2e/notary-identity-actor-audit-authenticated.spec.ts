@@ -104,10 +104,18 @@ test.describe("notary identity and actor audit", () => {
       const assistantContext = await browser.newContext();
       const assistantPage = await assistantContext.newPage();
       await assistantPage.goto(link);
+      // Página intermedia (GET, sin sesión): el token todavía no se
+      // consumió — solo se consume al enviar este botón, en un POST.
+      await assistantPage
+        .getByRole("button", { name: "Aceptar invitación" })
+        .click();
+      await assistantPage.waitForURL(/\/accept-invite\/set-password$/, {
+        timeout: 15_000,
+      });
       await assistantPage.getByLabel("Contraseña", { exact: true }).fill(PASSWORD);
       await assistantPage.getByLabel("Confirmar contraseña").fill(PASSWORD);
       await assistantPage
-        .getByRole("button", { name: "Unirme al equipo" })
+        .getByRole("button", { name: "Guardar contraseña y continuar" })
         .click();
       await assistantPage.waitForURL(/\/dashboard/, { timeout: 15_000 });
       await assistantPage

@@ -109,9 +109,18 @@ test.describe("team management", () => {
       ).toBeVisible();
       await expect(memberPage.getByText("Asistente")).toBeVisible();
 
+      // Página intermedia (GET, sin sesión): el token todavía no se
+      // consumió — solo se consume al enviar este botón, en un POST.
+      await memberPage.getByRole("button", { name: "Aceptar invitación" }).click();
+      await memberPage.waitForURL(/\/accept-invite\/set-password$/, {
+        timeout: 15_000,
+      });
+
       await memberPage.getByLabel("Contraseña", { exact: true }).fill(PASSWORD);
       await memberPage.getByLabel("Confirmar contraseña").fill(PASSWORD);
-      await memberPage.getByRole("button", { name: "Unirme al equipo" }).click();
+      await memberPage
+        .getByRole("button", { name: "Guardar contraseña y continuar" })
+        .click();
       await memberPage.waitForURL(/\/dashboard/, { timeout: 15_000 });
       // Espera a que el panel termine de asentarse antes de navegar de
       // nuevo — si se llama a goto() mientras el RSC del dashboard sigue

@@ -90,6 +90,16 @@ export default defineConfig({
       testMatch: /notary-identity-actor-audit-authenticated\.spec\.ts/,
     },
 
+    // Seguridad del token de invitación: un GET nunca debe consumirlo (fix
+    // del bug real donde un prefetch/escáner podía "usar" el enlace antes
+    // que la persona). Autocontenido por la misma razón que
+    // chromium-team-management.
+    {
+      name: "chromium-invite-token-safety",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /invite-token-safety-authenticated\.spec\.ts/,
+    },
+
     // Clients module — authenticated.
     {
       name: "chromium-clients",

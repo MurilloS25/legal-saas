@@ -121,6 +121,33 @@ export async function restDelete(table: string, query: string): Promise<void> {
 }
 
 /**
+ * Actualización directa vía PostgREST — solo para sembrar un estado de fila
+ * que una acción real de la app produciría (p. ej. status='revoked', lo
+ * mismo que deja suspend_workspace_member), cuando lo que el test verifica
+ * es el efecto de ESE estado sobre otro flujo, no la acción que lo produce
+ * (esa ya tiene su propia cobertura E2E dedicada — ver team-management).
+ */
+export async function restUpdate(
+  table: string,
+  query: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const response = await fetch(
+    `${requireEnv("NEXT_PUBLIC_SUPABASE_URL")}/rest/v1/${table}?${query}`,
+    {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify(patch),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Admin rest update failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
+/**
  * Inserta directo vía PostgREST con la service role key — solo para sembrar
  * fixtures neutrales (p. ej. un machote activo) que no son en sí lo que un
  * spec está verificando, evitando repetir un flujo de UI caro (el editor
