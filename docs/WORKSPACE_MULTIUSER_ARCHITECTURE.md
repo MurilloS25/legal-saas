@@ -841,3 +841,117 @@ escrita incluso si una futura constraint llegara a bloquear el delete).
   alcance de la Iteración 6, deliberadamente no empezada (ver §9 y la
   decisión explícita de secuenciar las iteraciones una a la vez).
 - Firma digital ni envío oficial — no aplica a esta iteración tampoco.
+
+## 13. Iteración 6 — Identidad notarial y auditoría de actores: estado real de la implementación
+
+Migración: `supabase/migrations/20260805100000_actor_identity_audit_snapshots.sql`.
+Test: `supabase/tests/rls_actor_identity_audit_snapshots.test.sql` (19
+aserciones). E2E: `e2e/notary-identity-actor-audit-authenticated.spec.ts`
+(proyecto autocontenido `chromium-notary-identity-actor-audit`).
+
+### 13.1 `lawyer_profiles` YA ES el `notary_profile` — no se creó tabla nueva
+
+El objetivo de la iteración (§ modelo del spec: separar `actor_user` de
+`notary_profile`) llevaba implícita la pregunta de si había que crear una
+tabla `notary_profiles` nueva. La auditoría del código existente (hecha
+antes de escribir una sola línea) encontró que **ya no hacía falta**:
+`lawyer_profiles` es, desde la Iteración 5 (§12.1), una fila única por
+`workspace_id` — exactamente la forma de un `notary_profile` — y el Índice
+Notarial **ya leía el nombre del notario desde ahí**, nunca desde el
+usuario autenticado
+(`src/features/notarial-index/server/export-actions.ts`, sin cambios en
+esta iteración). "Consolidar" (palabra del spec) se interpretó como usar
+lo que ya existe, documentado aquí, en vez de construir infraestructura
+paralela redundante.
+
+Lo que sí hacía falta y no existía: la página de Configuración mostraba el
+formulario de `lawyer_profiles` totalmente interactivo a CUALQUIER
+miembro, incluido un asistente — el guardado fallaba solo en el servidor
+(`settings.manage`) y en RLS, sin ninguna señal en la UI. Se corrigió
+pasando `canManage = hasPermission(role, "settings.manage")` a
+`SettingsWorkspace` (`src/app/(dashboard)/dashboard/settings/page.tsx` →
+`_components/SettingsWorkspace.tsx`): todos los campos quedan `disabled`,
+la barra de guardar/descartar no se renderiza, y un aviso explica por qué.
+
+### 13.2 `actor_name_snapshot` / `actor_role_snapshot` en las cuatro tablas de auditoría
+
+`document_activity`, `receivable_activity`, `workspace_activity`
+(Iteración 5) y `notarial_index_exports` ganaron dos columnas `not null`:
+`actor_name_snapshot` (el email del actor — no existe una tabla de
+"nombre por usuario" en este esquema; `lawyer_profiles` es la identidad
+del Workspace, no de la persona) y `actor_role_snapshot` (su rol en el
+Workspace al momento del hecho). Ambas se fijan una sola vez, en el
+momento del INSERT, por un helper único:
+
+```sql
+resolve_actor_snapshot(p_workspace_id uuid, p_actor_user_id uuid)
+  returns (actor_name text, actor_role text)
+```
+
+`SECURITY DEFINER`, con fallback a `'desconocido'` si el actor no se puede
+resolver (defensivo — la auditoría nunca debe romperse por esto). Los 11
+puntos de escritura existentes (`record_document_activity`,
+`record_notarial_metadata_activity`, `log_document_word_generated`,
+`record_receivable_activity`, `register_receivable_payment`,
+`void_receivable_payment`, `log_notarial_index_export`,
+`invite_workspace_member`, `accept_workspace_invitation`,
+`change_workspace_member_role`, `suspend_workspace_member`,
+`reactivate_workspace_member`, `remove_workspace_member`) se reescribieron
+para poblarlas — ninguno cambió su lógica de negocio, solo agregaron la
+resolución + las dos columnas al `insert`. Backfill de filas existentes:
+mejor esfuerzo con el estado ACTUAL de `auth.users`/`workspace_members`
+(no se puede reconstruir el estado histórico real; todo evento nuevo
+queda fijado correctamente para siempre).
+
+**Verificado explícitamente por pgTAP** (no solo por diseño): cambiar el
+rol de un actor, o removerlo del Workspace, **no** altera
+retroactivamente el `actor_role_snapshot`/`actor_name_snapshot` de sus
+eventos pasados — es la prueba central de "no depender del nombre actual
+del usuario para hechos históricos" (texto literal del spec).
+
+### 13.3 `list_workspace_activity()`: workspace_activity pasa de escrito-pero-nunca-leído a visible
+
+La auditoría de Iteración 5 (invitar/aceptar/cambiar rol/suspender/
+reactivar/remover) se escribía desde el día uno pero **ningún código de
+`src/` la leía** — "Mi equipo" no tenía ninguna vista de historial. Nuevo
+RPC `list_workspace_activity(p_limit)`, mismo patrón que
+`list_workspace_members()` (acota al Workspace activo del caller vía
+`SECURITY DEFINER`), añade una sección "Actividad" a
+`/dashboard/team` (`WorkspaceActivityList.tsx`). Resuelve el email
+ACTUAL del `target_user_id` como etiqueta de conveniencia (no un
+snapshot histórico — el dato con garantía histórica es
+`actor_name_snapshot`/`actor_role_snapshot`, no el target).
+
+### 13.4 UI: nombre real del actor en vez de "Tú" / "Otro miembro del equipo"
+
+`src/features/documents/server/activity-queries.ts` y
+`src/features/receivables/server/detail-queries.ts` ahora seleccionan
+`actor_name_snapshot`/`actor_role_snapshot` y arman
+`"Tú"` (si `actor_user_id === user.id`) o `"{email} ({rol})"` en caso
+contrario — resuelto una sola vez en el servidor, nunca en el cliente.
+Sustituye el placeholder genérico que existía desde la Iteración 5 (ver
+comentario, ya eliminado, en `activity-queries.ts`).
+
+### 13.5 `documents.export`: permiso explícito, sin cambio de comportamiento
+
+El spec pide "definir quién puede... exportar DOCX". La exportación de la
+Escritura (`prepareDocumentDocxExport`) no tenía ningún chequeo de
+permiso — solo `requireApiWorkspace()` (cualquier miembro activo). Se
+decidió que exportar es una acción de lectura (formatear contenido ya
+visible para descarga), no una sensible, así que se agregó
+`documents.export` a la matriz con los 4 roles (mismo nivel que
+`clients.read`) y el chequeo correspondiente — defensa en profundidad y
+documentación explícita de la decisión, sin cambiar quién puede hacerlo
+hoy. `notarial_index.generate` (Índice) sigue restringido a
+propietario/administrador, sin cambios — es la acción sensible real.
+
+### 13.6 Qué NO se hizo (fuera de alcance explícito)
+
+- No se agregó ningún snapshot de identidad notarial al DOCX de la
+  Escritura ni al Índice: ambos ya usaban `lawyer_profiles` correctamente
+  (Índice) o no tenían ningún dato de identidad que corregir (Escritura —
+  es el documento legal en sí, no un registro con "quién lo generó").
+  Verificado, no modificado: `src/features/notarial-index/export/notarial-docx.test.ts`.
+- No se creó una tabla `notary_profiles` separada (§13.1).
+- Firma digital ni envío oficial — restricción explícita del spec,
+  igual que en la Iteración 5.

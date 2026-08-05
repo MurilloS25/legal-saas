@@ -105,6 +105,9 @@ export function ReceivableHistoryDialog({ activity, currency }: Props) {
                           {formatReceivableActivityTimestamp(event.created_at)}
                         </time>
                       </div>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {event.actorName}
+                      </p>
                     </li>
                   );
                 })}

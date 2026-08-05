@@ -82,6 +82,14 @@ export default defineConfig({
       testMatch: /team-management-authenticated\.spec\.ts/,
     },
 
+    // Identidad notarial y auditoría de actores (Iteración 6). Autocontenido
+    // por la misma razón que chromium-team-management.
+    {
+      name: "chromium-notary-identity-actor-audit",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /notary-identity-actor-audit-authenticated\.spec\.ts/,
+    },
+
     // Clients module — authenticated.
     {
       name: "chromium-clients",

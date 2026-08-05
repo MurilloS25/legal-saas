@@ -2,6 +2,7 @@ import "server-only";
 
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
+import { ROLE_LABELS, type WorkspaceRole } from "@/lib/server/permissions";
 import type { ReceivableActivityEvent } from "../model/activity-format";
 import type { ReceivableEntry, ReceivableRow } from "../model/types";
 import {
@@ -81,10 +82,12 @@ export async function listReceivablesByDocument(
 export async function listReceivableActivity(
   receivableId: string,
 ): Promise<ReceivableActivityEvent[]> {
-  const { supabase, workspaceId } = await requireWorkspace();
+  const { supabase, user, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_activity")
-    .select("id, event_type, metadata, created_at, actor_user_id")
+    .select(
+      "id, event_type, metadata, created_at, actor_user_id, actor_name_snapshot, actor_role_snapshot",
+    )
     .eq("receivable_id", receivableId)
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
@@ -92,5 +95,18 @@ export async function listReceivableActivity(
     .limit(ACTIVITY_LIMIT);
 
   if (error) throwDataAccessError("list receivable activity", error);
-  return (data as ReceivableActivityEvent[] | null) ?? [];
+
+  return (data ?? []).map((row) => {
+    const roleLabel =
+      ROLE_LABELS[row.actor_role_snapshot as WorkspaceRole] ?? row.actor_role_snapshot;
+    return {
+      id: row.id,
+      event_type: row.event_type,
+      metadata: (row.metadata as Record<string, unknown>) ?? {},
+      created_at: row.created_at,
+      actor_user_id: row.actor_user_id,
+      actorName:
+        row.actor_user_id === user.id ? "Tú" : `${row.actor_name_snapshot} (${roleLabel})`,
+    };
+  });
 }

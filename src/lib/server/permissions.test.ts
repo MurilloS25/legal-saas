@@ -22,6 +22,12 @@ describe("hasPermission", () => {
     }
   });
 
+  it("lets every role export the Escritura DOCX (read-tier, not sensitive)", () => {
+    for (const role of ALL_ROLES) {
+      expect(hasPermission(role, "documents.export")).toBe(true);
+    }
+  });
+
   it("blocks solo_lectura from any write permission", () => {
     expect(hasPermission("solo_lectura", "clients.write")).toBe(false);
     expect(hasPermission("solo_lectura", "templates.write")).toBe(false);

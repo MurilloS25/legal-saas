@@ -948,6 +948,24 @@ activity history. Full design rationale, the role hierarchy rules, and
 the "1 workspace per user" invariant are in
 `docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §12.
 
+### Actor identity and audit snapshots (added, Iteration 6)
+
+`supabase/migrations/20260805100000_actor_identity_audit_snapshots.sql`
+adds `actor_name_snapshot`/`actor_role_snapshot` (`not null`) to
+`document_activity`, `receivable_activity`, `workspace_activity`, and
+`notarial_index_exports` — the actor's email and Workspace role, fixed at
+the moment of the event by a new `resolve_actor_snapshot()`
+`SECURITY DEFINER` helper, never recalculated on read. A later role
+change or removal from the Workspace does not retroactively alter past
+rows (verified by pgTAP, not just by design). `lawyer_profiles` was not
+duplicated into a new `notary_profiles` table — it already is the
+per-Workspace notary identity (Iteration 5), and the Índice Notarial
+already read from it, never from the acting user. New
+`list_workspace_activity()` RPC (same `SECURITY DEFINER` pattern as
+`list_workspace_members()`) finally surfaces `workspace_activity`, which
+Iteration 5 wrote but no `src/` code ever read. Full rationale in
+`docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §13.
+
 ## Indexing Considerations
 
 Potential indexes:

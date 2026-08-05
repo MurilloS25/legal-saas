@@ -2,6 +2,7 @@ import "server-only";
 
 import { requireApiWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
+import { hasPermission } from "@/lib/server/permissions";
 import {
   buildEscrituraDocx,
   contentDispositionAttachment,
@@ -33,7 +34,10 @@ export type BinaryExport = {
 export async function prepareDocumentDocxExport(
   documentId: string,
 ): Promise<BinaryExport> {
-  const { supabase, workspaceId } = await requireApiWorkspace();
+  const { supabase, workspaceId, role } = await requireApiWorkspace();
+  if (!hasPermission(role, "documents.export")) {
+    throw new DocumentExportError(403);
+  }
   if (!DocumentIdSchema.safeParse(documentId).success) {
     throw new DocumentExportError(404);
   }
