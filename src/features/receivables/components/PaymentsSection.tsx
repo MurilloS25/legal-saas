@@ -10,6 +10,8 @@ type Props = {
   status: string;
   payments: ReceivablePayment[];
   paidJustNow?: boolean;
+  canRegisterPayments: boolean;
+  canVoidPayments: boolean;
 };
 
 export function PaymentsSection({
@@ -19,6 +21,8 @@ export function PaymentsSection({
   status,
   payments,
   paidJustNow,
+  canRegisterPayments,
+  canVoidPayments,
 }: Props) {
   const isSettled = status === "paid" || Number(balanceDue) <= 0;
 
@@ -32,7 +36,7 @@ export function PaymentsSection({
           <span className="text-xs text-slate-500">
             Saldo: {formatMoney(balanceDue, currency)}
           </span>
-          {!isSettled && (
+          {!isSettled && canRegisterPayments && (
             <RegisterPaymentDialog
               receivableId={receivableId}
               currency={currency}
@@ -66,7 +70,11 @@ export function PaymentsSection({
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <PaymentsTable receivableId={receivableId} rows={payments} />
+          <PaymentsTable
+            receivableId={receivableId}
+            rows={payments}
+            canVoid={canVoidPayments}
+          />
         </div>
       )}
     </section>

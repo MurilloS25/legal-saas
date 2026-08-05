@@ -72,6 +72,10 @@ type EditModeProps = {
   indexFields: IndexConfigurationField[];
   indexOptionBlocks: IndexConfigurationOptionBlock[];
   headerActions?: React.ReactNode;
+  /** templates.write — la página ya bloquea /new sin este permiso, así que
+   * en modo "create" siempre es true (ver el mismo patrón en
+   * ClientForm/ReceivableForm/DocumentComposer). */
+  canWrite: boolean;
 };
 
 type Props = {
@@ -90,6 +94,7 @@ function resolveSection(raw: string | null): TemplateWorkspaceSection {
 export function TemplateWorkspace(props: Props) {
   const isEdit = props.mode === "edit";
   const template = isEdit ? props.template : null;
+  const canWrite = isEdit ? props.canWrite : true;
 
   const [name, setName] = useState(template?.name ?? "");
   const [description, setDescription] = useState(template?.description ?? "");
@@ -317,6 +322,7 @@ export function TemplateWorkspace(props: Props) {
                 description={description}
                 status={status}
                 errors={state.errors}
+                disabled={!canWrite}
                 onNameChange={(value) => {
                   setName(value);
                   markDirty();
@@ -347,6 +353,7 @@ export function TemplateWorkspace(props: Props) {
                     ref={editorRef}
                     initialDocument={props.initialDocument}
                     variables={variables}
+                    editable={canWrite}
                     onDocumentChange={(json) => {
                       setDocumentJson(json);
                       markDirty();
@@ -392,6 +399,7 @@ export function TemplateWorkspace(props: Props) {
               contentKeys={contentKeys}
               onChange={handleVariablesChange}
               onSaveVariable={saveVariableNow}
+              readOnly={!canWrite}
             />
           </div>
         )}
@@ -402,6 +410,7 @@ export function TemplateWorkspace(props: Props) {
             pending={pending}
             saved={!!state.success}
             isEdit={isEdit}
+            canWrite={canWrite}
           />
         )}
       </form>
@@ -419,6 +428,7 @@ export function TemplateWorkspace(props: Props) {
           <TemplateIndexConfigurationSection
             templateId={props.template.id}
             configuration={props.indexConfiguration}
+            readOnly={!canWrite}
             fields={props.indexFields}
             optionBlocks={props.indexOptionBlocks}
           />

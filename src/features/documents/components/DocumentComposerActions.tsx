@@ -10,8 +10,12 @@ type Props = {
   pending: boolean;
   pendingVariableCount: number;
   readOnly: boolean;
+  /** false cuando el rol no tiene documents.edit — distingue el motivo del
+   * solo-lectura del mensaje mostrado (rol vs. escritura finalizada). */
+  canEdit: boolean;
   saveStatusText: string;
   status: DocumentStatus;
+  canFinalize: boolean;
 };
 
 export function DocumentComposerActions({
@@ -20,15 +24,18 @@ export function DocumentComposerActions({
   pending,
   pendingVariableCount,
   readOnly,
+  canEdit,
   saveStatusText,
   status,
+  canFinalize,
 }: Props) {
   return (
     <div className="border-t border-slate-100 px-6 py-4 space-y-3">
       {readOnly ? (
         <p role="status" className="text-xs text-slate-500">
-          Esta escritura está finalizada (solo lectura). Reábrela para editarla
-          de nuevo.
+          {canEdit
+            ? "Esta escritura está finalizada (solo lectura). Reábrela para editarla de nuevo."
+            : "Tu rol no permite editar escrituras. La ves en modo lectura."}
         </p>
       ) : (
         <>
@@ -58,6 +65,7 @@ export function DocumentComposerActions({
           documentId={documentId}
           status={status}
           dirty={dirty}
+          canFinalize={canFinalize}
         />
       )}
       {documentId && (

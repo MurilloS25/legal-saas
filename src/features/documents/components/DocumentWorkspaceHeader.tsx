@@ -14,6 +14,7 @@ type Props = {
   section: DocumentWorkspaceSection;
   savedJustNow: boolean;
   activity: DocumentActivityPage;
+  canDuplicate: boolean;
 };
 
 export function DocumentWorkspaceHeader({
@@ -24,6 +25,7 @@ export function DocumentWorkspaceHeader({
   section,
   savedJustNow,
   activity,
+  canDuplicate,
 }: Props) {
   const base = `/dashboard/documents/${documentId}`;
   const tabs: Array<{ id: DocumentWorkspaceSection; label: string; enabled: boolean }> = [
@@ -57,11 +59,13 @@ export function DocumentWorkspaceHeader({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <DuplicateDocumentButton
-            documentId={documentId}
-            documentTitle={title}
-            variant="full"
-          />
+          {canDuplicate && (
+            <DuplicateDocumentButton
+              documentId={documentId}
+              documentTitle={title}
+              variant="full"
+            />
+          )}
           <DocumentHistoryDialog documentId={documentId} activity={activity} />
         </div>
       </div>

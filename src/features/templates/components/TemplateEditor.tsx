@@ -9,7 +9,7 @@
  * activos, foco visible y el diálogo de inserción de variables.
  */
 
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
@@ -90,6 +90,11 @@ type Props = {
   /** Crea la configuración local de una variable nueva insertada. */
   onCreateVariable: (variable: TemplateWorkspaceVariable) => void;
   "aria-label"?: string;
+  /** templates.write — sin este permiso, el editor es completamente de
+   * solo lectura: Tiptap no acepta pulsaciones/comandos (`editable: false`,
+   * bloquea insertar, borrar o reordenar contenido por teclado) y la
+   * toolbar entera queda deshabilitada. */
+  editable?: boolean;
 };
 
 /**
@@ -113,6 +118,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
       onDocumentChange,
       onCreateVariable,
       "aria-label": ariaLabel = "Contenido del machote",
+      editable = true,
     },
     ref,
   ) {
@@ -129,6 +135,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   const editor = useEditor({
     extensions: buildEditorExtensions(),
     content: initialDocument,
+    editable,
     // Evita render inmediato en SSR (hidratación de Next.js).
     immediatelyRender: false,
     editorProps: {
@@ -182,6 +189,13 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
       };
     },
   });
+
+  // `emitUpdate=false`: setEditable por sí solo no debe disparar onUpdate
+  // (que marca el workspace como "sucio") — solo cambia si se puede
+  // escribir, no el contenido del documento.
+  useEffect(() => {
+    editor?.setEditable(editable, false);
+  }, [editor, editable]);
 
   function insertVariable(key: string, label?: string) {
     editor?.chain().focus().insertTemplateVariable({ key, label }).run();
@@ -349,6 +363,14 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
 
   return (
     <div className="rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-accent-500 focus-within:border-accent-500 overflow-hidden">
+      {!editable && (
+        <div
+          role="status"
+          className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600"
+        >
+          Tu rol no permite editar este machote. Lo ves en modo lectura.
+        </div>
+      )}
       <div
         role="toolbar"
         aria-label="Formato del contenido"
@@ -359,7 +381,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           aria-label="Negrita"
           aria-pressed={editorState?.bold ?? false}
           title="Negrita (Ctrl+B)"
-          disabled={!editor}
+          disabled={!editor || !editable}
           onClick={() => editor?.chain().focus().toggleBold().run()}
           className={toolbarButtonClass}
         >
@@ -370,7 +392,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           aria-label="Cursiva"
           aria-pressed={editorState?.italic ?? false}
           title="Cursiva (Ctrl+I)"
-          disabled={!editor}
+          disabled={!editor || !editable}
           onClick={() => editor?.chain().focus().toggleItalic().run()}
           className={toolbarButtonClass}
         >
@@ -381,7 +403,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           aria-label="Subrayado"
           aria-pressed={editorState?.underline ?? false}
           title="Subrayado (Ctrl+U)"
-          disabled={!editor}
+          disabled={!editor || !editable}
           onClick={() => editor?.chain().focus().toggleUnderline().run()}
           className={toolbarButtonClass}
         >
@@ -394,7 +416,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           type="button"
           aria-label="Deshacer"
           title="Deshacer (Ctrl+Z)"
-          disabled={!editorState?.canUndo}
+          disabled={!editable || !editorState?.canUndo}
           onClick={() => editor?.chain().focus().undo().run()}
           className={toolbarButtonClass}
         >
@@ -404,7 +426,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           type="button"
           aria-label="Rehacer"
           title="Rehacer (Ctrl+Y)"
-          disabled={!editorState?.canRedo}
+          disabled={!editable || !editorState?.canRedo}
           onClick={() => editor?.chain().focus().redo().run()}
           className={toolbarButtonClass}
         >
@@ -416,7 +438,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
         <button
           type="button"
           ref={insertButtonRef}
-          disabled={!editor}
+          disabled={!editor || !editable}
           onClick={() => setDialogOpen(true)}
           className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-40 transition-colors"
         >
@@ -430,7 +452,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
         <button
           type="button"
           ref={insertOptionBlockButtonRef}
-          disabled={!editor}
+          disabled={!editor || !editable}
           onClick={() => setOptionBlockDialog("insert")}
           className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-40 transition-colors"
         >
@@ -441,7 +463,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
         </button>
       </div>
 
-      {editorState?.selectedOptionBlock && optionBlockDialog === "closed" && (
+      {editable && editorState?.selectedOptionBlock && optionBlockDialog === "closed" && (
         <div className="flex items-center justify-between gap-2 border-b border-accent-200 bg-accent-50 px-4 py-2">
           <p className="text-xs text-accent-800">
             Bloque seleccionado: <strong>{editorState.selectedOptionBlock.attrs.name}</strong>

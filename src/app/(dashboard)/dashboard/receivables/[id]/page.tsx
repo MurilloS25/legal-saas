@@ -11,6 +11,8 @@ import { listClientOptions } from "@/features/clients/server";
 import { ReceivableWorkspace } from "@/features/receivables";
 import type { ReceivableWorkspaceSection } from "@/features/receivables";
 import { parseDocumentReceivablesReturnTo } from "@/lib/navigation/context-return";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Cuenta por cobrar — LexCR",
@@ -39,6 +41,10 @@ export default async function ReceivableDetailPage({
   const { id } = await params;
   const { section, created, paid, returnTo: rawReturnTo } = await searchParams;
   const returnTo = parseDocumentReceivablesReturnTo(rawReturnTo);
+  const { role } = await requireWorkspace();
+  const canWrite = hasPermission(role, "receivables.manage");
+  const canRegisterPayments = hasPermission(role, "payments.register");
+  const canVoidPayments = hasPermission(role, "payments.void");
 
   const [entry, editable] = await Promise.all([
     getReceivableEntry(id),
@@ -67,6 +73,9 @@ export default async function ReceivableDetailPage({
         createdJustNow={created === "1"}
         paidJustNow={paid === "1"}
         returnTo={returnTo}
+        canWrite={canWrite}
+        canRegisterPayments={canRegisterPayments}
+        canVoidPayments={canVoidPayments}
       />
     </PageContainer>
   );

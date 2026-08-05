@@ -36,6 +36,8 @@ import {
   resolveNotarialMetadataPrefill,
 } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Escritura — LexCR",
@@ -53,6 +55,11 @@ type Props = {
 export default async function DocumentDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { saved, section: requestedSection, lifecycle } = await searchParams;
+  const { role } = await requireWorkspace();
+  const canEdit = hasPermission(role, "documents.edit");
+  const canFinalize = hasPermission(role, "documents.finalize");
+  const canDuplicate = hasPermission(role, "documents.create");
+  const canManageReceivables = hasPermission(role, "receivables.manage");
 
   // getDocumentById devuelve null tanto para documentos inexistentes como
   // ajenos: el 404 no revela cuál de los dos casos ocurrió.
@@ -124,6 +131,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         section={section}
         savedJustNow={saved === "1"}
         activity={activity}
+        canDuplicate={canDuplicate}
       />
 
       {lifecycle === "finalized" && (
@@ -166,6 +174,8 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           templateFields={templateFields}
           document={document}
           savedJustNow={saved === "1"}
+          canEdit={canEdit}
+          canFinalize={canFinalize}
         />
       ) : null}
 
@@ -175,6 +185,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           metadata={notarialMetadata}
           prefill={notarialPrefill}
           readOnly
+          canEdit={canEdit}
           canResetParties={indexConfiguration?.isComplete === true}
           actNamePreview={template?.name ?? null}
           generatedPartiesPreview={generatedPartiesPreview}
@@ -186,10 +197,14 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         <section aria-label="Cuentas por cobrar de la escritura">
         <ReceivableMiniList
           receivables={receivables}
-          newHref={appendReturnTo(
-            `/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
-            buildDocumentReceivablesReturnTo(document.id),
-          )}
+          newHref={
+            canManageReceivables
+              ? appendReturnTo(
+                  `/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
+                  buildDocumentReceivablesReturnTo(document.id),
+                )
+              : undefined
+          }
           returnTo={buildDocumentReceivablesReturnTo(document.id)}
           emptyText="Esta escritura todavía no tiene cuentas por cobrar."
         />
@@ -206,12 +221,16 @@ async function DocumentComposerLoader({
   templateFields,
   document,
   savedJustNow,
+  canEdit,
+  canFinalize,
 }: {
   templateName: string;
   contentJson: unknown;
   templateFields: Awaited<ReturnType<typeof listTemplateFields>>;
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   savedJustNow: boolean;
+  canEdit: boolean;
+  canFinalize: boolean;
 }) {
   const { document: templateDocument, templateText } =
     resolveTemplateContent(contentJson);
@@ -241,6 +260,8 @@ async function DocumentComposerLoader({
       mode="edit"
       draft={document}
       savedJustNow={savedJustNow}
+      canEdit={canEdit}
+      canFinalize={canFinalize}
       templateName={templateName}
       document={labeledDocument}
       fields={fields}

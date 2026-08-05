@@ -36,20 +36,32 @@ type Props = {
   templateName: string;
   clients: DocumentClientOption[];
   initialClientId: string | null;
+  /** documents.finalize — sin importar el modo, controla Finalizar/Reabrir/
+   * Volver a borrador dentro de DocumentStatusControls. */
+  canFinalize: boolean;
 } & (
   | { mode: "create"; templateId: string; defaultTitle: string }
-  | { mode: "edit"; draft: DocumentRow; savedJustNow?: boolean }
+  | {
+      mode: "edit";
+      draft: DocumentRow;
+      savedJustNow?: boolean;
+      /** documents.edit — la página ya bloquea /new sin documents.create,
+       * así que en modo "create" siempre es true (ver el mismo patrón en
+       * ClientForm/ReceivableForm). */
+      canEdit: boolean;
+    }
 );
 
 const initialState: DocumentDraftState = {};
 
 export function DocumentComposer(props: Props) {
-  const { document, fields, templateName, clients } = props;
+  const { document, fields, templateName, clients, canFinalize } = props;
   const isEdit = props.mode === "edit";
   const draft = isEdit ? props.draft : null;
   const status: DocumentStatus =
     draft && isDocumentStatus(draft.status) ? draft.status : "draft";
-  const readOnly = isEdit && isReadOnlyStatus(status);
+  const canEdit = isEdit ? props.canEdit : true;
+  const readOnly = (isEdit && isReadOnlyStatus(status)) || !canEdit;
 
   const action = isEdit
     ? updateDocumentDraftAction.bind(null, props.draft.id)
@@ -294,6 +306,8 @@ export function DocumentComposer(props: Props) {
           pending={pending}
           pendingVariableCount={persistedPendingCount}
           readOnly={readOnly}
+          canEdit={canEdit}
+          canFinalize={canFinalize}
           roleGroups={roleGroups}
           saveStatusText={saveStatusText}
           state={state}

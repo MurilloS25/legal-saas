@@ -7,6 +7,7 @@ import { createDocumentsColumns } from "./documents-columns";
 
 type Props = {
   rows: WorkspaceDocumentRow[];
+  canWrite: boolean;
 };
 
 // Columnas secundarias: se ocultan en viewports angostos para evitar
@@ -16,10 +17,10 @@ const RESPONSIVE_HIDDEN: Record<string, string> = {
   updated_at: "hidden md:table-cell",
 };
 
-export function DocumentsTable({ rows }: Props) {
+export function DocumentsTable({ rows, canWrite }: Props) {
   "use no memo";
 
-  const columns = useMemo(() => createDocumentsColumns(), []);
+  const columns = useMemo(() => createDocumentsColumns(canWrite), [canWrite]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
