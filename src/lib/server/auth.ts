@@ -51,8 +51,23 @@ export type WorkspaceAccessState =
 // Se trae TODAS las filas del usuario (no solo status='active') porque un
 // usuario puede tener, a la vez, su Workspace personal activo Y una
 // invitación real pendiente (antes de aceptarla) — o, tras ser removido,
-// ninguna fila en absoluto. La prioridad activa > invited > revoked > none
-// refleja qué tan "utilizable" es cada estado, no un orden temporal.
+// ninguna fila en absoluto.
+//
+// CUALQUIER usuario nuevo (incluido uno recién invitado: admin.inviteUserByEmail
+// también inserta en auth.users, y eso dispara el mismo trigger de bootstrap)
+// tiene su propio Workspace personal — `workspaces.id = auth.users.id`, ver
+// bootstrap_workspace_for_new_user() — activo desde el instante en que existe
+// la cuenta, ANTES de aceptar ninguna invitación. Si ese Workspace personal
+// "ganara" simplemente por tener status='active', un invitado que inicia
+// sesión normalmente (sin pasar por el enlace del correo, que sí resuelve
+// /accept-invite por su cuenta sin pasar por aquí) caería silenciosamente en
+// su propio Workspace vacío en vez de ver la invitación — nunca llegaría a
+// /accept-invite. Por eso una invitación pendiente ('invited') gana sobre
+// ese Workspace personal específicamente (`workspace_id === userId`, la
+// única forma en que un Workspace tiene ese id, por construcción del
+// bootstrap) — pero NO sobre una membresía activa genuina en otro Workspace
+// (alguien ya asentado en un Workspace real que además recibe una invitación
+// nueva a otro no debería ser desviado de su Workspace real en cada login).
 export const getWorkspaceAccess = cache(
   async (
     supabase: Awaited<ReturnType<typeof createClient>>,
@@ -65,18 +80,31 @@ export const getWorkspaceAccess = cache(
 
     const rows = data ?? [];
 
-    const active = rows.find((row) => row.status === "active");
-    if (active) {
+    const genuineActive = rows.find(
+      (row) => row.status === "active" && row.workspace_id !== userId,
+    );
+    if (genuineActive) {
       return {
         kind: "active",
-        workspaceId: active.workspace_id,
-        role: active.role as WorkspaceRole,
+        workspaceId: genuineActive.workspace_id,
+        role: genuineActive.role as WorkspaceRole,
       };
     }
 
     const invited = rows.find((row) => row.status === "invited");
     if (invited) {
       return { kind: "invited", workspaceId: invited.workspace_id };
+    }
+
+    const bootstrapActive = rows.find(
+      (row) => row.status === "active" && row.workspace_id === userId,
+    );
+    if (bootstrapActive) {
+      return {
+        kind: "active",
+        workspaceId: bootstrapActive.workspace_id,
+        role: bootstrapActive.role as WorkspaceRole,
+      };
     }
 
     const suspended = rows.find((row) => row.status === "revoked");

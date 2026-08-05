@@ -293,4 +293,57 @@ test.describe("team management", () => {
       await deleteUser(ownerBId);
     }
   });
+
+  test("C: un invitado con contraseña ya fijada, que inicia sesión normal SIN pasar por el enlace del correo, llega a /accept-invite — no a su propio Workspace personal vacío", async ({
+    page,
+    browser,
+  }) => {
+    // Reproduce un bug real reportado manualmente: todo usuario nuevo —
+    // incluido uno recién invitado, porque admin.inviteUserByEmail también
+    // inserta en auth.users y dispara el mismo trigger de bootstrap — tiene
+    // su propio Workspace personal activo desde el instante en que existe
+    // la cuenta. Si ese Workspace personal "ganaba" simplemente por tener
+    // status='active', un invitado que inicia sesión por /login (en vez de
+    // seguir el enlace del correo, que resuelve /accept-invite por su
+    // cuenta sin pasar por requireWorkspace()) caía silenciosamente en su
+    // propio Workspace vacío, sin ver nunca la invitación.
+    const ownerEmail = uniqueEmail("bootstrap-owner");
+    const memberEmail = uniqueEmail("bootstrap-member");
+    const ownerId = await createDisposableUser(ownerEmail, PASSWORD);
+    // La cuenta del invitado YA existe, con contraseña, ANTES de invitarlo —
+    // exactamente el estado de alguien que aceptó una invitación anterior a
+    // otro Workspace, o (el caso real reportado) a quien se le fijó la
+    // contraseña manualmente porque el enlace de correo ya se había
+    // consumido. Cualquiera de los dos caminos deja la MISMA combinación de
+    // filas: su Workspace personal activo + la invitación pendiente.
+    const memberId = await createDisposableUser(memberEmail, PASSWORD);
+
+    try {
+      await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
+      await page.goto("/dashboard/team");
+      await page.getByLabel("Correo electrónico").fill(memberEmail);
+      await page.getByRole("button", { name: "Invitar" }).click();
+      await expect(
+        page.getByText("este correo ya tiene cuenta en LexCR"),
+      ).toBeVisible();
+
+      const memberContext = await browser.newContext();
+      const memberPage = await memberContext.newPage();
+      await memberPage.goto("/login");
+      await memberPage.getByLabel("Correo electrónico").fill(memberEmail);
+      await memberPage.getByLabel("Contraseña").fill(PASSWORD);
+      await memberPage.getByRole("button", { name: "Ingresar" }).click();
+      await expect(memberPage).toHaveURL(/\/accept-invite$/, {
+        timeout: 15_000,
+      });
+      await expect(
+        memberPage.getByRole("heading", { name: /Te invitaron a/ }),
+      ).toBeVisible();
+      await memberContext.close();
+    } finally {
+      await restDelete("workspace_activity", `workspace_id=eq.${ownerId}`);
+      await deleteUser(memberId);
+      await deleteUser(ownerId);
+    }
+  });
 });
