@@ -19,6 +19,7 @@ export type Permission =
   | "templates.write"
   | "documents.create"
   | "documents.edit"
+  | "documents.export"
   | "documents.finalize"
   | "notarial_index.generate"
   | "receivables.manage"
@@ -34,6 +35,7 @@ const ROLES_BY_PERMISSION: Record<Permission, readonly WorkspaceRole[]> = {
   "templates.write": ["propietario", "administrador", "asistente"],
   "documents.create": ["propietario", "administrador", "asistente"],
   "documents.edit": ["propietario", "administrador", "asistente"],
+  "documents.export": ["propietario", "administrador", "asistente", "solo_lectura"],
   "documents.finalize": ["propietario", "administrador"],
   "notarial_index.generate": ["propietario", "administrador"],
   "receivables.manage": ["propietario", "administrador", "asistente"],

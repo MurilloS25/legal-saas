@@ -14,6 +14,8 @@ export type ReceivableActivityEvent = {
   metadata: Record<string, unknown>;
   created_at: string;
   actor_user_id: string;
+  /** Nombre legible del actor (nunca su UUID) — "Tú" o "email (rol)". */
+  actorName: string;
 };
 
 export type FormattedReceivableActivity = {

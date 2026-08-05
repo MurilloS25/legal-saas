@@ -1,5 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 import { SettingsWorkspace } from "./_components/SettingsWorkspace";
 
 export const metadata = {
@@ -7,7 +8,8 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const { supabase, workspaceId } = await requireWorkspace();
+  const { supabase, workspaceId, role } = await requireWorkspace();
+  const canManage = hasPermission(role, "settings.manage");
 
   // Fetch profile and settings in parallel; both may return null for new users.
   const [profileResult, settingsResult] = await Promise.all([
@@ -42,6 +44,7 @@ export default async function SettingsPage() {
         <SettingsWorkspace
           initialProfile={profileResult.data}
           initialSettings={settingsResult.data}
+          canManage={canManage}
         />
       </div>
     </PageContainer>

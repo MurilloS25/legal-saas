@@ -119,3 +119,32 @@ export async function restDelete(table: string, query: string): Promise<void> {
     );
   }
 }
+
+/**
+ * Inserta directo vía PostgREST con la service role key — solo para sembrar
+ * fixtures neutrales (p. ej. un machote activo) que no son en sí lo que un
+ * spec está verificando, evitando repetir un flujo de UI caro (el editor
+ * Tiptap del machote) que ya tiene su propia cobertura E2E dedicada. La
+ * ACCIÓN bajo prueba siempre pasa por la app real — esto es equivalente a
+ * los fixtures de auth.users que ya se crean vía Admin API.
+ */
+export async function restInsert<T extends { id: string }>(
+  table: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(
+    `${requireEnv("NEXT_PUBLIC_SUPABASE_URL")}/rest/v1/${table}`,
+    {
+      method: "POST",
+      headers: { ...adminHeaders(), Prefer: "return=representation" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Admin rest insert failed: ${response.status} ${await response.text()}`,
+    );
+  }
+  const rows = (await response.json()) as T[];
+  return rows[0];
+}

@@ -64,6 +64,8 @@ export type Database = {
       }
       document_activity: {
         Row: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           actor_user_id: string
           created_at: string
           document_id: string
@@ -75,6 +77,8 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           actor_user_id: string
           created_at?: string
           document_id: string
@@ -86,6 +90,8 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          actor_name_snapshot?: string
+          actor_role_snapshot?: string
           actor_user_id?: string
           created_at?: string
           document_id?: string
@@ -425,6 +431,8 @@ export type Database = {
       }
       notarial_index_exports: {
         Row: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           created_at: string
           format: string
           from_date: string | null
@@ -435,6 +443,8 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           created_at?: string
           format: string
           from_date?: string | null
@@ -445,6 +455,8 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          actor_name_snapshot?: string
+          actor_role_snapshot?: string
           created_at?: string
           format?: string
           from_date?: string | null
@@ -531,6 +543,8 @@ export type Database = {
       }
       receivable_activity: {
         Row: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           actor_user_id: string
           created_at: string
           event_type: string
@@ -541,6 +555,8 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           actor_user_id: string
           created_at?: string
           event_type: string
@@ -551,6 +567,8 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          actor_name_snapshot?: string
+          actor_role_snapshot?: string
           actor_user_id?: string
           created_at?: string
           event_type?: string
@@ -1043,6 +1061,8 @@ export type Database = {
       }
       workspace_activity: {
         Row: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           actor_user_id: string
           created_at: string
           event_type: string
@@ -1052,6 +1072,8 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
           actor_user_id: string
           created_at?: string
           event_type: string
@@ -1061,6 +1083,8 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          actor_name_snapshot?: string
+          actor_role_snapshot?: string
           actor_user_id?: string
           created_at?: string
           event_type?: string
@@ -1268,6 +1292,18 @@ export type Database = {
         Args: { p_roles?: string[]; p_workspace_id: string }
         Returns: boolean
       }
+      list_workspace_activity: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_name_snapshot: string
+          actor_role_snapshot: string
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          target_email: string
+        }[]
+      }
       list_workspace_members: {
         Args: never
         Returns: {
@@ -1332,6 +1368,10 @@ export type Database = {
       remove_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }
         Returns: undefined
+      }
+      resolve_actor_snapshot: {
+        Args: { p_actor_user_id: string; p_workspace_id: string }
+        Returns: Record<string, unknown>
       }
       save_template_index_configuration: {
         Args: {
