@@ -1,7 +1,7 @@
 <h2>Restablece tu contraseña</h2>
 <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en LexCR.</p>
 <p>
-  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next={{ .RedirectTo }}">
+  <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&amp;email={{ .Email }}">
     Crear nueva contraseña
   </a>
 </p>

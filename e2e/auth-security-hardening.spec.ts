@@ -149,6 +149,12 @@ test.describe("auth security hardening", () => {
       link.host = new URL(page.url()).host;
 
       await page.goto(link.toString());
+      // Página intermedia (GET, sin sesión): el token todavía no se
+      // consumió — solo se consume al enviar este botón, en un POST.
+      await expect(
+        page.getByRole("heading", { name: "Restablecer tu contraseña" }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Continuar" }).click();
       await expect(
         page.getByRole("heading", { name: "Crear nueva contraseña" }),
       ).toBeVisible();
