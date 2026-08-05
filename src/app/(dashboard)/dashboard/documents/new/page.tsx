@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { listTemplateOptions } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Nueva escritura — LexCR",
@@ -32,6 +35,10 @@ type Props = {
 export default async function NewDocumentTemplatePickerPage({
   searchParams,
 }: Props) {
+  const { role } = await requireWorkspace();
+  if (!hasPermission(role, "documents.create")) {
+    redirect("/dashboard/documents");
+  }
   const { client: clientParam } = await searchParams;
   const [templates, hasAnyTemplates, clients] = await Promise.all([
     listTemplateOptions({ status: "active" }),

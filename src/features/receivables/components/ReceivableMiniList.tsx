@@ -10,7 +10,9 @@ import { ReceivableMiniTable } from "./ReceivableMiniTable";
 
 type Props = {
   receivables: ReceivableEntry[];
-  newHref: string;
+  /** Omitido (undefined) cuando el rol no tiene receivables.manage — oculta
+   * el enlace de "Nueva cuenta" en vez de mostrar un enlace que fallaría. */
+  newHref?: string;
   emptyText: string;
   /** Presente solo cuando se incrusta en una Escritura; habilita el enlace
    * de regreso en cada fila hacia esa Escritura. */
@@ -29,12 +31,14 @@ export function ReceivableMiniList({
         <h2 className="text-sm font-semibold text-slate-900">
           Cuentas por cobrar
         </h2>
-        <Link
-          href={newHref}
-          className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
-        >
-          Nueva cuenta
-        </Link>
+        {newHref && (
+          <Link
+            href={newHref}
+            className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
+          >
+            Nueva cuenta
+          </Link>
+        )}
       </div>
 
       {receivables.length === 0 ? (

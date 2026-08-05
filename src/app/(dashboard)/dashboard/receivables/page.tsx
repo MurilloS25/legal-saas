@@ -16,6 +16,8 @@ import {
   type RawReceivablesQuery,
 } from "@/features/receivables";
 import { ReceivablesToolbar, ReceivablesTable } from "@/features/receivables";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Cuentas por cobrar — LexCR",
@@ -43,6 +45,8 @@ type Props = {
 };
 
 export default async function ReceivablesPage({ searchParams }: Props) {
+  const { role } = await requireWorkspace();
+  const canWrite = hasPermission(role, "receivables.manage");
   const query = parseReceivablesQuery(await searchParams);
 
   const [page, clients] = await Promise.all([
@@ -73,24 +77,26 @@ export default async function ReceivablesPage({ searchParams }: Props) {
             Controla los cobros pendientes de tus clientes.
           </p>
         </div>
-        <Link href="/dashboard/receivables/new" className={newButtonClass}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Nueva cuenta
-        </Link>
+        {canWrite && (
+          <Link href="/dashboard/receivables/new" className={newButtonClass}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Nueva cuenta
+          </Link>
+        )}
       </div>
 
       {/* Totales por moneda (sobre todos los resultados filtrados) */}
@@ -169,7 +175,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
               ? "Ajusta o limpia los filtros para ver más resultados."
               : "Registra un cobro pendiente asociado a un cliente."}
           </p>
-          {!query.hasActiveFilters && (
+          {!query.hasActiveFilters && canWrite && (
             <Link
               href="/dashboard/receivables/new"
               className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"

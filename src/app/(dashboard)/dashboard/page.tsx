@@ -1,6 +1,7 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission, type Permission } from "@/lib/server/permissions";
 import { listClients } from "@/features/clients/server";
 import { listTemplates } from "@/features/templates/server";
 import { listDocuments } from "@/features/documents/server";
@@ -87,17 +88,47 @@ const cardClass =
 // ------------------------------------------------------------------ quick actions
 
 const QUICK_ACTIONS = [
-  { label: "Nueva escritura", href: "/dashboard/documents/new", Icon: ScrollIcon },
-  { label: "Nuevo cliente", href: "/dashboard/clients/new", Icon: UsersIcon },
-  { label: "Nuevo machote", href: "/dashboard/templates/new", Icon: StackIcon },
-  { label: "Nueva cuenta", href: "/dashboard/receivables/new", Icon: WalletIcon },
-] as const;
+  {
+    label: "Nueva escritura",
+    href: "/dashboard/documents/new",
+    Icon: ScrollIcon,
+    permission: "documents.create",
+  },
+  {
+    label: "Nuevo cliente",
+    href: "/dashboard/clients/new",
+    Icon: UsersIcon,
+    permission: "clients.write",
+  },
+  {
+    label: "Nuevo machote",
+    href: "/dashboard/templates/new",
+    Icon: StackIcon,
+    permission: "templates.write",
+  },
+  {
+    label: "Nueva cuenta",
+    href: "/dashboard/receivables/new",
+    Icon: WalletIcon,
+    permission: "receivables.manage",
+  },
+] as const satisfies ReadonlyArray<{
+  label: string;
+  href: string;
+  Icon: typeof ScrollIcon;
+  permission: Permission;
+}>;
 
 // ------------------------------------------------------------------ page
 
 export default async function DashboardPage() {
-  const { supabase, workspaceId } = await requireWorkspace();
+  const { supabase, workspaceId, role } = await requireWorkspace();
   const now = new Date();
+  const canManageSettings = hasPermission(role, "settings.manage");
+  const canCreateDocuments = hasPermission(role, "documents.create");
+  const visibleQuickActions = QUICK_ACTIONS.filter(({ permission }) =>
+    hasPermission(role, permission),
+  );
 
   const [
     profileResult,
@@ -161,7 +192,7 @@ export default async function DashboardPage() {
         </h1>
       </div>
 
-      {!isConfigured && (
+      {!isConfigured && canManageSettings && (
         <div className="mb-8 rounded-xl border border-accent-200 bg-accent-50 px-6 py-5">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent-700">
             Primer paso
@@ -183,8 +214,9 @@ export default async function DashboardPage() {
       )}
 
       {/* ---------- quick actions ---------- */}
+      {visibleQuickActions.length > 0 && (
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {QUICK_ACTIONS.map(({ label, href, Icon }) => (
+        {visibleQuickActions.map(({ label, href, Icon }) => (
           <Link
             key={href}
             href={href}
@@ -199,6 +231,7 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+      )}
 
       {/* ---------- bento grid ---------- */}
       <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -406,12 +439,14 @@ export default async function DashboardPage() {
               <p className="text-sm text-slate-500">
                 Aún no has creado ninguna escritura.
               </p>
-              <Link
-                href="/dashboard/documents/new"
-                className="text-xs font-medium text-accent-700 hover:underline"
-              >
-                Crear la primera →
-              </Link>
+              {canCreateDocuments && (
+                <Link
+                  href="/dashboard/documents/new"
+                  className="text-xs font-medium text-accent-700 hover:underline"
+                >
+                  Crear la primera →
+                </Link>
+              )}
             </div>
           ) : (
             <ul role="list" className="divide-y divide-slate-100">

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { ReceivableForm } from "@/features/receivables";
@@ -7,6 +8,8 @@ import {
 import { listClientOptions } from "@/features/clients/server";
 import { parseDocumentReceivablesReturnTo } from "@/lib/navigation/context-return";
 import { ContextBackLink } from "@/components/navigation/ContextBackLink";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Nueva cuenta por cobrar — LexCR",
@@ -21,6 +24,10 @@ type Props = {
 };
 
 export default async function NewReceivablePage({ searchParams }: Props) {
+  const { role } = await requireWorkspace();
+  if (!hasPermission(role, "receivables.manage")) {
+    redirect("/dashboard/receivables");
+  }
   const { client, document, returnTo: rawReturnTo } = await searchParams;
   const returnTo = parseDocumentReceivablesReturnTo(rawReturnTo);
   const [clients, documents] = await Promise.all([

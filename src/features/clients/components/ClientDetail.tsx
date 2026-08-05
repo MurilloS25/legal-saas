@@ -8,6 +8,7 @@ import {
 } from "@/features/receivables";
 import type { ClientRow } from "../model/types";
 import { ClientForm } from "./ClientForm";
+import { hasPermission, type WorkspaceRole } from "@/lib/server/permissions";
 
 // ------------------------------------------------------------------ avatar helpers
 
@@ -41,11 +42,15 @@ type Props = {
   client: ClientRow;
   documents: ClientDocumentRow[];
   receivables: ReceivableEntry[];
+  role: WorkspaceRole;
 };
 
-export function ClientDetail({ client, documents, receivables }: Props) {
+export function ClientDetail({ client, documents, receivables, role }: Props) {
   const initials = getInitials(client.full_name);
   const avatarColor = getAvatarColor(client.full_name);
+  const canWrite = hasPermission(role, "clients.write");
+  const canCreateDocuments = hasPermission(role, "documents.create");
+  const canManageReceivables = hasPermission(role, "receivables.manage");
 
   return (
     <PageContainer>
@@ -92,16 +97,19 @@ export function ClientDetail({ client, documents, receivables }: Props) {
           </div>
         </div>
 
-        <Link
-          href={`/dashboard/documents/new?client=${client.id}`}
-          className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
-        >
-          Nueva escritura
-        </Link>
+        {canCreateDocuments && (
+          <Link
+            href={`/dashboard/documents/new?client=${client.id}`}
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
+          >
+            Nueva escritura
+          </Link>
+        )}
       </div>
 
-      {/* Edit form (delete icon lives in the card header) */}
-      <ClientForm mode="edit" client={client} />
+      {/* Edit form (delete icon lives in the card header) — solo lectura si
+          el rol no tiene clients.write (ver ClientForm) */}
+      <ClientForm mode="edit" client={client} canWrite={canWrite} />
 
       {/* Escrituras asociadas */}
       <section aria-labelledby="client-documents-heading" className="mt-8">
@@ -129,7 +137,11 @@ export function ClientDetail({ client, documents, receivables }: Props) {
       <section aria-label="Cuentas por cobrar del cliente" className="mt-8">
         <ReceivableMiniList
           receivables={receivables}
-          newHref={`/dashboard/receivables/new?client=${client.id}`}
+          newHref={
+            canManageReceivables
+              ? `/dashboard/receivables/new?client=${client.id}`
+              : undefined
+          }
           emptyText="Este cliente todavía no tiene cuentas por cobrar."
         />
       </section>
