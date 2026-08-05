@@ -68,36 +68,45 @@ cuenta. Implementado end-to-end:
    `resetPasswordForEmail(email, { redirectTo: <origin>/update-password })`,
    siempre muestra el mismo mensaje genérico.
 2. Supabase envía un correo con la plantilla personalizada
-   `supabase/templates/recovery.html`, cuyo enlace apunta a la propia
-   ruta de la app (`/auth/confirm?token_hash=...&type=recovery&next=...`)
-   en vez del endpoint hosted de Supabase — mismo patrón ya usado
-   (y documentado en comentarios) para signup/invitación.
-3. `/auth/confirm` (`src/app/auth/confirm/route.ts`) verifica el token
-   con `verifyOtp({ token_hash, type })` y redirige a `next`. El `next`
-   puede llegar como ruta relativa o como URL absoluta (Supabase sustituye
-   `{{ .RedirectTo }}` con el `redirectTo` absoluto que se le pasó a
-   `resetPasswordForEmail`) — en ambos casos solo se usa el *path*, y la
-   redirección siempre ocurre sobre el origen de la request actual, nunca
-   sobre un host leído de `next`, porque la cookie de sesión que
-   `verifyOtp()` acaba de fijar está atada a ese origen.
+   `supabase/templates/recovery.html`, cuyo enlace apunta a
+   `/reset-password?token_hash=...&email=...` — una ruta propia de la app
+   en vez del endpoint hosted de Supabase, igual que para invitación (ver
+   más abajo).
+3. `/reset-password` (`src/app/(auth)/reset-password/`) es una página
+   intermedia: el `GET` **no** ejecuta `verifyOtp` ni toca sesión alguna
+   — solo muestra "Restablecer tu contraseña para &lt;email&gt;" y un botón
+   "Continuar". Solo el `POST` de ese botón
+   (`reset-password/confirm-actions.ts`) llama
+   `verifyOtp({ token_hash, type: "recovery" })`, crea la sesión, y
+   redirige a `/update-password` (URL limpia, sin token). Mismo patrón y
+   mismo razonamiento que la invitación a un Workspace — ver esa sección
+   más abajo para el porqué.
 4. `/update-password` — Server Component que verifica sesión server-side
    antes de mostrar el formulario; sin sesión válida muestra "Enlace no
    válido o expirado" con un enlace para pedir uno nuevo, en vez de un
    redirect silencioso a `/login`. Al guardar la nueva contraseña,
    `updatePasswordAction` llama `signOut({ scope: "others" })` — cualquier
-   otra sesión activa con la contraseña anterior queda invalidada.
-5. `/update-password` está **deliberadamente excluida** de
-   `PRIVATE_ROUTE_PREFIXES` y `AUTH_ROUTES` en `src/proxy.ts` — ver el
-   comentario ahí para el razonamiento (un enlace vencido debe mostrar un
-   mensaje claro, no un bounce silencioso).
+   otra sesión activa con la contraseña anterior queda invalidada. Sin
+   cambios en esta iteración.
+5. `/update-password` y `/reset-password` están **deliberadamente
+   excluidas** de `PRIVATE_ROUTE_PREFIXES` y `AUTH_ROUTES` en
+   `src/proxy.ts` — ver el comentario ahí para el razonamiento (un enlace
+   vencido debe mostrar un mensaje claro, no un bounce silencioso).
+
+Cobertura: `e2e/auth-security-hardening.spec.ts` (test E, flujo feliz
+completo) y `e2e/recovery-token-safety.spec.ts` (GET no consume, GETs
+repetidos no consumen, un segundo POST con el mismo token falla seguro,
+token inválido no permite continuar, URL final limpia).
 
 **Cloud pendiente (manual, dashboard):**
 - Authentication → Email Templates → "Reset Password": apuntar al mismo
-  patrón `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next={{ .RedirectTo }}`
+  patrón `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&email={{ .Email }}`
   (contenido equivalente a `supabase/templates/recovery.html`).
 - Authentication → URL Configuration → agregar
-  `https://lexcr.vercel.app/update-password` a Redirect URLs (además de
-  `https://lexcr.vercel.app/auth/confirm`, ya documentado en
+  `https://lexcr.vercel.app/update-password` y
+  `https://lexcr.vercel.app/reset-password` a Redirect URLs (además de
+  `https://lexcr.vercel.app/auth/confirm` y
+  `https://lexcr.vercel.app/accept-invite`, ya documentados en
   `docs/SUPABASE_PRODUCTION.md`).
 
 ### Invitación a un Workspace: el token no se consume en un GET
@@ -141,11 +150,10 @@ GETs repetidos no consumen, un segundo POST con el mismo token falla
 seguro, invitación revocada no se puede aceptar, remoción+reinvitación
 funciona con Mailpit real).
 
-**Nota:** `/auth/confirm?type=recovery` (restablecer contraseña) sigue
-usando el patrón GET original — comparte la misma clase de riesgo en
-teoría (un prefetch podría consumir el token de recuperación), pero queda
-fuera del alcance de este fix. Pendiente de decisión explícita si se
-prioriza extender el mismo patrón (página intermedia + POST) a ese flujo.
+**Nota:** el mismo patrón (página intermedia + POST) se extendió también a
+`/auth/confirm?type=recovery` — ver "Recuperación de contraseña" más
+arriba — así que ambos flujos de correo con token de un solo uso quedan
+protegidos por igual.
 
 **Cloud pendiente:** actualizar la plantilla "Invite user" en
 Authentication → Email Templates para que enlace a

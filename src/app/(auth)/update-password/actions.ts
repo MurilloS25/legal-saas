@@ -33,8 +33,9 @@ export async function updatePasswordAction(
 
   const supabase = await createClient();
 
-  // Requiere una sesión ya establecida (por /auth/confirm?type=recovery, o
-  // una sesión normal). Sin ella, el enlace expiró o ya se usó.
+  // Requiere una sesión ya establecida (por el POST de
+  // /reset-password/confirm-actions.ts, o una sesión normal). Sin ella, el
+  // enlace expiró o ya se usó.
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -72,6 +72,16 @@ export default defineConfig({
       testMatch: /auth-security-hardening\.spec\.ts/,
     },
 
+    // Seguridad del token de recuperación: un GET nunca debe consumirlo —
+    // mismo bug y mismo fix que chromium-invite-token-safety, aplicado a
+    // /auth/confirm?type=recovery. Autocontenido por la misma razón que
+    // chromium-auth-security.
+    {
+      name: "chromium-recovery-token-safety",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /recovery-token-safety\.spec\.ts/,
+    },
+
     // Roles, invitaciones y permisos de equipo (Iteración 5). Autocontenido
     // igual que chromium-auth-security: cada test crea/borra sus propios
     // usuarios y Workspaces desechables vía la Admin API, así que no usa
