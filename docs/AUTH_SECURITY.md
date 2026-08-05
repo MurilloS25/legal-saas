@@ -100,6 +100,59 @@ cuenta. Implementado end-to-end:
   `https://lexcr.vercel.app/auth/confirm`, ya documentado en
   `docs/SUPABASE_PRODUCTION.md`).
 
+### Invitación a un Workspace: el token no se consume en un GET
+
+Hasta esta iteración, el enlace de invitación (`supabase/templates/invite.html`)
+apuntaba a `/auth/confirm?token_hash=...&type=invite&next=/accept-invite` —
+una ruta GET que ejecutaba `verifyOtp` (consumiendo el token de un solo uso)
+como efecto secundario de simplemente **cargar la URL**. Eso es vulnerable a
+que cualquier cosa que haga esa petición antes que la persona real —
+prefetch del navegador, un antivirus o un filtro de correo escaneando
+enlaces — consuma el token en silencio, dejando el enlace "usado" sin que
+nadie lo haya abierto deliberadamente (reproducido y confirmado
+empíricamente: un `curl` GET simple al enlace bastaba para dejarlo inválido).
+
+Diseño actual:
+
+1. El correo enlaza directo a `/accept-invite?token_hash=...&email=...`
+   (`src/app/(auth)/accept-invite/page.tsx`, "Mode A" en ese archivo). El
+   `GET` **no** llama a `verifyOtp` ni toca sesión alguna — solo muestra una
+   vista previa (Workspace, correo, rol) resuelta leyendo
+   `workspace_members` directamente por email vía la Admin API
+   (`createAdminClient`/`findUserIdByEmail`), sin acercarse al token de
+   Supabase. Si la invitación ya fue aceptada o fue revocada, lo dice
+   explícitamente en vez de ofrecer el botón.
+2. Solo el `POST` del botón "Aceptar invitación"
+   (`src/app/(auth)/accept-invite/confirm-actions.ts`) ejecuta
+   `verifyOtp({ token_hash, type: "invite" })`, crea la sesión, y llama a
+   `accept_workspace_invitation` (RPC sin cambios). Ese POST hereda la
+   misma protección CSRF que cualquier Server Action de Next.js
+   (verificación de Origin/Host) — no se añadió ningún mecanismo nuevo.
+3. Redirige a `/accept-invite/set-password` (URL limpia, sin token) donde
+   la persona ya autenticada fija su contraseña
+   (`src/app/(auth)/accept-invite/set-password/`).
+4. `/auth/confirm` (`src/app/auth/confirm/route.ts`) ahora rechaza
+   defensivamente cualquier `type=invite` que le llegue (enlaces viejos en
+   correos ya enviados) redirigiendo a `/accept-invite` sin tocar el
+   token, en vez de reproducir el mismo problema.
+
+Cobertura: `e2e/invite-token-safety-authenticated.spec.ts` (GET no consume,
+GETs repetidos no consumen, un segundo POST con el mismo token falla
+seguro, invitación revocada no se puede aceptar, remoción+reinvitación
+funciona con Mailpit real).
+
+**Nota:** `/auth/confirm?type=recovery` (restablecer contraseña) sigue
+usando el patrón GET original — comparte la misma clase de riesgo en
+teoría (un prefetch podría consumir el token de recuperación), pero queda
+fuera del alcance de este fix. Pendiente de decisión explícita si se
+prioriza extender el mismo patrón (página intermedia + POST) a ese flujo.
+
+**Cloud pendiente:** actualizar la plantilla "Invite user" en
+Authentication → Email Templates para que enlace a
+`{{ .SiteURL }}/accept-invite?token_hash={{ .TokenHash }}&email={{ .Email }}`
+(contenido equivalente a `supabase/templates/invite.html`) — de lo
+contrario producción seguiría usando el patrón GET vulnerable.
+
 ### Revocación de usuarios
 
 Revocar un usuario (Authentication → Users → banear/eliminar) bloquea
