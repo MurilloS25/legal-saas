@@ -23,6 +23,13 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+/** Autenticado, pero sin acceso al recurso (p. ej. sin membresía activa en ningún Workspace). */
+export class ForbiddenError extends AppError {
+  constructor(safeMessage = "No tienes acceso a este Workspace.", options?: ErrorOptions) {
+    super("Access to this workspace is forbidden", "forbidden", safeMessage, options);
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(resource: string, options?: ErrorOptions) {
     super(
@@ -96,6 +103,7 @@ export function publicErrorDetails(error: unknown): {
 
   const statusByCode: Record<string, number> = {
     unauthorized: 401,
+    forbidden: 403,
     validation: 400,
     not_found: 404,
     conflict: 409,

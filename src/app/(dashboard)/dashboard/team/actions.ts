@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, findUserIdByEmail } from "@/lib/supabase/admin";
 import { hasPermission, INVITABLE_ROLES } from "@/lib/server/permissions";
 import { InviteMemberSchema } from "@/lib/validations/team";
 
@@ -25,13 +25,24 @@ async function resolveSiteOrigin(): Promise<string> {
 }
 
 /**
- * Invita a un colaborador por correo. Primero crea (o reutiliza) la cuenta
- * en auth.users vía la Admin API (service role — solo aquí, nunca en el
- * cliente) y envía el correo de invitación; solo si eso tiene éxito llama a
+ * Invita a un colaborador por correo.
+ *
+ * Caso normal (correo nuevo): crea la cuenta en auth.users vía la Admin
+ * API (service role — solo aquí, nunca en el cliente) y envía el correo de
+ * invitación real.
+ *
+ * Caso re-invitación (correo YA tiene cuenta — p. ej. un miembro removido
+ * de otro Workspace, o de este mismo tiempo atrás): `inviteUserByEmail`
+ * responde `email_exists` porque no está pensado para reenviar el correo a
+ * alguien ya confirmado. En ese caso se resuelve el id existente por email
+ * y se llama a `invite_workspace_member` directamente, sin enviar correo
+ * nuevo — la persona ya tiene contraseña, así que basta con que inicie
+ * sesión normalmente: `requireWorkspace()` detecta su fila 'invited' y la
+ * manda sola a /accept-invite.
+ *
+ * En ambos casos, solo si la cuenta queda resuelta se llama a
  * `invite_workspace_member`, que valida rol/jerarquía y registra la
- * membresía 'invited' y la auditoría. Si el correo ya tiene cuenta,
- * `inviteUserByEmail` falla y se muestra ese error tal cual — no hay
- * fallback para "adjuntar" una cuenta existente a este Workspace.
+ * membresía 'invited' y la auditoría.
  */
 export async function inviteMemberAction(
   _prevState: InviteMemberState,
@@ -66,31 +77,41 @@ export async function inviteMemberAction(
       redirectTo: `${origin}/accept-invite`,
     });
 
-  if (inviteError || !invited?.user) {
-    return {
-      message:
-        inviteError?.code === "email_exists"
-          ? "Ese correo ya tiene una cuenta en LexCR."
-          : "No fue posible enviar la invitación. Intenta de nuevo.",
-    };
+  let targetUserId = invited?.user?.id ?? null;
+  let emailSent = !inviteError && !!targetUserId;
+
+  if (inviteError?.code === "email_exists") {
+    targetUserId = await findUserIdByEmail(result.data.email);
+    emailSent = false;
+  }
+
+  if (!targetUserId) {
+    return { message: "No fue posible enviar la invitación. Intenta de nuevo." };
   }
 
   const { error: membershipError } = await supabase.rpc(
     "invite_workspace_member",
-    { p_user_id: invited.user.id, p_role: result.data.role },
+    { p_user_id: targetUserId, p_role: result.data.role },
   );
 
   if (membershipError) {
     return {
       message:
-        membershipError.code === "42501"
-          ? "No puedes asignar ese rol."
-          : "No fue posible registrar la invitación. Intenta de nuevo.",
+        membershipError.code === "23505"
+          ? "Ese correo ya es miembro de este Workspace."
+          : membershipError.code === "42501"
+            ? "No puedes asignar ese rol."
+            : "No fue posible registrar la invitación. Intenta de nuevo.",
     };
   }
 
   revalidatePath("/dashboard/team");
-  return { success: true, message: "Invitación enviada." };
+  return {
+    success: true,
+    message: emailSent
+      ? "Invitación enviada."
+      : "Invitación registrada: este correo ya tiene cuenta en LexCR — podrá aceptarla la próxima vez que inicie sesión.",
+  };
 }
 
 export type TeamMemberActionState = {

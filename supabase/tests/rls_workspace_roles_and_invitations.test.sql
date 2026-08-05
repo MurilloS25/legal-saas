@@ -12,7 +12,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(30);
+select plan(37);
 
 create schema rls_team_test;
 grant usage on schema rls_team_test to public;
@@ -225,6 +225,24 @@ select is(
   'El miembro suspendido pierde acceso de inmediato (no ve nada del Workspace)'
 );
 
+-- Pero SÍ debe poder ver su propia fila en workspace_members — necesario
+-- para que la app pueda distinguir "suspendido" de "sin ninguna
+-- membresía" (getWorkspaceAccess() en src/lib/server/auth.ts). Antes de
+-- workspace_members_select_own, is_workspace_member() (que exige
+-- status='active') bloqueaba incluso esto.
+select is(
+  (select status from public.workspace_members where user_id = 'b3333333-3333-3333-3333-333333333333'),
+  'revoked',
+  'Un miembro suspendido puede leer su propia fila (aunque no sea active)'
+);
+
+select is(
+  (select count(*) from public.workspace_members
+     where workspace_id = 'b1111111-1111-1111-1111-111111111111' and user_id <> 'b3333333-3333-3333-3333-333333333333'),
+  0::bigint,
+  'Un miembro suspendido NO puede ver las filas de otros miembros del Workspace'
+);
+
 reset role;
 
 select set_config('request.jwt.claim.sub', 'b1111111-1111-1111-1111-111111111111', true);
@@ -258,6 +276,54 @@ select is(
      where workspace_id = 'b1111111-1111-1111-1111-111111111111' and target_user_id = 'b4444444-4444-4444-4444-444444444444' and event_type = 'member_removed'),
   1::bigint,
   'La remoción queda registrada en workspace_activity (no se borra el historial)'
+);
+
+-- b4 (removido) ya no tiene NINGUNA fila en workspace_members — no se le
+-- recrea automáticamente un Workspace personal ni ninguna otra membresía.
+select is(
+  (select count(*) from public.workspace_members where user_id = 'b4444444-4444-4444-4444-444444444444'),
+  0::bigint,
+  'Un miembro removido no tiene ninguna fila en workspace_members (ni un Workspace personal nuevo)'
+);
+
+-- b4 (removido) ya no puede leer nada del Workspace del que fue removido:
+-- ni datos de negocio ni su propio historial de auditoría.
+select set_config('request.jwt.claim.sub', 'b4444444-4444-4444-4444-444444444444', true);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.clients where workspace_id = 'b1111111-1111-1111-1111-111111111111'),
+  0::bigint,
+  'Un miembro removido no puede leer clientes del Workspace del que fue removido'
+);
+
+select is(
+  (select count(*) from public.workspace_activity where workspace_id = 'b1111111-1111-1111-1111-111111111111'),
+  0::bigint,
+  'Un miembro removido no puede leer workspace_activity del Workspace del que fue removido'
+);
+
+reset role;
+
+-- Una invitación posterior al mismo correo/usuario funciona sin problema
+-- (no queda bloqueada por ningún residuo de la membresía anterior).
+select set_config('request.jwt.claim.sub', 'b1111111-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+select ok(
+  rls_team_test.statement_succeeds($$
+    select public.invite_workspace_member('b4444444-4444-4444-4444-444444444444', 'asistente')
+  $$),
+  'Una invitación posterior al mismo usuario, tras ser removido, se puede crear de nuevo'
+);
+
+reset role;
+
+select is(
+  (select status from public.workspace_members
+     where workspace_id = 'b1111111-1111-1111-1111-111111111111' and user_id = 'b4444444-4444-4444-4444-444444444444'),
+  'invited',
+  'La nueva invitación queda pendiente de aceptar, como cualquier invitación normal'
 );
 
 -- ------------------------------------------------------------------ matriz de permisos

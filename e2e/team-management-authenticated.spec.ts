@@ -143,20 +143,37 @@ test.describe("team management", () => {
       ).toBeVisible();
       await adminContext.close();
 
-      // Suspender corta el acceso de inmediato en la próxima request.
+      // Suspender corta el acceso a los datos del Workspace de inmediato,
+      // pero la cuenta y la sesión de Supabase Auth siguen siendo válidas
+      // — no es un ban. El login funciona y aterriza en
+      // /workspace-unavailable (nunca /login), con el mensaje específico
+      // de suspensión y un botón para cerrar sesión.
       await page.getByRole("button", { name: "Suspender" }).click();
       await expect(page.getByText("Suspendido")).toBeVisible();
 
-      // Suspendido: el login sigue aceptando las credenciales (no está
-      // baneado), pero requireWorkspace() ya no encuentra una membresía
-      // activa y lo manda de vuelta a /login en la siguiente request — así
-      // que nunca llega a asentarse en /dashboard.
       const suspendedContext = await browser.newContext();
       const suspendedPage = await suspendedContext.newPage();
       await suspendedPage.goto("/login");
       await suspendedPage.getByLabel("Correo electrónico").fill(memberEmail);
       await suspendedPage.getByLabel("Contraseña").fill(PASSWORD);
       await suspendedPage.getByRole("button", { name: "Ingresar" }).click();
+      await expect(suspendedPage).toHaveURL(/\/workspace-unavailable$/, {
+        timeout: 15_000,
+      });
+      await expect(
+        suspendedPage.getByRole("heading", {
+          name: "Su acceso a este espacio de trabajo fue suspendido",
+        }),
+      ).toBeVisible();
+
+      // No tiene acceso a los datos del Workspace del que fue suspendido:
+      // navegar directo a una ruta de negocio también rebota aquí, nunca
+      // muestra datos ajenos ni cae en /login.
+      await suspendedPage.goto("/dashboard/receivables");
+      await expect(suspendedPage).toHaveURL(/\/workspace-unavailable$/);
+
+      // La pantalla permite cerrar sesión.
+      await suspendedPage.getByRole("button", { name: "Cerrar sesión" }).click();
       await expect(suspendedPage).toHaveURL(/\/login/, { timeout: 15_000 });
       await suspendedContext.close();
 
@@ -177,17 +194,60 @@ test.describe("team management", () => {
       await expect(page.getByText("Miembros (1)")).toBeVisible();
 
       // Removido (no baneado): las credenciales siguen siendo válidas, pero
-      // ya no queda ninguna membresía activa (su Workspace personal se
-      // eliminó al aceptar la invitación real — ver accept_workspace_invitation)
-      // así que requireWorkspace() lo manda de vuelta a /login.
+      // ya no queda ninguna membresía (ni activa ni de ningún otro tipo —
+      // su Workspace personal se eliminó al aceptar la invitación real, ver
+      // accept_workspace_invitation, y remove_workspace_member no crea uno
+      // nuevo). Aterriza en /workspace-unavailable con el mensaje genérico
+      // (distinto del de suspensión), nunca en /login.
       const removedContext = await browser.newContext();
       const removedPage = await removedContext.newPage();
       await removedPage.goto("/login");
       await removedPage.getByLabel("Correo electrónico").fill(memberEmail);
       await removedPage.getByLabel("Contraseña").fill(PASSWORD);
       await removedPage.getByRole("button", { name: "Ingresar" }).click();
-      await expect(removedPage).toHaveURL(/\/login/, { timeout: 15_000 });
+      await expect(removedPage).toHaveURL(/\/workspace-unavailable$/, {
+        timeout: 15_000,
+      });
+      await expect(
+        removedPage.getByRole("heading", {
+          name: "Ya no tiene acceso a ningún espacio de trabajo",
+        }),
+      ).toBeVisible();
+      await removedPage.goto("/dashboard/team");
+      await expect(removedPage).toHaveURL(/\/workspace-unavailable$/);
       await removedContext.close();
+
+      // No se le recreó ningún Workspace personal al ser removido.
+      const rowsAfterRemoval = await restSelect<{ id: string }>(
+        "workspace_members",
+        `user_id=eq.${memberId}&select=id`,
+      );
+      expect(rowsAfterRemoval).toHaveLength(0);
+
+      // Una invitación posterior al mismo correo funciona. El correo ya
+      // tiene cuenta (inviteUserByEmail responde email_exists), así que no
+      // se reenvía ningún correo — el mensaje lo deja explícito — pero la
+      // membresía 'invited' sí se crea igual. El login (con la MISMA
+      // contraseña de siempre — nunca se le pidió cambiarla) lo manda a
+      // /accept-invite, no a /workspace-unavailable ni a /dashboard,
+      // porque su única fila ahora es 'invited'.
+      await page.reload();
+      await page.getByLabel("Correo electrónico").fill(memberEmail);
+      await page.getByRole("button", { name: "Invitar" }).click();
+      await expect(
+        page.getByText("este correo ya tiene cuenta en LexCR"),
+      ).toBeVisible();
+
+      const reinvitedContext = await browser.newContext();
+      const reinvitedPage = await reinvitedContext.newPage();
+      await reinvitedPage.goto("/login");
+      await reinvitedPage.getByLabel("Correo electrónico").fill(memberEmail);
+      await reinvitedPage.getByLabel("Contraseña").fill(PASSWORD);
+      await reinvitedPage.getByRole("button", { name: "Ingresar" }).click();
+      await expect(reinvitedPage).toHaveURL(/\/accept-invite$/, {
+        timeout: 15_000,
+      });
+      await reinvitedContext.close();
 
       const activity = await restSelect<{ event_type: string }>(
         "workspace_activity",
@@ -200,6 +260,7 @@ test.describe("team management", () => {
         "member_suspended",
         "member_reactivated",
         "member_removed",
+        "member_invited",
       ]);
     } finally {
       await restDelete("workspace_activity", `workspace_id=eq.${ownerId}`);
