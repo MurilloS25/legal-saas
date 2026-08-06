@@ -111,6 +111,16 @@ async function openTemplate(page: Page) {
   await expect(configurationSection(page)).toBeVisible();
 }
 
+/**
+ * Expande la fila colapsable del campo simple `key` (`idx-<key>`) dentro de
+ * la sección de configuración del Índice Notarial del machote — desde la
+ * reorganización en filas de acordeón, cada `<select>`/checkbox solo se
+ * monta mientras su fila está abierta (una sola fila abierta a la vez).
+ */
+async function openIndexRow(page: Page, key: string) {
+  await page.locator(`#idx-${key}-trigger`).click();
+}
+
 async function fillStructuredMetadata(page: Page, instrument: number) {
   const section = metadataSection(page);
   await section.getByLabel("Número de instrumento").fill(String(instrument));
@@ -222,29 +232,47 @@ test.describe("template notarial index configuration", () => {
   test("B: configure ordered fields with a live preview", async ({ page }) => {
     await openTemplate(page);
     const section = configurationSection(page);
+    // El texto de ayuda de `IndexSummaryHeader` (encabezado nuevo de la
+    // presentación en acordeón) reemplazó al párrafo introductorio plano
+    // que tenía la sección antes de la reorganización en filas colapsables.
     await expect(
-      section.getByText(/precargar datos del índice notarial/),
+      section.getByText(/precargar automáticamente el Índice/),
     ).toBeVisible();
 
+    // Cada campo simple vive en su propia fila colapsable: hay que abrirla
+    // antes de que su `<select>` exista en el DOM. Abrir la siguiente fila
+    // cierra la anterior automáticamente (solo una fila abierta a la vez),
+    // pero el valor ya elegido queda guardado en el estado del componente
+    // padre — no se pierde al colapsarse. Dentro de cada fila, el `<label>`
+    // visible del `<select>` es el genérico "Variable sugerida" (el nombre
+    // del campo ya está en el encabezado de la fila), así que se ubica por
+    // el id fijo `${key}_field_id` en vez de por `getByLabel`.
+    await openIndexRow(page, "instrument_number");
     await section
-      .getByLabel("Número de instrumento", { exact: true })
+      .locator("#instrument_number_field_id")
       .selectOption(mappedFieldIds["instrument.number"]);
+    await openIndexRow(page, "authorized_date");
     await section
-      .getByLabel("Fecha de autorización", { exact: true })
+      .locator("#authorized_date_field_id")
       .selectOption(mappedFieldIds["authorized.date"]);
+    await openIndexRow(page, "authorized_time");
     await section
-      .getByLabel("Hora de autorización", { exact: true })
+      .locator("#authorized_time_field_id")
       .selectOption(`block:${timeBlockId}`);
+    await openIndexRow(page, "protocol_book");
     await section
-      .getByLabel("Tomo", { exact: true })
+      .locator("#protocol_book_field_id")
       .selectOption(mappedFieldIds["protocol.book"]);
+    await openIndexRow(page, "initial_folio");
     await section
-      .getByLabel("Folio inicial", { exact: true })
+      .locator("#initial_folio_field_id")
       .selectOption(mappedFieldIds["folio.initial"]);
+    await openIndexRow(page, "final_folio");
     await section
-      .getByLabel("Folio final", { exact: true })
+      .locator("#final_folio_field_id")
       .selectOption(mappedFieldIds["folio.final"]);
 
+    await openIndexRow(page, "parties");
     await section
       .getByRole("checkbox", { name: /Nombre del comprador/ })
       .check();
@@ -270,12 +298,15 @@ test.describe("template notarial index configuration", () => {
   test("C: configuration persists for the template", async ({ page }) => {
     await openTemplate(page);
     const section = configurationSection(page);
-    await expect(section.getByLabel("Número de instrumento")).toHaveValue(
+    await openIndexRow(page, "instrument_number");
+    await expect(section.locator("#instrument_number_field_id")).toHaveValue(
       mappedFieldIds["instrument.number"],
     );
-    await expect(section.getByLabel("Hora de autorización")).toHaveValue(
+    await openIndexRow(page, "authorized_time");
+    await expect(section.locator("#authorized_time_field_id")).toHaveValue(
       `block:${timeBlockId}`,
     );
+    await openIndexRow(page, "parties");
     await expect(
       section.getByRole("checkbox", { name: /Nombre del vendedor/ }),
     ).toBeChecked();
