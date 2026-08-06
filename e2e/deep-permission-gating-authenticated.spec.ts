@@ -188,7 +188,9 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     // Solicitud manipulada: reactiva el campo "Nombre" a mano vía DOM (como
     // haría alguien inspeccionando/editando el HTML) y fuerza el envío. El
-    // servidor debe rechazarlo igual — RLS exige templates.write.
+    // servidor debe rechazarlo igual — RLS exige templates.write. El nombre
+    // vive en el paso "Información" del stepper de edición.
+    await page.getByRole("tab", { name: "Información", exact: true }).click();
     const nameInput = page.getByLabel("Nombre del machote");
     await nameInput.evaluate((el: HTMLInputElement) => {
       el.disabled = false;
