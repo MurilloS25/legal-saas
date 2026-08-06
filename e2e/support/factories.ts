@@ -286,13 +286,20 @@ export async function replaceTestLawyerProfile(
   await restUpsert(
     "lawyer_profiles",
     {
+      // El usuario de prueba compartido siempre es propietario de su
+      // propio Workspace (nunca invitado a otro) — su bootstrap deja
+      // workspaces.id === auth.users.id, así que workspace_id === userId
+      // aquí. lawyer_profiles_workspace_id_key es el unique constraint
+      // real (lawyer_profiles_owner_id_key se eliminó al pasar a
+      // Workspaces — ver 20260804210000_workspace_roles_and_invitations.sql).
       owner_id: userId,
+      workspace_id: userId,
       full_name: fullName,
       professional_code: previous[0]?.professional_code ?? null,
       email: previous[0]?.email ?? null,
       phone: previous[0]?.phone ?? null,
     },
-    "owner_id",
+    "workspace_id",
   );
   return previous[0] ?? null;
 }
@@ -307,8 +314,8 @@ export async function restoreTestLawyerProfile(
   }
   await restUpsert(
     "lawyer_profiles",
-    { owner_id: userId, ...previous },
-    "owner_id",
+    { owner_id: userId, workspace_id: userId, ...previous },
+    "workspace_id",
   );
 }
 
