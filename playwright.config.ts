@@ -92,6 +92,16 @@ export default defineConfig({
       testMatch: /team-management-authenticated\.spec\.ts/,
     },
 
+    // Gating profundo de UI por permiso (Machotes/Tiptap, Escrituras,
+    // Índice Notarial, Cuentas por cobrar/Pagos) a través de los tres
+    // roles propietario/asistente/solo_lectura. Autocontenido igual que
+    // chromium-team-management.
+    {
+      name: "chromium-deep-permission-gating",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /deep-permission-gating-authenticated\.spec\.ts/,
+    },
+
     // Identidad notarial y auditoría de actores (Iteración 6). Autocontenido
     // por la misma razón que chromium-team-management.
     {

@@ -218,6 +218,9 @@ type Props = {
    * submit final.
    */
   onSaveVariable?: (variables: TemplateWorkspaceVariable[]) => void;
+  /** templates.write — sin este permiso la lista es de solo lectura: no se
+   * puede configurar, editar ni quitar ninguna variable. */
+  readOnly?: boolean;
 };
 
 export function TemplateVariablesPanel({
@@ -225,6 +228,7 @@ export function TemplateVariablesPanel({
   contentKeys,
   onChange,
   onSaveVariable,
+  readOnly = false,
 }: Props) {
   const headingId = useId();
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -329,17 +333,19 @@ export function TemplateVariablesPanel({
                     {statusUi.label}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => setEditingKey(isEditing ? null : row.field_key)}
-                    aria-expanded={isEditing}
-                    aria-label={`${row.status === "pending" ? "Configurar" : "Editar"} variable ${row.field_key}`}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
-                  >
-                    {row.status === "pending" ? "Configurar" : "Editar"}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingKey(isEditing ? null : row.field_key)}
+                      aria-expanded={isEditing}
+                      aria-label={`${row.status === "pending" ? "Configurar" : "Editar"} variable ${row.field_key}`}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+                    >
+                      {row.status === "pending" ? "Configurar" : "Editar"}
+                    </button>
+                  )}
 
-                  {row.status !== "pending" && (
+                  {!readOnly && row.status !== "pending" && (
                     <button
                       type="button"
                       onClick={() => removeVariable(row.field_key)}

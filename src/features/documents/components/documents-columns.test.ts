@@ -8,12 +8,12 @@ import {
 
 describe("createDocumentsColumns", () => {
   it("declares exactly the expected columns, in order", () => {
-    const columns = createDocumentsColumns();
+    const columns = createDocumentsColumns(true);
     expect(columns.map((c) => c.id)).toEqual([...DOCUMENTS_COLUMN_IDS]);
   });
 
   it("uses the same header label for every data column as the header/body model", () => {
-    const columns = createDocumentsColumns();
+    const columns = createDocumentsColumns(true);
     for (const column of columns) {
       if (column.id === "actions") continue;
       expect(column.header).toBe(
@@ -23,7 +23,7 @@ describe("createDocumentsColumns", () => {
   });
 
   it("declares an explicit, non-hideable actions column", () => {
-    const columns = createDocumentsColumns();
+    const columns = createDocumentsColumns(true);
     const actions = columns.find((c) => c.id === "actions");
     expect(actions).toBeDefined();
     expect(actions?.enableHiding).toBe(false);

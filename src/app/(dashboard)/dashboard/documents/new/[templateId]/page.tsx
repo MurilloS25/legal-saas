@@ -155,6 +155,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
         fields={fields}
         clients={clientOptions}
         initialClientId={initialClientId}
+        canFinalize={hasPermission(role, "documents.finalize")}
       />
     </PageContainer>
   );

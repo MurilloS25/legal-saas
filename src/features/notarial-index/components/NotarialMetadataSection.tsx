@@ -33,6 +33,9 @@ type Props = {
   prefill: NotarialMetadataPrefill;
   /** true cuando el contenido de la Escritura está finalizado. */
   readOnly: boolean;
+  /** documents.edit — sin este permiso el formulario completo es de solo
+   * lectura, sin importar el estado de la Escritura. */
+  canEdit: boolean;
   canResetParties?: boolean;
   actNamePreview?: string | null;
   generatedPartiesPreview?: string | null;
@@ -44,6 +47,7 @@ export function NotarialMetadataSection({
   metadata,
   prefill,
   readOnly,
+  canEdit,
   canResetParties = false,
   actNamePreview = null,
   generatedPartiesPreview = null,
@@ -126,7 +130,16 @@ export function NotarialMetadataSection({
             {state.message}
           </div>
         )}
-        {readOnly && (
+        {!canEdit && (
+          <div
+            role="status"
+            className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+          >
+            Tu rol no permite editar los datos del índice. Los ves en modo
+            lectura.
+          </div>
+        )}
+        {canEdit && readOnly && (
           <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
             La escritura está finalizada. Puedes corregir estos datos del
             índice sin modificar el contenido de la escritura.
@@ -156,6 +169,7 @@ export function NotarialMetadataSection({
               type="number"
               min={1}
               step={1}
+              disabled={!canEdit}
               value={instrument}
               onChange={(e) => setInstrument(e.target.value)}
               className={inputClass}
@@ -181,6 +195,7 @@ export function NotarialMetadataSection({
               id="authorized_at"
               name="authorized_at"
               type="datetime-local"
+              disabled={!canEdit}
               value={authorizedAt}
               onChange={(e) => setAuthorizedAt(e.target.value)}
               className={inputClass}
@@ -207,6 +222,7 @@ export function NotarialMetadataSection({
               id="act_name_override"
               name="act_name_override"
               type="text"
+              disabled={!canEdit}
               value={actName}
               onChange={(e) => setActName(e.target.value)}
               className={inputClass}
@@ -236,6 +252,7 @@ export function NotarialMetadataSection({
               id="protocol_book"
               name="protocol_book"
               type="text"
+              disabled={!canEdit}
               value={protocolBook}
               onChange={(event) => setProtocolBook(event.target.value)}
               className={inputClass}
@@ -260,6 +277,7 @@ export function NotarialMetadataSection({
                 id="initial_folio"
                 name="initial_folio"
                 type="text"
+                disabled={!canEdit}
                 value={initialFolio}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -288,6 +306,7 @@ export function NotarialMetadataSection({
                 id="final_folio"
                 name="final_folio"
                 type="text"
+                disabled={!canEdit}
                 value={finalFolio}
                 onChange={(event) => setFinalFolio(event.target.value)}
                 className={inputClass}
@@ -312,6 +331,7 @@ export function NotarialMetadataSection({
               id="parties_override"
               name="parties_override"
               rows={3}
+              disabled={!canEdit}
               value={parties}
               onChange={(event) => setParties(event.target.value)}
               placeholder={
@@ -346,6 +366,7 @@ export function NotarialMetadataSection({
               id="notes"
               name="notes"
               rows={2}
+              disabled={!canEdit}
               defaultValue={metadata?.notes ?? ""}
               className={inputClass + " resize-y"}
             />
@@ -356,7 +377,7 @@ export function NotarialMetadataSection({
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-3">
-          {canResetParties && metadata && (
+          {canEdit && canResetParties && metadata && (
             <button
               type="submit"
               name="intent"
@@ -377,15 +398,17 @@ export function NotarialMetadataSection({
               Restablecer desde el machote
             </button>
           )}
-          <button
-            type="submit"
-            name="intent"
-            value="save"
-            disabled={pending}
-            className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {pending ? "Guardando…" : "Guardar datos del índice"}
-          </button>
+          {canEdit && (
+            <button
+              type="submit"
+              name="intent"
+              value="save"
+              disabled={pending}
+              className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {pending ? "Guardando…" : "Guardar datos del índice"}
+            </button>
+          )}
         </div>
       </form>
     </section>

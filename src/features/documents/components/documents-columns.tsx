@@ -38,7 +38,9 @@ export function formatDocumentDate(iso: string): string {
   });
 }
 
-export function createDocumentsColumns(): ColumnDef<WorkspaceDocumentRow>[] {
+export function createDocumentsColumns(
+  canWrite: boolean,
+): ColumnDef<WorkspaceDocumentRow>[] {
   return [
     {
       id: "title",
@@ -104,8 +106,10 @@ export function createDocumentsColumns(): ColumnDef<WorkspaceDocumentRow>[] {
               variant="compact"
               ariaLabel={`Descargar Word de ${doc.title}`}
             />
-            <DuplicateDocumentButton documentId={doc.id} documentTitle={doc.title} />
-            {doc.status !== "final" && (
+            {canWrite && (
+              <DuplicateDocumentButton documentId={doc.id} documentTitle={doc.title} />
+            )}
+            {canWrite && doc.status !== "final" && (
               <DeleteDocumentButton documentId={doc.id} documentTitle={doc.title} />
             )}
           </div>

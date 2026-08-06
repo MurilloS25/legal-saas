@@ -139,7 +139,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
         )
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <DocumentsTable rows={page.rows} />
+          <DocumentsTable rows={page.rows} canWrite={canCreate} />
 
           <TablePagination
             page={query.page}

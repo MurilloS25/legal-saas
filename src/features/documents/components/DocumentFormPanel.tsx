@@ -28,6 +28,8 @@ type Props = {
   pending: boolean;
   pendingVariableCount: number;
   readOnly: boolean;
+  canEdit: boolean;
+  canFinalize: boolean;
   roleGroups: RoleVariableGroup[];
   saveStatusText: string;
   state: DocumentDraftState;
@@ -52,6 +54,8 @@ export function DocumentFormPanel({
   pending,
   pendingVariableCount,
   readOnly,
+  canEdit,
+  canFinalize,
   roleGroups,
   saveStatusText,
   state,
@@ -199,8 +203,10 @@ export function DocumentFormPanel({
         pending={pending}
         pendingVariableCount={pendingVariableCount}
         readOnly={readOnly}
+        canEdit={canEdit}
         saveStatusText={saveStatusText}
         status={status}
+        canFinalize={canFinalize}
       />
     </section>
   );

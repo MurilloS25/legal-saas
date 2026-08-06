@@ -23,6 +23,8 @@ type Props = {
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onStatusChange: (value: string) => void;
+  /** templates.write — sin este permiso los 3 campos son de solo lectura. */
+  disabled?: boolean;
 };
 
 export function TemplateMetadataForm({
@@ -33,6 +35,7 @@ export function TemplateMetadataForm({
   onNameChange,
   onDescriptionChange,
   onStatusChange,
+  disabled = false,
 }: Props) {
   const nameId = useId();
   const descriptionId = useId();
@@ -69,6 +72,7 @@ export function TemplateMetadataForm({
               name="name"
               type="text"
               required
+              disabled={disabled}
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
               className={inputClass}
@@ -87,6 +91,7 @@ export function TemplateMetadataForm({
               id={statusId}
               name="status"
               required
+              disabled={disabled}
               value={status}
               onChange={(event) => onStatusChange(event.target.value)}
               className={inputClass}
@@ -112,6 +117,7 @@ export function TemplateMetadataForm({
             id={descriptionId}
             name="description"
             type="text"
+            disabled={disabled}
             value={description}
             onChange={(event) => onDescriptionChange(event.target.value)}
             className={inputClass}

@@ -140,6 +140,8 @@ type Props = {
   status: DocumentStatus;
   /** true si hay cambios locales sin guardar en el compositor. */
   dirty: boolean;
+  /** documents.finalize — controla Finalizar/Reabrir/Volver a borrador. */
+  canFinalize: boolean;
 };
 
 type DialogKind = "final" | "reopen" | "draft" | null;
@@ -150,7 +152,12 @@ const secondaryButtonClass =
 const primaryButtonClass =
   "rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-export function DocumentStatusControls({ documentId, status, dirty }: Props) {
+export function DocumentStatusControls({
+  documentId,
+  status,
+  dirty,
+  canFinalize,
+}: Props) {
   const [toDraft, toDraftAction, toDraftPending] = useActionState(
     returnDocumentToDraftAction.bind(null, documentId),
     initialState,
@@ -192,7 +199,7 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
         Estado de la escritura
       </p>
 
-      {status === "draft" && (
+      {status === "draft" && canFinalize && (
         <button
           ref={triggerRef}
           type="button"
@@ -207,28 +214,30 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
       {status === "ready" && (
         <div>
           <p className="mb-2 text-xs text-amber-800">
-            Esta escritura conserva un estado histórico. Puedes finalizarla o
-            devolverla a borrador.
+            Esta escritura conserva un estado histórico.
+            {canFinalize && " Puedes finalizarla o devolverla a borrador."}
           </p>
-          <div className="flex flex-wrap gap-2">
-          <button
-            ref={triggerRef}
-            type="button"
-            disabled={dirty || anyPending}
-            onClick={() => setDialog("final")}
-            className={primaryButtonClass}
-          >
-            Finalizar escritura
-          </button>
-          <button
-            type="button"
-            disabled={dirty || anyPending}
-            onClick={() => setDialog("draft")}
-            className={secondaryButtonClass}
-          >
-            Volver a borrador
-          </button>
-          </div>
+          {canFinalize && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                ref={triggerRef}
+                type="button"
+                disabled={dirty || anyPending}
+                onClick={() => setDialog("final")}
+                className={primaryButtonClass}
+              >
+                Finalizar escritura
+              </button>
+              <button
+                type="button"
+                disabled={dirty || anyPending}
+                onClick={() => setDialog("draft")}
+                className={secondaryButtonClass}
+              >
+                Volver a borrador
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -238,15 +247,17 @@ export function DocumentStatusControls({ documentId, status, dirty }: Props) {
             Finalizada es de solo lectura. No significa firmada, presentada ni
             enviada oficialmente.
           </p>
-          <button
-            ref={triggerRef}
-            type="button"
-            disabled={anyPending}
-            onClick={() => setDialog("reopen")}
-            className={secondaryButtonClass}
-          >
-            Reabrir escritura
-          </button>
+          {canFinalize && (
+            <button
+              ref={triggerRef}
+              type="button"
+              disabled={anyPending}
+              onClick={() => setDialog("reopen")}
+              className={secondaryButtonClass}
+            >
+              Reabrir escritura
+            </button>
+          )}
           <Link
             href={`/dashboard/documents/${documentId}?section=notarial`}
             className="ml-2 inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"

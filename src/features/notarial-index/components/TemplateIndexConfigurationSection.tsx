@@ -29,6 +29,9 @@ type Props = {
   fields: IndexConfigurationField[];
   optionBlocks: IndexConfigurationOptionBlock[];
   configuration: TemplateIndexConfiguration | null;
+  /** templates.write — sin este permiso, toda la sección es de solo
+   * lectura. */
+  readOnly?: boolean;
 };
 
 const SIMPLE_FIELDS: Array<{
@@ -62,6 +65,7 @@ export function TemplateIndexConfigurationSection({
   fields,
   optionBlocks,
   configuration,
+  readOnly = false,
 }: Props) {
   const availableIds = useMemo(
     () => new Set(fields.map((field) => field.id)),
@@ -154,6 +158,15 @@ export function TemplateIndexConfigurationSection({
         Configuración del índice notarial
       </div>
       <form action={formAction} className="px-6 py-5">
+          {readOnly && (
+            <div
+              role="status"
+              className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+            >
+              Tu rol no permite editar la configuración del índice. La ves en
+              modo lectura.
+            </div>
+          )}
           <p className="text-sm text-slate-600">
             Opcional. Esta configuración permite precargar datos del índice
             notarial cuando crees una Escritura usando este Machote.
@@ -211,6 +224,7 @@ export function TemplateIndexConfigurationSection({
                           : ""
                       : (configuration?.simpleFields[key] ?? "")
                   }
+                  disabled={readOnly}
                   className={inputClass}
                 >
                   <option value="">Sin asignar / ingreso manual</option>
@@ -268,6 +282,7 @@ export function TemplateIndexConfigurationSection({
                 type="text"
                 value={partiesSearch}
                 onChange={(event) => setPartiesSearch(event.target.value)}
+                disabled={readOnly}
                 placeholder="Buscar variable…"
                 aria-label="Buscar variable para Partes"
                 className={`${inputClass} mt-3`}
@@ -289,6 +304,7 @@ export function TemplateIndexConfigurationSection({
                       type="checkbox"
                       checked={selected}
                       onChange={(event) => toggleField(field.id, event.target.checked)}
+                      disabled={readOnly}
                       className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-600"
                     />
                     <label
@@ -303,7 +319,7 @@ export function TemplateIndexConfigurationSection({
                         <button
                           type="button"
                           aria-label={`Subir ${field.label}`}
-                          disabled={selectedIndex === 0}
+                          disabled={readOnly || selectedIndex === 0}
                           onClick={() => moveField(field.id, -1)}
                           className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
                         >
@@ -312,7 +328,7 @@ export function TemplateIndexConfigurationSection({
                         <button
                           type="button"
                           aria-label={`Bajar ${field.label}`}
-                          disabled={selectedIndex === selectedIds.length - 1}
+                          disabled={readOnly || selectedIndex === selectedIds.length - 1}
                           onClick={() => moveField(field.id, 1)}
                           className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
                         >
@@ -340,6 +356,7 @@ export function TemplateIndexConfigurationSection({
                 name="party_separator"
                 value={separator}
                 onChange={(event) => setSeparator(event.target.value)}
+                disabled={readOnly}
                 maxLength={30}
                 className={inputClass}
               />
@@ -353,6 +370,7 @@ export function TemplateIndexConfigurationSection({
                 name="fixed_suffix"
                 value={fixedSuffix}
                 onChange={(event) => setFixedSuffix(event.target.value)}
+                disabled={readOnly}
                 maxLength={200}
                 className={inputClass}
               />
@@ -374,6 +392,7 @@ export function TemplateIndexConfigurationSection({
                   name="allow_empty"
                   checked={allowEmpty}
                   onChange={(event) => setAllowEmpty(event.target.checked)}
+                  disabled={readOnly}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300"
                 />
                 Confirmo que este machote no requiere Partes para el índice.
@@ -403,15 +422,17 @@ export function TemplateIndexConfigurationSection({
           {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
           {state.success && <p role="status" className="mt-4 text-sm text-green-700">Configuración guardada.</p>}
 
-          <div className="mt-5 flex justify-end">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2 disabled:opacity-50"
-            >
-              {pending ? "Guardando…" : "Guardar configuración"}
-            </button>
-          </div>
+          {!readOnly && (
+            <div className="mt-5 flex justify-end">
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2 disabled:opacity-50"
+              >
+                {pending ? "Guardando…" : "Guardar configuración"}
+              </button>
+            </div>
+          )}
       </form>
     </section>
   );

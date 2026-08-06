@@ -48,6 +48,11 @@ type Props = {
        * base de datos rechazan el cambio igual aunque se manipule el
        * request. */
       hasPaymentHistory: boolean;
+      /** Sin receivables.manage: el formulario completo se ve pero no se
+       * puede editar — ver el mismo patrón en ClientForm. La página ya
+       * bloquea /receivables/new sin este permiso, así que en modo
+       * "create" siempre es true. */
+      canWrite: boolean;
     }
 );
 
@@ -58,7 +63,8 @@ export function ReceivableForm(props: Props) {
   const receivable = isEdit ? props.receivable : null;
   const defaults = !isEdit ? props.defaults : undefined;
   const returnTo = !isEdit ? (props.returnTo ?? null) : null;
-  const financialFieldsLocked = isEdit ? props.hasPaymentHistory : false;
+  const canWrite = isEdit ? props.canWrite : true;
+  const financialFieldsLocked = (isEdit ? props.hasPaymentHistory : false) || !canWrite;
 
   const action = isEdit
     ? updateReceivableAction.bind(null, receivable!.id)
@@ -140,7 +146,16 @@ export function ReceivableForm(props: Props) {
             {state.message}
           </div>
         )}
-        {financialFieldsLocked && (
+        {!canWrite && (
+          <div
+            role="status"
+            className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+          >
+            Tu rol no permite editar cuentas por cobrar. La ves en modo
+            lectura.
+          </div>
+        )}
+        {canWrite && isEdit && props.hasPaymentHistory && (
           <div
             role="note"
             className="mb-6 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800"
@@ -308,6 +323,7 @@ export function ReceivableForm(props: Props) {
               type="text"
               required
               maxLength={200}
+              disabled={!canWrite}
               defaultValue={receivable?.concept ?? ""}
               className={inputClass}
               placeholder="Honorarios por escritura de compraventa"
@@ -405,6 +421,7 @@ export function ReceivableForm(props: Props) {
                 name="issued_at"
                 type="date"
                 required
+                disabled={!canWrite}
                 defaultValue={receivable?.issued_at ?? today()}
                 className={inputClass}
                 aria-describedby={
@@ -429,6 +446,7 @@ export function ReceivableForm(props: Props) {
                 id="due_at"
                 name="due_at"
                 type="date"
+                disabled={!canWrite}
                 defaultValue={receivable?.due_at ?? ""}
                 className={inputClass}
                 aria-describedby={
@@ -453,6 +471,7 @@ export function ReceivableForm(props: Props) {
               name="notes"
               rows={3}
               maxLength={2000}
+              disabled={!canWrite}
               defaultValue={receivable?.notes ?? ""}
               className={inputClass}
               placeholder="Acuerdo de pago, referencias, recordatorios…"
@@ -470,17 +489,19 @@ export function ReceivableForm(props: Props) {
           >
             Cancelar
           </Link>
-          <button
-            type="submit"
-            disabled={pending}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {pending
-              ? "Guardando…"
-              : isEdit
-                ? "Guardar cambios"
-                : "Crear cuenta"}
-          </button>
+          {canWrite && (
+            <button
+              type="submit"
+              disabled={pending}
+              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {pending
+                ? "Guardando…"
+                : isEdit
+                  ? "Guardar cambios"
+                  : "Crear cuenta"}
+            </button>
+          )}
         </div>
       </form>
     </div>

@@ -12,6 +12,8 @@ import {
   toVariableAutofillSource,
   toVariableOutputTransform,
 } from "@/features/templates/model/variable-autofill";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Machote — LexCR",
@@ -29,6 +31,9 @@ function resolveInitialSection(raw: string | undefined): TemplateWorkspaceSectio
 export default async function TemplateDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { created, section } = await searchParams;
+  const { role } = await requireWorkspace();
+  const canWrite = hasPermission(role, "templates.write");
+  const canCreateDocuments = hasPermission(role, "documents.create");
   const template = await getTemplateById(id);
 
   if (!template) notFound();
@@ -75,8 +80,9 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           label: field.label,
         }))}
         indexOptionBlocks={extractStructuredOutputOptionBlocks(labeledDocument)}
+        canWrite={canWrite}
         headerActions={
-          template.status === "active" ? (
+          !canCreateDocuments ? undefined : template.status === "active" ? (
             <Link
               href={`/dashboard/documents/new/${template.id}`}
               className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
