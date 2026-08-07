@@ -53,15 +53,42 @@ async function fillInlineField(page: Page, key: string, value: string) {
   await input.blur();
 }
 
-function partsSection(page: Page) {
-  return page.getByRole("region", { name: "Completar desde Clientes" });
+// Cada Parte ahora vive en un chip+popover (`DocumentContextBar`), no en una
+// sección siempre visible. El chip expone su rol como nombre accesible
+// ("Comprador" o "Comprador +" cuando falta); el popover expone
+// role="dialog" con aria-label "Completar <rol> desde un Cliente
+// registrado" — se usa para acotar las búsquedas al rol correcto.
+// Acotado a la barra de chips: el nombre de un rol puede coincidir por
+// prefijo con la etiqueta de un campo pendiente (ej. "Vendedor - Nombre
+// completo" en PendingFieldsDialog), que también es un button accesible.
+function roleChip(page: Page, role: string) {
+  return page
+    .getByRole("region", { name: "Cliente principal y Partes" })
+    .getByRole("button", { name: new RegExp(`^${role}\\b`) });
 }
 
 function roleBlock(page: Page, role: string) {
-  return partsSection(page)
-    .locator("div")
-    .filter({ has: page.getByRole("heading", { name: role, exact: true }) })
-    .first();
+  return page.getByRole("dialog", { name: new RegExp(`Completar ${role} `) });
+}
+
+async function openRolePopover(page: Page, role: string) {
+  const dialog = roleBlock(page, role);
+  // Idempotente: si ya está abierto (ej. una llamada previa en el mismo
+  // test), un segundo clic en el chip lo cerraría en vez de reabrirlo.
+  if (await dialog.isVisible()) return;
+  await roleChip(page, role).click();
+  await expect(dialog).toBeVisible();
+}
+
+// Cierra con el mismo chip (toggle): abrir el popover de OTRO rol mientras
+// este sigue abierto es una interacción de "clic afuera" que no siempre
+// resuelve de forma determinista en el mismo gesto que activa el otro
+// trigger — cerrar explícitamente antes de pasar a otro rol lo evita.
+async function closeRolePopover(page: Page, role: string) {
+  const dialog = roleBlock(page, role);
+  if (!(await dialog.isVisible())) return;
+  await roleChip(page, role).click();
+  await expect(dialog).toBeHidden();
 }
 
 /** Escribe el nombre en el combobox del rol y confirma la primera coincidencia. */
@@ -70,6 +97,7 @@ async function completeRoleFromClient(
   role: string,
   clientName: string,
 ) {
+  await openRolePopover(page, role);
   const combobox = roleBlock(page, role).getByLabel(
     "Completar desde Cliente registrado",
   );
@@ -144,12 +172,8 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
-    await expect(
-      partsSection(page).getByRole("heading", { name: "Comprador" }),
-    ).toBeVisible();
-    await expect(
-      partsSection(page).getByRole("heading", { name: "Vendedor" }),
-    ).toBeVisible();
+    await expect(roleChip(page, "Comprador")).toBeVisible();
+    await expect(roleChip(page, "Vendedor")).toBeVisible();
 
     await completeRoleFromClient(page, "Comprador", buyerName);
 
@@ -185,6 +209,7 @@ test.describe("document role autofill", () => {
 
     // Ahora completa Vendedor con el mismo Cliente usado en Comprador — se
     // permite reutilizar el mismo Cliente en varios roles.
+    await closeRolePopover(page, "Comprador");
     await completeRoleFromClient(page, "Vendedor", buyerName);
     await expect(fieldValue(page, "vendedor.nombre_completo")).toHaveValue(
       buyerName,
@@ -209,6 +234,7 @@ test.describe("document role autofill", () => {
     await expect(fieldValue(page, "comprador.nombre")).toHaveValue(buyerName);
 
     // Los campos siguen editables tras el autollenado.
+    await closeRolePopover(page, "Vendedor");
     await fillInlineField(page, "comprador.nombre", `${buyerName} (editado)`);
     await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       `${buyerName} (editado)`,
@@ -302,13 +328,19 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await expect(page.getByLabel("Cliente principal")).toHaveValue("");
+    await page
+      .getByRole("button", { name: /^Cliente principal/ })
+      .click();
+    await expect(
+      page.getByLabel("Cliente principal", { exact: true }),
+    ).toHaveValue("");
   });
 
   test("G: the searchable selector filters by name and by identification number", async ({
     page,
   }) => {
     await page.goto(documentUrl);
+    await openRolePopover(page, "Comprador");
     const combobox = roleBlock(page, "Comprador").getByLabel(
       "Completar desde Cliente registrado",
     );

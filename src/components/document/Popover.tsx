@@ -61,14 +61,20 @@ export function Popover({
   useEffect(() => {
     if (!open) return;
     function onClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(target) &&
-        !triggerRef.current?.contains(target)
-      ) {
-        close();
+      const target = event.target as Element;
+      if (!panelRef.current) return;
+      if (panelRef.current.contains(target) || triggerRef.current?.contains(target)) {
+        return;
       }
+      // Un diálogo anidado (ej. `CreateClientDialog`, que monta su propio
+      // modal vía `createPortal` a `document.body`) vive fuera del árbol DOM
+      // de `panelRef`, así que `contains` nunca lo reconoce como "adentro".
+      // Cualquier clic dentro de un `role="dialog"` ajeno se trata como
+      // interacción legítima, no como clic-afuera — si no, este popover se
+      // cerraría (y desmontaría el diálogo anidado) antes de que su propio
+      // submit termine de procesarse.
+      if (target.closest?.('[role="dialog"]')) return;
+      close();
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);

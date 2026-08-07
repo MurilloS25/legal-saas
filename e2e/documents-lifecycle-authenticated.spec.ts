@@ -26,6 +26,8 @@ let historicalReadyId = "";
 
 async function open(page: Page, id: string) {
   await page.goto(`/dashboard/documents/${id}`);
+  // "Datos de la Escritura" siempre está visible (incluso en móvil, donde
+  // "Documento" arranca oculto detrás del toggle data/document).
   await expect(
     page.getByRole("region", { name: "Datos de la Escritura" }),
   ).toBeVisible();
@@ -33,6 +35,15 @@ async function open(page: Page, id: string) {
 
 function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
+}
+
+// El paso "Finalizar" (Estado/Reabrir/Descargar Word) vive en su propio
+// panel del stepper, oculto por defecto (el paso inicial es "Completar").
+async function goToFinalizar(page: Page) {
+  await page.getByRole("tab", { name: "Finalizar" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Estado de la escritura" }),
+  ).toBeVisible();
 }
 
 test.describe("document lifecycle statuses", () => {
@@ -87,6 +98,7 @@ test.describe("document lifecycle statuses", () => {
   test("B: draft can be finalized directly with confirmation", async ({ page }) => {
     await open(page, completeId);
     await expect(page.getByText("Borrador", { exact: true })).toBeVisible();
+    await goToFinalizar(page);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
 
     const dialog = page.getByRole("alertdialog", {
@@ -102,16 +114,25 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByText("Escritura finalizada", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Completar datos del índice" })).toBeVisible();
+    // El paso "Índice" del stepper deja de estar bloqueado tras finalizar.
     await expect(
-      page.getByRole("link", { name: "Índice notarial", exact: true }),
+      page.getByRole("tab", { name: "Índice", exact: true }),
+    ).toBeEnabled();
+
+    // Finalizar redirige de verdad (server action) y reinicia el paso al
+    // inicial ("Completar") — hay que volver a Finalizar para ver el enlace.
+    await goToFinalizar(page);
+    await expect(
+      page.getByRole("link", { name: "Completar datos del índice" }),
     ).toBeVisible();
   });
 
   test("C: final is read-only and can be reopened to draft", async ({ page }) => {
     await open(page, completeId);
-    // Solo lectura: el título está deshabilitado.
+    // Solo lectura: el título está deshabilitado (paso Completar, inicial).
     await expect(page.getByLabel("Título de la escritura")).toBeDisabled();
+
+    await goToFinalizar(page);
     await expect(
       page.getByText(/Finalizada es de solo lectura/),
     ).toBeVisible();
@@ -147,6 +168,7 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByText("Revisión pendiente (histórico)", { exact: true }).first(),
     ).toBeVisible();
+    await goToFinalizar(page);
     await expect(
       page.getByRole("button", { name: "Marcar como listo para revisar" }),
     ).toHaveCount(0);
@@ -160,12 +182,10 @@ test.describe("document lifecycle statuses", () => {
 
   test("F: unsaved changes block a status change", async ({ page }) => {
     await open(page, completeId);
-    const finalButton = page.getByRole("button", {
-      name: "Finalizar escritura",
-    });
 
-    // Reintenta el fill hasta que el gate se active, por si el primer intento
-    // ocurre antes de la hidratación (dirty no se dispararía).
+    // El campo se edita en el paso Completar (inicial); dirty es estado
+    // compartido de todo el compositor, así que sigue activo al cambiar de
+    // paso — nunca se pierde ni se reinicia al navegar a Finalizar.
     await expect(async () => {
       await documentRegion(page)
         .locator('[data-variable-key="parte.nombre"]')
@@ -176,9 +196,15 @@ test.describe("document lifecycle statuses", () => {
       );
       await input.fill("Persona Editada");
       await input.blur();
-      await expect(finalButton).toBeDisabled({ timeout: 2_000 });
+      await expect(page.getByText("Cambios sin guardar").first()).toBeVisible({
+        timeout: 2_000,
+      });
     }).toPass({ timeout: 20_000 });
 
+    await goToFinalizar(page);
+    const finalButton = page.getByRole("button", {
+      name: "Finalizar escritura",
+    });
     await expect(
       page.getByText("Guarda los cambios antes de cambiar el estado."),
     ).toBeVisible();
@@ -189,6 +215,7 @@ test.describe("document lifecycle statuses", () => {
     page,
   }) => {
     await open(page, pendingId);
+    await goToFinalizar(page);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -233,6 +260,7 @@ test.describe("document lifecycle statuses", () => {
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await open(page, completeId);
+    await goToFinalizar(page);
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeVisible();

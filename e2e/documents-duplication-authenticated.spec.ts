@@ -160,17 +160,11 @@ test.describe("document duplication", () => {
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
 
     // Sin historial propio de la copia (más allá de su propia creación) ni
-    // pestaña de índice notarial habilitada (solo aplica a finalizadas).
-    const sectionsNav = page.getByRole("navigation", {
-      name: "Secciones de la escritura",
+    // paso de Índice habilitado (solo aplica a finalizadas).
+    const stepper = page.getByRole("navigation", {
+      name: "Pasos de la escritura",
     });
-    await expect(
-      sectionsNav.getByRole("link", { name: "Índice notarial", exact: true }),
-    ).toHaveCount(0);
-    await expect(sectionsNav.getByText("Índice notarial")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(stepper.getByRole("tab", { name: "Índice" })).toBeDisabled();
 
     await registerCreatedViaUi(registry, "documents", "title", copyTitle);
 

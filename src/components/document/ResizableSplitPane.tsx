@@ -9,10 +9,17 @@
  * exclusiva del llamador (los toggles `TemplateMobileViewToggle`/
  * `DocumentMobileViewToggle` ya existentes), porque ese mecanismo depende
  * de mantener el editor Tiptap montado en todo momento (alternando
- * visibilidad por CSS, nunca desmontando). Este componente NO debe usarse
- * para decidir si `primary`/`secondary` se muestran en mobile — solo para
- * el layout de la columna ancha. El llamador sigue envolviendo esto en su
- * propio contenedor `xl:...` existente.
+ * visibilidad por CSS, nunca desmontando).
+ *
+ * Importante: `primary`/`secondary` deben ser nodos creados UNA sola vez
+ * por el llamador y pasados aquí directamente — nunca duplicados en una
+ * rama JSX aparte para mobile, o React montaría dos instancias del editor.
+ * Para que el toggle mobile de "Editar"/"Vista previa" siga funcionando
+ * sin duplicar nodos, `primaryClassName`/`secondaryClassName` permiten que
+ * el llamador agregue sus propias clases de visibilidad (ej.
+ * `mobileView === "preview" ? "hidden xl:block" : ""`) a las mismas
+ * columnas que este componente ya envuelve, en vez de envolver el nodo por
+ * fuera dos veces.
  */
 
 import { useRef, useState } from "react";
@@ -27,6 +34,10 @@ type Props = {
   defaultSecondaryPercent?: number;
   minSecondaryPercent?: number;
   maxSecondaryPercent?: number;
+  /** Clases adicionales para la columna primaria (ej. visibilidad mobile). */
+  primaryClassName?: string;
+  /** Clases adicionales para la columna secundaria (ej. visibilidad mobile). */
+  secondaryClassName?: string;
 };
 
 export function ResizableSplitPane({
@@ -37,6 +48,8 @@ export function ResizableSplitPane({
   defaultSecondaryPercent = 40,
   minSecondaryPercent = 25,
   maxSecondaryPercent = 60,
+  primaryClassName = "",
+  secondaryClassName = "",
 }: Props) {
   const [secondaryPercent, setSecondaryPercent] = useState(defaultSecondaryPercent);
   const [hidden, setHidden] = useState(false);
@@ -71,16 +84,28 @@ export function ResizableSplitPane({
 
   return (
     <div>
+      {/*
+        `grid-cols-1` es la base (mobile-first, sin media query): por debajo
+        de `xl:` el contenedor siempre es de una sola columna, y son
+        `primaryClassName`/`secondaryClassName` (no este componente) los que
+        deciden cuál de las dos columnas se ve en esa columna única. Recién
+        a partir de `xl:` se activa la grilla redimensionable de verdad, vía
+        una propiedad custom en lugar de un valor de `style` fijo, para que
+        pueda tener un breakpoint (un `style` en línea no puede llevar
+        prefijo `xl:`).
+      */}
       <div
         ref={containerRef}
-        className="grid items-start gap-0"
-        style={{
-          gridTemplateColumns: hidden
-            ? "1fr"
-            : `minmax(0,1fr) 14px minmax(0,${secondaryPercent}%)`,
-        }}
+        className="grid grid-cols-1 items-start gap-0 xl:[grid-template-columns:var(--rsp-cols)]"
+        style={
+          {
+            "--rsp-cols": hidden
+              ? "1fr"
+              : `minmax(0,1fr) 14px minmax(0,${secondaryPercent}%)`,
+          } as React.CSSProperties
+        }
       >
-        <div className="min-w-0">{primary}</div>
+        <div className={`min-w-0 ${primaryClassName}`}>{primary}</div>
         {!hidden && (
           <>
             <div
@@ -102,12 +127,16 @@ export function ResizableSplitPane({
                   );
                 }
               }}
-              className="group flex cursor-col-resize items-stretch justify-center focus:outline-none"
+              className="hidden cursor-col-resize items-stretch justify-center focus:outline-none xl:group xl:flex"
             >
               <span className="w-0.5 rounded-full bg-slate-200 group-hover:bg-accent-400 group-focus-visible:bg-accent-500" />
             </div>
-            <div className="sticky top-5 min-w-0">
-              <div className="mb-2 flex items-center justify-between gap-2">
+            <div className={`sticky top-5 min-w-0 ${secondaryClassName}`}>
+              {/* Ocultar/Expandir son un concepto de la vista dividida de
+                  escritorio; en mobile ya existe el toggle del llamador —
+                  "Ocultar" ahí dejaría la pantalla en blanco (`secondary`
+                  desmontado) sin forma de recuperarlo fuera de `xl:`. */}
+              <div className="mb-2 hidden items-center justify-between gap-2 xl:flex">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {secondaryTitle}
                 </span>
@@ -138,7 +167,7 @@ export function ResizableSplitPane({
         )}
       </div>
       {hidden && (
-        <div className="mt-2 flex justify-end">
+        <div className="mt-2 hidden justify-end xl:flex">
           <button
             type="button"
             onClick={() => setHidden(false)}

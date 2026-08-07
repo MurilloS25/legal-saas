@@ -26,6 +26,27 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
+// El <select> de Cliente principal vive dentro de su popover
+// (DocumentContextBar) — hay que abrirlo antes de leerlo/usarlo.
+// Idempotente: no reabre si ya está visible.
+async function openClientPrincipalPopover(page: Page) {
+  const select = page.getByLabel("Cliente principal", { exact: true });
+  if (await select.isVisible().catch(() => false)) return;
+  await page.getByRole("button", { name: /^Cliente principal/ }).click();
+  await expect(select).toBeVisible();
+}
+
+// Cierra el popover con el mismo trigger (toggle), en vez de Escape: Escape
+// depende de qué elemento tiene el foco (ej. tras un `selectOption`, el foco
+// no queda garantizado dentro del panel), mientras que el trigger siempre
+// cierra sin importar el foco actual.
+async function closeClientPrincipalPopover(page: Page) {
+  await page.getByRole("button", { name: /^Cliente principal/ }).click();
+  await expect(
+    page.getByRole("dialog", { name: /Cliente principal/ }),
+  ).toBeHidden();
+}
+
 async function fillInlineField(page: Page, key: string, value: string) {
   await documentRegion(page)
     .locator(`[data-variable-key="${key}"]`)
@@ -94,9 +115,14 @@ test.describe("document ↔ client relationship", () => {
     });
 
     // El compositor tiene el cliente preseleccionado.
-    await expect(page.getByLabel("Cliente principal (opcional)")).toHaveValue(
+    await openClientPrincipalPopover(page);
+    await expect(page.getByLabel("Cliente principal", { exact: true })).toHaveValue(
       clientId,
     );
+    // Cierra el popover explícitamente antes de interactuar con la hoja
+    // documental, en vez de depender del cierre implícito por clic afuera
+    // justo en el mismo gesto que activa la edición inline.
+    await closeClientPrincipalPopover(page);
 
     await fillInlineField(page, "comprador.nombre", "Cliente Prueba");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
@@ -143,7 +169,8 @@ test.describe("document ↔ client relationship", () => {
       timeout: 15_000,
     });
 
-    const clientSelect = page.getByLabel("Cliente principal (opcional)");
+    await openClientPrincipalPopover(page);
+    const clientSelect = page.getByLabel("Cliente principal", { exact: true });
     await expect(clientSelect).toHaveValue(clientId);
     await clientSelect.selectOption("");
     await expect(page.getByText("Cambios sin guardar").first()).toBeVisible();
@@ -154,7 +181,8 @@ test.describe("document ↔ client relationship", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
-    await expect(page.getByLabel("Cliente principal (opcional)")).toHaveValue(
+    await openClientPrincipalPopover(page);
+    await expect(page.getByLabel("Cliente principal", { exact: true })).toHaveValue(
       "",
     );
     await expect(page.getByText("Cliente: Sin cliente")).toBeVisible();
@@ -175,13 +203,17 @@ test.describe("document ↔ client relationship", () => {
     });
 
     // Sin cliente por defecto; se puede elegir uno.
-    await expect(page.getByLabel("Cliente principal (opcional)")).toHaveValue(
+    await openClientPrincipalPopover(page);
+    await expect(page.getByLabel("Cliente principal", { exact: true })).toHaveValue(
       "",
     );
     await page.getByLabel("Título de la escritura").fill(secondTitle);
     await page
-      .getByLabel("Cliente principal (opcional)")
+      .getByLabel("Cliente principal", { exact: true })
       .selectOption({ label: clientName });
+    // Cierra el popover explícitamente antes de interactuar con la hoja
+    // documental (ver nota en el test C).
+    await closeClientPrincipalPopover(page);
     await fillInlineField(page, "comprador.nombre", "Otro Cliente");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
