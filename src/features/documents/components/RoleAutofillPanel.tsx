@@ -11,9 +11,17 @@
  * reemplaza el Cliente principal de la Escritura y no dispara
  * actualizaciones futuras. Todos los campos copiados quedan editables de
  * inmediato; al recargar persisten los valores, no la selección visual.
+ *
+ * `RoleAutofillFields` renderiza un único rol — es lo que `DocumentContextBar`
+ * incrusta dentro del popover de cada Parte. Creando un Cliente nuevo desde
+ * aquí ("+ Crear nuevo cliente") reutiliza exactamente el mismo
+ * `handleSelect` que la selección por combobox, así la confirmación de
+ * sobrescritura de campos ya llenos aplica igual en ambos caminos — nunca
+ * convierte al nuevo Cliente en el Cliente principal de la Escritura.
  */
 
 import { useId, useState } from "react";
+import { CreateClientDialog, type CreatedClient } from "@/features/clients";
 import type {
   DocumentClientOption,
   RoleVariableGroup,
@@ -28,30 +36,27 @@ type PendingConfirmation = {
 };
 
 type Props = {
-  groups: RoleVariableGroup[];
-  clients: DocumentClientOption[];
-  values: Record<string, string>;
-  readOnly: boolean;
-  onApply: (fieldValues: Record<string, string>) => void;
-};
-
-function roleLabel(role: string): string {
-  return role.charAt(0).toUpperCase() + role.slice(1).replaceAll("_", " ");
-}
-
-function RoleBlock({
-  group,
-  clients,
-  values,
-  readOnly,
-  onApply,
-}: {
   group: RoleVariableGroup;
   clients: DocumentClientOption[];
   values: Record<string, string>;
   readOnly: boolean;
   onApply: (fieldValues: Record<string, string>) => void;
-}) {
+  /** Registra el Cliente recién creado en la lista compartida del compositor. */
+  onClientCreated: (client: CreatedClient) => void;
+}
+
+export function roleLabel(role: string): string {
+  return role.charAt(0).toUpperCase() + role.slice(1).replaceAll("_", " ");
+}
+
+export function RoleAutofillFields({
+  group,
+  clients,
+  values,
+  readOnly,
+  onApply,
+  onClientCreated,
+}: Props) {
   const dialogId = useId();
   const [referenceClient, setReferenceClient] = useState<DocumentClientOption | null>(
     null,
@@ -73,6 +78,11 @@ function RoleBlock({
     setReferenceClient(client);
   }
 
+  function handleCreated(client: CreatedClient) {
+    onClientCreated(client);
+    handleSelect(client);
+  }
+
   function confirmOverwrite() {
     if (!confirmation) return;
     onApply(confirmation.values);
@@ -88,7 +98,7 @@ function RoleBlock({
   const dialogDescId = `${dialogId}-confirm-desc`;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-3">
+    <div>
       <h3 className="text-sm font-semibold text-slate-900">
         {roleLabel(group.role)}
       </h3>
@@ -101,6 +111,12 @@ function RoleBlock({
         onSelect={handleSelect}
         onClear={() => setReferenceClient(null)}
       />
+
+      {!readOnly && (
+        <div className="mt-2">
+          <CreateClientDialog onCreated={handleCreated} />
+        </div>
+      )}
 
       {referenceClient && (
         <p className="mt-2 text-xs text-slate-500">
@@ -166,28 +182,5 @@ function RoleBlock({
         </>
       )}
     </div>
-  );
-}
-
-export function RoleAutofillPanel({ groups, clients, values, readOnly, onApply }: Props) {
-  const autofillableGroups = groups.filter((group) => group.hasClientAutofill);
-  if (autofillableGroups.length === 0) return null;
-
-  return (
-    <section aria-label="Completar desde Clientes" className="space-y-3">
-      <h2 className="text-sm font-semibold text-slate-900">
-        Completar desde Clientes
-      </h2>
-      {autofillableGroups.map((group) => (
-        <RoleBlock
-          key={group.role}
-          group={group}
-          clients={clients}
-          values={values}
-          readOnly={readOnly}
-          onApply={(fieldValues) => onApply(fieldValues)}
-        />
-      ))}
-    </section>
   );
 }

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
   getDocumentById,
@@ -27,7 +28,6 @@ import {
 import {
   DocumentComposer,
   DocumentFinalizedMilestone,
-  DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
 } from "@/features/documents";
 import {
@@ -114,26 +114,25 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         notarialMetadata.updated_at,
       )
     : false;
-  const section: DocumentWorkspaceSection =
-    requestedSection === "receivables"
-      ? "receivables"
-      : requestedSection === "notarial" && document.status === "final"
+  const notarialUnlocked = document.status === "final";
+  const initialSection: DocumentWorkspaceSection =
+    requestedSection === "revisar" ||
+    requestedSection === "cobro" ||
+    requestedSection === "finalizar"
+      ? requestedSection
+      : requestedSection === "notarial" && notarialUnlocked
         ? "notarial"
-        : "document";
+        : "completar";
+
+  const receivablesNewHref = canManageReceivables
+    ? appendReturnTo(
+        `/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
+        buildDocumentReceivablesReturnTo(document.id),
+      )
+    : undefined;
 
   return (
     <PageContainer>
-      <DocumentWorkspaceHeader
-        documentId={document.id}
-        title={document.title}
-        clientName={document.clients?.full_name ?? null}
-        status={document.status}
-        section={section}
-        savedJustNow={saved === "1"}
-        activity={activity}
-        canDuplicate={canDuplicate}
-      />
-
       {lifecycle === "finalized" && (
         <DocumentFinalizedMilestone documentId={document.id} />
       )}
@@ -154,20 +153,25 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         </p>
       )}
 
-      {section === "document" && !template ? (
-        <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">
-          <p className="text-sm text-slate-700 mb-2 font-medium">
-            El machote de esta escritura ya no está disponible.
-          </p>
-          <p className="text-sm text-slate-600 mb-4">
-            Se conserva la última vista previa guardada, pero el borrador no
-            puede editarse sin su machote.
-          </p>
-          <pre className="mx-auto max-w-prose rounded-lg border border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
-            {document.rendered_content}
-          </pre>
-        </div>
-      ) : section === "document" && template ? (
+      {!template ? (
+        // Caso raro: el machote de la Escritura ya no existe. Se conserva
+        // el fallback simple de siempre (sin stepper — no hay documento que
+        // editar/revisar), pero Cobro e Índice siguen siendo alcanzables
+        // como antes, con navegación simple en vez del stepper completo.
+        <NoTemplateFallback
+          document={document}
+          canEdit={canEdit}
+          canManageReceivables={canManageReceivables}
+          receivables={receivables}
+          receivablesNewHref={receivablesNewHref}
+          notarialMetadata={notarialMetadata}
+          notarialPrefill={notarialPrefill}
+          notarialReviewRequired={notarialReviewRequired}
+          indexConfiguration={indexConfiguration}
+          generatedPartiesPreview={generatedPartiesPreview}
+          requestedSection={requestedSection}
+        />
+      ) : (
         <DocumentComposerLoader
           templateName={template.name}
           contentJson={template.content_json}
@@ -176,39 +180,19 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           savedJustNow={saved === "1"}
           canEdit={canEdit}
           canFinalize={canFinalize}
-        />
-      ) : null}
-
-      {section === "notarial" && (
-        <NotarialMetadataSection
-          documentId={document.id}
-          metadata={notarialMetadata}
-          prefill={notarialPrefill}
-          readOnly
-          canEdit={canEdit}
+          initialSection={initialSection}
+          activity={activity}
+          canDuplicate={canDuplicate}
+          receivables={receivables}
+          receivablesNewHref={receivablesNewHref}
+          receivablesReturnTo={buildDocumentReceivablesReturnTo(document.id)}
+          notarialMetadata={notarialMetadata}
+          notarialPrefill={notarialPrefill}
           canResetParties={indexConfiguration?.isComplete === true}
           actNamePreview={template?.name ?? null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
         />
-      )}
-
-      {section === "receivables" && (
-        <section aria-label="Cuentas por cobrar de la escritura">
-        <ReceivableMiniList
-          receivables={receivables}
-          newHref={
-            canManageReceivables
-              ? appendReturnTo(
-                  `/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
-                  buildDocumentReceivablesReturnTo(document.id),
-                )
-              : undefined
-          }
-          returnTo={buildDocumentReceivablesReturnTo(document.id)}
-          emptyText="Esta escritura todavía no tiene cuentas por cobrar."
-        />
-        </section>
       )}
     </PageContainer>
   );
@@ -223,6 +207,18 @@ async function DocumentComposerLoader({
   savedJustNow,
   canEdit,
   canFinalize,
+  initialSection,
+  activity,
+  canDuplicate,
+  receivables,
+  receivablesNewHref,
+  receivablesReturnTo,
+  notarialMetadata,
+  notarialPrefill,
+  canResetParties,
+  actNamePreview,
+  generatedPartiesPreview,
+  reviewRequired,
 }: {
   templateName: string;
   contentJson: unknown;
@@ -231,6 +227,18 @@ async function DocumentComposerLoader({
   savedJustNow: boolean;
   canEdit: boolean;
   canFinalize: boolean;
+  initialSection: DocumentWorkspaceSection;
+  activity: Awaited<ReturnType<typeof listDocumentActivity>>;
+  canDuplicate: boolean;
+  receivables: Awaited<ReturnType<typeof listReceivablesByDocument>>;
+  receivablesNewHref?: string;
+  receivablesReturnTo: string;
+  notarialMetadata: Awaited<ReturnType<typeof getNotarialMetadata>>;
+  notarialPrefill: ReturnType<typeof resolveNotarialMetadataPrefill>;
+  canResetParties: boolean;
+  actNamePreview: string | null;
+  generatedPartiesPreview: string | null;
+  reviewRequired: boolean;
 }) {
   const { document: templateDocument, templateText } =
     resolveTemplateContent(contentJson);
@@ -267,6 +275,137 @@ async function DocumentComposerLoader({
       fields={fields}
       clients={clientOptions}
       initialClientId={document.client_id}
+      initialSection={initialSection}
+      activity={activity}
+      canDuplicate={canDuplicate}
+      receivables={receivables}
+      receivablesNewHref={receivablesNewHref}
+      receivablesReturnTo={receivablesReturnTo}
+      notarialMetadata={notarialMetadata}
+      notarialPrefill={notarialPrefill}
+      canResetParties={canResetParties}
+      actNamePreview={actNamePreview}
+      generatedPartiesPreview={generatedPartiesPreview}
+      reviewRequired={reviewRequired}
     />
+  );
+}
+
+// ------------------------------------------------------------------ fallback sin machote
+
+/**
+ * Caso raro: el machote referenciado por la Escritura ya no existe. No hay
+ * documento que editar/revisar, así que se mantiene el fallback de texto
+ * simple de siempre — pero Cobro e Índice (si está finalizada) siguen
+ * siendo alcanzables, con una navegación simple en vez del stepper
+ * completo (que depende de tener un documento real que mostrar).
+ */
+function NoTemplateFallback({
+  document,
+  canEdit,
+  canManageReceivables,
+  receivables,
+  receivablesNewHref,
+  notarialMetadata,
+  notarialPrefill,
+  notarialReviewRequired,
+  indexConfiguration,
+  generatedPartiesPreview,
+  requestedSection,
+}: {
+  document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
+  canEdit: boolean;
+  canManageReceivables: boolean;
+  receivables: Awaited<ReturnType<typeof listReceivablesByDocument>>;
+  receivablesNewHref?: string;
+  notarialMetadata: Awaited<ReturnType<typeof getNotarialMetadata>>;
+  notarialPrefill: ReturnType<typeof resolveNotarialMetadataPrefill>;
+  notarialReviewRequired: boolean;
+  indexConfiguration: Awaited<ReturnType<typeof getTemplateIndexConfiguration>>;
+  generatedPartiesPreview: string | null;
+  requestedSection?: string;
+}) {
+  const notarialUnlocked = document.status === "final";
+  const section =
+    requestedSection === "cobro"
+      ? "cobro"
+      : requestedSection === "notarial" && notarialUnlocked
+        ? "notarial"
+        : "document";
+  const base = `/dashboard/documents/${document.id}`;
+
+  return (
+    <div>
+      <Link
+        href="/dashboard/documents"
+        className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
+      >
+        ‹ Volver a Escrituras
+      </Link>
+      <h1 className="text-2xl font-semibold text-slate-900">{document.title}</h1>
+      <nav aria-label="Secciones de la escritura" className="mt-6 mb-6 border-b border-slate-200">
+        <div className="flex gap-1 overflow-x-auto">
+          {(
+            [
+              { id: "document", label: "Documento" },
+              { id: "cobro", label: "Cobro" },
+              ...(notarialUnlocked ? [{ id: "notarial", label: "Índice" }] : []),
+            ] as const
+          ).map((tab) => (
+            <Link
+              key={tab.id}
+              href={tab.id === "document" ? base : `${base}?section=${tab.id}`}
+              aria-current={section === tab.id ? "page" : undefined}
+              className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
+                section === tab.id
+                  ? "border-accent-700 text-accent-800"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {section === "document" && (
+        <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">
+          <p className="text-sm text-slate-700 mb-2 font-medium">
+            El machote de esta escritura ya no está disponible.
+          </p>
+          <p className="text-sm text-slate-600 mb-4">
+            Se conserva la última vista previa guardada, pero el borrador no
+            puede editarse sin su machote.
+          </p>
+          <pre className="mx-auto max-w-prose rounded-lg border border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
+            {document.rendered_content}
+          </pre>
+        </div>
+      )}
+
+      {section === "cobro" && (
+        <section aria-label="Cuentas por cobrar de la escritura">
+          <ReceivableMiniList
+            receivables={receivables}
+            newHref={canManageReceivables ? receivablesNewHref : undefined}
+            emptyText="Esta escritura todavía no tiene cuentas por cobrar."
+          />
+        </section>
+      )}
+
+      {section === "notarial" && (
+        <NotarialMetadataSection
+          documentId={document.id}
+          metadata={notarialMetadata}
+          prefill={notarialPrefill}
+          readOnly
+          canEdit={canEdit}
+          canResetParties={indexConfiguration?.isComplete === true}
+          actNamePreview={null}
+          generatedPartiesPreview={generatedPartiesPreview}
+          reviewRequired={notarialReviewRequired}
+        />
+      )}
+    </div>
   );
 }

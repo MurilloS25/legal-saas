@@ -5,6 +5,13 @@
  * metadata notarial interna. La completitud se calcula sobre los campos
  * estructurados requeridos por el índice interno. Puede corregirse aun cuando
  * la Escritura esté finalizada, sin alterar el contenido de la Escritura.
+ *
+ * Reestructurado para "progressive disclosure" (mismos primitivos que
+ * `TemplateIndexConfigurationSection` de Machotes): resumen configurado/
+ * pendiente + filas compactas, una expandida a la vez. Los inputs reales
+ * viven siempre montados fuera de la fila colapsable (mismo `<input>`, sin
+ * duplicar `name`) — nunca dentro de `{open && children}`, para no repetir
+ * el bug de FormData ya encontrado y corregido en Machotes.
  */
 
 import { useActionState, useId, useState } from "react";
@@ -20,12 +27,23 @@ import type {
 } from "../model/prefill";
 import { isNotarialComplete } from "../model/notarial";
 import { FieldError } from "@/components/forms/FieldError";
+import { IndexSummaryHeader } from "./IndexSummaryHeader";
+import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
 const initialState: NotarialMetadataState = {};
+
+type RowId =
+  | "instrument_number"
+  | "authorized_at"
+  | "act_name_override"
+  | "protocol_book"
+  | "folios"
+  | "parties_override"
+  | "notes";
 
 type Props = {
   documentId: string;
@@ -65,10 +83,16 @@ export function NotarialMetadataSection({
   const [finalFolio, setFinalFolio] = useState(prefill.finalFolio.value);
   const [actName, setActName] = useState(prefill.actName.value);
   const [parties, setParties] = useState(metadata?.parties_override ?? "");
+  const [notes, setNotes] = useState(metadata?.notes ?? "");
+  const [openRowId, setOpenRowId] = useState<RowId | null>(null);
   const [previousActionState, setPreviousActionState] = useState(state);
   if (state !== previousActionState) {
     setPreviousActionState(state);
     if (state.resetParties) setParties("");
+    if (state.errors && Object.keys(state.errors).length > 0) {
+      const firstErrorRow = ROW_FOR_ERROR.find((row) => state.errors?.[row.errorKey]);
+      if (firstErrorRow) setOpenRowId(firstErrorRow.id);
+    }
   }
 
   const complete = isNotarialComplete({
@@ -84,33 +108,44 @@ export function NotarialMetadataSection({
       metadata?.generated_parties ?? generatedPartiesPreview,
   });
 
+  function toggleRow(id: RowId) {
+    setOpenRowId((current) => (current === id ? null : id));
+  }
+
+  const instrumentConfigured = instrument !== "" && Number(instrument) > 0;
+  const authorizedAtConfigured = authorizedAt !== "";
+  const protocolBookConfigured = protocolBook.trim() !== "";
+  const foliosConfigured = initialFolio.trim() !== "" && finalFolio.trim() !== "";
+  const actNameConfigured =
+    actName.trim() !== "" || !!(metadata?.act_name_snapshot ?? actNamePreview);
+  const partiesFallback = metadata?.generated_parties ?? generatedPartiesPreview;
+  const partiesConfigured = parties.trim() !== "" || !!partiesFallback;
+
+  const requiredRows = [
+    instrumentConfigured,
+    authorizedAtConfigured,
+    protocolBookConfigured,
+    foliosConfigured,
+    actNameConfigured,
+    partiesConfigured,
+  ];
+  const configuredCount = requiredRows.filter(Boolean).length;
+  const pendingCount = requiredRows.length - configuredCount;
+
   return (
     <section
       aria-labelledby={headingId}
       className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
     >
-      <div className="flex items-center justify-between gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <div>
-          <h2 id={headingId} className="text-sm font-semibold text-slate-900">
-            Datos para índice
-          </h2>
-          <p className="text-xs text-slate-500">
-            Metadata interna para organizar el índice notarial. «Completo»
-            significa completo según los campos del sistema, no una validación
-            legal.
-          </p>
-        </div>
-        {/* "Completo" es un estado positivo real → verde semántico, no el
-            acento decorativo. */}
-        <span
-          className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            complete
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-              : "bg-amber-50 text-amber-800 border border-amber-300"
-          }`}
-        >
-          {complete ? "Completo" : "Incompleto"}
-        </span>
+      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+        <h2 id={headingId} className="text-sm font-semibold text-slate-900">
+          Datos para índice
+        </h2>
+        <p className="text-xs text-slate-500">
+          Metadata interna para organizar el índice notarial. «Completo»
+          significa completo según los campos del sistema, no una validación
+          legal.
+        </p>
       </div>
 
       <form action={formAction} noValidate className="px-6 py-6">
@@ -156,16 +191,45 @@ export function NotarialMetadataSection({
           </div>
         )}
 
+        <IndexSummaryHeader
+          configuredCount={configuredCount}
+          pendingCount={pendingCount}
+          helperText="Completo significa completo según los campos del sistema, no una validación legal."
+          hasWarning={complete === false && configuredCount > 0}
+        />
+
         <input type="hidden" name="version" value={metadata?.version ?? 1} />
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
+        {/* Fuera de las filas colapsables a propósito: si vivieran dentro de
+            `CollapsibleFieldRow`, dejarían de enviarse en el submit en
+            cuanto la fila estuviera cerrada (su contenido no se monta
+            mientras está colapsada) — incluso si nunca se abrió en esta
+            sesión, como el valor precargado de un campo ya guardado. Los
+            inputs visibles equivalentes dentro de cada fila ya no llevan
+            `name`, solo editan este mismo estado. */}
+        <input type="hidden" name="instrument_number" value={instrument} />
+        <input type="hidden" name="authorized_at" value={authorizedAt} />
+        <input type="hidden" name="act_name_override" value={actName} />
+        <input type="hidden" name="protocol_book" value={protocolBook} />
+        <input type="hidden" name="initial_folio" value={initialFolio} />
+        <input type="hidden" name="final_folio" value={finalFolio} />
+        <input type="hidden" name="parties_override" value={parties} />
+        <input type="hidden" name="notes" value={notes} />
+
+        <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+          <CollapsibleFieldRow
+            id="notarial-instrument"
+            name="Número de instrumento"
+            meta={instrument || "Sin configurar"}
+            status={instrumentConfigured ? "configured" : "pending"}
+            open={openRowId === "instrument_number"}
+            onToggle={() => toggleRow("instrument_number")}
+          >
             <label htmlFor="instrument_number" className={labelClass}>
               Número de instrumento
             </label>
             <input
               id="instrument_number"
-              name="instrument_number"
               type="number"
               min={1}
               step={1}
@@ -185,15 +249,21 @@ export function NotarialMetadataSection({
               message={state.errors?.instrument_number}
             />
             <PrefillHelp field={prefill.instrumentNumber} />
-          </div>
+          </CollapsibleFieldRow>
 
-          <div>
+          <CollapsibleFieldRow
+            id="notarial-authorized-at"
+            name="Fecha y hora de autorización"
+            meta={authorizedAt ? formatDateTimeMeta(authorizedAt) : "Sin configurar"}
+            status={authorizedAtConfigured ? "configured" : "pending"}
+            open={openRowId === "authorized_at"}
+            onToggle={() => toggleRow("authorized_at")}
+          >
             <label htmlFor="authorized_at" className={labelClass}>
               Fecha y hora de autorización
             </label>
             <input
               id="authorized_at"
-              name="authorized_at"
               type="datetime-local"
               disabled={!canEdit}
               value={authorizedAt}
@@ -209,18 +279,22 @@ export function NotarialMetadataSection({
               message={state.errors?.authorized_at}
             />
             <AuthorizedAtPrefillHelp field={prefill.authorizedAt} />
-            <p className="mt-1 text-xs text-slate-400">
-              Hora de Costa Rica.
-            </p>
-          </div>
+            <p className="mt-1 text-xs text-slate-400">Hora de Costa Rica.</p>
+          </CollapsibleFieldRow>
 
-          <div>
+          <CollapsibleFieldRow
+            id="notarial-act-name"
+            name="Acto o contrato"
+            meta={actName || metadata?.act_name_snapshot || actNamePreview || "Sin configurar"}
+            status={actNameConfigured ? "configured" : "pending"}
+            open={openRowId === "act_name_override"}
+            onToggle={() => toggleRow("act_name_override")}
+          >
             <label htmlFor="act_name_override" className={labelClass}>
               Acto o contrato
             </label>
             <input
               id="act_name_override"
-              name="act_name_override"
               type="text"
               disabled={!canEdit}
               value={actName}
@@ -242,15 +316,21 @@ export function NotarialMetadataSection({
             <p className="mt-1 text-xs text-slate-400">
               Si queda vacío, se usa el nombre guardado del machote.
             </p>
-          </div>
+          </CollapsibleFieldRow>
 
-          <div>
+          <CollapsibleFieldRow
+            id="notarial-protocol-book"
+            name="Tomo"
+            meta={protocolBook || "Sin configurar"}
+            status={protocolBookConfigured ? "configured" : "pending"}
+            open={openRowId === "protocol_book"}
+            onToggle={() => toggleRow("protocol_book")}
+          >
             <label htmlFor="protocol_book" className={labelClass}>
               Tomo
             </label>
             <input
               id="protocol_book"
-              name="protocol_book"
               type="text"
               disabled={!canEdit}
               value={protocolBook}
@@ -266,78 +346,99 @@ export function NotarialMetadataSection({
               message={state.errors?.protocol_book}
             />
             <PrefillHelp field={prefill.protocolBook} />
-          </div>
+          </CollapsibleFieldRow>
 
-          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
-            <div>
-              <label htmlFor="initial_folio" className={labelClass}>
-                Folio inicial
-              </label>
-              <input
-                id="initial_folio"
-                name="initial_folio"
-                type="text"
-                disabled={!canEdit}
-                value={initialFolio}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  if (finalFolio === "" || finalFolio === initialFolio) {
-                    setFinalFolio(next);
+          <CollapsibleFieldRow
+            id="notarial-folios"
+            name="Folios"
+            meta={
+              foliosConfigured
+                ? `${initialFolio} – ${finalFolio}`
+                : "Sin configurar"
+            }
+            status={foliosConfigured ? "configured" : "pending"}
+            open={openRowId === "folios"}
+            onToggle={() => toggleRow("folios")}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="initial_folio" className={labelClass}>
+                  Folio inicial
+                </label>
+                <input
+                  id="initial_folio"
+                  type="text"
+                  disabled={!canEdit}
+                  value={initialFolio}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (finalFolio === "" || finalFolio === initialFolio) {
+                      setFinalFolio(next);
+                    }
+                    setInitialFolio(next);
+                  }}
+                  className={inputClass}
+                  aria-invalid={!!state.errors?.initial_folio}
+                  aria-describedby={
+                    state.errors?.initial_folio ? "initial_folio-error" : undefined
                   }
-                  setInitialFolio(next);
-                }}
-                className={inputClass}
-                aria-invalid={!!state.errors?.initial_folio}
-                aria-describedby={
-                  state.errors?.initial_folio ? "initial_folio-error" : undefined
-                }
-              />
-              <FieldError
-                id="initial_folio-error"
-                message={state.errors?.initial_folio}
-              />
-              <PrefillHelp field={prefill.initialFolio} />
+                />
+                <FieldError
+                  id="initial_folio-error"
+                  message={state.errors?.initial_folio}
+                />
+                <PrefillHelp field={prefill.initialFolio} />
+              </div>
+              <div>
+                <label htmlFor="final_folio" className={labelClass}>
+                  Folio final
+                </label>
+                <input
+                  id="final_folio"
+                  type="text"
+                  disabled={!canEdit}
+                  value={finalFolio}
+                  onChange={(event) => setFinalFolio(event.target.value)}
+                  className={inputClass}
+                  aria-invalid={!!state.errors?.final_folio}
+                  aria-describedby={
+                    state.errors?.final_folio ? "final_folio-error" : undefined
+                  }
+                />
+                <FieldError
+                  id="final_folio-error"
+                  message={state.errors?.final_folio}
+                />
+                <PrefillHelp field={prefill.finalFolio} />
+              </div>
             </div>
-            <div>
-              <label htmlFor="final_folio" className={labelClass}>
-                Folio final
-              </label>
-              <input
-                id="final_folio"
-                name="final_folio"
-                type="text"
-                disabled={!canEdit}
-                value={finalFolio}
-                onChange={(event) => setFinalFolio(event.target.value)}
-                className={inputClass}
-                aria-invalid={!!state.errors?.final_folio}
-                aria-describedby={
-                  state.errors?.final_folio ? "final_folio-error" : undefined
-                }
-              />
-              <FieldError
-                id="final_folio-error"
-                message={state.errors?.final_folio}
-              />
-              <PrefillHelp field={prefill.finalFolio} />
-            </div>
-          </div>
+          </CollapsibleFieldRow>
 
-          <div className="sm:col-span-2">
+          <CollapsibleFieldRow
+            id="notarial-parties"
+            name="Partes"
+            meta={
+              parties.trim() !== ""
+                ? "Corrección manual"
+                : partiesFallback
+                  ? "Generado desde el machote"
+                  : "Sin configurar"
+            }
+            status={partiesConfigured ? "configured" : "pending"}
+            open={openRowId === "parties_override"}
+            onToggle={() => toggleRow("parties_override")}
+          >
             <label htmlFor="parties_override" className={labelClass}>
               Partes
             </label>
             <textarea
               id="parties_override"
-              name="parties_override"
               rows={3}
               disabled={!canEdit}
               value={parties}
               onChange={(event) => setParties(event.target.value)}
               placeholder={
-                metadata?.generated_parties ??
-                generatedPartiesPreview ??
-                "Se generará desde la configuración del machote"
+                partiesFallback ?? "Se generará desde la configuración del machote"
               }
               className={inputClass + " resize-y"}
               aria-invalid={!!state.errors?.parties_override}
@@ -355,50 +456,57 @@ export function NotarialMetadataSection({
             <p className="mt-1 text-xs text-slate-400">
               Una corrección manual tiene prioridad sobre el valor generado.
             </p>
-          </div>
+            {canEdit && canResetParties && metadata && (
+              <button
+                type="submit"
+                name="intent"
+                value="reset-parties"
+                disabled={pending}
+                onClick={(event) => {
+                  if (
+                    metadata.parties_override &&
+                    !window.confirm(
+                      "Se reemplazará la corrección manual de Partes con el valor actual del machote. ¿Deseas continuar?",
+                    )
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                className="mt-3 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+              >
+                Restablecer desde el machote
+              </button>
+            )}
+          </CollapsibleFieldRow>
 
-          <div className="sm:col-span-2">
+          <CollapsibleFieldRow
+            id="notarial-notes"
+            name="Notas internas"
+            meta="Opcional"
+            status="optional"
+            open={openRowId === "notes"}
+            onToggle={() => toggleRow("notes")}
+          >
             <label htmlFor="notes" className={labelClass}>
               Notas internas{" "}
               <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
             <textarea
               id="notes"
-              name="notes"
               rows={2}
               disabled={!canEdit}
-              defaultValue={metadata?.notes ?? ""}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
               className={inputClass + " resize-y"}
             />
             <p className="mt-1 text-xs text-slate-400">
               Uso interno; no se incluyen en la exportación del índice.
             </p>
-          </div>
+          </CollapsibleFieldRow>
         </div>
 
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
-          {canEdit && canResetParties && metadata && (
-            <button
-              type="submit"
-              name="intent"
-              value="reset-parties"
-              disabled={pending}
-              onClick={(event) => {
-                if (
-                  metadata.parties_override &&
-                  !window.confirm(
-                    "Se reemplazará la corrección manual de Partes con el valor actual del machote. ¿Deseas continuar?",
-                  )
-                ) {
-                  event.preventDefault();
-                }
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
-            >
-              Restablecer desde el machote
-            </button>
-          )}
-          {canEdit && (
+        {canEdit && (
+          <div className="mt-5 flex justify-end">
             <button
               type="submit"
               name="intent"
@@ -408,11 +516,25 @@ export function NotarialMetadataSection({
             >
               {pending ? "Guardando…" : "Guardar datos del índice"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </form>
     </section>
   );
+}
+
+const ROW_FOR_ERROR: Array<{ id: RowId; errorKey: string }> = [
+  { id: "instrument_number", errorKey: "instrument_number" },
+  { id: "authorized_at", errorKey: "authorized_at" },
+  { id: "act_name_override", errorKey: "act_name_override" },
+  { id: "protocol_book", errorKey: "protocol_book" },
+  { id: "folios", errorKey: "initial_folio" },
+  { id: "folios", errorKey: "final_folio" },
+  { id: "parties_override", errorKey: "parties_override" },
+];
+
+function formatDateTimeMeta(value: string): string {
+  return value.replace("T", " ");
 }
 
 function PrefillHelp({ field }: { field: NotarialPrefillField }) {

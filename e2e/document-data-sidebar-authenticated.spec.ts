@@ -117,7 +117,9 @@ test.describe("document data sidebar", () => {
 
     // Solo título, Cliente principal, Autollenado, Progreso y Acción.
     await expect(page.getByLabel("Título de la escritura")).toBeVisible();
-    await expect(page.getByLabel("Cliente principal (opcional)")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Cliente principal/ }),
+    ).toBeVisible();
     await expect(
       dataPanel(page).getByRole("group", { name: "Filtrar campos" }),
     ).toHaveCount(0);
@@ -136,12 +138,28 @@ test.describe("document data sidebar", () => {
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
 
+    // Con 3 o menos pendientes, PendingFieldsDialog lista los campos por
+    // nombre ("Pendientes: X, Y, Z") en vez de mostrar un conteo.
     await expect(page.getByText("0 de 3 campos completos")).toBeVisible();
-    await expect(page.getByText("3 pendientes")).toBeVisible();
+    await expect(dataPanel(page).getByText("Pendientes:")).toBeVisible();
+    await expect(
+      dataPanel(page).getByRole("button", { name: "parte.uno" }),
+    ).toBeVisible();
+    await expect(
+      dataPanel(page).getByRole("button", { name: "parte.dos" }),
+    ).toBeVisible();
+    await expect(
+      dataPanel(page).getByRole("button", { name: "vehiculo.chasis" }),
+    ).toBeVisible();
 
     await fillInlineField(page, "parte.uno", "Persona Uno");
     await expect(page.getByText("1 de 3 campos completos")).toBeVisible();
-    await expect(page.getByText("2 pendientes")).toBeVisible();
+    await expect(
+      dataPanel(page).getByRole("button", { name: "parte.uno" }),
+    ).toHaveCount(0);
+    await expect(
+      dataPanel(page).getByRole("button", { name: "parte.dos" }),
+    ).toBeVisible();
 
     await fillInlineField(page, "parte.dos", "Persona Dos");
     await fillInlineField(page, "vehiculo.chasis", "CHASIS-001");
@@ -158,7 +176,9 @@ test.describe("document data sidebar", () => {
     await page.getByRole("radio", { name: "Chasis y serie" }).click();
 
     await expect(page.getByText("3 de 4 campos completos")).toBeVisible();
-    await expect(page.getByText("1 pendientes")).toBeVisible();
+    await expect(
+      dataPanel(page).getByRole("button", { name: "vehiculo.serie" }),
+    ).toBeVisible();
   });
 
   test("D: 'Siguiente pendiente' scrolls to, focuses and cycles through empty active fields in document order", async ({

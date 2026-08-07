@@ -68,11 +68,11 @@ test.describe("document milestone feedback", () => {
       banner.getByRole("link", { name: "Ver Cuentas por cobrar" }),
     ).toHaveAttribute(
       "href",
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
     await banner.getByRole("link", { name: "Ver Cuentas por cobrar" }).click();
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}\\?section=receivables`),
+      new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
     );
     await expect(
       page.getByRole("link", { name: "Nueva cuenta" }),
@@ -129,6 +129,7 @@ test.describe("document milestone feedback", () => {
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await expect(contentEditor(page)).toBeVisible();
+    await page.getByRole("tab", { name: "Finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -159,9 +160,10 @@ test.describe("document milestone feedback", () => {
       new RegExp(`/dashboard/documents/${doc.id}\\?section=notarial`),
     );
 
-    // "Reabrir escritura" vive en la sección Documento, no en Índice
-    // notarial — volver ahí primero.
+    // "Reabrir escritura" vive en el paso Finalizar, no en Índice notarial
+    // — volver ahí primero.
     await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.getByRole("tab", { name: "Finalizar" }).click();
 
     // Reabrir usa el mensaje simple existente, sin cambios — no es un hito
     // de esta iteración.

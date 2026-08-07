@@ -133,10 +133,9 @@ export function ResizableSplitPane({
             </div>
             <div className={`sticky top-5 min-w-0 ${secondaryClassName}`}>
               {/* Ocultar/Expandir son un concepto de la vista dividida de
-                  escritorio; en mobile ya existe el toggle Editar/Vista
-                  previa del llamador — "Ocultar" ahí dejaría la pantalla en
-                  blanco (`secondary` desmontado) sin forma de recuperarlo
-                  fuera de `xl:`. */}
+                  escritorio; en mobile ya existe el toggle del llamador —
+                  "Ocultar" ahí dejaría la pantalla en blanco (`secondary`
+                  desmontado) sin forma de recuperarlo fuera de `xl:`. */}
               <div className="mb-2 hidden items-center justify-between gap-2 xl:flex">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {secondaryTitle}
