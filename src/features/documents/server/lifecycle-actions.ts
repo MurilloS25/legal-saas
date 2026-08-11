@@ -61,9 +61,15 @@ async function transitionDocument(
     return { message: "Esa transición de estado no está permitida." };
   }
 
-  if (target === "final" && !hasPermission(role, "documents.finalize")) {
+  if (
+    (target === "final" || action === "reopen") &&
+    !hasPermission(role, "documents.finalize")
+  ) {
     return {
-      message: "Solo el propietario o un administrador puede finalizar una escritura.",
+      message:
+        action === "reopen"
+          ? "Solo el propietario o un administrador puede reabrir una escritura."
+          : "Solo el propietario o un administrador puede finalizar una escritura.",
     };
   }
 
