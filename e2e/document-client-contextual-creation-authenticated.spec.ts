@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   CleanupRegistry,
   createTestDocument,
@@ -19,6 +19,16 @@ const registry = new CleanupRegistry();
 const templateName = uniqueName("doc-client-dialog", "machote");
 let templateId = "";
 
+// El "+ Crear nuevo cliente" del Cliente principal vive dentro de su
+// popover (DocumentContextBar) — hay que abrirlo antes de que el botón
+// exista en el DOM. Idempotente: no reabre si ya está visible.
+async function openClientPrincipalPopover(page: Page) {
+  const select = page.getByLabel("Cliente principal", { exact: true });
+  if (await select.isVisible().catch(() => false)) return;
+  await page.getByRole("button", { name: /^Cliente principal/ }).click();
+  await expect(select).toBeVisible();
+}
+
 test.describe("create a client from the document workspace", () => {
   test.afterAll(async () => {
     await runCleanup(registry, "document-client-contextual-creation");
@@ -37,6 +47,7 @@ test.describe("create a client from the document workspace", () => {
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
 
+    await openClientPrincipalPopover(page);
     await expect(
       page.getByRole("button", { name: "+ Crear nuevo cliente" }),
     ).toBeVisible();
@@ -53,6 +64,7 @@ test.describe("create a client from the document workspace", () => {
     const title = uniqueName("doc-client-dialog", "titulo-cancelado");
     await page.getByLabel("Título de la escritura").fill(title);
 
+    await openClientPrincipalPopover(page);
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     await expect(dialog).toBeVisible();
@@ -63,7 +75,7 @@ test.describe("create a client from the document workspace", () => {
     await expect(dialog).toHaveCount(0);
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(title);
     await expect(
-      page.getByLabel("Cliente principal (opcional)"),
+      page.getByLabel("Cliente principal", { exact: true }),
     ).toHaveValue("");
     // Devuelve el foco al disparador tras cerrar.
     await expect(
@@ -76,6 +88,7 @@ test.describe("create a client from the document workspace", () => {
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
 
+    await openClientPrincipalPopover(page);
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     await expect(dialog).toBeVisible();
@@ -89,6 +102,7 @@ test.describe("create a client from the document workspace", () => {
   }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
 
+    await openClientPrincipalPopover(page);
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
 
@@ -102,7 +116,7 @@ test.describe("create a client from the document workspace", () => {
       "9-9999-9999",
     );
     await expect(
-      page.getByLabel("Cliente principal (opcional)"),
+      page.getByLabel("Cliente principal", { exact: true }),
     ).toHaveValue("");
   });
 
@@ -115,6 +129,7 @@ test.describe("create a client from the document workspace", () => {
     await page.getByLabel("Título de la escritura").fill(title);
 
     const clientName = uniqueName("doc-client-dialog", "cliente");
+    await openClientPrincipalPopover(page);
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     await dialog.getByLabel("Nombre completo").fill(clientName);
@@ -126,8 +141,10 @@ test.describe("create a client from the document workspace", () => {
     await dialog.getByRole("button", { name: "Crear cliente" }).click();
 
     await expect(dialog).toHaveCount(0, { timeout: 15_000 });
+    // El popover de Cliente principal permanece abierto (solo el diálogo
+    // anidado se cierra), así que el <select> sigue visible sin reabrirlo.
     await expect(
-      page.getByLabel("Cliente principal (opcional)"),
+      page.getByLabel("Cliente principal", { exact: true }),
     ).toHaveValue(await getOptionValueByLabel(page, clientName));
     // El resto del formulario nunca se remontó.
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(title);
@@ -143,9 +160,10 @@ test.describe("create a client from the document workspace", () => {
     await registerCreatedViaUi(registry, "documents", "title", title);
 
     await page.reload();
-    await expect(page.getByLabel("Cliente principal (opcional)")).toHaveValue(
-      await getOptionValueByLabel(page, clientName),
-    );
+    await openClientPrincipalPopover(page);
+    await expect(
+      page.getByLabel("Cliente principal", { exact: true }),
+    ).toHaveValue(await getOptionValueByLabel(page, clientName));
 
     await setTestDocumentStatus(documentId!, "final");
   });
@@ -172,10 +190,10 @@ test.describe("create a client from the document workspace", () => {
 });
 
 async function getOptionValueByLabel(
-  page: import("@playwright/test").Page,
+  page: Page,
   label: string,
 ): Promise<string> {
-  const select = page.getByLabel("Cliente principal (opcional)");
+  const select = page.getByLabel("Cliente principal", { exact: true });
   const option = select.locator("option", { hasText: label });
   return (await option.getAttribute("value"))!;
 }

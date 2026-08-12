@@ -91,8 +91,9 @@ test.describe("document activity history", () => {
   }) => {
     await openDocument(page);
     await page.getByLabel("Título de la escritura").fill(`${draftTitle} v2`);
+    await page.getByRole("button", { name: /^Cliente principal/ }).click();
     await page
-      .getByLabel("Cliente principal (opcional)")
+      .getByLabel("Cliente principal", { exact: true })
       .selectOption({ label: clientName });
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
@@ -108,6 +109,7 @@ test.describe("document activity history", () => {
 
   test("D: finalizing records a lifecycle event", async ({ page }) => {
     await openDocument(page);
+    await page.getByRole("tab", { name: "Finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "Finalizar escritura" })
@@ -137,6 +139,7 @@ test.describe("document activity history", () => {
 
   test("F: generating a Word file records an event", async ({ page }) => {
     await openDocument(page);
+    await page.getByRole("tab", { name: "Finalizar" }).click();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     await downloadPromise;
@@ -148,6 +151,7 @@ test.describe("document activity history", () => {
 
   test("G: a failed operation records no activity", async ({ page }) => {
     await openDocument(page);
+    await page.getByRole("tab", { name: "Finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })

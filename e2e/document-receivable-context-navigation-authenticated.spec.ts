@@ -57,13 +57,13 @@ test.describe("document ↔ receivable context navigation", () => {
   test("B: creating a receivable from the document's tab shows a back link to it, and creation lands on the new receivable without an auto-redirect", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${documentId}?section=receivables`);
+    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
 
     const newLink = page.getByRole("link", { name: "Nueva cuenta" });
     const newHref = await newLink.getAttribute("href");
     expect(newHref).toContain(`document=${documentId}`);
     expect(newHref).toContain(
-      `returnTo=${encodeURIComponent(`/dashboard/documents/${documentId}?section=receivables`)}`,
+      `returnTo=${encodeURIComponent(`/dashboard/documents/${documentId}?section=cobro`)}`,
     );
 
     await newLink.click();
@@ -72,7 +72,7 @@ test.describe("document ↔ receivable context navigation", () => {
       page.getByRole("link", { name: "Volver a la Escritura" }),
     ).toHaveAttribute(
       "href",
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
 
     const concept = uniqueName("doc-receivable-nav", "concepto-nuevo");
@@ -90,7 +90,7 @@ test.describe("document ↔ receivable context navigation", () => {
       page.getByRole("link", { name: "Volver a la Escritura" }),
     ).toHaveAttribute(
       "href",
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
 
     // El receivable se creó vía UI (no por factory): se registra para que
@@ -102,17 +102,16 @@ test.describe("document ↔ receivable context navigation", () => {
     page,
   }) => {
     await page.goto(
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
     await page.getByRole("link", { name: "Nueva cuenta" }).click();
     await page.getByRole("link", { name: "Volver a la Escritura" }).click();
 
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}\\?section=receivables`),
+      new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
     );
-    // El tab de Escrituras es un <Link>, no un ARIA tab (ver DESIGN.md /
-    // audit): se confirma la sección activa por su contenido, no por
-    // aria-selected.
+    // Se confirma la sección activa por su contenido (el paso "Cobro" del
+    // stepper), no navegando el `role="tab"` directamente.
     await expect(page.getByRole("link", { name: "Nueva cuenta" })).toBeVisible();
   });
 
@@ -120,7 +119,7 @@ test.describe("document ↔ receivable context navigation", () => {
     page,
   }) => {
     await page.goto(
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
     await page.getByRole("link", { name: "Nueva cuenta" }).click();
     await expect(page).toHaveURL(/\/dashboard\/receivables\/new/);
@@ -128,7 +127,7 @@ test.describe("document ↔ receivable context navigation", () => {
     await page.getByRole("link", { name: "Cancelar" }).click();
 
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}\\?section=receivables`),
+      new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
     );
   });
 
@@ -136,7 +135,7 @@ test.describe("document ↔ receivable context navigation", () => {
     page,
   }) => {
     await page.goto(
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
 
     const row = page.getByRole("region", {
@@ -149,7 +148,7 @@ test.describe("document ↔ receivable context navigation", () => {
       page.getByRole("link", { name: "Volver a la Escritura" }),
     ).toHaveAttribute(
       "href",
-      `/dashboard/documents/${documentId}?section=receivables`,
+      `/dashboard/documents/${documentId}?section=cobro`,
     );
   });
 
@@ -185,7 +184,7 @@ test.describe("document ↔ receivable context navigation", () => {
       "//example.com",
       "javascript:alert(1)",
       "/dashboard/settings",
-      "/dashboard/documents/not-a-uuid?section=receivables",
+      "/dashboard/documents/not-a-uuid?section=cobro",
     ];
 
     for (const value of malicious) {

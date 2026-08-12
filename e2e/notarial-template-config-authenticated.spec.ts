@@ -117,19 +117,51 @@ async function openTemplate(page: Page) {
  * reorganización en filas de acordeón, cada `<select>`/checkbox solo se
  * monta mientras su fila está abierta (una sola fila abierta a la vez).
  */
-async function openIndexRow(page: Page, key: string) {
+async function openConfigIndexRow(page: Page, key: string) {
   await page.locator(`#idx-${key}-trigger`).click();
+}
+
+// Progressive disclosure del lado de la Escritura (paso Índice del
+// compositor): cada campo vive en una fila colapsable (una abierta a la
+// vez); hay que expandirla antes de poder leer/llenar el input que
+// contiene. Idempotente y sin `exact` porque el nombre accesible del botón
+// incluye también el "meta" (valor actual/estado).
+function indexRow(page: Page, name: string) {
+  return metadataSection(page).getByRole("button", {
+    name: new RegExp(`^${name}`),
+  });
+}
+async function openIndexRow(page: Page, name: string) {
+  const trigger = indexRow(page, name);
+  if ((await trigger.getAttribute("aria-expanded")) === "true") return;
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+}
+
+// Ver nota equivalente en notarial-metadata-authenticated.spec.ts: reemplaza
+// el antiguo badge "Completo"/"Incompleto" por el resumen numérico de
+// `IndexSummaryHeader`.
+function summaryCount(page: Page, label: "configurados" | "pendientes") {
+  return metadataSection(page).locator(
+    `xpath=.//p[normalize-space(text())="${label}"]/preceding-sibling::p[1]`,
+  );
 }
 
 async function fillStructuredMetadata(page: Page, instrument: number) {
   const section = metadataSection(page);
-  await section.getByLabel("Número de instrumento").fill(String(instrument));
+  await openIndexRow(page, "Número de instrumento");
   await section
-    .getByLabel("Fecha y hora de autorización")
+    .getByLabel("Número de instrumento", { exact: true })
+    .fill(String(instrument));
+  await openIndexRow(page, "Fecha y hora de autorización");
+  await section
+    .getByLabel("Fecha y hora de autorización", { exact: true })
     .fill("2026-07-14T10:30");
-  await section.getByLabel("Tomo").fill("9");
-  await section.getByLabel("Folio inicial").fill("40");
-  await section.getByLabel("Folio final").fill("41");
+  await openIndexRow(page, "Tomo");
+  await section.getByLabel("Tomo", { exact: true }).fill("9");
+  await openIndexRow(page, "Folios");
+  await section.getByLabel("Folio inicial", { exact: true }).fill("40");
+  await section.getByLabel("Folio final", { exact: true }).fill("41");
   await section
     .getByRole("button", { name: "Guardar datos del índice" })
     .click();
@@ -247,32 +279,32 @@ test.describe("template notarial index configuration", () => {
     // visible del `<select>` es el genérico "Variable sugerida" (el nombre
     // del campo ya está en el encabezado de la fila), así que se ubica por
     // el id fijo `${key}_field_id` en vez de por `getByLabel`.
-    await openIndexRow(page, "instrument_number");
+    await openConfigIndexRow(page, "instrument_number");
     await section
       .locator("#instrument_number_field_id")
       .selectOption(mappedFieldIds["instrument.number"]);
-    await openIndexRow(page, "authorized_date");
+    await openConfigIndexRow(page, "authorized_date");
     await section
       .locator("#authorized_date_field_id")
       .selectOption(mappedFieldIds["authorized.date"]);
-    await openIndexRow(page, "authorized_time");
+    await openConfigIndexRow(page, "authorized_time");
     await section
       .locator("#authorized_time_field_id")
       .selectOption(`block:${timeBlockId}`);
-    await openIndexRow(page, "protocol_book");
+    await openConfigIndexRow(page, "protocol_book");
     await section
       .locator("#protocol_book_field_id")
       .selectOption(mappedFieldIds["protocol.book"]);
-    await openIndexRow(page, "initial_folio");
+    await openConfigIndexRow(page, "initial_folio");
     await section
       .locator("#initial_folio_field_id")
       .selectOption(mappedFieldIds["folio.initial"]);
-    await openIndexRow(page, "final_folio");
+    await openConfigIndexRow(page, "final_folio");
     await section
       .locator("#final_folio_field_id")
       .selectOption(mappedFieldIds["folio.final"]);
 
-    await openIndexRow(page, "parties");
+    await openConfigIndexRow(page, "parties");
     await section
       .getByRole("checkbox", { name: /Nombre del comprador/ })
       .check();
@@ -298,15 +330,15 @@ test.describe("template notarial index configuration", () => {
   test("C: configuration persists for the template", async ({ page }) => {
     await openTemplate(page);
     const section = configurationSection(page);
-    await openIndexRow(page, "instrument_number");
+    await openConfigIndexRow(page, "instrument_number");
     await expect(section.locator("#instrument_number_field_id")).toHaveValue(
       mappedFieldIds["instrument.number"],
     );
-    await openIndexRow(page, "authorized_time");
+    await openConfigIndexRow(page, "authorized_time");
     await expect(section.locator("#authorized_time_field_id")).toHaveValue(
       `block:${timeBlockId}`,
     );
-    await openIndexRow(page, "parties");
+    await openConfigIndexRow(page, "parties");
     await expect(
       section.getByRole("checkbox", { name: /Nombre del vendedor/ }),
     ).toBeChecked();
@@ -327,15 +359,19 @@ test.describe("template notarial index configuration", () => {
     await open(page, firstDocumentId);
     await expect(configurationSection(page)).toHaveCount(0);
     const section = metadataSection(page);
-    await expect(section.getByLabel("Número de instrumento")).toHaveValue(
-      String(firstInstrument),
-    );
+
+    await openIndexRow(page, "Número de instrumento");
+    await expect(
+      section.getByLabel("Número de instrumento", { exact: true }),
+    ).toHaveValue(String(firstInstrument));
     await expect(
       section.getByText(`Interpretado: ${firstInstrument}`, { exact: true }),
     ).toBeVisible();
-    await expect(section.getByLabel("Fecha y hora de autorización")).toHaveValue(
-      "2026-07-14T10:20",
-    );
+
+    await openIndexRow(page, "Fecha y hora de autorización");
+    await expect(
+      section.getByLabel("Fecha y hora de autorización", { exact: true }),
+    ).toHaveValue("2026-07-14T10:20");
     await expect(
       section.getByText("Fuente: Bloque de opciones · Hora", { exact: true }),
     ).toBeVisible();
@@ -345,22 +381,35 @@ test.describe("template notarial index configuration", () => {
     await expect(
       section.getByText("Interpretado: 2026-07-14T10:20", { exact: true }),
     ).toBeVisible();
-    await expect(section.getByLabel("Tomo")).toHaveValue("7");
-    await expect(section.getByLabel("Folio inicial")).toHaveValue("25");
-    await expect(section.getByLabel("Folio final")).toHaveValue("26");
-    await expect(section.getByLabel("Acto o contrato")).toHaveValue(templateName);
-    await expect(section.getByLabel("Partes")).toHaveAttribute(
+
+    await openIndexRow(page, "Tomo");
+    await expect(section.getByLabel("Tomo", { exact: true })).toHaveValue("7");
+    await openIndexRow(page, "Folios");
+    await expect(
+      section.getByLabel("Folio inicial", { exact: true }),
+    ).toHaveValue("25");
+    await expect(
+      section.getByLabel("Folio final", { exact: true }),
+    ).toHaveValue("26");
+    await openIndexRow(page, "Acto o contrato");
+    await expect(
+      section.getByLabel("Acto o contrato", { exact: true }),
+    ).toHaveValue(templateName);
+    await openIndexRow(page, "Partes");
+    await expect(section.getByLabel("Partes", { exact: true })).toHaveAttribute(
       "placeholder",
       "JUAN PÉREZ Y MARÍA RODRÍGUEZ",
     );
+
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
     await expect(
       section.getByText("Datos del índice guardados.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(section.getByText("Completo", { exact: true })).toBeVisible();
-    await expect(section.getByLabel("Partes")).toHaveAttribute(
+    await expect(summaryCount(page, "pendientes")).toHaveText("0");
+    await openIndexRow(page, "Partes");
+    await expect(section.getByLabel("Partes", { exact: true })).toHaveAttribute(
       "placeholder",
       "JUAN PÉREZ Y MARÍA RODRÍGUEZ",
     );
@@ -371,11 +420,16 @@ test.describe("template notarial index configuration", () => {
   }) => {
     await open(page, firstDocumentId);
     const section = metadataSection(page);
-    await section.getByLabel("Partes").fill("PARTE CORREGIDA");
+    await openIndexRow(page, "Partes");
+    await section
+      .getByLabel("Partes", { exact: true })
+      .fill("PARTE CORREGIDA");
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
-    await expect(section.getByLabel("Partes")).toHaveValue("PARTE CORREGIDA");
+    await expect(
+      section.getByLabel("Partes", { exact: true }),
+    ).toHaveValue("PARTE CORREGIDA");
 
     page.once("dialog", async (dialog) => {
       expect(dialog.message()).toContain("corrección manual de Partes");
@@ -387,11 +441,10 @@ test.describe("template notarial index configuration", () => {
     await expect(
       section.getByText("Partes restablecidas desde el machote."),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(section.getByLabel("Partes")).toHaveValue("");
-    await expect(section.getByLabel("Partes")).toHaveAttribute(
-      "placeholder",
-      "JUAN PÉREZ Y MARÍA RODRÍGUEZ",
-    );
+    await expect(section.getByLabel("Partes", { exact: true })).toHaveValue("");
+    await expect(
+      section.getByLabel("Partes", { exact: true }),
+    ).toHaveAttribute("placeholder", "JUAN PÉREZ Y MARÍA RODRÍGUEZ");
   });
 
   test("F: ambiguous input requires a manual correction that survives reload", async ({
@@ -399,13 +452,17 @@ test.describe("template notarial index configuration", () => {
   }) => {
     await open(page, secondDocumentId);
     const section = metadataSection(page);
-    await expect(section.getByLabel("Fecha y hora de autorización")).toHaveValue(
-      "2026-07-15T11:00",
-    );
+    await openIndexRow(page, "Fecha y hora de autorización");
+    await expect(
+      section.getByLabel("Fecha y hora de autorización", { exact: true }),
+    ).toHaveValue("2026-07-15T11:00");
     await expect(
       section.getByText("Variante: Hora en punto", { exact: true }),
     ).toBeVisible();
-    await expect(section.getByLabel("Número de instrumento")).toHaveValue("");
+    await openIndexRow(page, "Número de instrumento");
+    await expect(
+      section.getByLabel("Número de instrumento", { exact: true }),
+    ).toHaveValue("");
     await expect(
       section.getByText("Original: “siete ocho”", { exact: true }),
     ).toBeVisible();
@@ -416,18 +473,21 @@ test.describe("template notarial index configuration", () => {
     ).toBeVisible();
     await fillStructuredMetadata(page, secondInstrument);
     await page.reload();
-    await expect(metadataSection(page).getByLabel("Número de instrumento")).toHaveValue(
-      String(secondInstrument),
-    );
+    await openIndexRow(page, "Número de instrumento");
+    await expect(
+      metadataSection(page).getByLabel("Número de instrumento", {
+        exact: true,
+      }),
+    ).toHaveValue(String(secondInstrument));
     await expect(
       metadataSection(page)
         .getByText("Estado: Listo · corrección guardada")
         .first(),
     ).toBeVisible();
-    await expect(metadataSection(page).getByLabel("Partes")).toHaveAttribute(
-      "placeholder",
-      "ANA MORA Y LUIS SOLANO",
-    );
+    await openIndexRow(page, "Partes");
+    await expect(
+      metadataSection(page).getByLabel("Partes", { exact: true }),
+    ).toHaveAttribute("placeholder", "ANA MORA Y LUIS SOLANO");
   });
 
   test("G: finalized documents keep only index metadata editable", async ({
@@ -438,7 +498,8 @@ test.describe("template notarial index configuration", () => {
     await expect(
       section.getByText(/Puedes corregir estos datos del índice/),
     ).toBeVisible();
-    await section.getByLabel("Tomo").fill("10");
+    await openIndexRow(page, "Tomo");
+    await section.getByLabel("Tomo", { exact: true }).fill("10");
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
@@ -446,7 +507,10 @@ test.describe("template notarial index configuration", () => {
       timeout: 15_000,
     });
     await page.reload();
-    await expect(metadataSection(page).getByLabel("Tomo")).toHaveValue("10");
+    await openIndexRow(page, "Tomo");
+    await expect(
+      metadataSection(page).getByLabel("Tomo", { exact: true }),
+    ).toHaveValue("10");
   });
 
   test("H: the notarial DOCX exports the normalized value", async ({ request }) => {
