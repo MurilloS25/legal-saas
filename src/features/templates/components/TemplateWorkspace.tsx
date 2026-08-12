@@ -54,6 +54,7 @@ import {
 } from "@/components/feedback/MilestoneFeedback";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
+import { AiHelpDialog } from "./AiHelpDialog";
 
 // ------------------------------------------------------------------ props
 
@@ -119,9 +120,16 @@ export function TemplateWorkspace(props: Props) {
   );
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [aiHelpOpen, setAiHelpOpen] = useState(false);
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<TemplateEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const aiHelpButtonRef = useRef<HTMLButtonElement>(null);
+
+  function closeAiHelp() {
+    setAiHelpOpen(false);
+    window.setTimeout(() => aiHelpButtonRef.current?.focus(), 0);
+  }
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
   // navegación real (evita remontar el editor). `popstate` cubre
@@ -397,14 +405,24 @@ export function TemplateWorkspace(props: Props) {
 
                 {/* ---- contenido ---- */}
                 <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                  <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                    <h2 className="text-sm font-semibold text-slate-900">
-                      Contenido del machote
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Redacta el documento e inserta variables donde va la
-                      información de cada escritura.
-                    </p>
+                  <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        Contenido del machote
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        Redacta el documento e inserta variables donde va la
+                        información de cada escritura.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      ref={aiHelpButtonRef}
+                      onClick={() => setAiHelpOpen(true)}
+                      className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+                    >
+                      Ayuda para crear con IA
+                    </button>
                   </div>
                   <div className="px-6 py-5">
                     <TemplateEditor
@@ -545,6 +563,8 @@ export function TemplateWorkspace(props: Props) {
       >
         <TemplatePreviewPanel model={previewModel} bare />
       </ExpandableDocumentPanel>
+
+      {aiHelpOpen && <AiHelpDialog onClose={closeAiHelp} />}
 
       {/* ================= Índice notarial (solo edit) =================
           Hermano del <form> de arriba, no descendiente: tiene su propio

@@ -202,6 +202,18 @@ export default defineConfig({
       dependencies: ["chromium-template-milestone"],
     },
 
+    // Ayuda para crear un machote con una herramienta de IA externa (botón +
+    // modal, sin integración real de IA) — authenticated.
+    {
+      name: "chromium-template-ai-help",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-ai-help-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-option-blocks"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
@@ -210,7 +222,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-option-blocks"],
+      dependencies: ["chromium-template-ai-help"],
     },
 
     // Inline editing of variables directly in the document sheet — authenticated.
