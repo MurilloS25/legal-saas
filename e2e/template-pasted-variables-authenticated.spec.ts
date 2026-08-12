@@ -45,8 +45,17 @@ function variableRow(page: Page, key: string) {
   return variablesRegion(page).locator("li").filter({ hasText: key });
 }
 
+// El preview inline usa `TemplatePreviewPanel` en modo "bare" dentro del
+// stepper, así que ya no expone un `role="region"` con nombre accesible
+// "Vista previa" — solo el `role="group"` sin nombre de `DocumentSheet`.
+// Se escopea al panel "Documento" y se excluye el otro `group` de esa zona
+// (el toggle mobile Editar/Vista previa), identificándolo por su botón
+// "Editar" en vez de por su nombre accesible "Vista".
 function previewRegion(page: Page) {
-  return page.getByRole("region", { name: "Vista previa" });
+  return page
+    .locator("#template-panel-document")
+    .getByRole("group")
+    .filter({ hasNot: page.getByRole("button", { name: "Editar", exact: true }) });
 }
 
 function notarialIndexRegion(page: Page) {
@@ -59,9 +68,19 @@ function reviewDialog(page: Page) {
 
 async function goToTab(
   page: Page,
-  name: "Documento" | "Variables" | "Índice notarial",
+  name: "Documento" | "Variables" | "Índice",
 ) {
-  await page.getByRole("tab", { name }).click();
+  await page.getByRole("tab", { name, exact: true }).click();
+}
+
+/**
+ * Expande la fila colapsable del campo simple `key` dentro de la sección de
+ * configuración del Índice Notarial (`idx-<key>`) — desde la reorganización
+ * en filas de acordeón, el `<select>` de cada campo solo se monta mientras
+ * su fila está abierta.
+ */
+async function openIndexRow(page: Page, key: string) {
+  await page.locator(`#idx-${key}-trigger`).click();
 }
 
 /**
@@ -338,10 +357,15 @@ test.describe("template pasted/typed variable detection", () => {
 
     // Ahora aparece como opción seleccionable en el Índice Notarial (se
     // alimenta de la misma configuración persistida de variables).
-    await goToTab(page, "Índice notarial");
+    // La fila colapsable de "Número de instrumento" solo expone su
+    // `<select>` mientras está abierta, y el `<label>` visible de ese
+    // select es el genérico "Variable sugerida" (el nombre del campo ya
+    // está en el encabezado de la fila) — se ubica por su id fijo.
+    await goToTab(page, "Índice");
+    await openIndexRow(page, "instrument_number");
     await expect(
       notarialIndexRegion(page)
-        .getByLabel("Número de instrumento", { exact: true })
+        .locator("#instrument_number_field_id")
         .locator("option", { hasText: "Folio final" }),
     ).toHaveCount(1);
   });
@@ -398,10 +422,11 @@ test.describe("template pasted/typed variable detection", () => {
       ).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 20_000 });
 
-    await goToTab(page, "Índice notarial");
+    await goToTab(page, "Índice");
+    await openIndexRow(page, "instrument_number");
     await expect(
       notarialIndexRegion(page)
-        .getByLabel("Número de instrumento", { exact: true })
+        .locator("#instrument_number_field_id")
         .locator("option", { hasText: "Marca del vehículo" }),
     ).toHaveCount(1);
   });

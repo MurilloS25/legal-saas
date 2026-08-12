@@ -6,10 +6,28 @@ import type { DocumentModel } from "@/lib/editor/render";
 
 type Props = {
   model: DocumentModel;
+  /**
+   * Cuando es `true`, omite la tarjeta/encabezado propios ("Vista previa" +
+   * descripción) y el límite de alto con scroll interno — se usa dentro de
+   * `ResizableSplitPane`/`ExpandableDocumentPanel`, que ya aportan su
+   * propio encabezado (título + Ocultar/Expandir) y su propio manejo de
+   * alto/scroll, para no duplicar chrome.
+   */
+  bare?: boolean;
 };
 
-export function TemplatePreviewPanel({ model }: Props) {
+export function TemplatePreviewPanel({ model, bare = false }: Props) {
   const headingId = useId();
+
+  if (bare) {
+    return (
+      <DocumentSheet
+        model={model}
+        pendingVariableDisplay="label"
+        emptyMessage="Escribe el contenido para ver la vista previa."
+      />
+    );
+  }
 
   return (
     <section

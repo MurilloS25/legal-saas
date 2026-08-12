@@ -74,7 +74,7 @@ test.describe("template milestone feedback", () => {
       .getByRole("button", { name: "Configurar Índice Notarial" })
       .click();
     await expect(
-      page.getByRole("tab", { name: "Índice notarial", exact: true }),
+      page.getByRole("tab", { name: "Índice", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(banner).toBeVisible();
   });
@@ -111,6 +111,8 @@ test.describe("template milestone feedback", () => {
     ).toBeVisible();
     await expect(milestoneBanner(page)).toHaveCount(0);
 
+    // La descripción vive en el paso "Información" del stepper de edición.
+    await page.getByRole("tab", { name: "Información", exact: true }).click();
     await page.getByLabel("Descripción (opcional)").fill("Descripción editada");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 

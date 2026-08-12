@@ -25,8 +25,19 @@ function contentEditor(page: Page) {
   return page.getByRole("textbox", { name: "Contenido del machote" });
 }
 
+// El preview inline usa `TemplatePreviewPanel` en modo "bare" dentro del
+// stepper, así que ya no expone un `role="region"` con nombre accesible
+// "Vista previa" — solo el `role="group"` sin nombre de `DocumentSheet`.
+// Se escopea al panel "Documento" y se excluye el otro `group` de esa zona
+// (el toggle mobile Editar/Vista previa), identificándolo por su botón
+// "Editar" en vez de por su nombre accesible "Vista" — así también
+// funciona cuando ese grupo está oculto (`display:none` lo saca del árbol
+// de accesibilidad).
 function previewRegion(page: Page) {
-  return page.getByRole("region", { name: "Vista previa" });
+  return page
+    .locator("#template-panel-document")
+    .getByRole("group")
+    .filter({ hasNot: page.getByRole("button", { name: "Editar", exact: true }) });
 }
 
 function variablesRegion(page: Page) {
