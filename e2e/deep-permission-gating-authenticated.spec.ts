@@ -37,19 +37,13 @@ function uniqueEmail(label: string): string {
 }
 
 /**
- * PATCH directo a PostgREST (`/rest/v1/documents`) usando el propio access
- * token de la sesión YA logueada en `page` — bypassa la app de Next.js por
- * completo (ni Server Action ni UI), igual que alguien manipulando la
- * petición HTTP directamente. Requiere el `apikey`/Authorization que
- * Supabase exige aparte de las cookies (page.request no basta por sí solo).
- * Soporta cookies fragmentadas (`sb-...-auth-token.0`, `.1`, ...), mismo
- * patrón que `e2e/support/supabase-api.ts`.
+ * Extrae el access token de la sesión YA logueada en `page` — bypassa la
+ * app de Next.js por completo (ni Server Action ni UI), igual que alguien
+ * manipulando la petición HTTP directamente. Soporta cookies fragmentadas
+ * (`sb-...-auth-token.0`, `.1`, ...), mismo patrón que
+ * `e2e/support/supabase-api.ts`.
  */
-async function directPatchDocumentStatus(
-  page: Page,
-  documentId: string,
-  status: string,
-): Promise<{ ok: boolean; status: number }> {
+async function getSessionAccessToken(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   const chunks = cookies
     .map((cookie) => {
@@ -75,29 +69,76 @@ async function directPatchDocumentStatus(
   if (!session.access_token) {
     throw new Error("Session cookie does not contain an access_token");
   }
+  return session.access_token;
+}
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+function supabaseRestHeaders(accessToken: string): Record<string, string> {
   const apiKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !apiKey) {
-    throw new Error("Missing Supabase URL/anon key env vars for direct REST call");
+  if (!apiKey) {
+    throw new Error("Missing Supabase anon key env var for direct REST call");
   }
+  return {
+    apikey: apiKey,
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+}
 
+/** PATCH directo a PostgREST (`/rest/v1/documents`), bypassando la app. */
+async function directPatchDocumentStatus(
+  page: Page,
+  documentId: string,
+  status: string,
+): Promise<{ ok: boolean; status: number }> {
+  const accessToken = await getSessionAccessToken(page);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL env var for direct REST call");
+  }
   const response = await fetch(
     `${supabaseUrl}/rest/v1/documents?id=eq.${documentId}`,
     {
       method: "PATCH",
-      headers: {
-        apikey: apiKey,
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
+      headers: { ...supabaseRestHeaders(accessToken), Prefer: "return=representation" },
       body: JSON.stringify({ status }),
     },
   );
   return { ok: response.ok, status: response.status };
+}
+
+/** Invoca una RPC directamente vía PostgREST (`/rest/v1/rpc/<name>`), bypassando la app. */
+async function directRpcCall(
+  page: Page,
+  functionName: string,
+  args: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number }> {
+  const accessToken = await getSessionAccessToken(page);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL env var for direct REST call");
+  }
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
+    method: "POST",
+    headers: supabaseRestHeaders(accessToken),
+    body: JSON.stringify(args),
+  });
+  return { ok: response.ok, status: response.status };
+}
+
+/** Cuenta filas vía PostgREST (`Prefer: count=exact`), bypassando la app. */
+async function directRestCount(page: Page, table: string): Promise<number> {
+  const accessToken = await getSessionAccessToken(page);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL env var for direct REST call");
+  }
+  const response = await fetch(`${supabaseUrl}/rest/v1/${table}?select=id`, {
+    headers: { ...supabaseRestHeaders(accessToken), Prefer: "count=exact", Range: "0-0" },
+  });
+  const range = response.headers.get("content-range"); // "0-0/<total>"
+  return Number(range?.split("/")[1] ?? 0);
 }
 
 async function loginAndExpectDashboard(
@@ -242,6 +283,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await restDelete("clients", `id=eq.${clientId}`);
     await restDelete("templates", `id=eq.${templateId}`);
     await restDelete("workspace_activity", `workspace_id=eq.${ownerId}`);
+    await restDelete("notarial_index_exports", `workspace_id=eq.${ownerId}`);
     await deleteUser(assistantId);
     await deleteUser(readerId);
     await deleteUser(ownerId);
@@ -475,6 +517,44 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByRole("link", { name: "Exportar Word" }),
     ).toBeVisible();
+  });
+
+  test("Índice Notarial: la RPC de registro de exportación (log_notarial_index_export) rechaza a asistente y acepta a propietario, invocada directamente vía PostgREST", async ({
+    page,
+  }) => {
+    // Gap A: el RPC ya valida membresía activa del Workspace + permiso
+    // notarial_index.generate (pgTAP: rls_notarial_index_export_
+    // workspace_roles.test.sql) — esto prueba lo mismo con una sesión real
+    // de asistente/propietario, golpeando PostgREST directamente sin pasar
+    // por ningún Server Action ni ruta de la app. La RPC nunca lanza error
+    // por rol insuficiente (retorna silenciosamente sin registrar), así que
+    // la prueba real es si el conteo de exportaciones cambia o no.
+    await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
+    const countBefore = await directRestCount(page, "notarial_index_exports");
+
+    await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
+    const assistantAttempt = await directRpcCall(page, "log_notarial_index_export", {
+      p_format: "docx",
+      p_from: "2026-07-01",
+      p_to: "2026-07-15",
+      p_row_count: 1,
+    });
+    expect(assistantAttempt.ok).toBe(true); // no lanza error — solo no registra nada.
+
+    await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
+    const countAfterAssistant = await directRestCount(page, "notarial_index_exports");
+    expect(countAfterAssistant).toBe(countBefore);
+
+    const ownerAttempt = await directRpcCall(page, "log_notarial_index_export", {
+      p_format: "docx",
+      p_from: "2026-07-01",
+      p_to: "2026-07-15",
+      p_row_count: 1,
+    });
+    expect(ownerAttempt.ok).toBe(true);
+
+    const countAfterOwner = await directRestCount(page, "notarial_index_exports");
+    expect(countAfterOwner).toBe(countBefore + 1);
   });
 
   // ================= Cuentas por cobrar =================
