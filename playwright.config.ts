@@ -62,10 +62,23 @@ export default defineConfig({
     },
 
     // Auth hardening (login, logout, session persistence, revoked user,
-    // password recovery). Self-contained: each test creates and deletes its
-    // own disposable user via the Admin API, so it does not use storageState
-    // or depend on `setup`/E2E_USER_EMAIL like the rest of the authenticated
-    // chain below.
+    // password recovery). Self-contained in terms of DATA — each test
+    // creates and deletes its own disposable user via the Admin API, so it
+    // does not use storageState or depend on `setup`/E2E_USER_EMAIL like the
+    // rest of the authenticated chain below. It still runs against the same
+    // single `next dev` process and the same local Supabase/Mailpit
+    // instance as every other project, so it's chained (`dependencies`)
+    // together with the rest of this auth/Mailpit group below — not for
+    // storageState, purely to stop Playwright's default parallel scheduler
+    // from racing several real-email/multi-login flows against that one
+    // shared dev server at the same time. Reproduced concretely: running
+    // chromium-auth-security + chromium-recovery-token-safety +
+    // chromium-team-management concurrently (3 workers, no dependencies)
+    // made an unrelated recovery-token-safety assertion miss its default
+    // 5s timeout — the dev server was simply too busy serving the other two
+    // projects' concurrent flows to respond in time. Isolating them removes
+    // the contention outright, instead of papering over it with a longer
+    // timeout.
     {
       name: "chromium-auth-security",
       use: { ...devices["Desktop Chrome"] },
@@ -74,50 +87,53 @@ export default defineConfig({
 
     // Seguridad del token de recuperación: un GET nunca debe consumirlo —
     // mismo bug y mismo fix que chromium-invite-token-safety, aplicado a
-    // /auth/confirm?type=recovery. Autocontenido por la misma razón que
-    // chromium-auth-security.
+    // /auth/confirm?type=recovery. Ver la nota de contención compartida en
+    // chromium-auth-security de arriba.
     {
       name: "chromium-recovery-token-safety",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /recovery-token-safety\.spec\.ts/,
+      dependencies: ["chromium-auth-security"],
     },
 
-    // Roles, invitaciones y permisos de equipo (Iteración 5). Autocontenido
-    // igual que chromium-auth-security: cada test crea/borra sus propios
-    // usuarios y Workspaces desechables vía la Admin API, así que no usa
-    // storageState ni depende de `setup`.
+    // Roles, invitaciones y permisos de equipo (Iteración 5). Ver la nota de
+    // contención compartida en chromium-auth-security de arriba.
     {
       name: "chromium-team-management",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /team-management-authenticated\.spec\.ts/,
+      dependencies: ["chromium-recovery-token-safety"],
     },
 
     // Gating profundo de UI por permiso (Machotes/Tiptap, Escrituras,
     // Índice Notarial, Cuentas por cobrar/Pagos) a través de los tres
-    // roles propietario/asistente/solo_lectura. Autocontenido igual que
-    // chromium-team-management.
+    // roles propietario/asistente/solo_lectura. Ver la nota de contención
+    // compartida en chromium-auth-security de arriba.
     {
       name: "chromium-deep-permission-gating",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /deep-permission-gating-authenticated\.spec\.ts/,
+      dependencies: ["chromium-team-management"],
     },
 
-    // Identidad notarial y auditoría de actores (Iteración 6). Autocontenido
-    // por la misma razón que chromium-team-management.
+    // Identidad notarial y auditoría de actores (Iteración 6). Ver la nota
+    // de contención compartida en chromium-auth-security de arriba.
     {
       name: "chromium-notary-identity-actor-audit",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /notary-identity-actor-audit-authenticated\.spec\.ts/,
+      dependencies: ["chromium-deep-permission-gating"],
     },
 
     // Seguridad del token de invitación: un GET nunca debe consumirlo (fix
     // del bug real donde un prefetch/escáner podía "usar" el enlace antes
-    // que la persona). Autocontenido por la misma razón que
-    // chromium-team-management.
+    // que la persona). Ver la nota de contención compartida en
+    // chromium-auth-security de arriba.
     {
       name: "chromium-invite-token-safety",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /invite-token-safety-authenticated\.spec\.ts/,
+      dependencies: ["chromium-notary-identity-actor-audit"],
     },
 
     // Clients module — authenticated.
