@@ -36,6 +36,70 @@ function uniqueEmail(label: string): string {
   return `e2e-deep-gating-${label}-${randomUUID()}@example.com`;
 }
 
+/**
+ * PATCH directo a PostgREST (`/rest/v1/documents`) usando el propio access
+ * token de la sesión YA logueada en `page` — bypassa la app de Next.js por
+ * completo (ni Server Action ni UI), igual que alguien manipulando la
+ * petición HTTP directamente. Requiere el `apikey`/Authorization que
+ * Supabase exige aparte de las cookies (page.request no basta por sí solo).
+ * Soporta cookies fragmentadas (`sb-...-auth-token.0`, `.1`, ...), mismo
+ * patrón que `e2e/support/supabase-api.ts`.
+ */
+async function directPatchDocumentStatus(
+  page: Page,
+  documentId: string,
+  status: string,
+): Promise<{ ok: boolean; status: number }> {
+  const cookies = await page.context().cookies();
+  const chunks = cookies
+    .map((cookie) => {
+      const match = cookie.name.match(/^sb-.+-auth-token(?:\.(\d+))?$/);
+      if (!match) return null;
+      return { index: match[1] ? Number(match[1]) : 0, value: cookie.value };
+    })
+    .filter((c): c is { index: number; value: string } => c !== null)
+    .sort((a, b) => a.index - b.index);
+  if (chunks.length === 0) {
+    throw new Error("No Supabase auth cookie found on the current page context");
+  }
+
+  const decode = (raw: string) => {
+    const value = decodeURIComponent(raw);
+    return value.startsWith("base64-")
+      ? Buffer.from(value.slice("base64-".length), "base64url").toString("utf8")
+      : value;
+  };
+  const session = JSON.parse(decode(chunks.map((c) => c.value).join(""))) as {
+    access_token?: string;
+  };
+  if (!session.access_token) {
+    throw new Error("Session cookie does not contain an access_token");
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const apiKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !apiKey) {
+    throw new Error("Missing Supabase URL/anon key env vars for direct REST call");
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/documents?id=eq.${documentId}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: apiKey,
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ status }),
+    },
+  );
+  return { ok: response.ok, status: response.status };
+}
+
 async function loginAndExpectDashboard(
   page: Page,
   email: string,
@@ -69,6 +133,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   let clientId: string;
   let documentId: string;
   let secondDocumentId: string;
+  let reopenTargetDocumentId: string;
   let receivableId: string;
 
   test.beforeAll(async () => {
@@ -134,6 +199,20 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     });
     secondDocumentId = secondDocument.id;
 
+    // Ya finalizada desde el inicio, dedicada a probar el bypass directo de
+    // reabrir (Fix B) sin interferir con el flujo de finalizar/reabrir por
+    // UI que usa secondDocumentId.
+    const reopenTargetDocument = await restInsert<{ id: string }>("documents", {
+      owner_id: ownerId,
+      template_id: templateId,
+      client_id: clientId,
+      title: "Escritura gating profundo (reabrir directo)",
+      status: "final",
+      field_values: {},
+      rendered_content: "Contenido de prueba.",
+    });
+    reopenTargetDocumentId = reopenTargetDocument.id;
+
     const receivable = await restInsert<{ id: string }>("receivables", {
       owner_id: ownerId,
       client_id: clientId,
@@ -159,6 +238,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await restDelete("receivables", `id=eq.${receivableId}`);
     await restDelete("documents", `id=eq.${documentId}`);
     await restDelete("documents", `id=eq.${secondDocumentId}`);
+    await restDelete("documents", `id=eq.${reopenTargetDocumentId}`);
     await restDelete("clients", `id=eq.${clientId}`);
     await restDelete("templates", `id=eq.${templateId}`);
     await restDelete("workspace_activity", `workspace_id=eq.${ownerId}`);
@@ -320,6 +400,51 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByRole("button", { name: "Guardar datos del índice" }),
     ).not.toBeVisible();
+  });
+
+  test("Escritura: reabrir una escritura finalizada por PATCH directo a la API es rechazado para asistente y solo_lectura, y aceptado para propietario", async ({
+    page,
+  }) => {
+    // Fix B: `transitionDocument` en lifecycle-actions.ts es UX — el
+    // enforcement real es el trigger `enforce_document_finalize_permission`
+    // (RLS deja pasar el UPDATE hasta el `with check`). Golpear PostgREST
+    // directamente, sin pasar por la app ni por ningún Server Action, prueba
+    // que el rechazo sostiene incluso si alguien evita la UI por completo.
+    await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
+    const assistantAttempt = await directPatchDocumentStatus(
+      page,
+      reopenTargetDocumentId,
+      "draft",
+    );
+    expect(assistantAttempt.ok).toBe(false);
+
+    await loginAndExpectDashboard(page, readerEmail, PASSWORD);
+    const readerAttempt = await directPatchDocumentStatus(
+      page,
+      reopenTargetDocumentId,
+      "draft",
+    );
+    expect(readerAttempt.ok).toBe(false);
+
+    const stillFinal = await restSelect<{ status: string }>(
+      "documents",
+      `id=eq.${reopenTargetDocumentId}&select=status`,
+    );
+    expect(stillFinal[0].status).toBe("final");
+
+    await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
+    const ownerAttempt = await directPatchDocumentStatus(
+      page,
+      reopenTargetDocumentId,
+      "draft",
+    );
+    expect(ownerAttempt.ok).toBe(true);
+
+    const reopened = await restSelect<{ status: string }>(
+      "documents",
+      `id=eq.${reopenTargetDocumentId}&select=status`,
+    );
+    expect(reopened[0].status).toBe("draft");
   });
 
   // ================= Índice Notarial =================
