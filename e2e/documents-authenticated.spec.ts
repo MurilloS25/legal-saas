@@ -46,6 +46,15 @@ function documentRegion(page: Page) {
 }
 
 /**
+ * Panel de datos (paso Completar). Se usa para desambiguar el texto de
+ * progreso, que también aparece (con punto final) en el resumen de solo
+ * lectura del paso Finalizar cuando la escritura ya está persistida.
+ */
+function dataPanel(page: Page) {
+  return page.getByRole("region", { name: "Datos de la Escritura" });
+}
+
+/**
  * Valor crudo persistido para una variable: el input oculto que el
  * formulario envía en el submit, única fuente de verdad ya que el panel de
  * datos ya no lista los campos uno a uno.
@@ -136,9 +145,7 @@ test.describe("document composer workspace", () => {
 
     // El compositor: documento como zona principal + panel de datos.
     await expect(documentRegion(page)).toBeVisible();
-    await expect(
-      page.getByRole("region", { name: "Datos de la Escritura" }),
-    ).toBeVisible();
+    await expect(page.getByLabel("Título de la escritura")).toBeVisible();
 
     // The title is pre-generated from the template name.
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
@@ -152,12 +159,12 @@ test.describe("document composer workspace", () => {
 
     // Al escribir, el documento se actualiza ANTES de guardar.
     await fillFieldLive(page, fieldKey, filledValue);
-    await expect(
-      page.getByText("Cambios sin guardar").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Cambios sin guardar").first()).toBeVisible();
 
     // Progreso sobre los campos (configurado + derivado del contenido).
-    await expect(page.getByText("1 de 2 campos completos")).toBeVisible();
+    await expect(
+      dataPanel(page).getByText("1 de 2 campos completos", { exact: true }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
@@ -182,37 +189,35 @@ test.describe("document composer workspace", () => {
     ).toBeVisible();
   });
 
-  test("C2: persisted workspace uses stable sections and accessible history", async ({
+  test("C2: persisted workspace uses a stable stepper and accessible history", async ({
     page,
   }) => {
     await page.goto(draftPath);
-    const navigation = page.getByRole("navigation", {
-      name: "Secciones de la escritura",
+    const stepper = page.getByRole("navigation", {
+      name: "Pasos de la escritura",
     });
     await expect(
-      navigation.getByRole("link", { name: "Documento" }),
-    ).toHaveAttribute("aria-current", "page");
-    await expect(
-      navigation.getByRole("link", { name: "Cuentas por cobrar" }),
-    ).toBeVisible();
-    await expect(navigation.getByText("Índice notarial")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+      stepper.getByRole("tab", { name: "Completar" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(stepper.getByRole("tab", { name: "Cobro" })).toBeVisible();
+    await expect(stepper.getByRole("tab", { name: "Índice" })).toBeDisabled();
     await expect(
       page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
     ).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Actividad" })).toHaveCount(0);
 
-    await navigation.getByRole("link", { name: "Cuentas por cobrar" }).click();
-    await expect(page).toHaveURL(/section=receivables/);
+    // El stepper es cliente-puro (pushState): cambiar de paso nunca navega
+    // realmente, así que atrás/adelante del navegador debe seguir
+    // funcionando (popstate) sin perder el compositor.
+    await stepper.getByRole("tab", { name: "Cobro" }).click();
+    await expect(page).toHaveURL(/section=cobro/);
     await expect(
       page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
     ).toBeVisible();
     await page.goBack();
     await expect(
-      page.getByRole("region", { name: "Datos de la Escritura" }),
-    ).toBeVisible();
+      stepper.getByRole("tab", { name: "Completar" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Título de la escritura")).toBeVisible();
 
     const historyTrigger = page.getByRole("button", { name: "Historial" });
     await historyTrigger.click();
@@ -255,7 +260,9 @@ test.describe("document composer workspace", () => {
 
     // Completa también la variable derivada del contenido.
     await fillFieldLive(page, derivedKey, "ABC-123");
-    await expect(page.getByText("2 de 2 campos completos")).toBeVisible();
+    await expect(
+      dataPanel(page).getByText("2 de 2 campos completos", { exact: true }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 

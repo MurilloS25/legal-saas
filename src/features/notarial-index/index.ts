@@ -1,6 +1,8 @@
 export { NotarialIndexWorkspace } from "./components/NotarialIndexWorkspace";
 export { NotarialMetadataSection } from "./components/NotarialMetadataSection";
 export { TemplateIndexConfigurationSection } from "./components/TemplateIndexConfigurationSection";
+export { IndexSummaryHeader } from "./components/IndexSummaryHeader";
+export { CollapsibleFieldRow } from "./components/CollapsibleFieldRow";
 export type {
   IndexConfigurationField,
   IndexConfigurationOptionBlock,

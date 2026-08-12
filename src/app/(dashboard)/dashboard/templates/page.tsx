@@ -10,6 +10,8 @@ import {
   TEMPLATES_PAGE_SIZE,
   type RawTemplatesQuery,
 } from "@/features/templates";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Machotes — LexCR",
@@ -22,6 +24,8 @@ type Props = {
 };
 
 export default async function TemplatesPage({ searchParams }: Props) {
+  const { role } = await requireWorkspace();
+  const canWrite = hasPermission(role, "templates.write");
   const query = parseTemplatesQuery(await searchParams);
   const page = await listTemplatesPage(query);
 
@@ -48,27 +52,29 @@ export default async function TemplatesPage({ searchParams }: Props) {
             Administra y organiza tus plantillas legales reutilizables.
           </p>
         </div>
-        <Link
-          href="/dashboard/templates/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        {canWrite && (
+          <Link
+            href="/dashboard/templates/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
           >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Nuevo machote
-        </Link>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Nuevo machote
+          </Link>
+        )}
       </div>
 
       {/* ---- empty state ---- */}
@@ -100,12 +106,14 @@ export default async function TemplatesPage({ searchParams }: Props) {
           <p className="text-xs text-slate-500 mb-6">
             Crea tu primer machote para empezar a gestionar tus plantillas legales.
           </p>
-          <Link
-            href="/dashboard/templates/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-          >
-            Crear machote
-          </Link>
+          {canWrite && (
+            <Link
+              href="/dashboard/templates/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+            >
+              Crear machote
+            </Link>
+          )}
         </div>
       ) : (
         /* ---- templates table ---- */

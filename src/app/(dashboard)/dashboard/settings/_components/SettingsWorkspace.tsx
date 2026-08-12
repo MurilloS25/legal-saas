@@ -79,6 +79,11 @@ function buildValues(
 type Props = {
   initialProfile: LawyerProfileData | null;
   initialSettings: DocumentSettingsData | null;
+  /** Solo propietario/administrador pueden editar (settings.manage). Un
+   * asistente/solo_lectura ve la información en modo lectura — antes se
+   * mostraba un formulario totalmente interactivo que solo fallaba al
+   * guardar (server-side + RLS), sin ninguna señal en la UI. */
+  canManage: boolean;
 };
 
 const initialState: SettingsState = {};
@@ -94,7 +99,11 @@ const MARGIN_FIELDS = [
   { name: "margin_right_cm", label: "Derecho" },
 ] as const satisfies ReadonlyArray<{ name: keyof FormValues; label: string }>;
 
-export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
+export function SettingsWorkspace({
+  initialProfile,
+  initialSettings,
+  canManage,
+}: Props) {
   const initialValues = buildValues(initialProfile, initialSettings);
   const savedRef = useRef<FormValues>(initialValues);
   const [values, setValues] = useState<FormValues>(initialValues);
@@ -145,6 +154,16 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
         </div>
       )}
 
+      {!canManage && (
+        <div
+          role="status"
+          className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+        >
+          Solo el propietario o un administrador pueden editar esta
+          información. La ves en modo lectura.
+        </div>
+      )}
+
       {/* ================= Perfil profesional ================= */}
       <section
         aria-labelledby="profile-heading"
@@ -173,6 +192,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
               type="text"
               autoComplete="name"
               required
+              disabled={!canManage}
               value={values.full_name}
               onChange={(e) => setField("full_name", e.target.value)}
               className={inputClass}
@@ -191,6 +211,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
               id="professional_code"
               name="professional_code"
               type="text"
+              disabled={!canManage}
               value={values.professional_code}
               onChange={(e) => setField("professional_code", e.target.value)}
               className={inputClass}
@@ -207,6 +228,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
               name="email"
               type="email"
               autoComplete="email"
+              disabled={!canManage}
               value={values.email}
               onChange={(e) => setField("email", e.target.value)}
               className={inputClass}
@@ -228,6 +250,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
               name="phone"
               type="tel"
               autoComplete="tel"
+              disabled={!canManage}
               value={values.phone}
               onChange={(e) => setField("phone", e.target.value)}
               className={inputClass}
@@ -263,6 +286,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
               <select
                 id="font_family"
                 name="font_family"
+                disabled={!canManage}
                 value={values.font_family}
                 onChange={(e) => setField("font_family", e.target.value)}
                 className={inputClass}
@@ -290,6 +314,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
                 type="number"
                 min="1"
                 step="0.5"
+                disabled={!canManage}
                 value={values.font_size}
                 onChange={(e) => setField("font_size", e.target.value)}
                 className={inputClass}
@@ -319,6 +344,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
                     type="number"
                     min="0"
                     step="0.1"
+                    disabled={!canManage}
                     value={values[name]}
                     onChange={(e) => setField(name, e.target.value)}
                     className={inputClass}
@@ -341,6 +367,7 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
               type="number"
               min="0.5"
               step="0.5"
+              disabled={!canManage}
               value={values.line_spacing}
               onChange={(e) => setField("line_spacing", e.target.value)}
               className={inputClass}
@@ -354,7 +381,9 @@ export function SettingsWorkspace({ initialProfile, initialSettings }: Props) {
         </div>
       </section>
 
-      <SettingsActionsBar dirty={dirty} pending={pending} onDiscard={handleDiscard} />
+      {canManage && (
+        <SettingsActionsBar dirty={dirty} pending={pending} onDiscard={handleDiscard} />
+      )}
     </form>
   );
 }

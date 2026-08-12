@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import {
   ReceivableSchema,
   parseReceivableFormData,
@@ -13,6 +13,7 @@ import {
   appendReturnTo,
   parseDocumentReceivablesReturnTo,
 } from "@/lib/navigation/context-return";
+import { receivableHasPaymentHistory } from "./payment-queries";
 
 type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
 type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
@@ -85,7 +86,7 @@ function receivableMutationMessage(code: string | undefined): string {
  */
 function buildReceivableMutation(
   data: ReceivableInput,
-): Omit<ReceivableInsert, "owner_id"> {
+): Omit<ReceivableInsert, "owner_id" | "workspace_id"> {
   const isRegistered = data.client_mode === "registered";
   return {
     client_id: isRegistered ? data.client_id : null,
@@ -108,7 +109,7 @@ export async function createReceivableAction(
   _prevState: ReceivableState,
   formData: FormData,
 ): Promise<ReceivableState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
@@ -117,7 +118,7 @@ export async function createReceivableAction(
 
   const { data, error } = await supabase
     .from("receivables")
-    .insert({ owner_id: user.id, ...mutation })
+    .insert({ owner_id: user.id, workspace_id: workspaceId, ...mutation })
     .select("id")
     .single();
 
@@ -147,18 +148,57 @@ export async function updateReceivableAction(
   _prevState: ReceivableState,
   formData: FormData,
 ): Promise<ReceivableState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const result = parseReceivableFormData(formData);
   if (!result.success) return fieldErrors(result);
 
   const mutation: ReceivableUpdate = buildReceivableMutation(result.data);
 
+  // Inmutabilidad financiera: con cualquier pago histórico (activo o
+  // anulado), monto/moneda/Cliente/Escritura quedan bloqueados. Esto es
+  // defensa adicional a la UI (que ya deshabilita estos campos) y al
+  // trigger de base de datos — un request manipulado que solo ocultara los
+  // inputs no bastaría para pasar esto.
+  const hasPayments = await receivableHasPaymentHistory(supabase, id, workspaceId);
+  if (hasPayments) {
+    const { data: existing, error: existingError } = await supabase
+      .from("receivables")
+      .select("client_id, client_name_snapshot, document_id, currency, amount_total")
+      .eq("id", id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (existingError) {
+      return {
+        message: "No fue posible actualizar la cuenta por cobrar. Intenta de nuevo.",
+      };
+    }
+    if (!existing) {
+      return { message: "No se encontró la cuenta por cobrar." };
+    }
+
+    const financialFieldsChanged =
+      mutation.client_id !== existing.client_id ||
+      (mutation.client_id === null &&
+        mutation.client_name_snapshot !== existing.client_name_snapshot) ||
+      mutation.document_id !== existing.document_id ||
+      mutation.currency !== existing.currency ||
+      Number(mutation.amount_total) !== Number(existing.amount_total);
+
+    if (financialFieldsChanged) {
+      return {
+        message:
+          "Esta cuenta ya tiene pagos registrados: el monto, la moneda, el cliente y la escritura relacionada no se pueden modificar.",
+      };
+    }
+  }
+
   const { error } = await supabase
     .from("receivables")
     .update(mutation)
     .eq("id", id)
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return {
@@ -181,13 +221,13 @@ export async function deleteReceivableAction(
   void _prevState;
   void _formData;
 
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const { data, error } = await supabase
     .from("receivables")
     .delete()
     .eq("id", id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .select("id")
     .maybeSingle();
 

@@ -11,6 +11,8 @@ import {
   saveTemplateIndexConfigurationAction,
   type TemplateIndexConfigurationState,
 } from "../server/template-index-config-actions";
+import { IndexSummaryHeader } from "./IndexSummaryHeader";
+import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
 
 export type IndexConfigurationField = {
   id: string;
@@ -29,6 +31,9 @@ type Props = {
   fields: IndexConfigurationField[];
   optionBlocks: IndexConfigurationOptionBlock[];
   configuration: TemplateIndexConfiguration | null;
+  /** templates.write — sin este permiso, toda la sección es de solo
+   * lectura. */
+  readOnly?: boolean;
 };
 
 const SIMPLE_FIELDS: Array<{
@@ -57,11 +62,27 @@ const initialState: TemplateIndexConfigurationState = {};
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600";
 
+function initialSimpleFieldValue(
+  key: SimpleIndexMappingKey,
+  configuration: TemplateIndexConfiguration | null,
+): string {
+  if (key === "authorized_time") {
+    if (configuration?.authorizedTimeOptionBlockId) {
+      return `block:${configuration.authorizedTimeOptionBlockId}`;
+    }
+    return configuration?.simpleFields[key]
+      ? `field:${configuration.simpleFields[key]}`
+      : "";
+  }
+  return configuration?.simpleFields[key] ?? "";
+}
+
 export function TemplateIndexConfigurationSection({
   templateId,
   fields,
   optionBlocks,
   configuration,
+  readOnly = false,
 }: Props) {
   const availableIds = useMemo(
     () => new Set(fields.map((field) => field.id)),
@@ -82,11 +103,50 @@ export function TemplateIndexConfigurationSection({
     configuration?.allowEmpty ?? false,
   );
   const [partiesSearch, setPartiesSearch] = useState("");
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
+  // Los 6 selects simples eran no-controlados (`defaultValue`) porque su
+  // valor solo importaba al enviar el formulario. La presentación
+  // compacta necesita conocer su valor actual para mostrar el estado
+  // "Configurado"/"Pendiente" de cada fila sin esperar a un guardado —
+  // por eso pasan a ser controlados aquí. El `name` de cada `<select>`
+  // sigue exactamente igual, así que el envío del formulario (y por lo
+  // tanto la Server Action / RPC) no cambia en absoluto.
+  const [simpleFieldValues, setSimpleFieldValues] = useState<
+    Record<SimpleIndexMappingKey, string>
+  >(() => {
+    const initial = {} as Record<SimpleIndexMappingKey, string>;
+    for (const { key } of SIMPLE_FIELDS) {
+      initial[key] = initialSimpleFieldValue(key, configuration);
+    }
+    return initial;
+  });
+
   const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  // Los errores de `party_separator`/`fixed_suffix`/`template_field_ids`
+  // solo se muestran dentro de la fila "Partes" — si esa fila estaba
+  // colapsada al enviar el formulario, el error de guardado quedaría
+  // invisible sin este auto-expand. Se ajusta durante el render (patrón
+  // recomendado por React para reaccionar a un cambio de state ya
+  // calculado) en vez de en un efecto, para evitar un render en cascada.
+  const [lastHandledState, setLastHandledState] = useState(state);
+  if (state !== lastHandledState) {
+    setLastHandledState(state);
+    if (
+      state.errors?.template_field_ids ||
+      state.errors?.party_separator ||
+      state.errors?.fixed_suffix
+    ) {
+      setOpenRowId("parties");
+    }
+  }
   const fieldsById = useMemo(
     () => new Map(fields.map((field) => [field.id, field])),
     [fields],
+  );
+  const optionBlocksById = useMemo(
+    () => new Map(optionBlocks.map((block) => [block.blockId, block])),
+    [optionBlocks],
   );
   const preview = generateIndexParties({
     fields: selectedIds.map((id, order) => ({
@@ -124,6 +184,24 @@ export function TemplateIndexConfigurationSection({
     });
   }
 
+  function simpleFieldMeta(key: SimpleIndexMappingKey): string {
+    const raw = simpleFieldValues[key];
+    if (!raw) return "Sin configurar";
+    if (key === "authorized_time") {
+      if (raw.startsWith("block:")) {
+        const block = optionBlocksById.get(raw.slice("block:".length));
+        return block ? `Bloque de opciones · ${block.name}` : "Bloque de opciones";
+      }
+      if (raw.startsWith("field:")) {
+        const field = fieldsById.get(raw.slice("field:".length));
+        return field ? `Variable · ${field.label}` : "Variable";
+      }
+      return "Sin configurar";
+    }
+    const field = fieldsById.get(raw);
+    return field ? `Variable · ${field.label}` : "Sin configurar";
+  }
+
   const orderedFields = [
     ...selectedIds.flatMap((id) => {
       const field = fieldsById.get(id);
@@ -145,6 +223,33 @@ export function TemplateIndexConfigurationSection({
     );
   });
 
+  const simpleConfiguredCount = SIMPLE_FIELDS.filter(
+    ({ key }) => simpleFieldValues[key] !== "",
+  ).length;
+  const partiesConfigured = selectedIds.length > 0;
+  const partiesStatus: "configured" | "pending" | "optional" = partiesConfigured
+    ? "configured"
+    : allowEmpty
+      ? "optional"
+      : "pending";
+  const configuredCount = simpleConfiguredCount + (partiesConfigured ? 1 : 0);
+  const pendingCount =
+    SIMPLE_FIELDS.length -
+    simpleConfiguredCount +
+    (partiesStatus === "pending" ? 1 : 0);
+
+  const hasWarning = !!(configuration && !configuration.isComplete);
+  const warningMessage = hasWarning
+    ? `La configuración necesita revisión. Se eliminaron campos asociados a: ${
+        configuration!.invalidMappings.map((key) => INVALID_LABELS[key]).join(", ") ||
+        "Partes"
+      }.`
+    : undefined;
+
+  function toggleRow(id: string) {
+    setOpenRowId((current) => (current === id ? null : id));
+  }
+
   return (
     <section
       aria-label="Configuración del índice notarial"
@@ -154,111 +259,126 @@ export function TemplateIndexConfigurationSection({
         Configuración del índice notarial
       </div>
       <form action={formAction} className="px-6 py-5">
-          <p className="text-sm text-slate-600">
-            Opcional. Esta configuración permite precargar datos del índice
-            notarial cuando crees una Escritura usando este Machote.
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            Los valores podrán revisarse y corregirse manualmente en cada
-            Escritura.
-          </p>
-          <ul className="mt-3 mb-5 space-y-1 text-xs text-slate-500">
-            <li>• No modifica el contenido del Machote.</li>
-            <li>• Puedes dejar campos sin asignar.</li>
-            <li>• Solo sirve para precargar datos del índice.</li>
-            <li>• Los valores siempre podrán corregirse después.</li>
-          </ul>
+        {readOnly && (
+          <div
+            role="status"
+            className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+          >
+            Tu rol no permite editar la configuración del índice. La ves en
+            modo lectura.
+          </div>
+        )}
 
-          {configuration && !configuration.isComplete && (
-            <div
-              role="status"
-              className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        <IndexSummaryHeader
+          configuredCount={configuredCount}
+          pendingCount={pendingCount}
+          helperText="Esta configuración es opcional. Permite precargar automáticamente el Índice al crear una Escritura con este machote. Los valores siempre podrán corregirse en cada Escritura."
+          hasWarning={hasWarning}
+          warningMessage={warningMessage}
+        />
+
+        {state.errors?.simple_fields && (
+          <p role="alert" className="mb-3 text-sm text-red-700">
+            {state.errors.simple_fields}
+          </p>
+        )}
+
+        {/* Fuera de las filas colapsables a propósito, mismo motivo que los
+            demás inputs ocultos de esta sección: deben seguir en el
+            FormData sin importar qué fila esté abierta al momento del
+            submit. */}
+        {SIMPLE_FIELDS.map(({ key }) => (
+          <input
+            key={key}
+            type="hidden"
+            name={key === "authorized_time" ? "authorized_time_source" : `${key}_field_id`}
+            value={simpleFieldValues[key]}
+          />
+        ))}
+
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+          {SIMPLE_FIELDS.map(({ key, label }) => (
+            <CollapsibleFieldRow
+              key={key}
+              id={`idx-${key}`}
+              name={label}
+              meta={simpleFieldMeta(key)}
+              status={simpleFieldValues[key] ? "configured" : "pending"}
+              open={openRowId === key}
+              onToggle={() => toggleRow(key)}
             >
-              <p className="font-medium">La configuración necesita revisión.</p>
-              <p className="mt-1">
-                Se eliminaron campos asociados a: {configuration.invalidMappings
-                  .map((key) => INVALID_LABELS[key])
-                  .join(", ") || "Partes"}.
-              </p>
-            </div>
-          )}
-
-          <p className="mb-3 text-xs text-slate-500">
-            Selecciona la variable que debe usarse para precargar este dato.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {SIMPLE_FIELDS.map(({ key, label }) => (
-              <div key={key}>
-                <label
-                  htmlFor={`${key}_field_id`}
-                  className="mb-1 block text-xs font-medium text-slate-700"
-                >
-                  {label}
-                </label>
-                <select
-                  id={`${key}_field_id`}
-                  name={
-                    key === "authorized_time"
-                      ? "authorized_time_source"
-                      : `${key}_field_id`
-                  }
-                  defaultValue={
-                    key === "authorized_time"
-                      ? configuration?.authorizedTimeOptionBlockId
-                        ? `block:${configuration.authorizedTimeOptionBlockId}`
-                        : configuration?.simpleFields[key]
-                          ? `field:${configuration.simpleFields[key]}`
-                          : ""
-                      : (configuration?.simpleFields[key] ?? "")
-                  }
-                  className={inputClass}
-                >
-                  <option value="">Sin asignar / ingreso manual</option>
-                  {key === "authorized_time" ? (
-                    <>
-                      <optgroup label="Variables">
-                        {fields.map((field) => (
-                          <option key={field.id} value={`field:${field.id}`}>
-                            {field.label}
+              {/* Sin `name`: el `<input type="hidden">` fuera de la grilla de
+                  filas es la única fuente real de este campo en el
+                  FormData, para que siga enviándose aunque la fila esté
+                  colapsada al momento del submit. */}
+              <label
+                htmlFor={`${key}_field_id`}
+                className="mb-1 block text-xs font-medium text-slate-700"
+              >
+                Variable sugerida
+              </label>
+              <select
+                id={`${key}_field_id`}
+                value={simpleFieldValues[key]}
+                onChange={(event) =>
+                  setSimpleFieldValues((current) => ({
+                    ...current,
+                    [key]: event.target.value,
+                  }))
+                }
+                disabled={readOnly}
+                className={inputClass}
+              >
+                <option value="">Sin asignar / ingreso manual</option>
+                {key === "authorized_time" ? (
+                  <>
+                    <optgroup label="Variables">
+                      {fields.map((field) => (
+                        <option key={field.id} value={`field:${field.id}`}>
+                          {field.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {optionBlocks.length > 0 && (
+                      <optgroup label="Bloques de opciones">
+                        {optionBlocks.map((block) => (
+                          <option
+                            key={block.blockId}
+                            value={`block:${block.blockId}`}
+                          >
+                            {block.name}
                           </option>
                         ))}
                       </optgroup>
-                      {optionBlocks.length > 0 && (
-                        <optgroup label="Bloques de opciones">
-                          {optionBlocks.map((block) => (
-                            <option
-                              key={block.blockId}
-                              value={`block:${block.blockId}`}
-                            >
-                              {block.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </>
-                  ) : (
-                    fields.map((field) => (
-                      <option key={field.id} value={field.id}>
-                        {field.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-            ))}
-          </div>
+                    )}
+                  </>
+                ) : (
+                  fields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.label}
+                    </option>
+                  ))
+                )}
+              </select>
+            </CollapsibleFieldRow>
+          ))}
 
-          {state.errors?.simple_fields && (
-            <p role="alert" className="mt-3 text-sm text-red-700">
-              {state.errors.simple_fields}
-            </p>
-          )}
-
-          <fieldset className="mt-6">
-            <legend className="text-sm font-semibold text-slate-900">
-              Partes para el índice
-            </legend>
-            <p className="mt-1 text-xs text-slate-500">
+          <CollapsibleFieldRow
+            id="idx-parties"
+            name="Partes"
+            meta={
+              partiesConfigured
+                ? `${selectedIds.length} variable${selectedIds.length === 1 ? "" : "s"} seleccionada${selectedIds.length === 1 ? "" : "s"}`
+                : allowEmpty
+                  ? "Confirmado sin Partes"
+                  : "¿Quiénes aparecen en la columna “Partes”?"
+            }
+            status={partiesStatus}
+            statusLabel={partiesStatus === "optional" ? "Confirmado" : undefined}
+            open={openRowId === "parties"}
+            onToggle={() => toggleRow("parties")}
+          >
+            <p className="text-xs text-slate-500">
               Selecciona las variables que representan a las personas o
               entidades que deben aparecer en la columna &ldquo;Partes&rdquo;
               del índice.
@@ -268,6 +388,7 @@ export function TemplateIndexConfigurationSection({
                 type="text"
                 value={partiesSearch}
                 onChange={(event) => setPartiesSearch(event.target.value)}
+                disabled={readOnly}
                 placeholder="Buscar variable…"
                 aria-label="Buscar variable para Partes"
                 className={`${inputClass} mt-3`}
@@ -289,6 +410,7 @@ export function TemplateIndexConfigurationSection({
                       type="checkbox"
                       checked={selected}
                       onChange={(event) => toggleField(field.id, event.target.checked)}
+                      disabled={readOnly}
                       className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-600"
                     />
                     <label
@@ -303,7 +425,7 @@ export function TemplateIndexConfigurationSection({
                         <button
                           type="button"
                           aria-label={`Subir ${field.label}`}
-                          disabled={selectedIndex === 0}
+                          disabled={readOnly || selectedIndex === 0}
                           onClick={() => moveField(field.id, -1)}
                           className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
                         >
@@ -312,7 +434,7 @@ export function TemplateIndexConfigurationSection({
                         <button
                           type="button"
                           aria-label={`Bajar ${field.label}`}
-                          disabled={selectedIndex === selectedIds.length - 1}
+                          disabled={readOnly || selectedIndex === selectedIds.length - 1}
                           onClick={() => moveField(field.id, 1)}
                           className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
                         >
@@ -324,85 +446,110 @@ export function TemplateIndexConfigurationSection({
                 );
               })}
             </div>
-          </fieldset>
 
-          {selectedIds.map((id) => (
-            <input key={id} type="hidden" name="selected_field" value={id} />
-          ))}
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="party_separator" className="mb-1 block text-xs font-medium text-slate-700">
-                Separador
-              </label>
-              <input
-                id="party_separator"
-                name="party_separator"
-                value={separator}
-                onChange={(event) => setSeparator(event.target.value)}
-                maxLength={30}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="fixed_suffix" className="mb-1 block text-xs font-medium text-slate-700">
-                Texto fijo (opcional)
-              </label>
-              <input
-                id="fixed_suffix"
-                name="fixed_suffix"
-                value={fixedSuffix}
-                onChange={(event) => setFixedSuffix(event.target.value)}
-                maxLength={200}
-                className={inputClass}
-              />
-            </div>
-          </div>
-
-          {selectedIds.length === 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-slate-600">
-                Este Machote no necesita generar automáticamente el campo
-                &ldquo;Partes&rdquo; del índice.
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Podrás completarlo manualmente en cada Escritura.
-              </p>
-              <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="party_separator" className="mb-1 block text-xs font-medium text-slate-700">
+                  Separador
+                </label>
                 <input
-                  type="checkbox"
-                  name="allow_empty"
-                  checked={allowEmpty}
-                  onChange={(event) => setAllowEmpty(event.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                  id="party_separator"
+                  value={separator}
+                  onChange={(event) => setSeparator(event.target.value)}
+                  disabled={readOnly}
+                  maxLength={30}
+                  className={inputClass}
                 />
-                Confirmo que este machote no requiere Partes para el índice.
-              </label>
+                {state.errors?.party_separator && (
+                  <p role="alert" className="mt-1 text-sm text-red-700">
+                    {state.errors.party_separator}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="fixed_suffix" className="mb-1 block text-xs font-medium text-slate-700">
+                  Texto fijo (opcional)
+                </label>
+                <input
+                  id="fixed_suffix"
+                  value={fixedSuffix}
+                  onChange={(event) => setFixedSuffix(event.target.value)}
+                  disabled={readOnly}
+                  maxLength={200}
+                  className={inputClass}
+                />
+                {state.errors?.fixed_suffix && (
+                  <p role="alert" className="mt-1 text-sm text-red-700">
+                    {state.errors.fixed_suffix}
+                  </p>
+                )}
+              </div>
             </div>
-          )}
 
-          {state.errors?.template_field_ids && (
-            <p role="alert" className="mt-3 text-sm text-red-700">
-              {state.errors.template_field_ids}
-            </p>
-          )}
+            {selectedIds.length === 0 && (
+              <div className="mt-4">
+                <p className="text-sm text-slate-600">
+                  Este Machote no necesita generar automáticamente el campo
+                  &ldquo;Partes&rdquo; del índice.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Podrás completarlo manualmente en cada Escritura.
+                </p>
+                <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={allowEmpty}
+                    onChange={(event) => setAllowEmpty(event.target.checked)}
+                    disabled={readOnly}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                  />
+                  Confirmo que este machote no requiere Partes para el índice.
+                </label>
+              </div>
+            )}
 
-          <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase text-slate-500">Vista previa</p>
-            <p
-              className={`mt-1 text-sm ${
-                selectedIds.length === 0 || previewIncomplete
-                  ? "text-slate-500"
-                  : "text-slate-900"
-              }`}
-            >
-              {previewMessage}
-            </p>
-          </div>
+            {state.errors?.template_field_ids && (
+              <p role="alert" className="mt-3 text-sm text-red-700">
+                {state.errors.template_field_ids}
+              </p>
+            )}
 
-          {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
-          {state.success && <p role="status" className="mt-4 text-sm text-green-700">Configuración guardada.</p>}
+            <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase text-slate-500">Vista previa</p>
+              <p
+                className={`mt-1 text-sm ${
+                  selectedIds.length === 0 || previewIncomplete
+                    ? "text-slate-500"
+                    : "text-slate-900"
+                }`}
+              >
+                {previewMessage}
+              </p>
+            </div>
+          </CollapsibleFieldRow>
+        </div>
 
+        {/* Fuera de la fila colapsable a propósito: si vivieran dentro de
+            `CollapsibleFieldRow`, dejarían de enviarse en el submit en
+            cuanto la fila estuviera cerrada (su contenido no se monta
+            mientras está colapsada). Los inputs visibles equivalentes
+            dentro de la fila (separador, texto fijo, checkbox) ya no
+            llevan `name` — solo editan este mismo estado; estos son la
+            única fuente real de esos tres campos en el FormData. Para
+            `allow_empty` se replica el comportamiento nativo de un
+            checkbox no marcado (ausente del FormData), no un string
+            "false". */}
+        {selectedIds.map((id) => (
+          <input key={id} type="hidden" name="selected_field" value={id} />
+        ))}
+        <input type="hidden" name="party_separator" value={separator} />
+        <input type="hidden" name="fixed_suffix" value={fixedSuffix} />
+        {allowEmpty && <input type="hidden" name="allow_empty" value="on" />}
+
+        {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
+        {state.success && <p role="status" className="mt-4 text-sm text-green-700">Configuración guardada.</p>}
+
+        {!readOnly && (
           <div className="mt-5 flex justify-end">
             <button
               type="submit"
@@ -412,6 +559,7 @@ export function TemplateIndexConfigurationSection({
               {pending ? "Guardando…" : "Guardar configuración"}
             </button>
           </div>
+        )}
       </form>
     </section>
   );

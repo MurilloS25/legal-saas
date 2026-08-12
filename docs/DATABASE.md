@@ -897,6 +897,75 @@ RLS tests should include:
 - User cannot update `owner_id` to another user.
 - Anonymous users cannot access private user-owned data.
 
+### Workspaces (added, Iteration 4)
+
+`supabase/migrations/20260804200000_workspace_foundation.sql` adds
+`workspaces` and `workspace_members` (role + active/invited/revoked
+status), and a `workspace_id` column on every table above (plus
+`notarial_index_exports`, `receivable_activity`, `receivable_payments`,
+`document_activity`, `template_index_configurations`,
+`template_index_configuration_fields`) — the base policy concept above
+becomes `is_workspace_member(workspace_id, [roles])` instead of a raw
+`owner_id = auth.uid()` comparison, so a workspace membership can be
+suspended independently of Supabase Auth. `document_metadata` and
+`notarial_records` did **not** get `workspace_id` — they are unused
+scaffolding from the first migration, never referenced by application
+code.
+
+This iteration only implements one functional role (`propietario`); no
+invitations, no other roles in practice, and `workspace_id` is a
+`generated always as (owner_id) stored` column — a deliberate
+simplification possible only because a workspace and its sole owner are
+1:1 today. Full rationale, what's simplified vs. the original design, and
+the rollback runbook are in `docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md`
+§11 — read that before changing any RLS policy or `SECURITY DEFINER`
+function touched there.
+
+### Roles, invitations and permissions (added, Iteration 5)
+
+`supabase/migrations/20260804210000_workspace_roles_and_invitations.sql`
+drops the Iteration 4 `generated always as` expression on `workspace_id`
+(now an independently-writable column, defaulted by a new
+`default_workspace_id_from_actor()` BEFORE INSERT trigger on all 14
+business tables when the caller doesn't set it explicitly) and widens
+write RLS to `administrador`/`asistente` per the permission matrix, while
+`documents.finalize`/`notarial_index.generate`/`payments.void`/
+`members.manage`/`settings.manage` stay `propietario`/`administrador`
+only. All 13 composite FKs that used to pair `(child_id, owner_id)` now
+pair `(child_id, workspace_id)`, so a non-owning member can write child
+rows under a parent they don't own. Two follow-up migrations add
+`get_pending_workspace_invitation()` and `list_workspace_members()` —
+both `SECURITY DEFINER`, needed because `is_workspace_member()` requires
+`status = 'active'` and PostgREST can't read `auth.users` directly.
+
+New `workspace_activity` table (workspace_id, actor_user_id,
+target_user_id, event_type, metadata) is an immutable audit log written
+only by the 6 new team-management RPCs (`invite_workspace_member`,
+`accept_workspace_invitation`, `change_workspace_member_role`,
+`suspend_workspace_member`, `reactivate_workspace_member`,
+`remove_workspace_member`) — removing a member does not delete their
+activity history. Full design rationale, the role hierarchy rules, and
+the "1 workspace per user" invariant are in
+`docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §12.
+
+### Actor identity and audit snapshots (added, Iteration 6)
+
+`supabase/migrations/20260805100000_actor_identity_audit_snapshots.sql`
+adds `actor_name_snapshot`/`actor_role_snapshot` (`not null`) to
+`document_activity`, `receivable_activity`, `workspace_activity`, and
+`notarial_index_exports` — the actor's email and Workspace role, fixed at
+the moment of the event by a new `resolve_actor_snapshot()`
+`SECURITY DEFINER` helper, never recalculated on read. A later role
+change or removal from the Workspace does not retroactively alter past
+rows (verified by pgTAP, not just by design). `lawyer_profiles` was not
+duplicated into a new `notary_profiles` table — it already is the
+per-Workspace notary identity (Iteration 5), and the Índice Notarial
+already read from it, never from the acting user. New
+`list_workspace_activity()` RPC (same `SECURITY DEFINER` pattern as
+`list_workspace_members()`) finally surfaces `workspace_activity`, which
+Iteration 5 wrote but no `src/` code ever read. Full rationale in
+`docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §13.
+
 ## Indexing Considerations
 
 Potential indexes:

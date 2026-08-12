@@ -24,6 +24,7 @@ export function formatPaymentDate(iso: string): string {
 
 export function createPaymentsColumns(
   receivableId: string,
+  canVoid: boolean,
 ): ColumnDef<ReceivablePayment>[] {
   return [
     {
@@ -103,7 +104,7 @@ export function createPaymentsColumns(
       enableHiding: false,
       cell: ({ row }) => {
         const p = row.original;
-        if (p.status === "voided") return null;
+        if (p.status === "voided" || !canVoid) return null;
         return (
           <div className="flex items-center justify-end">
             <VoidPaymentButton

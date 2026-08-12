@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   RECEIVABLES_PAGE_SIZE,
@@ -17,11 +17,11 @@ import type {
 import { ENTRY_COLUMNS, mapReceivableEntries } from "./mappers";
 
 export async function listReceivables(): Promise<ReceivableEntry[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
   if (error) throwDataAccessError("list receivables", error);
@@ -31,7 +31,7 @@ export async function listReceivables(): Promise<ReceivableEntry[]> {
 export async function listReceivablesWorkspace(
   query: ReceivablesQuery,
 ): Promise<ReceivablesWorkspacePage> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { column, ascending } = sortColumnFor(query.sort);
   const term = sanitizeSearchTermForPostgrest(query.search);
 
@@ -42,7 +42,7 @@ export async function listReceivablesWorkspace(
   let countBuilder = supabase
     .from("receivable_entries")
     .select("id", { count: "exact", head: true })
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (query.status) countBuilder = countBuilder.eq("status", query.status);
   if (query.clientId) countBuilder = countBuilder.eq("client_id", query.clientId);
@@ -75,7 +75,7 @@ export async function listReceivablesWorkspace(
   let builder = supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (query.status) builder = builder.eq("status", query.status);
   if (query.clientId) builder = builder.eq("client_id", query.clientId);
@@ -111,7 +111,7 @@ export async function listReceivablesWorkspace(
 export async function getReceivablesSummary(
   query: ReceivablesQuery,
 ): Promise<CurrencyTotal[]> {
-  const { supabase } = await requireUser();
+  const { supabase } = await requireWorkspace();
   const term = sanitizeSearchTermForPostgrest(query.search);
   if (searchHasNoSafeTerm(query.search)) return [];
 

@@ -57,6 +57,15 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
+/** "Descargar Word" vive en el paso Finalizar, un panel independiente. */
+async function goToFinalizar(page: Page) {
+  await page.getByRole("tab", { name: "Finalizar" }).click();
+}
+
+async function goToCompletar(page: Page) {
+  await page.getByRole("tab", { name: "Completar" }).click();
+}
+
 test.describe("document docx download", () => {
   test.afterAll(async () => {
     await runCleanup(registry, "docx");
@@ -97,6 +106,7 @@ test.describe("document docx download", () => {
 
   test("B: the download button appears on a saved draft", async ({ page }) => {
     await openComposer(page, completeDocId);
+    await goToFinalizar(page);
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
@@ -113,6 +123,7 @@ test.describe("document docx download", () => {
     const button = page.getByRole("button", { name: "Descargar Word" });
 
     async function fillField(value: string) {
+      await goToCompletar(page);
       await documentRegion(page)
         .locator(`[data-variable-key="${fieldKey}"]`)
         .first()
@@ -122,6 +133,7 @@ test.describe("document docx download", () => {
       );
       await input.fill(value);
       await input.blur();
+      await goToFinalizar(page);
     }
 
     // Provoca un cambio local sin guardar. Se reintenta el fill hasta que el
@@ -142,11 +154,13 @@ test.describe("document docx download", () => {
       page.getByText("Guarda los cambios antes de descargar el Word."),
     ).toBeVisible();
 
-    // Guardar reactiva la descarga.
+    // Guardar reactiva la descarga (el botón de guardado vive en Completar).
+    await goToCompletar(page);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByText("Borrador guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+    await goToFinalizar(page);
     await expect(button).toBeEnabled();
   });
 
@@ -154,6 +168,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, completeDocId);
+    await goToFinalizar(page);
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
@@ -220,6 +235,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, pendingDocId);
+    await goToFinalizar(page);
 
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
@@ -238,6 +254,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, pendingDocId);
+    await goToFinalizar(page);
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
     const dialog = page.getByRole("dialog", {
@@ -286,6 +303,7 @@ test.describe("document docx download", () => {
   test("K: the download button works on a mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await openComposer(page, completeDocId);
+    await goToFinalizar(page);
 
     const button = page.getByRole("button", { name: "Descargar Word" });
     await expect(button).toBeVisible();

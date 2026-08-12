@@ -1,7 +1,8 @@
 import "server-only";
 
-import { requireApiUser } from "@/lib/server/auth";
+import { requireApiWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
+import { hasPermission } from "@/lib/server/permissions";
 import {
   buildEscrituraDocx,
   contentDispositionAttachment,
@@ -33,7 +34,10 @@ export type BinaryExport = {
 export async function prepareDocumentDocxExport(
   documentId: string,
 ): Promise<BinaryExport> {
-  const { supabase, user } = await requireApiUser();
+  const { supabase, workspaceId, role } = await requireApiWorkspace();
+  if (!hasPermission(role, "documents.export")) {
+    throw new DocumentExportError(403);
+  }
   if (!DocumentIdSchema.safeParse(documentId).success) {
     throw new DocumentExportError(404);
   }
@@ -42,7 +46,7 @@ export async function prepareDocumentDocxExport(
     .from("documents")
     .select("id, title, template_id, field_values, option_selections, rendered_content")
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (documentError) throwDataAccessError("load document export", documentError);
@@ -52,7 +56,7 @@ export async function prepareDocumentDocxExport(
     .from("templates")
     .select("content_json")
     .eq("id", document.template_id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (templateError) throwDataAccessError("load document export template", templateError);
@@ -70,7 +74,7 @@ export async function prepareDocumentDocxExport(
     .from("template_fields")
     .select("field_key, output_transform")
     .eq("template_id", document.template_id)
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
   if (fieldsError) throwDataAccessError("load document export fields", fieldsError);
 
   const transforms: VariableTransformsMap = {};
@@ -79,7 +83,7 @@ export async function prepareDocumentDocxExport(
     if (transform !== "none") transforms[field.field_key] = transform;
   }
 
-  const formatting = await loadDocumentFormattingPreferences(supabase, user.id);
+  const formatting = await loadDocumentFormattingPreferences(supabase, workspaceId);
 
   let result;
   try {

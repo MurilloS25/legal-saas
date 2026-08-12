@@ -91,6 +91,17 @@ export function GearIcon({ className }: IconProps) {
   );
 }
 
+export function TeamIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="8.5" cy="7.5" r="2.75" />
+      <circle cx="16" cy="9" r="2.25" />
+      <path d="M3.5 19c0-2.7 2.2-4.7 5-4.7s5 2 5 4.7" />
+      <path d="M13.7 14.7c2.3.2 4.1 1.9 4.1 4.3" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className}>

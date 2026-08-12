@@ -52,6 +52,9 @@ type Props = {
   /** Ruta ya validada (ver context-return.ts) para volver a la Escritura
    * desde la que se creó o abrió esta cuenta; `null` si no aplica. */
   returnTo?: string | null;
+  canWrite: boolean;
+  canRegisterPayments: boolean;
+  canVoidPayments: boolean;
 };
 
 function resolveSection(raw: string | null): ReceivableWorkspaceSection {
@@ -69,6 +72,9 @@ export function ReceivableWorkspace({
   createdJustNow,
   paidJustNow,
   returnTo,
+  canWrite,
+  canRegisterPayments,
+  canVoidPayments,
 }: Props) {
   const [section, setSection] = useState<ReceivableWorkspaceSection>(
     initialSection ?? "account",
@@ -118,7 +124,12 @@ export function ReceivableWorkspace({
         actions={
           <>
             <ReceivableHistoryDialog activity={activity} currency={entry.currency} />
-            <DeleteReceivableButton receivableId={entry.id} concept={entry.concept} />
+            {canWrite && (
+              <DeleteReceivableButton
+                receivableId={entry.id}
+                concept={entry.concept}
+              />
+            )}
           </>
         }
       />
@@ -172,6 +183,8 @@ export function ReceivableWorkspace({
           receivable={editable}
           clients={clients}
           documents={documents}
+          hasPaymentHistory={payments.length > 0}
+          canWrite={canWrite}
         />
       </div>
 
@@ -189,6 +202,8 @@ export function ReceivableWorkspace({
           status={entry.status}
           payments={payments}
           paidJustNow={paidJustNow}
+          canRegisterPayments={canRegisterPayments}
+          canVoidPayments={canVoidPayments}
         />
       </div>
     </div>

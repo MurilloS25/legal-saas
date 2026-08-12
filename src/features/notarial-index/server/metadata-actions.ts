@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "@/features/documents";
 import { parseNotarialFormData } from "../model/notarial-schema";
@@ -26,7 +26,7 @@ export async function saveNotarialMetadataAction(
   _prevState: NotarialMetadataState,
   formData: FormData,
 ): Promise<NotarialMetadataState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
@@ -36,7 +36,7 @@ export async function saveNotarialMetadataAction(
     .from("documents")
     .select("id, template_id, field_values, templates(name)")
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (documentError) {
@@ -48,7 +48,7 @@ export async function saveNotarialMetadataAction(
     .from("document_notarial_metadata")
     .select("id, version, act_name_snapshot, generated_parties")
     .eq("document_id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (existingError) {
@@ -57,7 +57,7 @@ export async function saveNotarialMetadataAction(
 
   const generated = await generateConfiguredParties(
     supabase,
-    user.id,
+    workspaceId,
     document.template_id,
     document.field_values,
   );
@@ -82,7 +82,7 @@ export async function saveNotarialMetadataAction(
         parties_override: null,
       })
       .eq("document_id", documentId)
-      .eq("owner_id", user.id)
+      .eq("workspace_id", workspaceId)
       .eq("version", submittedVersion)
       .select("id")
       .maybeSingle();
@@ -141,7 +141,7 @@ export async function saveNotarialMetadataAction(
           generated_parties: generatedParties,
         })
         .eq("document_id", documentId)
-        .eq("owner_id", user.id)
+        .eq("workspace_id", workspaceId)
         .eq("version", version)
         .select("id")
         .maybeSingle()
@@ -149,6 +149,7 @@ export async function saveNotarialMetadataAction(
         .from("document_notarial_metadata")
         .insert({
           owner_id: user.id,
+          workspace_id: workspaceId,
           document_id: documentId,
           act_name_snapshot: actNameSnapshot,
           generated_parties: generatedParties,

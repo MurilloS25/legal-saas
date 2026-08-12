@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "../model/document-schema";
 import { buildDuplicateDocumentTitle } from "../model/duplicate";
@@ -33,7 +33,7 @@ export async function duplicateDocumentAction(
   void _prevState;
   void _formData;
 
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
@@ -45,7 +45,7 @@ export async function duplicateDocumentAction(
       "title, template_id, client_id, field_values, option_selections, rendered_content",
     )
     .eq("id", documentId)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (sourceError) {
@@ -59,6 +59,7 @@ export async function duplicateDocumentAction(
     .from("documents")
     .insert({
       owner_id: user.id,
+      workspace_id: workspaceId,
       template_id: source.template_id,
       client_id: source.client_id,
       title: buildDuplicateDocumentTitle(source.title),

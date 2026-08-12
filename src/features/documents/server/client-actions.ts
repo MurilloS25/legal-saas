@@ -1,15 +1,15 @@
 import "server-only";
 
 import { throwDataAccessError } from "@/lib/server/errors";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { OptionalClientIdSchema } from "../model/document-schema";
 
-type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
+type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
 
 export async function resolveOptionalClientId(
   supabase: Supabase,
   rawClientId: FormDataEntryValue | null,
-  userId: string,
+  workspaceId: string,
 ): Promise<{ clientId: string | null } | { error: string }> {
   const parsed = OptionalClientIdSchema.safeParse(String(rawClientId ?? ""));
   if (!parsed.success) {
@@ -23,7 +23,7 @@ export async function resolveOptionalClientId(
     .from("clients")
     .select("id")
     .eq("id", parsed.data)
-    .eq("owner_id", userId)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (error) throwDataAccessError("resolve document client", error);

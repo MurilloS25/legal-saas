@@ -17,6 +17,7 @@ type Props = {
   actTypes: string[];
   lastExportAt: string | null;
   warnings: { incompleteCount: number; missingFields: string[] };
+  canGenerate: boolean;
 };
 
 export function NotarialIndexWorkspace({
@@ -25,6 +26,7 @@ export function NotarialIndexWorkspace({
   actTypes,
   lastExportAt,
   warnings,
+  canGenerate,
 }: Props) {
   const periodParams = {
     year: String(query.selection.year),
@@ -63,13 +65,25 @@ export function NotarialIndexWorkspace({
             </p>
           )}
         </div>
-        <a
-          href={exportHref}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
-        >
-          Exportar Word
-        </a>
+        {canGenerate && (
+          <a
+            href={exportHref}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
+          >
+            Exportar Word
+          </a>
+        )}
       </div>
+
+      {!canGenerate && (
+        <div
+          role="status"
+          className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+        >
+          Tu rol no permite generar el índice notarial. Solo el propietario o
+          un administrador puede exportarlo.
+        </div>
+      )}
 
       <div
         role="note"

@@ -2,27 +2,62 @@
 
 /**
  * Encabezado del workspace de machotes (solo modo edición): breadcrumb,
- * nombre/estado en vivo, y navegación entre Documento / Variables / Índice
- * notarial.
+ * nombre/estado en vivo, y el stepper horizontal de navegación entre
+ * Información / Documento / Variables / Índice notarial / Publicar.
  *
- * A diferencia de `DocumentWorkspaceHeader` (que navega con `<Link>` y
- * recarga la sección desde el servidor), las pestañas aquí cambian de
- * sección con estado de cliente puro: el editor Tiptap y el formulario de
- * variables permanecen montados en todo momento, así que cambiar de
- * pestaña nunca reinicia el editor ni descarta cambios sin guardar. La URL
- * se mantiene sincronizada (`history.pushState`) para que atrás/adelante y
- * los enlaces compartidos funcionen igual que en el resto de la app.
+ * A diferencia de un wizard real, ningún paso está bloqueado — el machote
+ * no tiene una secuencia obligatoria, así que todos los pasos son siempre
+ * navegables; solo cambia si un paso se marca "complete" (con una señal
+ * derivada real, ver `TemplateWorkspace`) o queda "current"/"upcoming".
+ *
+ * El editor Tiptap y el formulario de variables permanecen montados en todo
+ * momento, así que cambiar de paso nunca reinicia el editor ni descarta
+ * cambios sin guardar. La URL se mantiene sincronizada
+ * (`history.pushState`) para que atrás/adelante y los enlaces compartidos
+ * funcionen igual que en el resto de la app.
  */
 
 import Link from "next/link";
+import { HorizontalStepper, type StepStatus } from "@/components/document/HorizontalStepper";
 import { templateStatusBadgeClass, templateStatusLabel } from "../model/templates";
 
-export type TemplateWorkspaceSection = "document" | "variables" | "notarial";
+export type TemplateWorkspaceSection =
+  | "information"
+  | "document"
+  | "variables"
+  | "notarial"
+  | "publish";
 
-const TABS: Array<{ id: TemplateWorkspaceSection; label: string }> = [
-  { id: "document", label: "Documento" },
-  { id: "variables", label: "Variables" },
-  { id: "notarial", label: "Índice notarial" },
+const STEP_META: Array<{
+  id: TemplateWorkspaceSection;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "information",
+    label: "Información",
+    description: "Define el nombre y la descripción del machote.",
+  },
+  {
+    id: "document",
+    label: "Documento",
+    description: "Redacta el documento e inserta variables donde va la información de cada escritura.",
+  },
+  {
+    id: "variables",
+    label: "Variables",
+    description: "Revisa que las variables detectadas en el documento estén correctamente configuradas.",
+  },
+  {
+    id: "notarial",
+    label: "Índice",
+    description: "Opcional: precarga los datos del Índice Notarial para las escrituras que usen este machote.",
+  },
+  {
+    id: "publish",
+    label: "Publicar",
+    description: "Revisa el resumen y activa el machote cuando esté listo.",
+  },
 ];
 
 type Props = {
@@ -31,6 +66,10 @@ type Props = {
   section: TemplateWorkspaceSection;
   statusText: string;
   onSectionChange: (section: TemplateWorkspaceSection) => void;
+  /** Señales de completitud reales, calculadas por `TemplateWorkspace`. */
+  informationComplete: boolean;
+  variablesPendingCount: number;
+  indexComplete: boolean;
   actions?: React.ReactNode;
 };
 
@@ -40,8 +79,25 @@ export function TemplateWorkspaceHeader({
   section,
   statusText,
   onSectionChange,
+  informationComplete,
+  variablesPendingCount,
+  indexComplete,
   actions,
 }: Props) {
+  const completion: Record<TemplateWorkspaceSection, boolean> = {
+    information: informationComplete,
+    document: false,
+    variables: variablesPendingCount === 0,
+    notarial: indexComplete,
+    publish: status === "active",
+  };
+
+  const steps = STEP_META.map(({ id, label, description }) => {
+    const stepStatus: StepStatus =
+      id === section ? "current" : completion[id] ? "complete" : "upcoming";
+    return { id, label, description, status: stepStatus };
+  });
+
   return (
     <header className="mb-6">
       <Link
@@ -67,47 +123,15 @@ export function TemplateWorkspaceHeader({
         </div>
         {actions && <div className="shrink-0">{actions}</div>}
       </div>
-      <nav
-        aria-label="Secciones del machote"
-        className="mt-6 border-b border-slate-200"
-      >
-        <div role="tablist" className="flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => {
-            const active = section === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                id={`template-tab-${tab.id}`}
-                aria-selected={active}
-                aria-controls={`template-panel-${tab.id}`}
-                tabIndex={active ? 0 : -1}
-                onClick={() => onSectionChange(tab.id)}
-                onKeyDown={(event) => {
-                  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
-                    return;
-                  }
-                  event.preventDefault();
-                  const currentIndex = TABS.findIndex((t) => t.id === tab.id);
-                  const delta = event.key === "ArrowRight" ? 1 : -1;
-                  const next =
-                    TABS[(currentIndex + delta + TABS.length) % TABS.length];
-                  onSectionChange(next.id);
-                  document.getElementById(`template-tab-${next.id}`)?.focus();
-                }}
-                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
-                  active
-                    ? "border-accent-700 text-accent-800"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <div className="mt-6">
+        <HorizontalStepper
+          steps={steps}
+          currentId={section}
+          onStepChange={onSectionChange}
+          navigationLabel="Pasos del machote"
+          idPrefix="template"
+        />
+      </div>
     </header>
   );
 }

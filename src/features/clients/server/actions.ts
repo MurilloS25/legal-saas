@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { ClientSchema } from "../model/client-schema";
 
 // ------------------------------------------------------------------ types
@@ -83,14 +83,14 @@ async function createClientRow(
   | { ok: true; client: CreatedClient }
   | { ok: false; state: ClientState }
 > {
-  const { supabase, user } = await requireUser();
+  const { supabase, user, workspaceId } = await requireWorkspace();
 
   const result = ClientSchema.safeParse(parseFormData(formData));
   if (!result.success) return { ok: false, state: fieldErrors(result) };
 
   const { data, error } = await supabase
     .from("clients")
-    .insert({ owner_id: user.id, ...result.data })
+    .insert({ owner_id: user.id, workspace_id: workspaceId, ...result.data })
     .select("id, full_name, identification_number, exact_address")
     .single();
 
@@ -137,7 +137,7 @@ export async function updateClientAction(
   _prevState: ClientState,
   formData: FormData,
 ): Promise<ClientState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const result = ClientSchema.safeParse(parseFormData(formData));
   if (!result.success) return fieldErrors(result);
@@ -146,7 +146,7 @@ export async function updateClientAction(
     .from("clients")
     .update(result.data)
     .eq("id", id)
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return {
@@ -169,13 +169,13 @@ export async function deleteClientAction(
   void _prevState;
   void _formData;
 
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
 
   const { data, error } = await supabase
     .from("clients")
     .delete()
     .eq("id", id)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .select("id")
     .maybeSingle();
 

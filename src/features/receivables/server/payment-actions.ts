@@ -113,7 +113,9 @@ export async function voidPaymentAction(
     const message =
       error.code === "23514"
         ? "El pago ya está anulado."
-        : "No fue posible anular el pago. Intenta de nuevo.";
+        : error.code === "28000"
+          ? "Solo el propietario o un administrador puede anular un pago."
+          : "No fue posible anular el pago. Intenta de nuevo.";
     return { error: message };
   }
 

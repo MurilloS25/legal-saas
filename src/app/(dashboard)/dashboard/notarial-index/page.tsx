@@ -12,6 +12,8 @@ import {
   listNotarialActTypes,
   listNotarialIndex,
 } from "@/features/notarial-index/server";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Índice notarial — LexCR",
@@ -22,6 +24,8 @@ type Props = {
 };
 
 export default async function NotarialIndexPage({ searchParams }: Props) {
+  const { role } = await requireWorkspace();
+  const canGenerate = hasPermission(role, "notarial_index.generate");
   const query = parseNotarialQuery(await searchParams);
   const [page, actTypes, lastExportAt, exportData] = await Promise.all([
     listNotarialIndex(query),
@@ -43,6 +47,7 @@ export default async function NotarialIndexPage({ searchParams }: Props) {
       actTypes={actTypes}
       lastExportAt={lastExportAt}
       warnings={notarialIndexWarnings(exportData.rows)}
+      canGenerate={canGenerate}
     />
   );
 }

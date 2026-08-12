@@ -207,12 +207,29 @@ reales que probar; no se marcó como completada.
   configuración de Auth (mismo motivo que el signup/proveedor
   documentado arriba). Ver `docs/VERCEL_PRODUCTION.md` para las
   instrucciones exactas dadas al usuario.
-- **Redirect URL necesaria:** únicamente
-  `https://lexcr.vercel.app/auth/confirm` — es el único endpoint de
-  auth que existe en el código (`src/app/auth/confirm/route.ts`,
-  verifica `token_hash`/`type` de invitación/OTP). No hay ruta de
-  reseteo de contraseña ni callback OAuth en la aplicación; no se
-  inventó ninguna ruta adicional.
+- **Redirect URLs necesarias:** `https://lexcr.vercel.app/auth/confirm`
+  (endpoint de auth único que existe en el código,
+  `src/app/auth/confirm/route.ts` — desde el fix de tokens de un solo uso
+  que no deben consumirse en un GET, ver `docs/AUTH_SECURITY.md`, ya no
+  ejecuta `verifyOtp` para invitación/recuperación; solo queda como
+  fallback defensivo que redirige sin tocar el token), más
+  `https://lexcr.vercel.app/accept-invite` (invitación a un Workspace),
+  `https://lexcr.vercel.app/reset-password` (recuperación de contraseña)
+  y `https://lexcr.vercel.app/update-password` (paso final del reset).
+  No hay callback OAuth en la aplicación; no se inventó ninguna ruta
+  adicional.
+- **Pendiente Cloud (hardening de Auth, ver `docs/AUTH_SECURITY.md`):**
+  agregar las tres redirect URLs de arriba (`/accept-invite`,
+  `/reset-password`, `/update-password`), replicar la política de
+  contraseñas (`mínimo 12, mayúscula/minúscula/número/símbolo`) en
+  Authentication → Policies, y actualizar las plantillas de correo
+  "Invite user" y "Reset Password" para que apunten a
+  `/accept-invite?token_hash={{ .TokenHash }}&email={{ .Email }}` y
+  `/reset-password?token_hash={{ .TokenHash }}&email={{ .Email }}`
+  respectivamente, igual que las plantillas locales
+  (`supabase/templates/invite.html` y `supabase/templates/recovery.html`).
+  Sin este cambio, producción seguiría enviando el formato de enlace
+  viejo aunque el código ya esté corregido.
 - Verificado en vivo contra la Escritura desplegada: `/auth/confirm`
   sin parámetros redirige a `/login` sin error (comportamiento
   esperado del código).

@@ -1,8 +1,8 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 import {
   ProfileSchema,
   DocumentSettingsSchema,
@@ -40,12 +40,13 @@ export async function saveSettingsAction(
   _prevState: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, workspaceId, role } = await requireWorkspace();
 
-  if (!user) redirect("/login");
+  if (!hasPermission(role, "settings.manage")) {
+    return {
+      message: "Solo el propietario o un administrador puede editar la configuración.",
+    };
+  }
 
   const profileRaw = {
     full_name: String(formData.get("full_name") ?? ""),
@@ -100,16 +101,18 @@ export async function saveSettingsAction(
     supabase.from("lawyer_profiles").upsert(
       {
         owner_id: user.id,
+        workspace_id: workspaceId,
         full_name: profileResult.data.full_name,
         professional_code: profileResult.data.professional_code || null,
         email: profileResult.data.email || null,
         phone: profileResult.data.phone || null,
       },
-      { onConflict: "owner_id" },
+      { onConflict: "workspace_id" },
     ),
     supabase.from("document_settings").upsert(
       {
         owner_id: user.id,
+        workspace_id: workspaceId,
         font_family: settingsResult.data.font_family,
         font_size: settingsResult.data.font_size,
         margin_top_cm: settingsResult.data.margin_top_cm,
@@ -118,7 +121,7 @@ export async function saveSettingsAction(
         margin_right_cm: settingsResult.data.margin_right_cm,
         line_spacing: settingsResult.data.line_spacing,
       },
-      { onConflict: "owner_id" },
+      { onConflict: "workspace_id" },
     ),
   ]);
 

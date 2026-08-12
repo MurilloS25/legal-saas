@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import { extractTemplateVariables } from "@/features/templates";
 import {
@@ -30,7 +30,7 @@ export type DocumentsPage = {
 export async function listDocumentsPage(
   query: DocumentsQuery,
 ): Promise<DocumentsPage> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   let orClause: string | null = null;
   const term = sanitizeSearchTermForPostgrest(query.search);
   if (query.search !== "" && term === "") {
@@ -43,12 +43,12 @@ export async function listDocumentsPage(
       supabase
         .from("clients")
         .select("id")
-        .eq("owner_id", user.id)
+        .eq("workspace_id", workspaceId)
         .ilike("full_name", like),
       supabase
         .from("templates")
         .select("id")
-        .eq("owner_id", user.id)
+        .eq("workspace_id", workspaceId)
         .ilike("name", like),
     ]);
 
@@ -75,7 +75,7 @@ export async function listDocumentsPage(
       "id, title, status, client_id, rendered_content, updated_at, templates(name), clients(id, full_name)",
       { count: "exact" },
     )
-    .eq("owner_id", user.id);
+    .eq("workspace_id", workspaceId);
 
   if (query.status) request = request.eq("status", query.status);
   if (query.clientId) request = request.eq("client_id", query.clientId);
@@ -100,7 +100,7 @@ export async function listDocumentsPage(
     let countRequest = supabase
       .from("documents")
       .select("id", { count: "exact", head: true })
-      .eq("owner_id", user.id);
+      .eq("workspace_id", workspaceId);
     if (query.status) countRequest = countRequest.eq("status", query.status);
     if (query.clientId) countRequest = countRequest.eq("client_id", query.clientId);
     if (query.templateId) {

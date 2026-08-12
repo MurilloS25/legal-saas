@@ -25,16 +25,32 @@ function contentEditor(page: Page) {
   return page.getByRole("textbox", { name: "Contenido del machote" });
 }
 
+// El panel de vista previa se renderiza en modo "bare" dentro del stepper
+// (`TemplatePreviewPanel` sin su propia tarjeta/encabezado), así que ya no
+// expone un `role="region"` con nombre accesible "Vista previa" — solo el
+// `role="group"` sin nombre de `DocumentSheet`. Se escopea al panel
+// "Documento" (`#template-panel-document`) y se excluye el otro
+// `role="group"` de esa zona (el toggle mobile Editar/Vista previa de
+// `TemplateMobileViewToggle`), identificándolo por sus botones en vez de
+// por su nombre accesible "Vista" — así también funciona cuando el grupo
+// del toggle está oculto (`display:none` lo saca del árbol de accesibilidad
+// y de las coincidencias de `getByRole`).
 function previewRegion(page: Page) {
-  return page.getByRole("region", { name: "Vista previa" });
+  return page
+    .locator("#template-panel-document")
+    .getByRole("group")
+    .filter({ hasNot: page.getByRole("button", { name: "Editar", exact: true }) });
 }
 
 function variablesRegion(page: Page) {
   return page.getByRole("region", { name: "Variables del machote" });
 }
 
-async function goToTab(page: Page, name: "Documento" | "Variables" | "Índice notarial") {
-  await page.getByRole("tab", { name }).click();
+async function goToTab(
+  page: Page,
+  name: "Información" | "Documento" | "Variables" | "Índice" | "Publicar",
+) {
+  await page.getByRole("tab", { name, exact: true }).click();
 }
 
 /**
@@ -224,8 +240,8 @@ test.describe("templates module", () => {
     await expect(variablesRegion(page)).toBeVisible();
     await expect(contentEditor(page)).not.toBeVisible();
 
-    // Índice notarial.
-    await goToTab(page, "Índice notarial");
+    // Índice.
+    await goToTab(page, "Índice");
     await expect(page).toHaveURL(/\?section=notarial$/);
     await expect(
       page.getByRole("region", { name: "Configuración del índice notarial" }),
@@ -257,9 +273,13 @@ test.describe("templates module", () => {
     await page.reload();
     await waitForWorkspace(page);
 
+    // El nombre ahora vive en el paso "Información" del stepper de edición.
+    await goToTab(page, "Información");
     await expect(page.getByLabel("Nombre del machote")).toHaveValue(
       createdTemplateName,
     );
+
+    await goToTab(page, "Documento");
     await expect(contentEditor(page)).toContainText(
       "CONTRATO DE ARRENDAMIENTO",
     );
@@ -281,9 +301,15 @@ test.describe("templates module", () => {
 
     editedTemplateName = `${createdTemplateName} Editado`;
 
+    // El nombre vive en "Información" y el estado en "Publicar" desde que
+    // el workspace de edición se convirtió en stepper de 5 pasos.
+    await goToTab(page, "Información");
     await page.getByLabel("Nombre del machote").fill(editedTemplateName);
+
+    await goToTab(page, "Publicar");
     await page.getByLabel("Estado").selectOption("active");
 
+    await goToTab(page, "Documento");
     await contentEditor(page).click();
     await page.keyboard.press("End");
     await page.keyboard.insertText(" acepta las condiciones revisadas.");
@@ -306,10 +332,14 @@ test.describe("templates module", () => {
     await page.reload();
     await waitForWorkspace(page);
 
+    await goToTab(page, "Información");
     await expect(page.getByLabel("Nombre del machote")).toHaveValue(
       editedTemplateName,
     );
+    await goToTab(page, "Publicar");
     await expect(page.getByLabel("Estado")).toHaveValue("active");
+
+    await goToTab(page, "Documento");
     await expect(contentEditor(page)).toContainText(
       "acepta las condiciones revisadas.",
     );

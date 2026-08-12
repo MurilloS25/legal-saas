@@ -18,15 +18,15 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DOCUMENT_RECEIVABLES_RETURN_PATTERN =
-  /^\/dashboard\/documents\/([^/?]+)\?section=receivables$/;
+  /^\/dashboard\/documents\/([^/?]+)\?section=cobro$/;
 
 /**
- * Construye el `returnTo` hacia la pestaña "Cuentas por cobrar" de una
- * Escritura. Único punto que genera el valor, para que siempre calce con
- * lo que `parseDocumentReceivablesReturnTo` acepta.
+ * Construye el `returnTo` hacia el paso "Cobro" de una Escritura. Único
+ * punto que genera el valor, para que siempre calce con lo que
+ * `parseDocumentReceivablesReturnTo` acepta.
  */
 export function buildDocumentReceivablesReturnTo(documentId: string): string {
-  return `/dashboard/documents/${documentId}?section=receivables`;
+  return `/dashboard/documents/${documentId}?section=cobro`;
 }
 
 /**

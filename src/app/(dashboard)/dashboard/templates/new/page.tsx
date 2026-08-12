@@ -1,13 +1,21 @@
+import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { TemplateWorkspace } from "@/features/templates";
 import { emptyTemplateDocument } from "@/lib/editor/types";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Nuevo machote — LexCR",
 };
 
-export default function NewTemplatePage() {
+export default async function NewTemplatePage() {
+  const { role } = await requireWorkspace();
+  if (!hasPermission(role, "templates.write")) {
+    redirect("/dashboard/templates");
+  }
+
   return (
     <PageContainer>
       {/* Breadcrumb */}

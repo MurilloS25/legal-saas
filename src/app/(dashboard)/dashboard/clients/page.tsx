@@ -7,6 +7,8 @@ import {
   type RawClientsQuery,
 } from "@/features/clients";
 import { listClientsPage } from "@/features/clients/server";
+import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Clientes — LexCR",
@@ -17,6 +19,7 @@ type Props = {
 };
 
 export default async function ClientsPage({ searchParams }: Props) {
+  const { role } = await requireWorkspace();
   const query = parseClientsQuery(await searchParams);
   const page = await listClientsPage(query);
 
@@ -38,6 +41,7 @@ export default async function ClientsPage({ searchParams }: Props) {
       total={page.total}
       pageSize={CLIENTS_PAGE_SIZE}
       pageHref={pageHref}
+      canWrite={hasPermission(role, "clients.write")}
     />
   );
 }

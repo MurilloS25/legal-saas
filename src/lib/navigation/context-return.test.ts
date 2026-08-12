@@ -10,7 +10,7 @@ const VALID_ID = "8a25f803-4f2f-4fe4-83f4-0cedc24903f4";
 describe("buildDocumentReceivablesReturnTo", () => {
   it("builds the canonical return path for a document", () => {
     expect(buildDocumentReceivablesReturnTo(VALID_ID)).toBe(
-      `/dashboard/documents/${VALID_ID}?section=receivables`,
+      `/dashboard/documents/${VALID_ID}?section=cobro`,
     );
   });
 });
@@ -36,7 +36,7 @@ describe("parseDocumentReceivablesReturnTo", () => {
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        `http://evil.example.com/dashboard/documents/${VALID_ID}?section=receivables`,
+        `http://evil.example.com/dashboard/documents/${VALID_ID}?section=cobro`,
       ),
     ).toBeNull();
   });
@@ -65,12 +65,12 @@ describe("parseDocumentReceivablesReturnTo", () => {
   it("rejects a malformed document id", () => {
     expect(
       parseDocumentReceivablesReturnTo(
-        "/dashboard/documents/invalid?section=receivables",
+        "/dashboard/documents/invalid?section=cobro",
       ),
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        "/dashboard/documents/../../etc/passwd?section=receivables",
+        "/dashboard/documents/../../etc/passwd?section=cobro",
       ),
     ).toBeNull();
   });
@@ -78,12 +78,12 @@ describe("parseDocumentReceivablesReturnTo", () => {
   it("rejects trailing garbage appended after the valid pattern", () => {
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID}?section=receivables&extra=1`,
+        `/dashboard/documents/${VALID_ID}?section=cobro&extra=1`,
       ),
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID}?section=receivablesX`,
+        `/dashboard/documents/${VALID_ID}?section=cobroX`,
       ),
     ).toBeNull();
   });
@@ -91,14 +91,14 @@ describe("parseDocumentReceivablesReturnTo", () => {
   it("is case-insensitive on the UUID but not on the route shape", () => {
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID.toUpperCase()}?section=receivables`,
+        `/dashboard/documents/${VALID_ID.toUpperCase()}?section=cobro`,
       ),
     ).toBe(
-      `/dashboard/documents/${VALID_ID.toUpperCase()}?section=receivables`,
+      `/dashboard/documents/${VALID_ID.toUpperCase()}?section=cobro`,
     );
     expect(
       parseDocumentReceivablesReturnTo(
-        `/Dashboard/documents/${VALID_ID}?section=receivables`,
+        `/Dashboard/documents/${VALID_ID}?section=cobro`,
       ),
     ).toBeNull();
   });

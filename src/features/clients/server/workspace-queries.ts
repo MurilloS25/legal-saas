@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireUser } from "@/lib/server/auth";
+import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import { CLIENTS_PAGE_SIZE, type ClientsQuery } from "../model/workspace-query";
 import type { ClientRow } from "../model/types";
@@ -8,13 +8,13 @@ import type { ClientRow } from "../model/types";
 const CLIENT_COLUMNS =
   "id, full_name, identification_type, identification_number, marital_status, nationality, occupation, exact_address, created_at, updated_at";
 
-/** Todos los clientes del dueño, sin paginar (para selectores/filtros). */
+/** Todos los clientes del Workspace, sin paginar (para selectores/filtros). */
 export async function listClients(): Promise<ClientRow[]> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("clients")
     .select(CLIENT_COLUMNS)
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("full_name", { ascending: true });
 
   if (error) throwDataAccessError("list clients", error);
@@ -29,12 +29,12 @@ export type ClientsPage = {
 
 /** Página del directorio de clientes para el listado principal (server-paginado). */
 export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage> {
-  const { supabase, user } = await requireUser();
+  const { supabase, workspaceId } = await requireWorkspace();
   const from = (query.page - 1) * CLIENTS_PAGE_SIZE;
   const { data, count, error } = await supabase
     .from("clients")
     .select(CLIENT_COLUMNS, { count: "exact" })
-    .eq("owner_id", user.id)
+    .eq("workspace_id", workspaceId)
     .order("full_name", { ascending: true })
     .range(from, from + CLIENTS_PAGE_SIZE - 1);
 
@@ -49,7 +49,7 @@ export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage>
     const { count: totalOnly, error: countError } = await supabase
       .from("clients")
       .select("id", { count: "exact", head: true })
-      .eq("owner_id", user.id);
+      .eq("workspace_id", workspaceId);
     if (countError) throwDataAccessError("count clients page", countError);
     const total = totalOnly ?? 0;
     return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE)) };

@@ -155,7 +155,16 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Wildcards on both 127.0.0.1 and localhost origins so resetPasswordForEmail's
+# redirectTo (.../update-password) is allowed regardless of which host the
+# dev server is reached through (the app resolves its own origin from the
+# incoming request's Host header, which is "localhost" when a developer
+# opens http://localhost:3000 in a browser).
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://127.0.0.1:3000/**",
+  "http://localhost:3000/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -174,10 +183,15 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# Kept in sync with `passwordSchema` in src/lib/validations/auth.ts (12 chars
+# minimum) so the platform-level policy backs up the app-level validation
+# instead of being weaker than it. Supabase Cloud's own password policy
+# (Authentication -> Policies) must be configured to match — see
+# docs/AUTH_SECURITY.md.
+minimum_password_length = 12
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = ""
+password_requirements = "lower_upper_letters_digits_symbols"
 
 # Configure passkey sign-ins.
 # [auth.passkey]
@@ -190,8 +204,13 @@ password_requirements = ""
 # rp_origins = ["http://127.0.0.1:3000"]
 
 [auth.rate_limit]
+# Local-dev-only limits, raised above the Supabase default so the E2E suite
+# (e2e/auth-security-hardening.spec.ts creates/logs in several disposable
+# users per run, plus a real password-recovery email) doesn't get
+# self-rate-limited during a normal test run. Cloud keeps its own defaults —
+# these values are never deployed (see docs/AUTH_SECURITY.md).
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+email_sent = 30
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -199,9 +218,9 @@ anonymous_users = 30
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
-sign_in_sign_ups = 30
+sign_in_sign_ups = 100
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
-token_verifications = 30
+token_verifications = 100
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 30
 
@@ -238,10 +257,17 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Enlace de recuperación/invitación: apunta a la propia app (/auth/confirm,
+# verificación server-side vía token_hash) en vez del endpoint hospedado por
+# Supabase. Sin esto, Supabase Cloud debe configurarse igual manualmente
+# (ver docs/AUTH_SECURITY.md) — este archivo solo cubre local.
+[auth.email.template.recovery]
+subject = "Restablece tu contraseña de LexCR"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "Te invitaron a un equipo en LexCR"
+content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

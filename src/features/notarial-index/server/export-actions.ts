@@ -2,8 +2,9 @@ import "server-only";
 
 import { contentDispositionAttachment, DOCX_MIME } from "@/lib/documents/docx/http";
 import { loadDocumentFormattingPreferences } from "@/lib/documents/docx/settings-loader";
-import { requireApiUser } from "@/lib/server/auth";
+import { requireApiWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
+import { hasPermission } from "@/lib/server/permissions";
 import type { Database } from "@/lib/supabase/database.types";
 import { generateNotarialIndexDocx } from "../export/notarial-docx";
 import {
@@ -34,16 +35,21 @@ export async function prepareNotarialDocxExport(
   }
   const query = parseNotarialQuery(rawQuery);
 
-  const { supabase, user } = await requireApiUser();
+  const { supabase, workspaceId, role } = await requireApiWorkspace();
+  if (!hasPermission(role, "notarial_index.generate")) {
+    throw new ValidationError(
+      "Solo el propietario o un administrador puede generar el Índice Notarial.",
+    );
+  }
   const [{ data: profile, error: profileError }, exportData, formatting] =
     await Promise.all([
       supabase
         .from("lawyer_profiles")
         .select("full_name")
-        .eq("owner_id", user.id)
+        .eq("workspace_id", workspaceId)
         .maybeSingle(),
-      queryNotarialIndexForExport(supabase, user.id, query),
-      loadDocumentFormattingPreferences(supabase, user.id),
+      queryNotarialIndexForExport(supabase, workspaceId, query),
+      loadDocumentFormattingPreferences(supabase, workspaceId),
     ]);
   if (profileError) throwDataAccessError("load notary profile for export", profileError);
   const notaryName = profile?.full_name?.trim();
