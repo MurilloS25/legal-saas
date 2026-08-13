@@ -653,20 +653,13 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).not.toBeVisible();
   });
 
-  // Bloqueado por un bug preexistente ajeno a este módulo:
-  // `default_workspace_id_from_actor()` (trigger BEFORE INSERT sobre
-  // `receivable_activity`, entre otras tablas) resuelve el `workspace_id`
-  // del actor con `... limit 1` sin desambiguar cuando el actor pertenece a
-  // más de un Workspace (su propio Workspace de arranque como propietario +
-  // uno donde fue invitado como asistente) — a diferencia de
-  // `getWorkspaceAccess()` en `src/lib/server/auth.ts`, que sí prioriza la
-  // membresía "genuina" (no de arranque). Esta es la primera vez que este
-  // spec ejerce una creación de cuenta por cobrar vía UI como "asistente"
-  // (las demás pruebas de este archivo la siembran directo por REST como
-  // "owner"), así que es la primera vez que el bug se manifiesta — no es
-  // una regresión de la creación contextual en modal. Ver PR de fix
-  // separado para `default_workspace_id_from_actor()`.
-  test.skip("Escritura → Cobro contextual: asistente puede crear una cuenta y registrar un pago sin salir de la Escritura", async ({
+  // Antes bloqueado por un bug preexistente en
+  // `default_workspace_id_from_actor()` (resolvía el Workspace de arranque
+  // del actor en vez del compartido cuando pertenece a más de uno) —
+  // corregido en 20260812120000_fix_default_workspace_id_from_actor.sql
+  // (PR #170, mergeado a develop). Ver ese commit para el diagnóstico
+  // completo; este test ya no necesita saltarse.
+  test("Escritura → Cobro contextual: asistente puede crear una cuenta y registrar un pago sin salir de la Escritura", async ({
     page,
   }) => {
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
