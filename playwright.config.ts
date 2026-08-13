@@ -214,6 +214,18 @@ export default defineConfig({
       dependencies: ["chromium-template-option-blocks"],
     },
 
+    // Stepper always visible from template creation (Información/Documento/
+    // Variables/Índice/Publicar) — authenticated.
+    {
+      name: "chromium-template-stepper-create",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-stepper-create-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-ai-help"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
@@ -222,7 +234,19 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-ai-help"],
+      dependencies: ["chromium-template-stepper-create"],
+    },
+
+    // Stepper always visible from document creation (Completar/Revisar/
+    // Cobro/Finalizar/Índice) — authenticated.
+    {
+      name: "chromium-document-stepper-create",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-stepper-create-authenticated\.spec\.ts/,
+      dependencies: ["chromium-documents"],
     },
 
     // Inline editing of variables directly in the document sheet — authenticated.
@@ -233,7 +257,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-inline-editing-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents"],
+      dependencies: ["chromium-document-stepper-create"],
     },
 
     // Using option blocks (variant selection) in documents — authenticated.

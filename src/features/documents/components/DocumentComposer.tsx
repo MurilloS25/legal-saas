@@ -1,17 +1,20 @@
 "use client";
 
 /**
- * Workspace unificado de una Escritura.
+ * Workspace unificado de una Escritura — creación y edición.
  *
- * En modo "create" (antes de que exista un id) se muestra la vista de
- * llenado tal como siempre: sin stepper, un solo panel. En modo "edit" el
- * contenido se organiza en cinco pasos navegables (Completar / Revisar /
- * Cobro / Finalizar / Índice) mediante `DocumentWorkspaceHeader`. Los cinco
- * permanecen siempre montados — solo se ocultan con CSS — así que cambiar de
- * paso nunca descarta cambios sin guardar en Completar/Revisar (comparten el
- * mismo estado: `values`, `clientId`, `dirty`). Cobro e Índice viven fuera
- * del `<form>` principal porque Índice tiene su propio `<form>`/Server
- * Action (no puede anidarse) y Cobro no necesita ninguno.
+ * El contenido se organiza en cinco pasos navegables (Completar / Revisar /
+ * Cobro / Finalizar / Índice) mediante `DocumentWorkspaceHeader`, visibles
+ * desde que se inicia una Escritura nueva: no existe un flujo alternativo de
+ * una sola página para el modo creación. Los cinco permanecen siempre
+ * montados — solo se ocultan con CSS — así que cambiar de paso nunca
+ * descarta cambios sin guardar en Completar/Revisar (comparten el mismo
+ * estado: `values`, `clientId`, `dirty`), tanto antes como después del
+ * primer guardado. "Cobro" y "Finalizar" requieren que la Escritura ya
+ * exista (dependen de `documentId`) y quedan bloqueados hasta entonces;
+ * "Índice" además requiere que esté finalizada, igual que siempre. Cobro e
+ * Índice viven fuera del `<form>` principal porque Índice tiene su propio
+ * `<form>`/Server Action (no puede anidarse) y Cobro no necesita ninguno.
  */
 
 import { useActionState, useCallback, useMemo, useState } from "react";
@@ -103,9 +106,11 @@ const initialState: DocumentDraftState = {};
 
 function resolveSection(
   raw: string | null,
+  persisted: boolean,
   notarialUnlocked: boolean,
 ): DocumentWorkspaceSection {
   if (raw === "notarial") return notarialUnlocked ? "notarial" : "completar";
+  if ((raw === "cobro" || raw === "finalizar") && !persisted) return "completar";
   return raw === "revisar" || raw === "cobro" || raw === "finalizar"
     ? raw
     : "completar";
@@ -119,7 +124,7 @@ export function DocumentComposer(props: Props) {
     draft && isDocumentStatus(draft.status) ? draft.status : "draft";
   const canEdit = isEdit ? props.canEdit : true;
   const readOnly = (isEdit && isReadOnlyStatus(status)) || !canEdit;
-  const notarialUnlocked = status === "final";
+  const notarialUnlocked = isEdit && status === "final";
 
   const action = isEdit
     ? updateDocumentDraftAction.bind(null, props.draft.id)
@@ -144,11 +149,13 @@ export function DocumentComposer(props: Props) {
   // render en cascada — mismo patrón que el auto-expand de errores en
   // `TemplateIndexConfigurationSection`.
   const searchParams = useSearchParams();
-  const resolvedSection = isEdit
-    ? resolveSection(searchParams.get("section"), notarialUnlocked)
-    : "completar";
+  const resolvedSection = resolveSection(
+    searchParams.get("section"),
+    isEdit,
+    notarialUnlocked,
+  );
   const [lastSearchParams, setLastSearchParams] = useState(searchParams);
-  if (isEdit && searchParams !== lastSearchParams) {
+  if (searchParams !== lastSearchParams) {
     setLastSearchParams(searchParams);
     if (resolvedSection !== section) setSection(resolvedSection);
   }
@@ -251,7 +258,7 @@ export function DocumentComposer(props: Props) {
       setEditingTarget({ nodeId: occurrence.nodeId, variableKey: key });
     }
     setMobileView("document");
-    if (isEdit) goToSection("completar");
+    goToSection("completar");
   }
 
   function goToNextPending() {
@@ -428,21 +435,19 @@ export function DocumentComposer(props: Props) {
 
   return (
     <div>
-      {isEdit && (
-        <DocumentWorkspaceHeader
-          documentId={props.draft.id}
-          title={title}
-          clientName={
-            clientOptions.find((client) => client.id === clientId)?.full_name ?? null
-          }
-          status={status}
-          section={section}
-          saveStatusText={saveStatusText}
-          onSectionChange={goToSection}
-          activity={props.activity}
-          canDuplicate={props.canDuplicate}
-        />
-      )}
+      <DocumentWorkspaceHeader
+        documentId={isEdit ? props.draft.id : undefined}
+        title={title}
+        clientName={
+          clientOptions.find((client) => client.id === clientId)?.full_name ?? null
+        }
+        status={status}
+        section={section}
+        saveStatusText={saveStatusText}
+        onSectionChange={goToSection}
+        activity={isEdit ? props.activity : undefined}
+        canDuplicate={isEdit ? props.canDuplicate : false}
+      />
 
       <form action={formAction} noValidate>
         {fields.map((field) => (
@@ -454,6 +459,11 @@ export function DocumentComposer(props: Props) {
           />
         ))}
         <input type="hidden" name="option_selections" value={JSON.stringify(optionSelections)} />
+        {/* Paso activo al momento de guardar — el primer guardado (modo
+            create) lo usa para redirigir a la misma pestaña en vez de
+            reiniciar en "Completar", así la transición create → edit se
+            siente como continuación del mismo stepper. */}
+        <input type="hidden" name="section" value={section} />
 
         {bannerKind === "milestone" && draft && (
           <MilestoneFeedback
@@ -490,10 +500,10 @@ export function DocumentComposer(props: Props) {
         )}
 
         <div
-          id={isEdit ? "document-panel-completar" : undefined}
-          role={isEdit ? "tabpanel" : undefined}
-          aria-labelledby={isEdit ? "document-step-completar" : undefined}
-          hidden={isEdit && section !== "completar"}
+          id="document-panel-completar"
+          role="tabpanel"
+          aria-labelledby="document-step-completar"
+          hidden={section !== "completar"}
         >
           <DocumentMobileViewToggle value={mobileView} onChange={setMobileView} />
           <ResizableSplitPane
@@ -520,45 +530,43 @@ export function DocumentComposer(props: Props) {
           />
         </div>
 
-        {isEdit && (
-          <div
-            id="document-panel-revisar"
-            role="tabpanel"
-            aria-labelledby="document-step-revisar"
-            hidden={section !== "revisar"}
-          >
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50/60 sticky top-0 z-10">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">Revisión del documento</h2>
-                  <p className="text-xs text-slate-500">Vista de solo lectura, tal como quedará la escritura.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => goToSection("completar")}
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewExpanded(true)}
-                    title="Ver en pantalla completa"
-                    aria-label="Ver en pantalla completa"
-                    className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
-                  >
-                    ⤢
-                  </button>
-                </div>
+        <div
+          id="document-panel-revisar"
+          role="tabpanel"
+          aria-labelledby="document-step-revisar"
+          hidden={section !== "revisar"}
+        >
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50/60 sticky top-0 z-10">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Revisión del documento</h2>
+                <p className="text-xs text-slate-500">Vista de solo lectura, tal como quedará la escritura.</p>
               </div>
-              <div className="p-4 max-h-[70vh] overflow-y-auto">{documentSheet}</div>
-            </section>
-            <div className="mt-4">
-              <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToSection("completar")}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewExpanded(true)}
+                  title="Ver en pantalla completa"
+                  aria-label="Ver en pantalla completa"
+                  className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                >
+                  ⤢
+                </button>
+              </div>
             </div>
+            <div className="p-4 max-h-[70vh] overflow-y-auto">{documentSheet}</div>
+          </section>
+          <div className="mt-4">
+            <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
           </div>
-        )}
+        </div>
       </form>
 
       <ExpandableDocumentPanel
@@ -569,28 +577,30 @@ export function DocumentComposer(props: Props) {
         {documentSheet}
       </ExpandableDocumentPanel>
 
-      {isEdit && (
-        <div
-          id="document-panel-cobro"
-          role="tabpanel"
-          aria-labelledby="document-step-cobro"
-          hidden={section !== "cobro"}
-        >
+      <div
+        id="document-panel-cobro"
+        role="tabpanel"
+        aria-labelledby="document-step-cobro"
+        hidden={section !== "cobro"}
+      >
+        {isEdit ? (
           <ReceivablesSummary
             receivables={props.receivables}
             newHref={props.receivablesNewHref}
             returnTo={props.receivablesReturnTo}
           />
-        </div>
-      )}
+        ) : (
+          <LockedStepPlaceholder title="Cobro" />
+        )}
+      </div>
 
-      {isEdit && (
-        <div
-          id="document-panel-finalizar"
-          role="tabpanel"
-          aria-labelledby="document-step-finalizar"
-          hidden={section !== "finalizar"}
-        >
+      <div
+        id="document-panel-finalizar"
+        role="tabpanel"
+        aria-labelledby="document-step-finalizar"
+        hidden={section !== "finalizar"}
+      >
+        {isEdit ? (
           <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
               <h2 className="text-sm font-semibold text-slate-900">Estado de la escritura</h2>
@@ -620,16 +630,18 @@ export function DocumentComposer(props: Props) {
               />
             </div>
           </section>
-        </div>
-      )}
+        ) : (
+          <LockedStepPlaceholder title="Finalizar" />
+        )}
+      </div>
 
-      {isEdit && (
-        <div
-          id="document-panel-notarial"
-          role="tabpanel"
-          aria-labelledby="document-step-notarial"
-          hidden={section !== "notarial"}
-        >
+      <div
+        id="document-panel-notarial"
+        role="tabpanel"
+        aria-labelledby="document-step-notarial"
+        hidden={section !== "notarial"}
+      >
+        {isEdit ? (
           <NotarialMetadataSection
             documentId={props.draft.id}
             metadata={props.notarialMetadata}
@@ -641,9 +653,28 @@ export function DocumentComposer(props: Props) {
             generatedPartiesPreview={props.generatedPartiesPreview}
             reviewRequired={props.reviewRequired}
           />
-        </div>
-      )}
+        ) : (
+          <LockedStepPlaceholder title="Índice" />
+        )}
+      </div>
     </div>
+  );
+}
+
+// ------------------------------------------------------------------ locked step
+
+/** Placeholder para un paso que depende de que la Escritura ya exista. */
+function LockedStepPlaceholder({ title }: { title: string }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+      </div>
+      <div className="px-6 py-8 text-center text-sm text-slate-500">
+        Disponible después de guardar la escritura por primera vez. Guarda
+        desde Completar para desbloquearlo.
+      </div>
+    </section>
   );
 }
 

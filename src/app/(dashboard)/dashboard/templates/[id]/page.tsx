@@ -25,7 +25,12 @@ type Props = {
 };
 
 function resolveInitialSection(raw: string | undefined): TemplateWorkspaceSection {
-  return raw === "variables" || raw === "notarial" ? raw : "document";
+  return raw === "information" ||
+    raw === "variables" ||
+    raw === "notarial" ||
+    raw === "publish"
+    ? raw
+    : "document";
 }
 
 export default async function TemplateDetailPage({ params, searchParams }: Props) {

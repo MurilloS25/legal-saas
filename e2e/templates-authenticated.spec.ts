@@ -132,15 +132,28 @@ test.describe("templates module", () => {
       page.getByRole("heading", { name: "Nuevo machote", exact: true }),
     ).toBeVisible();
 
-    // El workspace completo está presente desde la creación: información
-    // básica, editor con toolbar, variables y vista previa.
-    await expect(page.getByLabel("Nombre del machote")).toBeVisible();
+    // El stepper completo es la vista principal desde la creación —
+    // Información/Documento/Variables/Índice/Publicar, con Índice
+    // bloqueado hasta el primer guardado.
+    await expect(
+      page.getByRole("tab", { name: "Información", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Índice", exact: true }),
+    ).toHaveAttribute("aria-disabled", "true");
+
+    // Documento (paso inicial) ya trae editor con toolbar y vista previa.
     await expect(
       page.getByRole("toolbar", { name: "Formato del contenido" }),
     ).toBeVisible();
     await expect(contentEditor(page)).toBeVisible();
-    await expect(variablesRegion(page)).toBeVisible();
     await expect(previewRegion(page)).toBeVisible();
+
+    // Información y Variables son sus propios pasos, siempre navegables.
+    await goToTab(page, "Información");
+    await expect(page.getByLabel("Nombre del machote")).toBeVisible();
+    await goToTab(page, "Variables");
+    await expect(variablesRegion(page)).toBeVisible();
   });
 
   test("C: user can create a template with formatting and a variable", async ({
@@ -151,10 +164,14 @@ test.describe("templates module", () => {
     await page.goto("/dashboard/templates/new");
     await waitForWorkspace(page);
 
+    // El nombre/descripción viven en el paso "Información" del stepper,
+    // visible desde la creación.
+    await goToTab(page, "Información");
     await page.getByLabel("Nombre del machote").fill(createdTemplateName);
     await page.getByLabel(/[Dd]escripción/).fill("Plantilla de prueba E2E");
 
     // ---- contenido con formato ----
+    await goToTab(page, "Documento");
     await contentEditor(page).click();
     await page.keyboard.type("CONTRATO DE ARRENDAMIENTO. ");
 
@@ -184,10 +201,12 @@ test.describe("templates module", () => {
     await dialog.getByRole("button", { name: "Insertar variable" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // La variable queda como ficha en el editor y configurada en el panel.
+    // La variable queda como ficha en el editor; su estado configurado vive
+    // en el paso "Variables", que ahora es un paso propio del stepper.
     await expect(
       contentEditor(page).getByText(variableLabel),
     ).toBeVisible();
+    await goToTab(page, "Variables");
     const variableRow = variablesRegion(page)
       .locator("li")
       .filter({ hasText: variableKey });
@@ -202,13 +221,17 @@ test.describe("templates module", () => {
     await expect(variableRow.getByText("Obligatoria")).toBeVisible();
 
     // ---- preview documental ----
+    await goToTab(page, "Documento");
     await expect(
       previewRegion(page).getByText(/CONTRATO DE ARRENDAMIENTO/),
     ).toBeVisible();
     await expect(previewRegion(page).getByText(variableLabel)).toBeVisible();
 
     // ---- guardar ----
-    await expect(page.getByText("Cambios sin guardar")).toBeVisible();
+    await expect(
+      page.locator("header").getByText("Cambios sin guardar"),
+    ).toBeVisible();
+    await goToTab(page, "Publicar");
     await page.getByRole("button", { name: "Crear machote" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/?]+/, {

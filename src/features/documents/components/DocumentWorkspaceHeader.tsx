@@ -1,23 +1,28 @@
 "use client";
 
 /**
- * Encabezado del workspace de una Escritura: breadcrumb, título/estado en
- * vivo, y el stepper horizontal de navegación entre Completar / Revisar /
- * Cobro / Finalizar / Índice.
+ * Encabezado del workspace de una Escritura — creación y edición: breadcrumb,
+ * título/estado en vivo, y el stepper horizontal de navegación entre
+ * Completar / Revisar / Cobro / Finalizar / Índice.
  *
- * A diferencia del stepper de Machotes, aquí sí hay una restricción real:
- * "Índice" permanece bloqueado hasta que la escritura esté finalizada
- * (misma regla que la pestaña deshabilitada que existía antes). El resto de
- * los pasos son siempre navegables.
+ * El stepper es la vista principal desde que se inicia una Escritura nueva:
+ * no existe un flujo alternativo de una sola página para el modo creación.
+ * "Completar" y "Revisar" operan sobre estado local puro y son siempre
+ * navegables. "Cobro" y "Finalizar" requieren que la Escritura ya exista
+ * (`documentId`) — quedan bloqueados hasta el primer guardado. "Índice"
+ * tiene además su restricción de siempre: permanece bloqueado hasta que la
+ * escritura esté finalizada, aun después de existir.
  *
  * El compositor (valores, cliente, dirty) permanece montado en todo momento
  * — cambiar de sección solo cambia qué panel es visible — así que ir de
  * Completar a Revisar y de vuelta nunca reinicia el formulario ni descarta
- * cambios sin guardar. La URL se mantiene sincronizada (`history.pushState`)
- * igual que en el workspace de Machotes.
+ * cambios sin guardar, tanto antes como después del primer guardado. La URL
+ * se mantiene sincronizada (`history.pushState`) igual que en el workspace
+ * de Machotes.
  *
  * Historial y Duplicar no son pasos del flujo — son acciones independientes
- * que se muestran junto al título, como ya ocurría antes.
+ * que se muestran junto al título, y solo tienen sentido una vez que la
+ * Escritura existe.
  */
 
 import Link from "next/link";
@@ -66,16 +71,23 @@ const STEP_META: Array<{
   },
 ];
 
+const EMPTY_ACTIVITY: DocumentActivityPage = {
+  items: [],
+  hasMore: false,
+  nextOffset: 0,
+};
+
 type Props = {
-  documentId: string;
+  /** undefined antes del primer guardado — la Escritura todavía no existe. */
+  documentId?: string;
   title: string;
   clientName: string | null;
   status: string;
   section: DocumentWorkspaceSection;
   saveStatusText: string;
   onSectionChange: (section: DocumentWorkspaceSection) => void;
-  activity: DocumentActivityPage;
-  canDuplicate: boolean;
+  activity?: DocumentActivityPage;
+  canDuplicate?: boolean;
 };
 
 export function DocumentWorkspaceHeader({
@@ -87,9 +99,10 @@ export function DocumentWorkspaceHeader({
   saveStatusText,
   onSectionChange,
   activity,
-  canDuplicate,
+  canDuplicate = false,
 }: Props) {
-  const notarialUnlocked = status === "final";
+  const persisted = !!documentId;
+  const notarialUnlocked = persisted && status === "final";
   const completion: Record<DocumentWorkspaceSection, boolean> = {
     completar: false,
     revisar: false,
@@ -99,7 +112,12 @@ export function DocumentWorkspaceHeader({
   };
 
   const steps = STEP_META.map(({ id, label, description }) => {
-    const locked = id === "notarial" && !notarialUnlocked;
+    const needsPersistence = id === "cobro" || id === "finalizar" || id === "notarial";
+    const locked =
+      (needsPersistence && !persisted) || (id === "notarial" && persisted && !notarialUnlocked);
+    const disabledReason = !persisted
+      ? "Disponible después de guardar la escritura por primera vez."
+      : "Disponible después de finalizar la escritura.";
     const stepStatus: StepStatus = locked
       ? "locked"
       : id === section
@@ -112,9 +130,7 @@ export function DocumentWorkspaceHeader({
       label,
       description,
       status: stepStatus,
-      disabledReason: locked
-        ? "Disponible después de finalizar la escritura"
-        : undefined,
+      disabledReason: locked ? disabledReason : undefined,
     };
   });
 
@@ -142,16 +158,21 @@ export function DocumentWorkspaceHeader({
             Cliente: {clientName ?? "Sin cliente"}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {canDuplicate && (
-            <DuplicateDocumentButton
+        {documentId && (
+          <div className="flex items-center gap-2 shrink-0">
+            {canDuplicate && (
+              <DuplicateDocumentButton
+                documentId={documentId}
+                documentTitle={title}
+                variant="full"
+              />
+            )}
+            <DocumentHistoryDialog
               documentId={documentId}
-              documentTitle={title}
-              variant="full"
+              activity={activity ?? EMPTY_ACTIVITY}
             />
-          )}
-          <DocumentHistoryDialog documentId={documentId} activity={activity} />
-        </div>
+          </div>
+        )}
       </div>
       <div className="mt-6">
         <HorizontalStepper
