@@ -3,18 +3,28 @@
 /**
  * Workspace unificado de una Escritura — creación y edición.
  *
- * El contenido se organiza en cinco pasos navegables (Completar / Revisar /
- * Cobro / Finalizar / Índice) mediante `DocumentWorkspaceHeader`, visibles
- * desde que se inicia una Escritura nueva: no existe un flujo alternativo de
- * una sola página para el modo creación. Los cinco permanecen siempre
- * montados — solo se ocultan con CSS — así que cambiar de paso nunca
- * descarta cambios sin guardar en Completar/Revisar (comparten el mismo
- * estado: `values`, `clientId`, `dirty`), tanto antes como después del
- * primer guardado. "Cobro" y "Finalizar" requieren que la Escritura ya
- * exista (dependen de `documentId`) y quedan bloqueados hasta entonces;
- * "Índice" además requiere que esté finalizada, igual que siempre. Cobro e
- * Índice viven fuera del `<form>` principal porque Índice tiene su propio
- * `<form>`/Server Action (no puede anidarse) y Cobro no necesita ninguno.
+ * El contenido se organiza en cuatro pasos navegables (Completar / Revisar
+ * y finalizar / Cobro / Índice) mediante `DocumentWorkspaceHeader`,
+ * visibles desde que se inicia una Escritura nueva: no existe un flujo
+ * alternativo de una sola página para el modo creación. Los cuatro
+ * permanecen siempre montados — solo se ocultan con CSS — así que cambiar
+ * de paso nunca descarta cambios sin guardar en Completar (comparte estado
+ * con "Revisar y finalizar": `values`, `clientId`, `dirty`), tanto antes
+ * como después del primer guardado.
+ *
+ * "Revisar y finalizar" fusiona lo que antes eran dos pasos separados
+ * ("Revisar" y "Finalizar"): el paso de solo revisar el documento quedaba
+ * vacío salvo por un botón, así que la finalización ocurre en el mismo
+ * lugar donde se está viendo la escritura que se aprueba, no en una
+ * pantalla aparte. La revisión (contenido + pendientes) opera sobre estado
+ * local puro y es alcanzable antes de guardar; los controles de
+ * finalización (`DocumentStatusControls`, descargar DOCX) requieren que la
+ * Escritura ya exista.
+ *
+ * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
+ * queda bloqueado hasta entonces; "Índice" además requiere que esté
+ * finalizada, igual que siempre. Índice vive fuera del `<form>` principal
+ * porque tiene su propio `<form>`/Server Action (no puede anidarse).
  */
 
 import { useActionState, useCallback, useMemo, useState } from "react";
@@ -61,8 +71,8 @@ import { DocumentSheet } from "@/components/document/DocumentSheet";
 import type { NotarialMetadata } from "@/features/notarial-index/model/notarial";
 import type { NotarialMetadataPrefill } from "@/features/notarial-index/model/prefill";
 import { NotarialMetadataSection } from "@/features/notarial-index";
-import type { ReceivableEntry } from "@/features/receivables/model/types";
-import { ReceivableMiniList } from "@/features/receivables";
+import type { ReceivableEntry } from "@/features/receivables";
+import { DocumentReceivableStep } from "./DocumentReceivableStep";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
@@ -91,8 +101,9 @@ type Props = SharedProps &
         activity: DocumentActivityPage;
         canDuplicate: boolean;
         receivables: ReceivableEntry[];
-        receivablesNewHref?: string;
-        receivablesReturnTo: string;
+        /** receivables.manage — habilita crear cuenta/registrar pago desde
+         * el paso "Cobro" sin salir de la Escritura. */
+        canManageReceivables: boolean;
         notarialMetadata: NotarialMetadata | null;
         notarialPrefill: NotarialMetadataPrefill;
         canResetParties: boolean;
@@ -110,10 +121,12 @@ function resolveSection(
   notarialUnlocked: boolean,
 ): DocumentWorkspaceSection {
   if (raw === "notarial") return notarialUnlocked ? "notarial" : "completar";
-  if ((raw === "cobro" || raw === "finalizar") && !persisted) return "completar";
-  return raw === "revisar" || raw === "cobro" || raw === "finalizar"
-    ? raw
-    : "completar";
+  // "finalizar" ya no es un paso propio — su contenido vive ahora en
+  // "revisar" ("Revisar y finalizar"). Un enlace viejo con ese valor
+  // aterriza ahí en vez de perderse en el paso por defecto.
+  if (raw === "finalizar") return persisted ? "revisar" : "completar";
+  if (raw === "cobro" && !persisted) return "completar";
+  return raw === "revisar" || raw === "cobro" ? raw : "completar";
 }
 
 export function DocumentComposer(props: Props) {
@@ -468,11 +481,11 @@ export function DocumentComposer(props: Props) {
         {bannerKind === "milestone" && draft && (
           <MilestoneFeedback
             title="Escritura guardada como borrador"
-            description="La Escritura ya fue creada. Ahora puedes asociar cuentas por cobrar y continuar completando el documento."
+            description="Cuando completes los campos pendientes, continúa a Revisar para verificar la escritura antes de finalizarla o gestionar cobros."
             actions={
               <MilestoneFeedbackAction
-                label="Ver Cuentas por cobrar"
-                href={`/dashboard/documents/${draft.id}?section=cobro`}
+                label="Ir a Revisar"
+                href={`/dashboard/documents/${draft.id}?section=revisar`}
               />
             }
             onDismiss={() => setMilestoneDismissed(true)}
@@ -566,6 +579,53 @@ export function DocumentComposer(props: Props) {
           <div className="mt-4">
             <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
           </div>
+
+          {/* Finalización — vive en el mismo paso que la revisión: la
+              escritura se aprueba mientras se está viendo, no en una
+              pantalla aparte. Requiere que la Escritura ya exista. */}
+          <div className="mt-4">
+            {isEdit ? (
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                  <h2 className="text-sm font-semibold text-slate-900">Estado de la escritura</h2>
+                  <p className="text-xs text-slate-500">
+                    {totalCount > 0
+                      ? `${completedCount} de ${totalCount} campos completos.`
+                      : "Este machote no tiene variables."}
+                  </p>
+                </div>
+                <div className="px-6 py-5 space-y-4">
+                  {dirty && (
+                    <p className="text-xs text-amber-700">
+                      Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado.
+                    </p>
+                  )}
+                  <DocumentStatusControls
+                    key={status}
+                    documentId={props.draft.id}
+                    status={status}
+                    dirty={dirty}
+                    canFinalize={canFinalize}
+                  />
+                  <DownloadDocxButton
+                    documentId={props.draft.id}
+                    disabled={dirty}
+                    pendingVariableCount={persistedPendingCount}
+                  />
+                </div>
+              </section>
+            ) : (
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                  <h2 className="text-sm font-semibold text-slate-900">Finalizar</h2>
+                </div>
+                <div className="px-6 py-8 text-center text-sm text-slate-500">
+                  Finalizar y descargar estarán disponibles después de
+                  guardar la escritura por primera vez.
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       </form>
 
@@ -584,54 +644,16 @@ export function DocumentComposer(props: Props) {
         hidden={section !== "cobro"}
       >
         {isEdit ? (
-          <ReceivablesSummary
+          <DocumentReceivableStep
+            documentId={props.draft.id}
+            documentTitle={title}
             receivables={props.receivables}
-            newHref={props.receivablesNewHref}
-            returnTo={props.receivablesReturnTo}
+            clientOptions={clientOptions}
+            defaultClientId={clientId || undefined}
+            canManage={props.canManageReceivables}
           />
         ) : (
           <LockedStepPlaceholder title="Cobro" />
-        )}
-      </div>
-
-      <div
-        id="document-panel-finalizar"
-        role="tabpanel"
-        aria-labelledby="document-step-finalizar"
-        hidden={section !== "finalizar"}
-      >
-        {isEdit ? (
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-              <h2 className="text-sm font-semibold text-slate-900">Estado de la escritura</h2>
-              <p className="text-xs text-slate-500">
-                {totalCount > 0
-                  ? `${completedCount} de ${totalCount} campos completos.`
-                  : "Este machote no tiene variables."}
-              </p>
-            </div>
-            <div className="px-6 py-5 space-y-4">
-              {dirty && (
-                <p className="text-xs text-amber-700">
-                  Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado.
-                </p>
-              )}
-              <DocumentStatusControls
-                key={status}
-                documentId={props.draft.id}
-                status={status}
-                dirty={dirty}
-                canFinalize={canFinalize}
-              />
-              <DownloadDocxButton
-                documentId={props.draft.id}
-                disabled={dirty}
-                pendingVariableCount={persistedPendingCount}
-              />
-            </div>
-          </section>
-        ) : (
-          <LockedStepPlaceholder title="Finalizar" />
         )}
       </div>
 
@@ -674,39 +696,6 @@ function LockedStepPlaceholder({ title }: { title: string }) {
         Disponible después de guardar la escritura por primera vez. Guarda
         desde Completar para desbloquearlo.
       </div>
-    </section>
-  );
-}
-
-// ------------------------------------------------------------------ Cobro
-
-/**
- * Reorganización "resumen primero" de `ReceivableMiniList`: mismos datos,
- * mismas Server Actions/RPCs, cero lógica nueva. "Registrar pago" y "Ver
- * cuenta completa" siguen siendo navegación real (no un modal in-place):
- * `registerPaymentAction` siempre redirige a la propia cuenta por diseño
- * (ver `context-return.ts` — `returnTo` nunca dispara un redirect
- * automático, solo alimenta un enlace explícito), así que forzar un modal
- * sin salir habría requerido tocar esa regla deliberada. Se documenta como
- * desviación consciente respecto al prototipo.
- */
-function ReceivablesSummary({
-  receivables,
-  newHref,
-  returnTo,
-}: {
-  receivables: ReceivableEntry[];
-  newHref?: string;
-  returnTo: string;
-}) {
-  return (
-    <section aria-label="Cuentas por cobrar de la escritura">
-      <ReceivableMiniList
-        receivables={receivables}
-        newHref={newHref}
-        returnTo={returnTo}
-        emptyText="Esta escritura todavía no tiene cuentas por cobrar."
-      />
     </section>
   );
 }

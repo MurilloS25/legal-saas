@@ -93,12 +93,12 @@ type Props = {
 const initialState: TemplateWorkspaceState = {};
 
 function resolveSection(raw: string | null): TemplateWorkspaceSection {
-  return raw === "information" ||
+  return raw === "document" ||
     raw === "variables" ||
     raw === "notarial" ||
     raw === "publish"
     ? raw
-    : "document";
+    : "information";
 }
 
 // ------------------------------------------------------------------ component
@@ -119,8 +119,12 @@ export function TemplateWorkspace(props: Props) {
   );
   const [dirty, setDirty] = useState(false);
   const [mobileView, setMobileView] = useState<TemplateMobileView>("edit");
+  // "Información" es el primer paso definido — tanto una escritura nueva
+  // como una entrada normal de edición abren ahí (ver `resolveInitialSection`
+  // en la página de edición para la única excepción explícita: preservar el
+  // paso tras el redirect create → edit del primer guardado).
   const [section, setSection] = useState<TemplateWorkspaceSection>(
-    isEdit ? (props.initialSection ?? "document") : "document",
+    isEdit ? (props.initialSection ?? "information") : "information",
   );
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
@@ -157,8 +161,11 @@ export function TemplateWorkspace(props: Props) {
     (next: TemplateWorkspaceSection) => {
       setSection(next);
       if (typeof window === "undefined") return;
+      // "information" es el paso por defecto — se omite de la URL para que
+      // una entrada normal (sin `?section=`) aterrice ahí, igual que
+      // `resolveSection`/`resolveInitialSection` esperan.
       const url =
-        next === "document"
+        next === "information"
           ? window.location.pathname
           : `${window.location.pathname}?section=${next}`;
       window.history.pushState(null, "", url);
@@ -191,9 +198,15 @@ export function TemplateWorkspace(props: Props) {
   // marcamos "complete" cuando hay una condición derivable, igual que ya
   // hace la lista de Variables o el banner de completitud del Índice.
   const informationComplete = name.trim() !== "";
-  const variablesPendingCount = buildVariableRows(variables, contentKeys).filter(
+  const variableRows = buildVariableRows(variables, contentKeys);
+  const variablesPendingCount = variableRows.filter(
     (row) => row.status === "pending",
   ).length;
+  // Un machote sin ninguna variable detectada (texto fijo) es un estado
+  // válido — pero no es lo mismo que "ya revisé las variables y todas
+  // están configuradas". Sin filas que evaluar, el paso no cuenta como
+  // completo (evita el falso check al abrir un machote nuevo vacío).
+  const variablesComplete = variableRows.length > 0 && variablesPendingCount === 0;
   const indexComplete = isEdit ? (props.indexConfiguration?.isComplete ?? false) : false;
   // El Índice depende de template_id — no puede configurarse antes del
   // primer guardado, sin importar qué tan completos estén los demás pasos.
@@ -273,7 +286,7 @@ export function TemplateWorkspace(props: Props) {
         statusText={saveStatusText}
         onSectionChange={goToSection}
         informationComplete={informationComplete}
-        variablesPendingCount={variablesPendingCount}
+        variablesComplete={variablesComplete}
         indexComplete={indexComplete}
         indexLocked={indexLocked}
         actions={props.mode === "edit" ? props.headerActions : undefined}

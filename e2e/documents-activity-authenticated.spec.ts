@@ -109,7 +109,7 @@ test.describe("document activity history", () => {
 
   test("D: finalizing records a lifecycle event", async ({ page }) => {
     await openDocument(page);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "Finalizar escritura" })
@@ -139,7 +139,7 @@ test.describe("document activity history", () => {
 
   test("F: generating a Word file records an event", async ({ page }) => {
     await openDocument(page);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     await downloadPromise;
@@ -151,7 +151,7 @@ test.describe("document activity history", () => {
 
   test("G: a failed operation records no activity", async ({ page }) => {
     await openDocument(page);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })

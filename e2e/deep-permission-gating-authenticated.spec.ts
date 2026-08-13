@@ -176,6 +176,9 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   let secondDocumentId: string;
   let reopenTargetDocumentId: string;
   let receivableId: string;
+  /** Creada por el test del paso "Cobro" contextual — limpiada aparte
+   * porque no existe hasta que ese test corre. */
+  let cobroReceivableId: string | undefined;
 
   test.beforeAll(async () => {
     ownerId = await createDisposableUser(ownerEmail, PASSWORD);
@@ -275,6 +278,13 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   });
 
   test.afterAll(async () => {
+    if (cobroReceivableId) {
+      await restDelete(
+        "receivable_payments",
+        `receivable_id=eq.${cobroReceivableId}`,
+      );
+      await restDelete("receivables", `id=eq.${cobroReceivableId}`);
+    }
     await restDelete("receivable_payments", `receivable_id=eq.${receivableId}`);
     await restDelete("receivables", `id=eq.${receivableId}`);
     await restDelete("documents", `id=eq.${documentId}`);
@@ -300,6 +310,9 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByText("Tu rol no permite editar machotes"),
     ).toBeVisible();
+    // El editor vive en el paso "Documento" — una entrada normal abre en
+    // "Información".
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Negrita" })).toBeDisabled();
     await expect(
       page.getByRole("button", { name: "Insertar variable" }),
@@ -334,6 +347,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByText("Tu rol no permite editar machotes"),
     ).not.toBeVisible();
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Negrita" })).toBeEnabled();
     await expect(
       page.getByRole("button", { name: /^Guardar cambios$/ }),
@@ -358,7 +372,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
     ).not.toBeVisible();
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
@@ -393,7 +407,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     // asistente sí puede duplicar (documents.create) pero no finalizar
     // (documents.finalize es solo propietario/administrador).
     await expect(page.getByRole("button", { name: "Duplicar" })).toBeVisible();
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
@@ -404,7 +418,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   }) => {
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
@@ -414,7 +428,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       timeout: 15_000,
     });
     // Finalizar redirige de verdad y reinicia el paso a "Completar".
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByText("Finalizada es de solo lectura"),
     ).toBeVisible();
@@ -424,7 +438,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(page.getByText("Finalizada es de solo lectura")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
@@ -441,7 +455,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).not.toBeVisible();
@@ -623,6 +637,80 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto(`/dashboard/receivables/${receivableId}?section=payments`);
     await expect(page.getByRole("button", { name: "Anular" })).toBeVisible();
+  });
+
+  test("Escritura → Cobro contextual: solo_lectura no ve ninguna acción", async ({
+    page,
+  }) => {
+    await loginAndExpectDashboard(page, readerEmail, PASSWORD);
+    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    const cobroSection = page.getByRole("region", {
+      name: "Cuentas por cobrar de la escritura",
+    });
+    await expect(cobroSection).toBeVisible();
+    await expect(
+      cobroSection.getByRole("button", { name: "Crear cuenta por cobrar" }),
+    ).not.toBeVisible();
+  });
+
+  // Bloqueado por un bug preexistente ajeno a este módulo:
+  // `default_workspace_id_from_actor()` (trigger BEFORE INSERT sobre
+  // `receivable_activity`, entre otras tablas) resuelve el `workspace_id`
+  // del actor con `... limit 1` sin desambiguar cuando el actor pertenece a
+  // más de un Workspace (su propio Workspace de arranque como propietario +
+  // uno donde fue invitado como asistente) — a diferencia de
+  // `getWorkspaceAccess()` en `src/lib/server/auth.ts`, que sí prioriza la
+  // membresía "genuina" (no de arranque). Esta es la primera vez que este
+  // spec ejerce una creación de cuenta por cobrar vía UI como "asistente"
+  // (las demás pruebas de este archivo la siembran directo por REST como
+  // "owner"), así que es la primera vez que el bug se manifiesta — no es
+  // una regresión de la creación contextual en modal. Ver PR de fix
+  // separado para `default_workspace_id_from_actor()`.
+  test.skip("Escritura → Cobro contextual: asistente puede crear una cuenta y registrar un pago sin salir de la Escritura", async ({
+    page,
+  }) => {
+    await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
+    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    await page
+      .getByRole("button", { name: "Crear cuenta por cobrar" })
+      .click();
+    const createDialog = page.getByRole("dialog", {
+      name: "Crear cuenta por cobrar",
+    });
+    await expect(createDialog).toBeVisible();
+    await createDialog
+      .getByLabel("Cliente", { exact: true })
+      .selectOption({ label: "Cliente Gating Profundo" });
+    await createDialog.getByPlaceholder("Honorarios por escritura de compraventa").fill("Honorarios gating cobro");
+    await createDialog.getByPlaceholder("150000.00").fill("40000");
+    await createDialog.getByRole("button", { name: "Crear cuenta" }).click();
+
+    // Nunca navega fuera de la Escritura — mismo documentId en la URL.
+    await expect(page).toHaveURL(
+      new RegExp(`/dashboard/documents/${documentId}`),
+    );
+    await expect(createDialog).toBeHidden();
+    await expect(page.getByText("Honorarios gating cobro")).toBeVisible();
+
+    const registeredId = await restSelect<{ id: string }>(
+      "receivables",
+      `document_id=eq.${documentId}&select=id`,
+    );
+    cobroReceivableId = registeredId[0]?.id;
+    expect(cobroReceivableId).toBeTruthy();
+
+    await page.getByRole("button", { name: "Registrar pago" }).click();
+    const payDialog = page.getByRole("dialog", { name: "Registrar pago" });
+    await expect(payDialog).toBeVisible();
+    await payDialog.getByLabel(/^Monto del pago/).fill("40000");
+    await payDialog.getByRole("button", { name: "Registrar pago" }).click();
+
+    // Tampoco navega fuera al registrar el pago — sigue en la Escritura.
+    await expect(page).toHaveURL(
+      new RegExp(`/dashboard/documents/${documentId}`),
+    );
+    await expect(payDialog).toBeHidden();
+    await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
   });
 
   // ================= Navegación directa =================

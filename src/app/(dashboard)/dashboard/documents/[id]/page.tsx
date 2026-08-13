@@ -116,13 +116,15 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     : false;
   const notarialUnlocked = document.status === "final";
   const initialSection: DocumentWorkspaceSection =
-    requestedSection === "revisar" ||
-    requestedSection === "cobro" ||
-    requestedSection === "finalizar"
+    requestedSection === "revisar" || requestedSection === "cobro"
       ? requestedSection
       : requestedSection === "notarial" && notarialUnlocked
         ? "notarial"
-        : "completar";
+        // "finalizar" ya no es un paso propio — su contenido vive en
+        // "revisar" ("Revisar y finalizar"); un enlace viejo aterriza ahí.
+        : requestedSection === "finalizar"
+          ? "revisar"
+          : "completar";
 
   const receivablesNewHref = canManageReceivables
     ? appendReturnTo(
@@ -184,8 +186,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           activity={activity}
           canDuplicate={canDuplicate}
           receivables={receivables}
-          receivablesNewHref={receivablesNewHref}
-          receivablesReturnTo={buildDocumentReceivablesReturnTo(document.id)}
+          canManageReceivables={canManageReceivables}
           notarialMetadata={notarialMetadata}
           notarialPrefill={notarialPrefill}
           canResetParties={indexConfiguration?.isComplete === true}
@@ -211,8 +212,7 @@ async function DocumentComposerLoader({
   activity,
   canDuplicate,
   receivables,
-  receivablesNewHref,
-  receivablesReturnTo,
+  canManageReceivables,
   notarialMetadata,
   notarialPrefill,
   canResetParties,
@@ -231,8 +231,7 @@ async function DocumentComposerLoader({
   activity: Awaited<ReturnType<typeof listDocumentActivity>>;
   canDuplicate: boolean;
   receivables: Awaited<ReturnType<typeof listReceivablesByDocument>>;
-  receivablesNewHref?: string;
-  receivablesReturnTo: string;
+  canManageReceivables: boolean;
   notarialMetadata: Awaited<ReturnType<typeof getNotarialMetadata>>;
   notarialPrefill: ReturnType<typeof resolveNotarialMetadataPrefill>;
   canResetParties: boolean;
@@ -279,8 +278,7 @@ async function DocumentComposerLoader({
       activity={activity}
       canDuplicate={canDuplicate}
       receivables={receivables}
-      receivablesNewHref={receivablesNewHref}
-      receivablesReturnTo={receivablesReturnTo}
+      canManageReceivables={canManageReceivables}
       notarialMetadata={notarialMetadata}
       notarialPrefill={notarialPrefill}
       canResetParties={canResetParties}

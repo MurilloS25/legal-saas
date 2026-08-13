@@ -45,6 +45,17 @@ function variableRow(page: Page, key: string) {
   return variablesRegion(page).locator("li").filter({ hasText: key });
 }
 
+/**
+ * Abre el workspace del machote en el paso "Documento" — una entrada
+ * normal desde la lista abre en "Información", así que el editor necesita
+ * este clic explícito antes de poder interactuar con él.
+ */
+async function openWorkspace(page: Page) {
+  await page.goto(templateUrl);
+  await page.getByRole("tab", { name: "Documento", exact: true }).click();
+  await expect(contentEditor(page)).toBeVisible();
+}
+
 // El preview inline usa `TemplatePreviewPanel` en modo "bare" dentro del
 // stepper, así que ya no expone un `role="region"` con nombre accesible
 // "Vista previa" — solo el `role="group"` sin nombre de `DocumentSheet`.
@@ -138,8 +149,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("B: pasting an invalid placeholder leaves it as plain text, no dialog", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await pasteAtEnd(page, " {{Clave Invalida}}");
 
@@ -155,8 +165,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("C: pasting placeholders in any case — lowercase, uppercase or mixed — always opens the review dialog, never converts silently", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     // Mezcla deliberada: minúsculas (ya válidas hoy sin diálogo antes de
     // este fix), mayúsculas con guion bajo, una clave con punto en
@@ -226,8 +235,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("D: canceling the review dialog leaves the pasted text unmodified", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await pasteAtEnd(page, "Tomo {{tomo_numero}} folio {{FOLIO_INICIAL}}.");
 
@@ -249,8 +257,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("E: excluding a candidate in the review dialog keeps it as literal text", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await pasteAtEnd(page, "Marca {{MARCA}} combustible {{COMBUSTIBLE}}.");
 
@@ -280,8 +287,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("F: the review dialog exposes required and output transform, and the choice persists after saving and reloading", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await pasteAtEnd(page, "Cédula {{CEDULA_COMPARECIENTE}}.");
     const dialog = reviewDialog(page);
@@ -322,8 +328,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("G: a converted variable persists after saving and reloading, and is selectable in the notarial index", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await pasteAtEnd(page, "Folio final {{FOLIO_FINAL}}.");
     const dialog = reviewDialog(page);
@@ -373,8 +378,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("H: editing a converted variable's label persists immediately and updates the editor chip, the preview and the notarial index", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await pasteAtEnd(page, "Marca del vehiculo {{MARCA_VEHICULO}}.");
     const dialog = reviewDialog(page);
@@ -434,8 +438,7 @@ test.describe("template pasted/typed variable detection", () => {
   test("I: typing a {{clave}} character by character still converts immediately, with no dialog", async ({
     page,
   }) => {
-    await page.goto(templateUrl);
-    await expect(contentEditor(page)).toBeVisible();
+    await openWorkspace(page);
 
     await contentEditor(page).click();
     await page.keyboard.press("ControlOrMeta+End");

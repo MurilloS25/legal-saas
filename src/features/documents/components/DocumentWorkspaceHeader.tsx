@@ -3,15 +3,17 @@
 /**
  * Encabezado del workspace de una Escritura — creación y edición: breadcrumb,
  * título/estado en vivo, y el stepper horizontal de navegación entre
- * Completar / Revisar / Cobro / Finalizar / Índice.
+ * Completar / Revisar y finalizar / Cobro / Índice.
  *
  * El stepper es la vista principal desde que se inicia una Escritura nueva:
  * no existe un flujo alternativo de una sola página para el modo creación.
- * "Completar" y "Revisar" operan sobre estado local puro y son siempre
- * navegables. "Cobro" y "Finalizar" requieren que la Escritura ya exista
- * (`documentId`) — quedan bloqueados hasta el primer guardado. "Índice"
- * tiene además su restricción de siempre: permanece bloqueado hasta que la
- * escritura esté finalizada, aun después de existir.
+ * "Completar" y "Revisar y finalizar" operan sobre estado local puro para
+ * su parte de revisión y son siempre navegables — la finalización en sí
+ * (dentro de ese mismo paso) requiere que la Escritura ya exista. "Cobro"
+ * requiere que la Escritura ya exista (`documentId`) y queda bloqueado
+ * hasta el primer guardado. "Índice" tiene además su restricción de
+ * siempre: permanece bloqueado hasta que la escritura esté finalizada, aun
+ * después de existir.
  *
  * El compositor (valores, cliente, dirty) permanece montado en todo momento
  * — cambiar de sección solo cambia qué panel es visible — así que ir de
@@ -36,7 +38,6 @@ export type DocumentWorkspaceSection =
   | "completar"
   | "revisar"
   | "cobro"
-  | "finalizar"
   | "notarial";
 
 const STEP_META: Array<{
@@ -51,18 +52,13 @@ const STEP_META: Array<{
   },
   {
     id: "revisar",
-    label: "Revisar",
-    description: "Vista de solo lectura del documento completo, tal como quedará.",
+    label: "Revisar y finalizar",
+    description: "Revisa el documento completo y finaliza la escritura cuando esté lista.",
   },
   {
     id: "cobro",
     label: "Cobro",
     description: "Cuentas por cobrar asociadas a esta escritura.",
-  },
-  {
-    id: "finalizar",
-    label: "Finalizar",
-    description: "Revisa el estado y finaliza la escritura cuando esté lista.",
   },
   {
     id: "notarial",
@@ -105,14 +101,13 @@ export function DocumentWorkspaceHeader({
   const notarialUnlocked = persisted && status === "final";
   const completion: Record<DocumentWorkspaceSection, boolean> = {
     completar: false,
-    revisar: false,
+    revisar: status === "final",
     cobro: false,
-    finalizar: status === "final",
     notarial: false,
   };
 
   const steps = STEP_META.map(({ id, label, description }) => {
-    const needsPersistence = id === "cobro" || id === "finalizar" || id === "notarial";
+    const needsPersistence = id === "cobro" || id === "notarial";
     const locked =
       (needsPersistence && !persisted) || (id === "notarial" && persisted && !notarialUnlocked);
     const disabledReason = !persisted

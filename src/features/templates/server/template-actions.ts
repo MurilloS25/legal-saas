@@ -85,11 +85,12 @@ export async function createTemplateWorkspaceAction(
 
   revalidatePath("/dashboard/templates");
   // Continúa en el mismo paso del stepper en vez de reiniciar en
-  // "Documento" — "notarial" nunca es válido aquí porque depende de que el
-  // machote ya exista, exactamente lo que este guardado acaba de resolver.
+  // "Información" (el paso por defecto de una entrada normal) — "notarial"
+  // nunca es válido aquí porque depende de que el machote ya exista,
+  // exactamente lo que este guardado acaba de resolver.
   const section = String(formData.get("section") ?? "");
   const sectionParam =
-    section && section !== "document" && section !== "notarial"
+    section && section !== "information" && section !== "notarial"
       ? `&section=${section}`
       : "";
   redirect(`/dashboard/templates/${created.template_id}?created=1${sectionParam}`);

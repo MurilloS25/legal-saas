@@ -71,7 +71,12 @@ type Props = {
   onSectionChange: (section: TemplateWorkspaceSection) => void;
   /** Señales de completitud reales, calculadas por `TemplateWorkspace`. */
   informationComplete: boolean;
-  variablesPendingCount: number;
+  /** true solo cuando hay al menos una variable detectada y ninguna queda
+   * "Pendiente de configurar" — un machote sin variables (texto fijo) no
+   * cuenta como "completo" aquí: no hay nada que evaluar todavía, así que
+   * el paso se ve como cualquier otro paso no visitado, en vez de mostrar
+   * un check que no refleja ninguna revisión real. */
+  variablesComplete: boolean;
   indexComplete: boolean;
   /** true antes del primer guardado — el machote todavía no existe, así
    * que el Índice (que depende de `template_id`) no puede configurarse. */
@@ -86,7 +91,7 @@ export function TemplateWorkspaceHeader({
   statusText,
   onSectionChange,
   informationComplete,
-  variablesPendingCount,
+  variablesComplete,
   indexComplete,
   indexLocked,
   actions,
@@ -94,7 +99,7 @@ export function TemplateWorkspaceHeader({
   const completion: Record<TemplateWorkspaceSection, boolean> = {
     information: informationComplete,
     document: false,
-    variables: variablesPendingCount === 0,
+    variables: variablesComplete,
     notarial: indexComplete,
     publish: status === "active",
   };

@@ -8,17 +8,23 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { restDelete, restSelect } from "./support/supabase-admin";
 
 /**
- * Escritura nueva: el stepper (Completar / Revisar / Cobro / Finalizar /
- * Índice) es la vista principal desde `/dashboard/documents/new/[templateId]`
- * — no hay un flujo alternativo de una sola página para creación. "Completar"
- * y "Revisar" operan sobre estado local y ya son completamente funcionales
- * antes de guardar; "Cobro" y "Finalizar" requieren que la escritura exista
- * (quedan bloqueados hasta el primer guardado); "Índice" además requiere
- * finalización. El primer guardado redirige a la URL de edición preservando
- * el paso activo, sin perder ningún dato ya ingresado (título, cliente
- * principal, valores de variables).
+ * Escritura nueva: el stepper de 4 pasos (Completar / Revisar y finalizar /
+ * Cobro / Índice) es la vista principal desde
+ * `/dashboard/documents/new/[templateId]` — no hay un flujo alternativo de
+ * una sola página para creación, y la creación siempre arranca en
+ * "Completar". "Completar" y la revisión dentro de "Revisar y finalizar"
+ * operan sobre estado local y ya son completamente funcionales antes de
+ * guardar; los controles de finalización (dentro de ese mismo paso) y
+ * "Cobro" requieren que la Escritura ya exista (quedan bloqueados/con
+ * aviso hasta el primer guardado); "Índice" además requiere finalización.
+ * El primer guardado redirige a la URL de edición preservando el paso
+ * activo, sin perder ningún dato ya ingresado (título, cliente principal,
+ * valores de variables). "Cobro" es contextual: crear una cuenta o
+ * registrar un pago ocurre en un modal, sin abandonar la Escritura — la
+ * administración completa sigue viviendo en Cuentas por cobrar.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -34,15 +40,15 @@ function stepper(page: Page) {
   return page.getByRole("navigation", { name: "Pasos de la escritura" });
 }
 
-/** Paso "Revisar" — vista de solo lectura, con su propio encabezado. */
+/** Paso "Revisar y finalizar" — vista de solo lectura, con su propio encabezado. */
 function reviewHeading(page: Page) {
   return page.getByRole("heading", { name: "Revisión del documento" });
 }
 
 /**
- * Contenedor del paso "Revisar" — acota las búsquedas de contenido ahí, ya
- * que la misma variable renderizada aparece también (oculta) en el panel
- * "Completar" editable y en `ExpandableDocumentPanel`.
+ * Contenedor del paso "Revisar y finalizar" — acota las búsquedas de
+ * contenido ahí, ya que la misma variable renderizada aparece también
+ * (oculta) en el panel "Completar" editable y en `ExpandableDocumentPanel`.
  */
 function revisarPanel(page: Page) {
   return page.locator("#document-panel-revisar");
@@ -53,9 +59,15 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
+function cobroSection(page: Page) {
+  return page.getByRole("region", {
+    name: "Cuentas por cobrar de la escritura",
+  });
+}
+
 async function goToStep(
   page: Page,
-  name: "Completar" | "Revisar" | "Cobro" | "Finalizar" | "Índice",
+  name: "Completar" | "Revisar y finalizar" | "Cobro" | "Índice",
 ) {
   await stepper(page).getByRole("tab", { name, exact: true }).click();
 }
@@ -100,7 +112,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     ).toBeVisible();
   });
 
-  test("B: stepper completo desde la creación, pasos que requieren persistencia bloqueados y no navegables, Cliente principal funcional antes de guardar, navegación entre pasos preserva estado, y el guardado redirige preservando el paso activo", async ({
+  test("B: creación arranca en Completar, muestra exactamente 4 pasos, pasos que requieren persistencia bloqueados/con aviso y no navegables, Cliente principal funcional antes de guardar, navegación entre pasos preserva estado, y el guardado redirige preservando el paso activo", async ({
     page,
   }) => {
     const clientName = uniqueName("document-stepper-create", "cliente");
@@ -119,20 +131,22 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       timeout: 15_000,
     });
 
-    // Los 5 pasos son visibles desde el inicio — no hay pantalla previa de
-    // una sola página.
+    // Exactamente 4 pasos — "Finalizar" ya no es un paso independiente.
+    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
     await expect(
       stepper(page).getByRole("tab", { name: "Completar", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(
-      stepper(page).getByRole("tab", { name: "Revisar", exact: true }),
+      stepper(page).getByRole("tab", {
+        name: "Revisar y finalizar",
+        exact: true,
+      }),
     ).toBeVisible();
+    await expect(
+      stepper(page).getByRole("tab", { name: "Finalizar", exact: true }),
+    ).toHaveCount(0);
     const cobroTab = stepper(page).getByRole("tab", {
       name: "Cobro",
-      exact: true,
-    });
-    const finalizarTab = stepper(page).getByRole("tab", {
-      name: "Finalizar",
       exact: true,
     });
     const indiceTab = stepper(page).getByRole("tab", {
@@ -140,10 +154,9 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       exact: true,
     });
 
-    // Cobro, Finalizar e Índice están bloqueados antes del primer guardado
-    // — no solo por color: disabled + aria-disabled + title explican por
-    // qué.
-    for (const tab of [cobroTab, finalizarTab, indiceTab]) {
+    // Cobro e Índice están bloqueados antes del primer guardado — no solo
+    // por color: disabled + aria-disabled + title explican por qué.
+    for (const tab of [cobroTab, indiceTab]) {
       await expect(tab).toBeDisabled();
       await expect(tab).toHaveAttribute("aria-disabled", "true");
       await expect(tab).toHaveAttribute(
@@ -173,14 +186,26 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     // por validación.
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Uno");
 
-    // Revisar: vista de solo lectura, accesible antes de guardar.
-    await goToStep(page, "Revisar");
+    // Revisar y finalizar: la revisión es accesible antes de guardar; la
+    // finalización en sí (dentro del mismo paso) queda con aviso.
+    await goToStep(page, "Revisar y finalizar");
     await expect(reviewHeading(page)).toBeVisible();
+    await expect(
+      revisarPanel(page).getByText(
+        "Finalizar y descargar estarán disponibles después de guardar la escritura por primera vez.",
+      ),
+    ).toBeVisible();
+    await expect(
+      revisarPanel(page).getByRole("button", { name: "Finalizar escritura" }),
+    ).toHaveCount(0);
 
     // Clic en un paso bloqueado no navega a ningún lado ni descarta nada.
     await cobroTab.click({ force: true });
     await expect(
-      stepper(page).getByRole("tab", { name: "Revisar", exact: true }),
+      stepper(page).getByRole("tab", {
+        name: "Revisar y finalizar",
+        exact: true,
+      }),
     ).toHaveAttribute("aria-selected", "true");
 
     // Volver a Completar: el título y el cliente principal no se perdieron
@@ -223,33 +248,57 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       }),
     ).toBeVisible();
 
-    // Cobro y Finalizar quedan habilitados; Índice sigue bloqueado porque
-    // requiere además que la escritura esté finalizada.
+    // El copy del milestone apunta a Revisar, nunca directo a Cobro.
+    await expect(
+      page.getByText(
+        "Cuando completes los campos pendientes, continúa a Revisar para verificar la escritura antes de finalizarla o gestionar cobros.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Ir a Revisar" }),
+    ).toHaveAttribute("href", /\?section=revisar$/);
+
+    // Cobro queda habilitado; Índice sigue bloqueado porque requiere
+    // además que la escritura esté finalizada.
     await expect(cobroTab).not.toBeDisabled();
-    await expect(finalizarTab).not.toBeDisabled();
     await expect(indiceTab).toBeDisabled();
     await expect(indiceTab).toHaveAttribute(
       "title",
       "Disponible después de finalizar la escritura.",
     );
 
-    await cobroTab.click();
+    // Revisar y finalizar ahora expone los controles reales de finalización
+    // (la escritura ya existe).
+    await goToStep(page, "Revisar y finalizar");
     await expect(
-      page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
+      revisarPanel(page).getByRole("button", { name: "Finalizar escritura" }),
+    ).toBeVisible();
+    await expect(
+      revisarPanel(page).getByRole("button", { name: "Descargar Word" }),
+    ).toBeVisible();
+
+    // Cobro: paso contextual, todavía sin cuentas.
+    await cobroTab.click();
+    await expect(cobroSection(page)).toBeVisible();
+    await expect(
+      cobroSection(page).getByText(
+        "Esta escritura todavía no tiene cuentas por cobrar.",
+      ),
+    ).toBeVisible();
+    await expect(
+      cobroSection(page).getByRole("button", {
+        name: "Crear cuenta por cobrar",
+      }),
     ).toBeVisible();
   });
 
-  // Nota: a diferencia de Machotes (donde "Publicar" expone su propio botón
-  // de guardado independiente del paso activo), en Escrituras "Guardar
-  // cambios" solo existe dentro del panel "Completar" — Revisar no tiene un
-  // control de guardado propio, así que "guardar desde un paso distinto"
-  // no es un flujo real aquí. Este test cubre en su lugar el otro riesgo
-  // real: visitar Revisar antes del primer guardado no descarta el título
-  // ni el valor de la variable, y tras guardar desde Completar, Revisar
-  // refleja el contenido persistido.
-  test("C: visitar Revisar antes de guardar no descarta los datos, y tras guardar desde Completar, Revisar refleja el contenido persistido", async ({
+  test("C: Cobro — crear una cuenta y registrar un pago ocurre en un modal, sin abandonar la Escritura; cancelar el modal de creación conserva el contexto", async ({
     page,
   }) => {
+    const clientName = uniqueName("document-stepper-create", "cliente-cobro");
+    const client = await createTestClient(registry, {
+      full_name: clientName,
+    });
     const title = uniqueName("document-stepper-create", "escritura-c");
 
     await page.goto("/dashboard/documents/new");
@@ -263,31 +312,116 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     });
 
     await page.getByLabel("Título de la escritura").fill(title);
-    await fillFieldLive(page, fieldKey, "Cliente de Prueba Dos");
-
-    // Visitar Revisar antes de guardar no descarta nada.
-    await goToStep(page, "Revisar");
-    await expect(reviewHeading(page)).toBeVisible();
-    await expect(
-      revisarPanel(page).getByText(/Cliente de Prueba Dos/).first(),
-    ).toBeVisible();
-
-    await goToStep(page, "Completar");
-    await expect(page.getByLabel("Título de la escritura")).toHaveValue(
-      title,
-    );
+    await page.getByRole("button", { name: /^Cliente principal/ }).click();
+    await page
+      .getByLabel("Cliente principal", { exact: true })
+      .selectOption(client.id);
+    await page.keyboard.press("Escape");
+    await fillFieldLive(page, fieldKey, "Cliente de Prueba Cobro");
 
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
+    const documentUrl = new URL(page.url());
 
-    // Revisar, ya persistida, sigue mostrando el contenido real.
-    await goToStep(page, "Revisar");
-    await expect(reviewHeading(page)).toBeVisible();
+    await goToStep(page, "Cobro");
+    await expect(cobroSection(page)).toBeVisible();
+    const cobroUrl = new URL(page.url());
+
+    // Cancelar el modal de creación no crea nada y conserva el contexto
+    // (mismo paso Cobro — con su ?section=cobro propio, distinto de la URL
+    // base capturada antes de navegar al paso — mismo estado vacío).
+    await cobroSection(page)
+      .getByRole("button", { name: "Crear cuenta por cobrar" })
+      .click();
+    const createDialog = page.getByRole("dialog", {
+      name: "Crear cuenta por cobrar",
+    });
+    await expect(createDialog).toBeVisible();
+    await createDialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(createDialog).toBeHidden();
+    await expect(page).toHaveURL(cobroUrl.toString());
     await expect(
-      revisarPanel(page).getByText(/Cliente de Prueba Dos/).first(),
+      cobroSection(page).getByText(
+        "Esta escritura todavía no tiene cuentas por cobrar.",
+      ),
     ).toBeVisible();
+
+    // Crear la cuenta de verdad: el modal reutiliza el formulario real,
+    // preasocia esta Escritura y a su Cliente principal, y guarda sin
+    // navegar fuera de la Escritura.
+    await cobroSection(page)
+      .getByRole("button", { name: "Crear cuenta por cobrar" })
+      .click();
+    await expect(createDialog).toBeVisible();
+    await expect(
+      createDialog.getByLabel("Cliente", { exact: true }),
+    ).toHaveValue(client.id);
+    await expect(
+      createDialog.getByLabel("Escritura"),
+    ).toHaveValue(documentUrl.pathname.split("/").pop() ?? "");
+    await createDialog
+      .getByPlaceholder("Honorarios por escritura de compraventa")
+      .fill("Honorarios de prueba E2E");
+    await createDialog.getByPlaceholder("150000.00").fill("75000");
+    await createDialog.getByRole("button", { name: "Crear cuenta" }).click();
+
+    await expect(createDialog).toBeHidden();
+    await expect(page).toHaveURL(cobroUrl.toString());
+    // El nombre del cliente vive en un <p> anidado tres niveles dentro de
+    // la tarjeta de la cuenta (headerInner > headerOuter > cardRoot) — el
+    // resto de la tarjeta (montos, badge de estado, botones) vive como
+    // hermano de headerOuter dentro de cardRoot, así que hace falta subir
+    // tres niveles para alcanzarlo todo.
+    const summary = cobroSection(page)
+      .getByText(clientName)
+      .locator("..")
+      .locator("..")
+      .locator("..");
+    await expect(summary.getByText("Honorarios de prueba E2E")).toBeVisible();
+    // "Monto" y "Saldo" muestran el mismo valor mientras no hay pagos —
+    // ambigüedad esperada, basta con confirmar que aparece.
+    await expect(summary.getByText("₡75.000,00 CRC").first()).toBeVisible();
+    await expect(summary.getByText("Pendiente", { exact: true })).toBeVisible();
+
+    // Registrar pago: también un modal, también sin abandonar la Escritura.
+    await summary.getByRole("button", { name: "Registrar pago" }).click();
+    const payDialog = page.getByRole("dialog", { name: "Registrar pago" });
+    await expect(payDialog).toBeVisible();
+    await payDialog.getByLabel(/^Monto del pago/).fill("75000");
+    await payDialog.getByRole("button", { name: "Registrar pago" }).click();
+
+    await expect(payDialog).toBeHidden();
+    await expect(page).toHaveURL(cobroUrl.toString());
+    await expect(summary.getByText("Pagada", { exact: true })).toBeVisible();
+    await expect(summary.getByText("₡0,00 CRC")).toBeVisible();
+    // Saldada: ya no se ofrece registrar otro pago.
+    await expect(
+      summary.getByRole("button", { name: "Registrar pago" }),
+    ).toHaveCount(0);
+    await expect(
+      summary.getByRole("link", { name: "Ver cuenta completa" }),
+    ).toBeVisible();
+
+    // Con pago registrado, la cuenta queda financieramente inmutable — el
+    // documento ya no puede eliminarse mientras la cuenta exista (regla de
+    // negocio real, no un bug de esta prueba). Limpiar explícitamente aquí,
+    // antes del cleanup genérico del registro, para no bloquear el borrado
+    // del documento/cliente/machote en el afterAll. receivable_payments no
+    // tiene document_id propio — hay que resolver primero la cuenta.
+    const documentId = documentUrl.pathname.split("/").pop();
+    const createdReceivables = await restSelect<{ id: string }>(
+      "receivables",
+      `document_id=eq.${documentId}&select=id`,
+    );
+    for (const receivable of createdReceivables) {
+      await restDelete(
+        "receivable_payments",
+        `receivable_id=eq.${receivable.id}`,
+      );
+      await restDelete("receivables", `id=eq.${receivable.id}`);
+    }
   });
 });

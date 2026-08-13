@@ -180,4 +180,64 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
       "Texto de prueba para el paso B.",
     );
   });
+
+  test("C: /new abre en Información por defecto, sin encabezado duplicado", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/templates/new");
+
+    // "Información" es el primer paso definido — sin clic previo, ya debe
+    // estar seleccionado.
+    await expect(
+      page.getByRole("tab", { name: "Información", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Nombre del machote")).toBeVisible();
+
+    // Un solo encabezado/breadcrumb: el propio stepper de
+    // `TemplateWorkspaceHeader`, no una jerarquía duplicada por encima.
+    await expect(
+      page.getByRole("link", { name: "‹ Machotes", exact: true }),
+    ).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  });
+
+  test("D: Variables no muestra un check de completado falso en un machote vacío; sí lo muestra tras configurar una variable real", async ({
+    page,
+  }) => {
+    const name = uniqueName("template-stepper-create", "machote-d");
+    const variableLabel = "Parte única";
+    const variableKey = "parte.unica";
+
+    await page.goto("/dashboard/templates/new");
+    await goToTab(page, "Información");
+    await page.getByLabel("Nombre del machote").fill(name);
+
+    const variablesTab = page.getByRole("tab", {
+      name: "Variables",
+      exact: true,
+    });
+    // Recién creado, sin ninguna variable detectada: no hay nada que
+    // evaluar todavía — el paso no debe mostrar el check de "completo".
+    await expect(variablesTab.getByText("✓", { exact: true })).toHaveCount(0);
+
+    await goToTab(page, "Documento");
+    await contentEditor(page).click();
+    await page.keyboard.type("Comparece ");
+    await page.getByRole("button", { name: "Insertar variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await dialog.getByLabel("Etiqueta").fill(variableLabel);
+    await dialog.getByLabel("Clave").fill(variableKey);
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    // Con la única variable detectada ya configurada (el diálogo la deja
+    // "Configurada" de inmediato), el paso sí refleja completitud real.
+    await expect(variablesTab.getByText("✓", { exact: true })).toBeVisible();
+
+    await goToTab(page, "Variables");
+    const variableRow = variablesRegion(page)
+      .locator("li")
+      .filter({ hasText: variableKey });
+    await expect(variableRow.getByText("Configurada")).toBeVisible();
+  });
 });

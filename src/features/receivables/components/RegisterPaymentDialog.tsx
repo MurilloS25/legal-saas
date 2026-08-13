@@ -3,18 +3,25 @@
 /**
  * Diálogo modal para registrar un pago.
  *
- * El envío sigue usando la Server Action existente (`registerPaymentAction`),
- * que redirige a la propia página al terminar: un envío exitoso navega de
- * vuelta a la pestaña Pagos, lo que remonta este componente con `open`
- * en su valor inicial (`false`) — el diálogo se cierra solo, sin estado
- * adicional. Un error mantiene el diálogo abierto (no hay redirect) y
- * muestra el mensaje dentro del formulario.
+ * Modo estándar (sin `embedded`): usa `registerPaymentAction`, que redirige
+ * a la propia página al terminar — un envío exitoso navega de vuelta a la
+ * pestaña Pagos, lo que remonta este componente con `open` en su valor
+ * inicial (`false`); el diálogo se cierra solo, sin estado adicional.
+ *
+ * Modo `embedded` (usado desde el paso "Cobro" de una Escritura): usa
+ * `registerPaymentForDialogAction`, que nunca redirige — este componente
+ * cierra el diálogo por su cuenta y llama a `onRegistered` para que el
+ * origen (la Escritura) refresque su resumen sin abandonar la página.
+ *
+ * En ambos casos, un error mantiene el diálogo abierto y muestra el mensaje
+ * dentro del formulario.
  */
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useActionState } from "react";
 import {
   registerPaymentAction,
+  registerPaymentForDialogAction,
   type PaymentState,
 } from "../server/payment-actions";
 import { formatMoney } from "../model/status";
@@ -29,7 +36,10 @@ type Props = {
   receivableId: string;
   currency: string;
   balanceDue: string;
-};
+} & (
+  | { embedded?: false; documentId?: undefined; onRegistered?: undefined }
+  | { embedded: true; documentId: string; onRegistered: () => void }
+);
 
 const initialState: PaymentState = {};
 
@@ -41,22 +51,32 @@ function today(): string {
   return `${y}-${m}-${d}`;
 }
 
-export function RegisterPaymentDialog({
-  receivableId,
-  currency,
-  balanceDue,
-}: Props) {
+export function RegisterPaymentDialog(props: Props) {
+  const { receivableId, currency, balanceDue } = props;
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const bound = registerPaymentAction.bind(null, receivableId);
+  const bound = props.embedded
+    ? registerPaymentForDialogAction.bind(null, receivableId, props.documentId)
+    : registerPaymentAction.bind(null, receivableId);
   const [state, formAction, pending] = useActionState(bound, initialState);
 
   useEffect(() => {
     if (open) dialogRef.current?.focus();
   }, [open]);
+
+  const lastHandled = useRef<PaymentState | null>(null);
+  useEffect(() => {
+    if (props.embedded && state.success && lastHandled.current !== state) {
+      lastHandled.current = state;
+      props.onRegistered();
+      setOpen(false);
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   function close() {
     if (pending) return;

@@ -40,7 +40,7 @@ function documentRegion(page: Page) {
 // El paso "Finalizar" (Estado/Reabrir/Descargar Word) vive en su propio
 // panel del stepper, oculto por defecto (el paso inicial es "Completar").
 async function goToFinalizar(page: Page) {
-  await page.getByRole("tab", { name: "Finalizar" }).click();
+  await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
   await expect(
     page.getByRole("heading", { name: "Estado de la escritura" }),
   ).toBeVisible();
