@@ -36,7 +36,7 @@ test.describe("document milestone feedback", () => {
     await runCleanup(registry, "document-milestone-feedback");
   });
 
-  test("A: creating a draft for the first time shows the milestone banner, its action jumps to Cuentas por cobrar, and a real subsequent save shows the plain message instead", async ({
+  test("A: creating a draft for the first time shows the milestone banner, its action jumps to Revisar (not directly to Cobro), and a real subsequent save shows the plain message instead", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -58,24 +58,24 @@ test.describe("document milestone feedback", () => {
     await expect(banner).toBeVisible();
     await expect(
       banner.getByText(
-        "La Escritura ya fue creada. Ahora puedes asociar cuentas por cobrar y continuar completando el documento.",
+        "Cuando completes los campos pendientes, continúa a Revisar para verificar la escritura antes de finalizarla o gestionar cobros.",
       ),
     ).toBeVisible();
     await expect(page).not.toHaveURL(/saved=1/);
 
     const documentId = new URL(page.url()).pathname.split("/").pop();
     await expect(
-      banner.getByRole("link", { name: "Ver Cuentas por cobrar" }),
+      banner.getByRole("link", { name: "Ir a Revisar" }),
     ).toHaveAttribute(
       "href",
-      `/dashboard/documents/${documentId}?section=cobro`,
+      `/dashboard/documents/${documentId}?section=revisar`,
     );
-    await banner.getByRole("link", { name: "Ver Cuentas por cobrar" }).click();
+    await banner.getByRole("link", { name: "Ir a Revisar" }).click();
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
+      new RegExp(`/dashboard/documents/${documentId}\\?section=revisar`),
     );
     await expect(
-      page.getByRole("link", { name: "Nueva cuenta" }),
+      page.getByRole("heading", { name: "Estado de la escritura" }),
     ).toBeVisible();
 
     // Un guardado real posterior muestra el mensaje simple, no el hito.
@@ -129,7 +129,7 @@ test.describe("document milestone feedback", () => {
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await expect(contentEditor(page)).toBeVisible();
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -163,7 +163,7 @@ test.describe("document milestone feedback", () => {
     // "Reabrir escritura" vive en el paso Finalizar, no en Índice notarial
     // — volver ahí primero.
     await page.goto(`/dashboard/documents/${doc.id}`);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
 
     // Reabrir usa el mensaje simple existente, sin cambios — no es un hito
     // de esta iteración.

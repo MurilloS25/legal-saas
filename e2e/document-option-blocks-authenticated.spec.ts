@@ -197,7 +197,7 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     const download = await downloadPromise;
@@ -214,14 +214,14 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Finalizar escritura" })
       .click();
     // Finalizar redirige de verdad y reinicia el paso a "Completar".
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).toBeVisible({ timeout: 15_000 });
@@ -234,13 +234,13 @@ test.describe("document option blocks", () => {
     ).toHaveCount(0);
     await expect(documentRegion(page).getByText("CHASIS", { exact: true })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Reabrir escritura" })
       .click();
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeVisible({ timeout: 15_000 });

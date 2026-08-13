@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   createReceivableAction,
+  createReceivableForDialogAction,
   updateReceivableAction,
   type ReceivableState,
 } from "../server/actions";
@@ -54,23 +55,50 @@ type Props = {
        * "create" siempre es true. */
       canWrite: boolean;
     }
+  | {
+      /** Creación contextual dentro de un modal (paso "Cobro" de una
+       * Escritura): nunca navega — `onCreated` recibe la cuenta creada y
+       * `onCancel` cierra el modal sin guardar. */
+      mode: "dialog";
+      defaults?: { client_id?: string; document_id?: string };
+      onCreated: (receivable: NonNullable<ReceivableState["receivable"]>) => void;
+      onCancel: () => void;
+    }
 );
 
 const initialState: ReceivableState = {};
 
 export function ReceivableForm(props: Props) {
   const isEdit = props.mode === "edit";
+  const isDialog = props.mode === "dialog";
   const receivable = isEdit ? props.receivable : null;
   const defaults = !isEdit ? props.defaults : undefined;
-  const returnTo = !isEdit ? (props.returnTo ?? null) : null;
+  const returnTo = props.mode === "create" ? (props.returnTo ?? null) : null;
   const canWrite = isEdit ? props.canWrite : true;
   const financialFieldsLocked = (isEdit ? props.hasPaymentHistory : false) || !canWrite;
 
   const action = isEdit
     ? updateReceivableAction.bind(null, receivable!.id)
-    : createReceivableAction;
+    : isDialog
+      ? createReceivableForDialogAction
+      : createReceivableAction;
 
   const [state, formAction, pending] = useActionState(action, initialState);
+
+  const lastHandled = useRef<ReceivableState | null>(null);
+  useEffect(() => {
+    if (
+      isDialog &&
+      props.mode === "dialog" &&
+      state.success &&
+      state.receivable &&
+      lastHandled.current !== state
+    ) {
+      lastHandled.current = state;
+      props.onCreated(state.receivable);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const [clientMode, setClientMode] = useState<ClientMode>(() =>
     isEdit && !receivable!.client_id ? "free" : "registered",
@@ -101,43 +129,25 @@ export function ReceivableForm(props: Props) {
   const defaultDocumentId =
     receivable?.document_id ?? defaults?.document_id ?? "";
 
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 shrink-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-accent-700"
-            aria-hidden="true"
-          >
-            <rect x="2" y="5" width="20" height="14" rx="2" />
-            <line x1="2" y1="10" x2="22" y2="10" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900">
-            Datos de la cuenta
-          </p>
-          <p className="text-xs text-slate-500">
-            Los campos marcados con{" "}
-            <span aria-hidden="true" className="text-red-500 font-semibold">
-              *
-            </span>{" "}
-            son obligatorios.
-          </p>
-        </div>
-      </div>
+  const requiredHint = (
+    <p className="text-xs text-slate-500">
+      Los campos marcados con{" "}
+      <span aria-hidden="true" className="text-red-500 font-semibold">
+        *
+      </span>{" "}
+      son obligatorios.
+    </p>
+  );
 
-      <form action={formAction} noValidate className="px-6 py-6">
+  const form = (
+    <>
+      <form
+        action={formAction}
+        noValidate
+        className={isDialog ? "" : "px-6 py-6"}
+      >
         {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
+        {isDialog && <div className="mb-4">{requiredHint}</div>}
         {state.message && !state.errors && (
           <div
             role="alert"
@@ -483,12 +493,23 @@ export function ReceivableForm(props: Props) {
         </div>
 
         <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
-          <Link
-            href={returnTo ?? "/dashboard/receivables"}
-            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-          >
-            Cancelar
-          </Link>
+          {isDialog && props.mode === "dialog" ? (
+            <button
+              type="button"
+              onClick={props.onCancel}
+              disabled={pending}
+              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancelar
+            </button>
+          ) : (
+            <Link
+              href={returnTo ?? "/dashboard/receivables"}
+              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+            >
+              Cancelar
+            </Link>
+          )}
           {canWrite && (
             <button
               type="submit"
@@ -504,6 +525,40 @@ export function ReceivableForm(props: Props) {
           )}
         </div>
       </form>
+    </>
+  );
+
+  if (isDialog) return form;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 shrink-0">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-accent-700"
+            aria-hidden="true"
+          >
+            <rect x="2" y="5" width="20" height="14" rx="2" />
+            <line x1="2" y1="10" x2="22" y2="10" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            Datos de la cuenta
+          </p>
+          {requiredHint}
+        </div>
+      </div>
+      {form}
     </div>
   );
 }

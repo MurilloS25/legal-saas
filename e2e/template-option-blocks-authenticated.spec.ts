@@ -45,6 +45,9 @@ function variablesRegion(page: Page) {
 }
 
 async function waitForWorkspace(page: Page) {
+  // Una entrada normal desde la lista abre en "Información" — el editor
+  // vive en "Documento".
+  await page.getByRole("tab", { name: "Documento", exact: true }).click();
   await expect(contentEditor(page)).toBeVisible({ timeout: 10_000 });
 }
 

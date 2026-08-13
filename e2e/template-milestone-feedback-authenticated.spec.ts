@@ -28,11 +28,18 @@ function milestoneBanner(page: Page) {
 
 async function createTemplateViaUi(page: Page, name: string) {
   await page.goto("/dashboard/templates/new");
+  // El nombre vive en el paso "Información" del stepper, visible desde la
+  // creación; el editor vive en "Documento".
+  await page.getByRole("tab", { name: "Información", exact: true }).click();
   await page.getByLabel("Nombre del machote").fill(name);
+  await page.getByRole("tab", { name: "Documento", exact: true }).click();
   await contentEditor(page).click();
   await page.keyboard.type("Contenido de prueba del hito.");
   await page.getByRole("button", { name: "Crear machote" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/?]+$/, {
+  // El `?created=1` es efímero (el propio workspace lo limpia de la URL
+  // apenas monta el hito) y guardar desde "Documento" ahora sí conserva
+  // `?section=document` en el redirect — solo se afirma el id persistido.
+  await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/]+/, {
     timeout: 30_000,
   });
 }
