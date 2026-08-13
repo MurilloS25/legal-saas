@@ -1,23 +1,30 @@
 "use client";
 
 /**
- * Encabezado del workspace de una Escritura: breadcrumb, título/estado en
- * vivo, y el stepper horizontal de navegación entre Completar / Revisar /
- * Cobro / Finalizar / Índice.
+ * Encabezado del workspace de una Escritura — creación y edición: breadcrumb,
+ * título/estado en vivo, y el stepper horizontal de navegación entre
+ * Completar / Revisar y finalizar / Cobro / Índice.
  *
- * A diferencia del stepper de Machotes, aquí sí hay una restricción real:
- * "Índice" permanece bloqueado hasta que la escritura esté finalizada
- * (misma regla que la pestaña deshabilitada que existía antes). El resto de
- * los pasos son siempre navegables.
+ * El stepper es la vista principal desde que se inicia una Escritura nueva:
+ * no existe un flujo alternativo de una sola página para el modo creación.
+ * "Completar" y "Revisar y finalizar" operan sobre estado local puro para
+ * su parte de revisión y son siempre navegables — la finalización en sí
+ * (dentro de ese mismo paso) requiere que la Escritura ya exista. "Cobro"
+ * requiere que la Escritura ya exista (`documentId`) y queda bloqueado
+ * hasta el primer guardado. "Índice" tiene además su restricción de
+ * siempre: permanece bloqueado hasta que la escritura esté finalizada, aun
+ * después de existir.
  *
  * El compositor (valores, cliente, dirty) permanece montado en todo momento
  * — cambiar de sección solo cambia qué panel es visible — así que ir de
  * Completar a Revisar y de vuelta nunca reinicia el formulario ni descarta
- * cambios sin guardar. La URL se mantiene sincronizada (`history.pushState`)
- * igual que en el workspace de Machotes.
+ * cambios sin guardar, tanto antes como después del primer guardado. La URL
+ * se mantiene sincronizada (`history.pushState`) igual que en el workspace
+ * de Machotes.
  *
  * Historial y Duplicar no son pasos del flujo — son acciones independientes
- * que se muestran junto al título, como ya ocurría antes.
+ * que se muestran junto al título, y solo tienen sentido una vez que la
+ * Escritura existe.
  */
 
 import Link from "next/link";
@@ -31,7 +38,6 @@ export type DocumentWorkspaceSection =
   | "completar"
   | "revisar"
   | "cobro"
-  | "finalizar"
   | "notarial";
 
 const STEP_META: Array<{
@@ -46,18 +52,13 @@ const STEP_META: Array<{
   },
   {
     id: "revisar",
-    label: "Revisar",
-    description: "Vista de solo lectura del documento completo, tal como quedará.",
+    label: "Revisar y finalizar",
+    description: "Revisa el documento completo y finaliza la escritura cuando esté lista.",
   },
   {
     id: "cobro",
     label: "Cobro",
     description: "Cuentas por cobrar asociadas a esta escritura.",
-  },
-  {
-    id: "finalizar",
-    label: "Finalizar",
-    description: "Revisa el estado y finaliza la escritura cuando esté lista.",
   },
   {
     id: "notarial",
@@ -66,16 +67,23 @@ const STEP_META: Array<{
   },
 ];
 
+const EMPTY_ACTIVITY: DocumentActivityPage = {
+  items: [],
+  hasMore: false,
+  nextOffset: 0,
+};
+
 type Props = {
-  documentId: string;
+  /** undefined antes del primer guardado — la Escritura todavía no existe. */
+  documentId?: string;
   title: string;
   clientName: string | null;
   status: string;
   section: DocumentWorkspaceSection;
   saveStatusText: string;
   onSectionChange: (section: DocumentWorkspaceSection) => void;
-  activity: DocumentActivityPage;
-  canDuplicate: boolean;
+  activity?: DocumentActivityPage;
+  canDuplicate?: boolean;
 };
 
 export function DocumentWorkspaceHeader({
@@ -87,19 +95,24 @@ export function DocumentWorkspaceHeader({
   saveStatusText,
   onSectionChange,
   activity,
-  canDuplicate,
+  canDuplicate = false,
 }: Props) {
-  const notarialUnlocked = status === "final";
+  const persisted = !!documentId;
+  const notarialUnlocked = persisted && status === "final";
   const completion: Record<DocumentWorkspaceSection, boolean> = {
     completar: false,
-    revisar: false,
+    revisar: status === "final",
     cobro: false,
-    finalizar: status === "final",
     notarial: false,
   };
 
   const steps = STEP_META.map(({ id, label, description }) => {
-    const locked = id === "notarial" && !notarialUnlocked;
+    const needsPersistence = id === "cobro" || id === "notarial";
+    const locked =
+      (needsPersistence && !persisted) || (id === "notarial" && persisted && !notarialUnlocked);
+    const disabledReason = !persisted
+      ? "Disponible después de guardar la escritura por primera vez."
+      : "Disponible después de finalizar la escritura.";
     const stepStatus: StepStatus = locked
       ? "locked"
       : id === section
@@ -112,9 +125,7 @@ export function DocumentWorkspaceHeader({
       label,
       description,
       status: stepStatus,
-      disabledReason: locked
-        ? "Disponible después de finalizar la escritura"
-        : undefined,
+      disabledReason: locked ? disabledReason : undefined,
     };
   });
 
@@ -142,16 +153,21 @@ export function DocumentWorkspaceHeader({
             Cliente: {clientName ?? "Sin cliente"}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {canDuplicate && (
-            <DuplicateDocumentButton
+        {documentId && (
+          <div className="flex items-center gap-2 shrink-0">
+            {canDuplicate && (
+              <DuplicateDocumentButton
+                documentId={documentId}
+                documentTitle={title}
+                variant="full"
+              />
+            )}
+            <DocumentHistoryDialog
               documentId={documentId}
-              documentTitle={title}
-              variant="full"
+              activity={activity ?? EMPTY_ACTIVITY}
             />
-          )}
-          <DocumentHistoryDialog documentId={documentId} activity={activity} />
-        </div>
+          </div>
+        )}
       </div>
       <div className="mt-6">
         <HorizontalStepper

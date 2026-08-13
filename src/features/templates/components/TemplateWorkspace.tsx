@@ -3,19 +3,23 @@
 /**
  * Workspace unificado de machotes.
  *
- * Crear y editar usan exactamente esta interfaz: información básica,
- * editor enriquecido, variables unificadas y preview documental. En modo
- * create todo permanece local hasta guardar (machote + variables se crean
- * en un solo submit); en modo edit se muestra el estado de cambios sin
- * guardar. No hay autoguardado.
+ * Crear y editar usan exactamente esta interfaz, incluyendo el stepper: no
+ * existe un flujo alternativo de una sola página para el modo creación — el
+ * usuario entra al flujo guiado (Información → Documento → Variables →
+ * Índice → Publicar) desde el momento en que presiona "Nuevo machote". En
+ * modo create todo permanece local hasta el primer guardado (machote +
+ * variables se crean en un solo submit, que redirige a la URL de edición);
+ * en modo edit se muestra además el estado de cambios sin guardar. No hay
+ * autoguardado.
  *
- * En modo edit, el contenido se organiza en tres secciones navegables
- * (Documento / Variables / Índice notarial) mediante `TemplateWorkspaceHeader`.
- * Las tres permanecen siempre montadas — solo se ocultan con CSS — para que
- * cambiar de sección nunca reinicie el editor Tiptap ni descarte cambios sin
- * guardar. La configuración del índice notarial vive en un `<form>` propio,
- * hermano del formulario de documento/variables, para evitar formularios
- * anidados.
+ * Los cinco pasos permanecen siempre montados — solo se ocultan con CSS —
+ * para que cambiar de paso nunca reinicie el editor Tiptap ni descarte datos
+ * sin guardar, tanto antes como después del primer guardado. Solo "Índice"
+ * está bloqueado antes de que el machote exista (depende de `template_id`);
+ * el resto de los pasos opera sobre estado local puro y es igual de
+ * funcional en ambos modos. La configuración del índice notarial vive en un
+ * `<form>` propio, hermano del formulario de documento/variables, para
+ * evitar formularios anidados.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -89,12 +93,12 @@ type Props = {
 const initialState: TemplateWorkspaceState = {};
 
 function resolveSection(raw: string | null): TemplateWorkspaceSection {
-  return raw === "information" ||
+  return raw === "document" ||
     raw === "variables" ||
     raw === "notarial" ||
     raw === "publish"
     ? raw
-    : "document";
+    : "information";
 }
 
 // ------------------------------------------------------------------ component
@@ -115,8 +119,12 @@ export function TemplateWorkspace(props: Props) {
   );
   const [dirty, setDirty] = useState(false);
   const [mobileView, setMobileView] = useState<TemplateMobileView>("edit");
+  // "Información" es el primer paso definido — tanto una escritura nueva
+  // como una entrada normal de edición abren ahí (ver `resolveInitialSection`
+  // en la página de edición para la única excepción explícita: preservar el
+  // paso tras el redirect create → edit del primer guardado).
   const [section, setSection] = useState<TemplateWorkspaceSection>(
-    isEdit ? (props.initialSection ?? "document") : "document",
+    isEdit ? (props.initialSection ?? "information") : "information",
   );
   const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
@@ -133,11 +141,17 @@ export function TemplateWorkspace(props: Props) {
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
   // navegación real (evita remontar el editor). `popstate` cubre
-  // atrás/adelante del navegador.
+  // atrás/adelante del navegador. Activo en ambos modos: el stepper es
+  // navegable desde el modo creación también.
   useEffect(() => {
-    if (!isEdit) return;
     function onPopState() {
-      setSection(resolveSection(new URLSearchParams(window.location.search).get("section")));
+      const next = resolveSection(
+        new URLSearchParams(window.location.search).get("section"),
+      );
+      // "notarial" depende de que el machote ya exista — en modo creación,
+      // ignorar un intento de llegar ahí por URL en vez de exponer el
+      // formulario real (que necesita template_id).
+      setSection(next === "notarial" && !isEdit ? "document" : next);
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -147,8 +161,11 @@ export function TemplateWorkspace(props: Props) {
     (next: TemplateWorkspaceSection) => {
       setSection(next);
       if (typeof window === "undefined") return;
+      // "information" es el paso por defecto — se omite de la URL para que
+      // una entrada normal (sin `?section=`) aterrice ahí, igual que
+      // `resolveSection`/`resolveInitialSection` esperan.
       const url =
-        next === "document"
+        next === "information"
           ? window.location.pathname
           : `${window.location.pathname}?section=${next}`;
       window.history.pushState(null, "", url);
@@ -181,10 +198,19 @@ export function TemplateWorkspace(props: Props) {
   // marcamos "complete" cuando hay una condición derivable, igual que ya
   // hace la lista de Variables o el banner de completitud del Índice.
   const informationComplete = name.trim() !== "";
-  const variablesPendingCount = buildVariableRows(variables, contentKeys).filter(
+  const variableRows = buildVariableRows(variables, contentKeys);
+  const variablesPendingCount = variableRows.filter(
     (row) => row.status === "pending",
   ).length;
+  // Un machote sin ninguna variable detectada (texto fijo) es un estado
+  // válido — pero no es lo mismo que "ya revisé las variables y todas
+  // están configuradas". Sin filas que evaluar, el paso no cuenta como
+  // completo (evita el falso check al abrir un machote nuevo vacío).
+  const variablesComplete = variableRows.length > 0 && variablesPendingCount === 0;
   const indexComplete = isEdit ? (props.indexConfiguration?.isComplete ?? false) : false;
+  // El Índice depende de template_id — no puede configurarse antes del
+  // primer guardado, sin importar qué tan completos estén los demás pasos.
+  const indexLocked = !isEdit;
 
   function markDirty() {
     if (!dirty) setDirty(true);
@@ -253,19 +279,18 @@ export function TemplateWorkspace(props: Props) {
 
   return (
     <div>
-      {isEdit && (
-        <TemplateWorkspaceHeader
-          name={name}
-          status={status}
-          section={section}
-          statusText={saveStatusText}
-          onSectionChange={goToSection}
-          informationComplete={informationComplete}
-          variablesPendingCount={variablesPendingCount}
-          indexComplete={indexComplete}
-          actions={props.mode === "edit" ? props.headerActions : undefined}
-        />
-      )}
+      <TemplateWorkspaceHeader
+        name={name}
+        status={status}
+        section={section}
+        statusText={saveStatusText}
+        onSectionChange={goToSection}
+        informationComplete={informationComplete}
+        variablesComplete={variablesComplete}
+        indexComplete={indexComplete}
+        indexLocked={indexLocked}
+        actions={props.mode === "edit" ? props.headerActions : undefined}
+      />
 
       <form ref={formRef} action={formAction} noValidate>
         {/* Datos serializados que acompañan al submit. */}
@@ -275,6 +300,11 @@ export function TemplateWorkspace(props: Props) {
           value={JSON.stringify(documentJson)}
         />
         <input type="hidden" name="variables" value={JSON.stringify(variables)} />
+        {/* Paso activo al momento de guardar — el primer guardado (modo
+            create) lo usa para redirigir a la misma pestaña en vez de
+            reiniciar en "Documento", así la transición create → edit se
+            siente como continuación del mismo stepper. */}
+        <input type="hidden" name="section" value={section} />
         {isEdit && (
           <input
             ref={expectedUpdatedAtRef}
@@ -332,45 +362,41 @@ export function TemplateWorkspace(props: Props) {
           </div>
         )}
 
-        {/* ================= Información (solo edit) =================
-            En modo create no hay stepper: nombre/descripción/estado siguen
-            juntos dentro del panel Documento, como siempre. */}
-        {isEdit && (
-          <div
-            id="template-panel-information"
-            role="tabpanel"
-            aria-labelledby="template-tab-information"
-            hidden={section !== "information"}
-          >
-            <TemplateMetadataForm
-              name={name}
-              description={description}
-              status={status}
-              errors={state.errors}
-              disabled={!canWrite}
-              fieldset="info"
-              onNameChange={(value) => {
-                setName(value);
-                markDirty();
-              }}
-              onDescriptionChange={(value) => {
-                setDescription(value);
-                markDirty();
-              }}
-              onStatusChange={(value) => {
-                setStatus(value);
-                markDirty();
-              }}
-            />
-          </div>
-        )}
+        {/* ================= Información ================= */}
+        <div
+          id="template-panel-information"
+          role="tabpanel"
+          aria-labelledby="template-tab-information"
+          hidden={section !== "information"}
+        >
+          <TemplateMetadataForm
+            name={name}
+            description={description}
+            status={status}
+            errors={state.errors}
+            disabled={!canWrite}
+            fieldset="info"
+            onNameChange={(value) => {
+              setName(value);
+              markDirty();
+            }}
+            onDescriptionChange={(value) => {
+              setDescription(value);
+              markDirty();
+            }}
+            onStatusChange={(value) => {
+              setStatus(value);
+              markDirty();
+            }}
+          />
+        </div>
 
         {/* ================= Documento ================= */}
         <div
           id="template-panel-document"
-          role={isEdit ? "tabpanel" : undefined}
-          aria-labelledby={isEdit ? "template-tab-document" : undefined}
-          hidden={isEdit && section !== "document"}
+          role="tabpanel"
+          aria-labelledby="template-tab-document"
+          hidden={section !== "document"}
         >
           <TemplateMobileViewToggle value={mobileView} onChange={setMobileView} />
 
@@ -381,28 +407,6 @@ export function TemplateWorkspace(props: Props) {
             secondaryClassName={mobileView === "edit" ? "hidden xl:block" : ""}
             primary={
               <div className="space-y-6">
-                {!isEdit && (
-                  <TemplateMetadataForm
-                    name={name}
-                    description={description}
-                    status={status}
-                    errors={state.errors}
-                    disabled={!canWrite}
-                    onNameChange={(value) => {
-                      setName(value);
-                      markDirty();
-                    }}
-                    onDescriptionChange={(value) => {
-                      setDescription(value);
-                      markDirty();
-                    }}
-                    onStatusChange={(value) => {
-                      setStatus(value);
-                      markDirty();
-                    }}
-                  />
-                )}
-
                 {/* ---- contenido ---- */}
                 <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                   <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
@@ -441,109 +445,101 @@ export function TemplateWorkspace(props: Props) {
                     />
                   </div>
                 </section>
-
-                {!isEdit && (
-                  <TemplateVariablesPanel
-                    variables={variables}
-                    contentKeys={contentKeys}
-                    onChange={handleVariablesChange}
-                  />
-                )}
               </div>
             }
             secondary={<TemplatePreviewPanel model={previewModel} bare />}
           />
         </div>
 
-        {/* ================= Variables (solo edit) ================= */}
-        {isEdit && (
-          <div
-            id="template-panel-variables"
-            role="tabpanel"
-            aria-labelledby="template-tab-variables"
-            hidden={section !== "variables"}
-          >
-            <TemplateVariablesPanel
-              variables={variables}
-              contentKeys={contentKeys}
-              onChange={handleVariablesChange}
-              onSaveVariable={saveVariableNow}
-              readOnly={!canWrite}
-            />
-          </div>
-        )}
+        {/* ================= Variables ================= */}
+        <div
+          id="template-panel-variables"
+          role="tabpanel"
+          aria-labelledby="template-tab-variables"
+          hidden={section !== "variables"}
+        >
+          <TemplateVariablesPanel
+            variables={variables}
+            contentKeys={contentKeys}
+            onChange={handleVariablesChange}
+            onSaveVariable={isEdit ? saveVariableNow : undefined}
+            readOnly={!canWrite}
+          />
+        </div>
 
-        {/* ================= Publicar (solo edit) ================= */}
-        {isEdit && (
-          <div
-            id="template-panel-publish"
-            role="tabpanel"
-            aria-labelledby="template-tab-publish"
-            hidden={section !== "publish"}
-          >
-            <div className="space-y-6">
-              <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                  <h2 className="text-sm font-semibold text-slate-900">
-                    Resumen antes de publicar
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Publicar solo cambia el estado — no exige que las
-                    variables o el Índice Notarial estén completos.
-                  </p>
+        {/* ================= Publicar ================= */}
+        <div
+          id="template-panel-publish"
+          role="tabpanel"
+          aria-labelledby="template-tab-publish"
+          hidden={section !== "publish"}
+        >
+          <div className="space-y-6">
+            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Resumen antes de publicar
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Publicar solo cambia el estado — no exige que las
+                  variables o el Índice Notarial estén completos.
+                </p>
+              </div>
+              <div className="px-6 py-5 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Nombre</span>
+                  <span className="font-medium text-slate-900">
+                    {name || "Sin nombre"}
+                  </span>
                 </div>
-                <div className="px-6 py-5 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Nombre</span>
-                    <span className="font-medium text-slate-900">
-                      {name || "Sin nombre"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Variables configuradas</span>
-                    <span className="font-medium text-slate-900">
-                      {variables.length - variablesPendingCount} de {variables.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Índice notarial</span>
-                    <span className="font-medium text-slate-900">
-                      {indexComplete ? "Completo" : "Parcial u opcional"}
-                    </span>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Variables configuradas</span>
+                  <span className="font-medium text-slate-900">
+                    {variables.length - variablesPendingCount} de {variables.length}
+                  </span>
                 </div>
-              </section>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Índice notarial</span>
+                  <span className="font-medium text-slate-900">
+                    {isEdit
+                      ? indexComplete
+                        ? "Completo"
+                        : "Parcial u opcional"
+                      : "Disponible después de guardar"}
+                  </span>
+                </div>
+              </div>
+            </section>
 
-              <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                  <h2 className="text-sm font-semibold text-slate-900">Estado</h2>
-                </div>
-                <div className="px-6 py-5 max-w-xs">
-                  <TemplateMetadataForm
-                    name={name}
-                    description={description}
-                    status={status}
-                    errors={state.errors}
-                    disabled={!canWrite}
-                    fieldset="publish"
-                    onNameChange={(value) => {
-                      setName(value);
-                      markDirty();
-                    }}
-                    onDescriptionChange={(value) => {
-                      setDescription(value);
-                      markDirty();
-                    }}
-                    onStatusChange={(value) => {
-                      setStatus(value);
-                      markDirty();
-                    }}
-                  />
-                </div>
-              </section>
-            </div>
+            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                <h2 className="text-sm font-semibold text-slate-900">Estado</h2>
+              </div>
+              <div className="px-6 py-5 max-w-xs">
+                <TemplateMetadataForm
+                  name={name}
+                  description={description}
+                  status={status}
+                  errors={state.errors}
+                  disabled={!canWrite}
+                  fieldset="publish"
+                  onNameChange={(value) => {
+                    setName(value);
+                    markDirty();
+                  }}
+                  onDescriptionChange={(value) => {
+                    setDescription(value);
+                    markDirty();
+                  }}
+                  onStatusChange={(value) => {
+                    setStatus(value);
+                    markDirty();
+                  }}
+                />
+              </div>
+            </section>
           </div>
-        )}
+        </div>
 
         {section !== "notarial" && (
           <TemplateSaveControls
@@ -566,16 +562,17 @@ export function TemplateWorkspace(props: Props) {
 
       {aiHelpOpen && <AiHelpDialog onClose={closeAiHelp} />}
 
-      {/* ================= Índice notarial (solo edit) =================
+      {/* ================= Índice notarial =================
           Hermano del <form> de arriba, no descendiente: tiene su propio
-          <form> con su propia Server Action y no puede anidarse dentro. */}
-      {isEdit && (
-        <div
-          id="template-panel-notarial"
-          role="tabpanel"
-          aria-labelledby="template-tab-notarial"
-          hidden={section !== "notarial"}
-        >
+          <form> con su propia Server Action y no puede anidarse dentro.
+          Bloqueado hasta el primer guardado — depende de template_id. */}
+      <div
+        id="template-panel-notarial"
+        role="tabpanel"
+        aria-labelledby="template-tab-notarial"
+        hidden={section !== "notarial"}
+      >
+        {isEdit ? (
           <TemplateIndexConfigurationSection
             templateId={props.template.id}
             configuration={props.indexConfiguration}
@@ -583,8 +580,18 @@ export function TemplateWorkspace(props: Props) {
             fields={props.indexFields}
             optionBlocks={props.indexOptionBlocks}
           />
-        </div>
-      )}
+        ) : (
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+              <h2 className="text-sm font-semibold text-slate-900">Índice</h2>
+            </div>
+            <div className="px-6 py-8 text-center text-sm text-slate-500">
+              Disponible después de guardar el machote por primera vez.
+              Guarda desde cualquier otro paso para desbloquearlo.
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,14 +1,17 @@
 "use client";
 
 /**
- * Encabezado del workspace de machotes (solo modo edición): breadcrumb,
+ * Encabezado del workspace de machotes — creación y edición: breadcrumb,
  * nombre/estado en vivo, y el stepper horizontal de navegación entre
  * Información / Documento / Variables / Índice notarial / Publicar.
  *
- * A diferencia de un wizard real, ningún paso está bloqueado — el machote
- * no tiene una secuencia obligatoria, así que todos los pasos son siempre
- * navegables; solo cambia si un paso se marca "complete" (con una señal
- * derivada real, ver `TemplateWorkspace`) o queda "current"/"upcoming".
+ * El stepper es la vista principal desde que se presiona "Nuevo machote":
+ * no existe un flujo alternativo de una sola página para el modo creación.
+ * El único paso con una restricción real es "Índice", que requiere que el
+ * machote ya exista (`indexLocked`, controlado por `TemplateWorkspace` según
+ * si hay un `template.id` persistido) — el resto de los pasos operan sobre
+ * estado local y son siempre navegables, tanto antes como después del primer
+ * guardado.
  *
  * El editor Tiptap y el formulario de variables permanecen montados en todo
  * momento, así que cambiar de paso nunca reinicia el editor ni descarta
@@ -68,8 +71,16 @@ type Props = {
   onSectionChange: (section: TemplateWorkspaceSection) => void;
   /** Señales de completitud reales, calculadas por `TemplateWorkspace`. */
   informationComplete: boolean;
-  variablesPendingCount: number;
+  /** true solo cuando hay al menos una variable detectada y ninguna queda
+   * "Pendiente de configurar" — un machote sin variables (texto fijo) no
+   * cuenta como "completo" aquí: no hay nada que evaluar todavía, así que
+   * el paso se ve como cualquier otro paso no visitado, en vez de mostrar
+   * un check que no refleja ninguna revisión real. */
+  variablesComplete: boolean;
   indexComplete: boolean;
+  /** true antes del primer guardado — el machote todavía no existe, así
+   * que el Índice (que depende de `template_id`) no puede configurarse. */
+  indexLocked: boolean;
   actions?: React.ReactNode;
 };
 
@@ -80,22 +91,37 @@ export function TemplateWorkspaceHeader({
   statusText,
   onSectionChange,
   informationComplete,
-  variablesPendingCount,
+  variablesComplete,
   indexComplete,
+  indexLocked,
   actions,
 }: Props) {
   const completion: Record<TemplateWorkspaceSection, boolean> = {
     information: informationComplete,
     document: false,
-    variables: variablesPendingCount === 0,
+    variables: variablesComplete,
     notarial: indexComplete,
     publish: status === "active",
   };
 
   const steps = STEP_META.map(({ id, label, description }) => {
-    const stepStatus: StepStatus =
-      id === section ? "current" : completion[id] ? "complete" : "upcoming";
-    return { id, label, description, status: stepStatus };
+    const locked = id === "notarial" && indexLocked;
+    const stepStatus: StepStatus = locked
+      ? "locked"
+      : id === section
+        ? "current"
+        : completion[id]
+          ? "complete"
+          : "upcoming";
+    return {
+      id,
+      label,
+      description,
+      status: stepStatus,
+      disabledReason: locked
+        ? "Disponible después de guardar el machote por primera vez."
+        : undefined,
+    };
   });
 
   return (

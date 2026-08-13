@@ -39,6 +39,9 @@ function aiHelpDialog(page: Page) {
 async function openWorkspace(page: Page) {
   await expect(async () => {
     await page.goto(templateUrl);
+    // Una entrada normal desde la lista abre en "Información" — el editor
+    // vive en "Documento".
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(contentEditor(page)).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 }

@@ -267,7 +267,14 @@ export async function createDocumentDraftAction(
   }
 
   revalidatePath("/dashboard/documents");
-  redirect(`/dashboard/documents/${data.id}?saved=1`);
+  // Continúa en el mismo paso del stepper en vez de reiniciar en
+  // "Completar" — "cobro"/"notarial" nunca son válidos aquí porque
+  // dependían de que la Escritura ya existiera, exactamente lo que este
+  // guardado acaba de resolver (solo "completar"/"revisar" — que ahora
+  // también incluye la finalización — eran alcanzables antes de guardar).
+  const section = String(formData.get("section") ?? "");
+  const sectionParam = section === "revisar" ? "&section=revisar" : "";
+  redirect(`/dashboard/documents/${data.id}?saved=1${sectionParam}`);
 }
 
 // ------------------------------------------------------------------ update draft

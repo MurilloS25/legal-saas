@@ -24,8 +24,17 @@ type Props = {
   searchParams: Promise<{ created?: string; section?: string }>;
 };
 
+// Una entrada normal desde la lista (sin `?section=`) siempre abre en
+// "Información" — el primer paso definido del stepper. Solo un valor
+// explícito en la URL (p. ej. el redirect create → edit tras el primer
+// guardado, que preserva el paso donde se guardó) aterriza en otro paso.
 function resolveInitialSection(raw: string | undefined): TemplateWorkspaceSection {
-  return raw === "variables" || raw === "notarial" ? raw : "document";
+  return raw === "document" ||
+    raw === "variables" ||
+    raw === "notarial" ||
+    raw === "publish"
+    ? raw
+    : "information";
 }
 
 export default async function TemplateDetailPage({ params, searchParams }: Props) {

@@ -14,6 +14,8 @@ import {
   parseDocumentReceivablesReturnTo,
 } from "@/lib/navigation/context-return";
 import { receivableHasPaymentHistory } from "./payment-queries";
+import { getReceivableEntry } from "./detail-queries";
+import type { ReceivableEntry } from "../model/types";
 
 type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
 type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
@@ -34,6 +36,9 @@ export type ReceivableState = {
   };
   message?: string;
   success?: boolean;
+  /** Solo poblado por `createReceivableForDialogAction` (modo diálogo,
+   * creación contextual desde una Escritura, que nunca redirige). */
+  receivable?: ReceivableEntry;
 };
 
 export type DeleteReceivableState = {
@@ -104,15 +109,24 @@ function buildReceivableMutation(
 }
 
 // ------------------------------------------------------------------ create
+//
+// `createReceivableRow` es la única lógica de creación: valida e inserta.
+// Dos acciones la envuelven con comportamientos de navegación distintos —
+// la del módulo Cuentas por cobrar (redirige a la cuenta creada, como
+// siempre) y la de creación contextual desde el paso "Cobro" de una
+// Escritura (nunca navega — devuelve la cuenta creada para que el modal de
+// origen la muestre sin abandonar la Escritura).
 
-export async function createReceivableAction(
-  _prevState: ReceivableState,
+async function createReceivableRow(
   formData: FormData,
-): Promise<ReceivableState> {
+): Promise<
+  | { ok: true; id: string; documentId: string | null }
+  | { ok: false; state: ReceivableState }
+> {
   const { supabase, user, workspaceId } = await requireWorkspace();
 
   const result = parseReceivableFormData(formData);
-  if (!result.success) return fieldErrors(result);
+  if (!result.success) return { ok: false, state: fieldErrors(result) };
 
   const mutation = buildReceivableMutation(result.data);
 
@@ -124,9 +138,23 @@ export async function createReceivableAction(
 
   if (error || !data) {
     return {
-      message: "No fue posible crear la cuenta por cobrar. Intenta de nuevo.",
+      ok: false,
+      state: {
+        message: "No fue posible crear la cuenta por cobrar. Intenta de nuevo.",
+      },
     };
   }
+
+  revalidatePath("/dashboard/receivables");
+  return { ok: true, id: data.id, documentId: result.data.document_id };
+}
+
+export async function createReceivableAction(
+  _prevState: ReceivableState,
+  formData: FormData,
+): Promise<ReceivableState> {
+  const result = await createReceivableRow(formData);
+  if (!result.ok) return result.state;
 
   // Revalidado server-side de nuevo: el input oculto viaja desde el
   // cliente, así que nunca se confía en su valor sin volver a chequear el
@@ -135,10 +163,35 @@ export async function createReceivableAction(
     formData.get("returnTo") as string | null,
   );
 
-  revalidatePath("/dashboard/receivables");
   redirect(
-    appendReturnTo(`/dashboard/receivables/${data.id}?created=1`, returnTo),
+    appendReturnTo(`/dashboard/receivables/${result.id}?created=1`, returnTo),
   );
+}
+
+/**
+ * Creación contextual desde el paso "Cobro" de una Escritura: nunca
+ * redirige. El diálogo que la usa cierra el modal y muestra el resumen de
+ * la cuenta recién creada sin abandonar la Escritura.
+ */
+export async function createReceivableForDialogAction(
+  _prevState: ReceivableState,
+  formData: FormData,
+): Promise<ReceivableState> {
+  const result = await createReceivableRow(formData);
+  if (!result.ok) return result.state;
+
+  if (result.documentId) {
+    revalidatePath(`/dashboard/documents/${result.documentId}`);
+  }
+
+  const receivable = await getReceivableEntry(result.id);
+  if (!receivable) {
+    return {
+      message: "La cuenta se creó, pero no fue posible cargar su resumen.",
+    };
+  }
+
+  return { success: true, receivable };
 }
 
 // ------------------------------------------------------------------ update

@@ -5,7 +5,6 @@ import {
   createTestDocument,
   createTestReceivable,
   createTestTemplate,
-  registerCreatedViaUi,
   runCleanup,
   uniqueName,
 } from "./support/factories";
@@ -54,101 +53,70 @@ test.describe("document ↔ receivable context navigation", () => {
     existingReceivableId = receivable.id;
   });
 
-  test("B: creating a receivable from the document's tab shows a back link to it, and creation lands on the new receivable without an auto-redirect", async ({
+  // El paso "Cobro" de la Escritura ya no manda al módulo completo de
+  // Cuentas por cobrar para crear/ver una cuenta — B-E cubrían ese flujo
+  // (enlace "Nueva cuenta" + "Volver a la Escritura"), reemplazado por
+  // operaciones contextuales en modal que nunca navegan fuera de la
+  // Escritura (ver `document-stepper-create-authenticated.spec.ts`, que
+  // cubre el modal de creación end-to-end). Este spec conserva la
+  // cobertura de la ruta directa `/dashboard/receivables/...?returnTo=...`
+  // (F, G, H) y agrega la del resumen contextual con una cuenta que ya
+  // existe.
+
+  test("B: el paso Cobro muestra el resumen de la cuenta existente — sin la tabla ni el enlace 'Nueva cuenta' del flujo viejo — y 'Ver cuenta completa' navega de forma explícita a Cuentas por cobrar", async ({
     page,
   }) => {
     await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
 
-    const newLink = page.getByRole("link", { name: "Nueva cuenta" });
-    const newHref = await newLink.getAttribute("href");
-    expect(newHref).toContain(`document=${documentId}`);
-    expect(newHref).toContain(
-      `returnTo=${encodeURIComponent(`/dashboard/documents/${documentId}?section=cobro`)}`,
-    );
-
-    await newLink.click();
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/new/);
-    await expect(
-      page.getByRole("link", { name: "Volver a la Escritura" }),
-    ).toHaveAttribute(
-      "href",
-      `/dashboard/documents/${documentId}?section=cobro`,
-    );
-
-    const concept = uniqueName("doc-receivable-nav", "concepto-nuevo");
-    await page.getByLabel("Concepto").fill(concept);
-    await page.getByLabel("Monto total").fill("1000");
-    await page.getByRole("button", { name: "Crear cuenta" }).click();
-
-    // No debe haber redirect automático de vuelta a la Escritura: el
-    // usuario debe quedar viendo la cuenta recién creada.
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
-      timeout: 15_000,
+    const cobroSection = page.getByRole("region", {
+      name: "Cuentas por cobrar de la escritura",
     });
-    await expect(page.getByText(concept)).toBeVisible();
+    await expect(cobroSection).toBeVisible();
+    // Ya existe una cuenta: no se ofrece crear otra desde aquí.
     await expect(
-      page.getByRole("link", { name: "Volver a la Escritura" }),
-    ).toHaveAttribute(
-      "href",
-      `/dashboard/documents/${documentId}?section=cobro`,
-    );
+      cobroSection.getByRole("button", { name: "Crear cuenta por cobrar" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Nueva cuenta" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("region", {
+        name: "Tabla de cuentas por cobrar del cliente",
+      }),
+    ).toHaveCount(0);
 
-    // El receivable se creó vía UI (no por factory): se registra para que
-    // el cleanup lo borre antes que el cliente y no viole la FK.
-    await registerCreatedViaUi(registry, "receivables", "concept", concept);
+    const viewLink = cobroSection.getByRole("link", {
+      name: "Ver cuenta completa",
+    });
+    await expect(viewLink).toHaveAttribute(
+      "href",
+      `/dashboard/receivables/${existingReceivableId}`,
+    );
+    await viewLink.click();
+    await expect(page).toHaveURL(
+      new RegExp(`/dashboard/receivables/${existingReceivableId}$`),
+    );
   });
 
-  test("C: the back link returns to the same document, on the receivables tab", async ({
+  test("C: 'Registrar pago' desde Cobro abre un modal y nunca abandona la Escritura", async ({
     page,
   }) => {
-    await page.goto(
-      `/dashboard/documents/${documentId}?section=cobro`,
-    );
-    await page.getByRole("link", { name: "Nueva cuenta" }).click();
-    await page.getByRole("link", { name: "Volver a la Escritura" }).click();
+    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    const cobroSection = page.getByRole("region", {
+      name: "Cuentas por cobrar de la escritura",
+    });
 
+    await cobroSection
+      .getByRole("button", { name: "Registrar pago" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Registrar pago" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toBeHidden();
+
+    // Cancelar no navega — sigue en la misma Escritura, mismo paso.
     await expect(page).toHaveURL(
       new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
-    );
-    // Se confirma la sección activa por su contenido (el paso "Cobro" del
-    // stepper), no navegando el `role="tab"` directamente.
-    await expect(page.getByRole("link", { name: "Nueva cuenta" })).toBeVisible();
-  });
-
-  test("D: cancelling the new-receivable form returns to the same document and tab", async ({
-    page,
-  }) => {
-    await page.goto(
-      `/dashboard/documents/${documentId}?section=cobro`,
-    );
-    await page.getByRole("link", { name: "Nueva cuenta" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/new/);
-
-    await page.getByRole("link", { name: "Cancelar" }).click();
-
-    await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
-    );
-  });
-
-  test("E: opening an existing receivable from the document's tab shows the back link too", async ({
-    page,
-  }) => {
-    await page.goto(
-      `/dashboard/documents/${documentId}?section=cobro`,
-    );
-
-    const row = page.getByRole("region", {
-      name: "Tabla de cuentas por cobrar del cliente",
-    });
-    await row.getByRole("link", { name: "Ver" }).first().click();
-
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/);
-    await expect(
-      page.getByRole("link", { name: "Volver a la Escritura" }),
-    ).toHaveAttribute(
-      "href",
-      `/dashboard/documents/${documentId}?section=cobro`,
     );
   });
 

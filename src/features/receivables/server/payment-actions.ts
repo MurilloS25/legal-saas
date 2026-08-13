@@ -19,6 +19,9 @@ export type PaymentState = {
     reference?: string;
   };
   message?: string;
+  /** Solo poblado por `registerPaymentForDialogAction` (modo diálogo,
+   * registro contextual desde una Escritura, que nunca redirige). */
+  success?: boolean;
 };
 
 export type VoidPaymentState = {
@@ -42,23 +45,31 @@ function registerErrorMessage(code: string | undefined): string {
 }
 
 // ------------------------------------------------------------------ register
+//
+// `registerPaymentRow` es la única lógica de registro: valida y llama la RPC
+// atómica. Dos acciones la envuelven con comportamientos de navegación
+// distintos — la de la propia Cuenta por cobrar (redirige a la pestaña
+// Pagos, como siempre) y la de registro contextual desde el paso "Cobro" de
+// una Escritura (nunca navega — el diálogo de origen se cierra solo).
 
-export async function registerPaymentAction(
+async function registerPaymentRow(
   receivableId: string,
-  _prevState: PaymentState,
   formData: FormData,
-): Promise<PaymentState> {
+): Promise<{ ok: true } | { ok: false; state: PaymentState }> {
   const { supabase } = await requireUser();
 
   const result = parseRegisterPaymentFormData(formData);
   if (!result.success) {
     const fe = result.error.flatten().fieldErrors;
     return {
-      errors: {
-        amount: fe.amount?.[0],
-        paid_at: fe.paid_at?.[0],
-        method: fe.method?.[0],
-        reference: fe.reference?.[0],
+      ok: false,
+      state: {
+        errors: {
+          amount: fe.amount?.[0],
+          paid_at: fe.paid_at?.[0],
+          method: fe.method?.[0],
+          reference: fe.reference?.[0],
+        },
       },
     };
   }
@@ -81,11 +92,40 @@ export async function registerPaymentAction(
   );
 
   if (error) {
-    return { message: registerErrorMessage(error.code) };
+    return { ok: false, state: { message: registerErrorMessage(error.code) } };
   }
 
   revalidatePath(`/dashboard/receivables/${receivableId}`);
+  return { ok: true };
+}
+
+export async function registerPaymentAction(
+  receivableId: string,
+  _prevState: PaymentState,
+  formData: FormData,
+): Promise<PaymentState> {
+  const result = await registerPaymentRow(receivableId, formData);
+  if (!result.ok) return result.state;
+
   redirect(`/dashboard/receivables/${receivableId}?section=payments&paid=1`);
+}
+
+/**
+ * Registro contextual desde el paso "Cobro" de una Escritura: nunca
+ * redirige. El diálogo que la usa se cierra y refresca el resumen sin
+ * abandonar la Escritura.
+ */
+export async function registerPaymentForDialogAction(
+  receivableId: string,
+  documentId: string,
+  _prevState: PaymentState,
+  formData: FormData,
+): Promise<PaymentState> {
+  const result = await registerPaymentRow(receivableId, formData);
+  if (!result.ok) return result.state;
+
+  revalidatePath(`/dashboard/documents/${documentId}`);
+  return { success: true };
 }
 
 // ------------------------------------------------------------------ void

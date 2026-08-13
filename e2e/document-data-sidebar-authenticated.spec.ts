@@ -125,7 +125,10 @@ test.describe("document data sidebar", () => {
     ).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Todos" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pendientes" })).toHaveCount(0);
-    await expect(page.getByRole("tablist")).toHaveCount(0);
+    // El stepper de pasos de la escritura sí es un tablist real (chrome del
+    // workspace, no de este panel) — se acota la ausencia de tabs al panel
+    // de datos en sí.
+    await expect(dataPanel(page).getByRole("tablist")).toHaveCount(0);
     // Ningún <input> individual por variable dentro del panel: solo viven
     // en la hoja documental (edición inline) o como inputs ocultos del form.
     await expect(
@@ -164,8 +167,10 @@ test.describe("document data sidebar", () => {
     await fillInlineField(page, "parte.dos", "Persona Dos");
     await fillInlineField(page, "vehiculo.chasis", "CHASIS-001");
     await expect(page.getByText("3 de 3 campos completos")).toBeVisible();
+    // El mismo texto de progreso también vive en el paso "Revisar" (siempre
+    // montado, aunque oculto) — se acota al panel de datos de "Completar".
     await expect(
-      page.getByText("Todos los campos están completos."),
+      dataPanel(page).getByText("Todos los campos están completos."),
     ).toBeVisible();
 
     // Cambiar a la variante de dos campos agrega "vehiculo.serie" (vacío)
@@ -214,8 +219,12 @@ test.describe("document data sidebar", () => {
     await chasisInput.blur();
 
     // Con la variante predeterminada (un solo campo) ya no queda nada
-    // pendiente: la acción se deshabilita.
-    await expect(page.getByText("Todos los campos están completos.")).toBeVisible();
+    // pendiente: la acción se deshabilita. El mismo texto también vive en
+    // el paso "Revisar" (siempre montado, aunque oculto) — se acota al
+    // panel de datos de "Completar".
+    await expect(
+      dataPanel(page).getByText("Todos los campos están completos."),
+    ).toBeVisible();
     await expect(nextPending).toBeDisabled();
   });
 

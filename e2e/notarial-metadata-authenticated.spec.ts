@@ -187,7 +187,7 @@ test.describe("notarial index metadata", () => {
   }) => {
     await open(page, workingId, "document");
 
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })
@@ -211,7 +211,7 @@ test.describe("notarial index metadata", () => {
     await inlineInput.blur();
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    await page.getByRole("tab", { name: "Finalizar" }).click();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "Finalizar escritura" })

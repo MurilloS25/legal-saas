@@ -59,7 +59,7 @@ function documentRegion(page: Page) {
 
 /** "Descargar Word" vive en el paso Finalizar, un panel independiente. */
 async function goToFinalizar(page: Page) {
-  await page.getByRole("tab", { name: "Finalizar" }).click();
+  await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
 }
 
 async function goToCompletar(page: Page) {
