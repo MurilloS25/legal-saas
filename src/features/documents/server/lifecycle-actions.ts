@@ -174,7 +174,11 @@ export async function markDocumentFinalAction(
   void _formData;
   const result = await transitionDocument(documentId, "mark_final");
   if (result.success) {
-    redirect(`/dashboard/documents/${documentId}?lifecycle=finalized`);
+    // Finalizar completa el paso "Revisar y finalizar" — avanza a "Cobro",
+    // el siguiente paso del flujo guiado. Antes este redirect no llevaba
+    // `section`, así que la página caía en su default ("completar"): el
+    // bug que hacía que finalizar pareciera devolver al primer paso.
+    redirect(`/dashboard/documents/${documentId}?lifecycle=finalized&section=cobro`);
   }
   return result;
 }
@@ -188,7 +192,11 @@ export async function reopenDocumentAction(
   void _formData;
   const result = await transitionDocument(documentId, "reopen");
   if (result.success) {
-    redirect(`/dashboard/documents/${documentId}?lifecycle=reopened`);
+    // Reabrir deshace la finalización — no "completa" nada, así que se
+    // conserva el paso donde vive la acción ("Revisar y finalizar") en vez
+    // de avanzar. Mismo bug que finalizar: sin `section` explícito, este
+    // redirect también caía en el paso por defecto.
+    redirect(`/dashboard/documents/${documentId}?lifecycle=reopened&section=revisar`);
   }
   return result;
 }

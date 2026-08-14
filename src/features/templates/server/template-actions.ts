@@ -11,6 +11,27 @@ import { buildTemplateContentJson } from "@/lib/editor/content";
 import { TemplateIdSchema } from "../model/templates";
 import type { Database } from "@/lib/supabase/database.types";
 
+// Mínima copia del orden del stepper — usada solo para calcular a qué paso
+// avanzar tras el primer guardado (create → edit). `TemplateWorkspace.tsx`
+// mantiene la copia autoritativa para la navegación en modo edición; ambas
+// deben coincidir si el orden de pasos cambia alguna vez.
+const TEMPLATE_STEP_ORDER = [
+  "information",
+  "document",
+  "variables",
+  "notarial",
+  "publish",
+] as const;
+
+function nextTemplateSection(current: string): string {
+  const index = TEMPLATE_STEP_ORDER.indexOf(
+    current as (typeof TEMPLATE_STEP_ORDER)[number],
+  );
+  return index >= 0 && index < TEMPLATE_STEP_ORDER.length - 1
+    ? TEMPLATE_STEP_ORDER[index + 1]
+    : current;
+}
+
 // ------------------------------------------------------------------ types
 
 export type TemplateWorkspaceState = {
@@ -84,15 +105,14 @@ export async function createTemplateWorkspaceAction(
   if (error || !created) return { message: saveError(error?.code) };
 
   revalidatePath("/dashboard/templates");
-  // Continúa en el mismo paso del stepper en vez de reiniciar en
-  // "Información" (el paso por defecto de una entrada normal) — "notarial"
-  // nunca es válido aquí porque depende de que el machote ya exista,
-  // exactamente lo que este guardado acaba de resolver.
-  const section = String(formData.get("section") ?? "");
-  const sectionParam =
-    section && section !== "information" && section !== "notarial"
-      ? `&section=${section}`
-      : "";
+  // "Guardar y continuar" avanza al siguiente paso del flujo guiado, no
+  // preserva el paso activo — el único botón que dispara este primer
+  // guardado siempre implica "continuar". "notarial" nunca es el destino
+  // aquí porque justo acaba de dejar de estar bloqueado (dependía de que
+  // el machote ya existiera).
+  const section = String(formData.get("section") ?? "information");
+  const next = nextTemplateSection(section);
+  const sectionParam = next && next !== "information" ? `&section=${next}` : "";
   redirect(`/dashboard/templates/${created.template_id}?created=1${sectionParam}`);
 }
 

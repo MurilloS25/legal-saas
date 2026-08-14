@@ -47,9 +47,14 @@ test.describe("document milestone feedback", () => {
     await page.goto(`/dashboard/documents/new/${template.id}`);
     const title = uniqueName("document-milestone", "escritura-a");
     await page.getByLabel("Título de la escritura").fill(title);
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+$/, {
+    // El primer guardado avanza automáticamente a "Revisar y finalizar"
+    // (`&section=revisar`, hardcodeado en `createDocumentDraftAction`), así
+    // que la URL ya no queda sin query string tras el redirect.
+    await expect(
+      page,
+    ).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+\?.*section=revisar/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
@@ -82,9 +87,9 @@ test.describe("document milestone feedback", () => {
     await page.goto(`/dashboard/documents/${documentId}`);
     await expect(savedMilestoneBanner(page)).toHaveCount(0);
     await page.getByLabel("Título de la escritura").fill(`${title} editado`);
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(savedMilestoneBanner(page)).toHaveCount(0);
   });
@@ -99,8 +104,11 @@ test.describe("document milestone feedback", () => {
     await page.goto(`/dashboard/documents/new/${template.id}`);
     const title = uniqueName("document-milestone", "escritura-b");
     await page.getByLabel("Título de la escritura").fill(title);
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+$/, {
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    // El primer guardado avanza automáticamente a "Revisar y finalizar".
+    await expect(
+      page,
+    ).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+\?.*section=revisar/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);

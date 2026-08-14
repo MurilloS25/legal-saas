@@ -154,9 +154,9 @@ test.describe("document docx download", () => {
 
     // Guardar reactiva la descarga (el botón de guardado vive en Completar).
     await goToCompletar(page);
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
     await goToFinalizar(page);
     await expect(button).toBeEnabled();

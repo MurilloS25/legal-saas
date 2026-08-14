@@ -197,8 +197,10 @@ test.describe("notarial index metadata", () => {
       page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Reabrir redirige de verdad y reinicia el paso a "Completar" — la
-    // edición inline vive ahí.
+    // Reabrir redirige de verdad y aterriza en "Revisar y finalizar" (deshace
+    // la finalización, no avanza) — la edición inline vive en "Completar",
+    // hay que volver ahí explícitamente.
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await page
       .getByRole("region", { name: "Documento", exact: true })
       .locator('[data-variable-key="parte.nombre"]')
@@ -209,8 +211,11 @@ test.describe("notarial index metadata", () => {
       .locator('input[data-variable-key="parte.nombre"]');
     await inlineInput.fill("Persona Uno Actualizada");
     await inlineInput.blur();
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
+    // El guardado ya avanza a "Revisar y finalizar" — este clic queda como
+    // no-op idempotente, explícito para no depender de a dónde nos dejó el
+    // guardado.
     await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page

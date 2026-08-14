@@ -119,8 +119,17 @@ test.describe("document lifecycle statuses", () => {
       page.getByRole("tab", { name: "Índice", exact: true }),
     ).toBeEnabled();
 
-    // Finalizar redirige de verdad (server action) y reinicia el paso al
-    // inicial ("Completar") — hay que volver a Finalizar para ver el enlace.
+    // Finalizar redirige de verdad (server action) y avanza el paso activo
+    // a "Cobro" — el siguiente paso del flujo guiado tras completar
+    // "Revisar y finalizar" (antes este redirect no llevaba `section` y
+    // caía en el paso por defecto "Completar", el bug que este fix
+    // corrige). Hay que volver a "Revisar y finalizar" para ver el enlace.
+    await expect(
+      page.getByRole("tab", { name: "Revisar y finalizar", exact: true }),
+    ).toHaveAttribute("aria-selected", "false");
+    await expect(
+      page.getByRole("tab", { name: "Cobro", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
     await goToFinalizar(page);
     await expect(
       page.getByRole("link", { name: "Completar datos del índice" }),

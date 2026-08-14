@@ -171,7 +171,7 @@ test.describe("document option blocks", () => {
       .locator('input[data-variable-key="vehiculo.vin"]')
       .blur();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
@@ -183,7 +183,11 @@ test.describe("document option blocks", () => {
       `${templateName} — Borrador`,
     );
 
+    // El redirect del primer guardado conserva `section=revisar`, así que
+    // `reload()` también recarga en ese paso — volver a "Completar" para ver
+    // la hoja documental.
     await page.reload();
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(documentRegion(page).getByText("CHASIS", { exact: true })).toBeVisible();
     await expect(
       documentRegion(page).getByText("ABC123"),
@@ -220,7 +224,7 @@ test.describe("document option blocks", () => {
       .getByRole("alertdialog")
       .getByRole("button", { name: "Finalizar escritura" })
       .click();
-    // Finalizar redirige de verdad y reinicia el paso a "Completar".
+    // Finalizar redirige de verdad y avanza el paso a "Cobro".
     await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
