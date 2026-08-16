@@ -111,11 +111,14 @@ test.describe("document duplication", () => {
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
+    // Toast disparado por `DocumentLifecycleToast` tras hidratar (antes era
+    // un `<p>` ya presente en el HTML servido) — necesita un timeout mayor
+    // al default de 5s.
     await expect(
       page.getByText("Escritura duplicada como borrador nuevo.", {
         exact: true,
       }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     const copyTitle = `Copia de ${draftTitle}`;
     await expect(

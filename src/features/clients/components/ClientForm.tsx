@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import {
   createClientAction,
   updateClientAction,
@@ -11,6 +11,7 @@ import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 import type { ClientRow } from "../model/types";
 import { DeleteClientButton } from "./DeleteClientButton";
 import { FieldError } from "@/components/forms/FieldError";
+import { useToast } from "@/components/feedback/Toast";
 
 // ------------------------------------------------------------------ styles
 
@@ -49,6 +50,15 @@ export function ClientForm(props: Props) {
     : createClientAction;
 
   const [state, formAction, pending] = useActionState(action, initialState);
+  const { showToast } = useToast();
+  const lastSuccessState = useRef<ClientState | null>(null);
+  useEffect(() => {
+    if (state.success && lastSuccessState.current !== state) {
+      lastSuccessState.current = state;
+      showToast(state.message ?? "Cliente guardado.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -106,14 +116,6 @@ export function ClientForm(props: Props) {
           </div>
         )}
         {/* Global feedback */}
-        {state.success && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
-          >
-            {state.message}
-          </div>
-        )}
         {state.message && !state.success && !state.errors && (
           <div
             role="alert"

@@ -61,11 +61,8 @@ import {
   DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
 } from "./DocumentWorkspaceHeader";
-import {
-  MilestoneFeedback,
-  MilestoneFeedbackAction,
-} from "@/components/feedback/MilestoneFeedback";
 import { useToast } from "@/components/feedback/Toast";
+import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
@@ -216,7 +213,6 @@ export function DocumentComposer(props: Props) {
   });
   const [clientId, setClientId] = useState(props.initialClientId ?? "");
   const [clientOptions, setClientOptions] = useState(clients);
-  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [editingTarget, setEditingTarget] = useState<
     { nodeId: string; variableKey: string } | undefined
   >();
@@ -301,6 +297,33 @@ export function DocumentComposer(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  // El primer guardado en modo creación llega aquí vía redirect del Server
+  // Action (`?saved=1`), no vía `useActionState` — el `state` de este
+  // render arranca vacío, así que el efecto de arriba nunca dispara para
+  // este caso. Se muestra el mismo toast una sola vez al montar y se limpia
+  // el parámetro de la URL para que no reaparezca al recargar o volver
+  // atrás. `firedRef` evita un toast duplicado bajo React Strict Mode (dev):
+  // Strict Mode invoca cada efecto de montaje dos veces sobre la misma
+  // instancia, así que un simple `[]` sin guarda dispararía `showToast` dos
+  // veces.
+  const savedToastFired = useRef(false);
+  useEffect(() => {
+    if (!isEdit || !props.savedJustNow || savedToastFired.current) return;
+    savedToastFired.current = true;
+    showToast("Escritura guardada.");
+    const next = stripSearchParams(
+      window.location.pathname,
+      window.location.search,
+      ["saved"],
+    );
+    const current = window.location.pathname + window.location.search;
+    if (next !== current) {
+      window.history.replaceState(null, "", next);
+    }
+    // Solo debe ejecutarse una vez, al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const roleGroups = useMemo(() => groupVariablesByRole(fields), [fields]);
 
   function applyRoleAutofill(fieldValues: Record<string, string>) {
@@ -361,18 +384,6 @@ export function DocumentComposer(props: Props) {
       : state.success || isEdit
         ? "Guardado"
         : "Sin guardar";
-  const isFirstSaveMilestone =
-    isEdit &&
-    props.savedJustNow &&
-    !state.success &&
-    !state.message &&
-    !state.errors;
-  // El guardado exitoso "normal" ya no tiene un banner propio — lo
-  // confirma el toast disparado en el efecto de arriba.
-  const bannerKind: "milestone" | null =
-    !dirty && !pending && isFirstSaveMilestone && !milestoneDismissed
-      ? "milestone"
-      : null;
 
   const completedCompletar = completarSavedOnceValid && title.trim() !== "";
   const completedCobro =
@@ -548,20 +559,6 @@ export function DocumentComposer(props: Props) {
             siente como continuación del mismo stepper. */}
         <input type="hidden" name="section" value={section} />
 
-        {bannerKind === "milestone" && draft && (
-          <MilestoneFeedback
-            title="Escritura guardada como borrador"
-            description="Cuando completes los campos pendientes, continúa a Revisar para verificar la escritura antes de finalizarla o gestionar cobros."
-            actions={
-              <MilestoneFeedbackAction
-                label="Ir a Revisar"
-                href={`/dashboard/documents/${draft.id}?section=revisar`}
-              />
-            }
-            onDismiss={() => setMilestoneDismissed(true)}
-            clearParams={["saved"]}
-          />
-        )}
         {state.message && (
           <div role="alert" className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {state.message}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/feedback/Toast";
 import { generateIndexParties } from "../model/parties";
 import type {
   InvalidIndexMapping,
@@ -123,6 +124,15 @@ export function TemplateIndexConfigurationSection({
 
   const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const { showToast } = useToast();
+  const lastSuccessState = useRef<TemplateIndexConfigurationState | null>(null);
+  useEffect(() => {
+    if (state.success && lastSuccessState.current !== state) {
+      lastSuccessState.current = state;
+      showToast("Configuración guardada.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
   // Los errores de `party_separator`/`fixed_suffix`/`template_field_ids`
   // solo se muestran dentro de la fila "Partes" — si esa fila estaba
   // colapsada al enviar el formulario, el error de guardado quedaría
@@ -547,7 +557,6 @@ export function TemplateIndexConfigurationSection({
         {allowEmpty && <input type="hidden" name="allow_empty" value="on" />}
 
         {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
-        {state.success && <p role="status" className="mt-4 text-sm text-green-700">Configuración guardada.</p>}
 
         {!readOnly && (
           <div className="mt-5 flex justify-end">

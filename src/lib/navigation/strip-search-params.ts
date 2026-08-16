@@ -2,7 +2,9 @@
  * Quita parámetros de una query string y devuelve la ruta resultante.
  * Función pura (sin `window`/DOM) para poder probarla con vitest; el
  * llamador es quien decide qué hacer con el resultado (típicamente
- * `history.replaceState`, ver `MilestoneFeedback`).
+ * `history.replaceState`, ver `DocumentLifecycleToast` y los efectos de
+ * montaje de toast en `DocumentComposer`/`TemplateWorkspace`/
+ * `ReceivableWorkspace`).
  *
  * Se usa para que un indicador efímero de éxito (`?created=1`,
  * `?lifecycle=finalized`, ...) desaparezca de la URL después de leerse una

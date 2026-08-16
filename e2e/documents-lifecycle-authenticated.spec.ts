@@ -111,9 +111,12 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByText("Escritura finalizada", { exact: true }),
-    ).toBeVisible();
+    // El toast "Escritura finalizada." (reemplazo del antiguo banner) se
+    // autodescarta a los 3.5s y este test ya tarda más que eso llegando
+    // hasta aquí — su cobertura dedicada vive en
+    // `document-milestone-feedback-authenticated.spec.ts` (test B), que lo
+    // verifica inmediatamente tras el click, antes de cualquier otra
+    // aserción.
     // El paso "Índice" del stepper deja de estar bloqueado tras finalizar.
     await expect(
       page.getByRole("tab", { name: "Índice", exact: true }),
@@ -164,9 +167,12 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
+    // Toast disparado por `DocumentLifecycleToast` tras hidratar (antes era
+    // un `<p>` ya presente en el HTML servido) — necesita un timeout mayor
+    // al default de 5s.
     await expect(
       page.getByText("Escritura reabierta como borrador.", { exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
   });
 
