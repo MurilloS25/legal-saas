@@ -123,12 +123,23 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
       timeout: 30_000,
     });
 
-    // El paso activo (Documento) se preserva tras el redirect create → edit
-    // — se siente como continuación del mismo stepper, no un cambio de
-    // pantalla.
+    // El redirect create → edit ya no preserva el paso activo: avanza al
+    // siguiente paso del orden fijo (Documento → Variables), y Documento
+    // pasa a mostrarse como completado (✓) en vez de seguir activo —
+    // `savedOnceValid.document` se vuelve `true` con cualquier guardado
+    // exitoso, sin importar desde qué paso se guardó.
     await expect(
-      page.getByRole("tab", { name: "Documento", exact: true }),
+      page.getByRole("tab", { name: "Variables", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page
+        .getByRole("tab", { name: "Documento", exact: true })
+        .getByText("✓", { exact: true }),
+    ).toBeVisible();
+
+    // El contenido escrito en Documento tampoco se perdió, aunque ya no es
+    // el paso activo tras el redirect.
+    await goToTab(page, "Documento");
     await expect(contentEditor(page)).toContainText(
       "Contenido de la escritura de prueba.",
     );
@@ -145,7 +156,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     await expect(page.getByLabel("Nombre del machote")).toHaveValue(name);
   });
 
-  test("B: guardar desde un paso distinto de Documento (Variables) continúa en ese mismo paso después del redirect", async ({
+  test("B: guardar desde Variables avanza al siguiente paso (Índice) tras el redirect, con Variables marcado como completo", async ({
     page,
   }) => {
     const name = uniqueName("template-stepper-create", "machote-b");
@@ -163,15 +174,21 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     await registerCreatedViaUi(registry, "templates", "name", name);
 
     // El `?created=1` se limpia solo (ver comentario en el test A) — lo
-    // que importa aquí es que `section=variables` sí sobrevive.
+    // que importa aquí es que `section=notarial` sí sobrevive: el redirect
+    // ya no preserva el paso activo, avanza uno (Variables → Índice) según
+    // el orden fijo del stepper.
     await expect(page).toHaveURL(
-      /\/dashboard\/templates\/(?!new)[^/?]+\?.*section=variables/,
+      /\/dashboard\/templates\/(?!new)[^/?]+\?.*section=notarial/,
       { timeout: 30_000 },
     );
+    await expect(indexTab(page)).toHaveAttribute("aria-selected", "true");
     await expect(
-      page.getByRole("tab", { name: "Variables", exact: true }),
-    ).toHaveAttribute("aria-selected", "true");
-    await expect(variablesRegion(page)).toBeVisible();
+      page.getByRole("region", { name: "Configuración del índice notarial" }),
+    ).toBeVisible();
+    // Nota: no se afirma un ✓ en "Variables" aquí — este test no inserta
+    // ninguna variable en el documento, así que `variablesComplete` es
+    // `false` por diseño (ver comentario en `TemplateWorkspace.tsx`: un
+    // machote sin variables detectadas no cuenta como "revisado").
 
     // El contenido escrito en Documento tampoco se perdió, aunque no era
     // el paso activo al guardar.
@@ -230,14 +247,35 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     await dialog.getByRole("button", { name: "Insertar variable" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // Con la única variable detectada ya configurada (el diálogo la deja
-    // "Configurada" de inmediato), el paso sí refleja completitud real.
-    await expect(variablesTab.getByText("✓", { exact: true })).toBeVisible();
+    // La variable ya está "Configurada" localmente (el diálogo la deja así
+    // de inmediato), pero el check de completitud del stepper exige además
+    // un guardado exitoso confirmado (`savedOnceValid` en
+    // `TemplateWorkspace.tsx`) — antes de guardar, el paso no debe mostrar
+    // ✓ todavía, aunque los datos locales ya cumplan la condición.
+    await expect(variablesTab.getByText("✓", { exact: true })).toHaveCount(0);
 
-    await goToTab(page, "Variables");
+    // Guardar desde "Documento" (paso activo) avanza a "Variables" — el
+    // mismo guardado que confirma la completitud recién comprobada.
+    await page.getByRole("button", { name: "Crear machote" }).click();
+    await expect(page).toHaveURL(
+      /\/dashboard\/templates\/(?!new)[^/?]+\?.*section=variables/,
+      { timeout: 30_000 },
+    );
+    await registerCreatedViaUi(registry, "templates", "name", name);
+
+    await expect(variablesTab).toHaveAttribute("aria-selected", "true");
+
     const variableRow = variablesRegion(page)
       .locator("li")
       .filter({ hasText: variableKey });
     await expect(variableRow.getByText("Configurada")).toBeVisible();
+
+    // El paso activo nunca muestra ✓ (su estado es "current", no
+    // "complete" — ver `TemplateWorkspaceHeader.tsx`): hay que salir de
+    // "Variables" para comprobar que, ya no activo, sí refleja
+    // completitud real con la variable configurada y el guardado
+    // confirmado.
+    await goToTab(page, "Información");
+    await expect(variablesTab.getByText("✓", { exact: true })).toBeVisible();
   });
 });

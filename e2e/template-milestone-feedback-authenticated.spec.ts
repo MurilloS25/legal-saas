@@ -37,8 +37,10 @@ async function createTemplateViaUi(page: Page, name: string) {
   await page.keyboard.type("Contenido de prueba del hito.");
   await page.getByRole("button", { name: "Crear machote" }).click();
   // El `?created=1` es efímero (el propio workspace lo limpia de la URL
-  // apenas monta el hito) y guardar desde "Documento" ahora sí conserva
-  // `?section=document` en el redirect — solo se afirma el id persistido.
+  // apenas monta el hito) y crear desde "Documento" ahora avanza al
+  // siguiente paso del flujo guiado (`?section=variables`) en vez de
+  // preservar el paso activo — solo se afirma el id persistido, la sección
+  // resultante no importa para este test.
   await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/]+/, {
     timeout: 30_000,
   });
@@ -121,10 +123,10 @@ test.describe("template milestone feedback", () => {
     // La descripción vive en el paso "Información" del stepper de edición.
     await page.getByRole("tab", { name: "Información", exact: true }).click();
     await page.getByLabel("Descripción (opcional)").fill("Descripción editada");
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(milestoneBanner(page)).toHaveCount(0);
   });

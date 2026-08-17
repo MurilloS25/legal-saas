@@ -52,7 +52,7 @@ test.describe("create a client from the document workspace", () => {
       page.getByRole("button", { name: "+ Crear nuevo cliente" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Guardar cambios" }),
+      page.getByRole("button", { name: "Guardar y continuar" }),
     ).toBeVisible();
   });
 
@@ -152,14 +152,17 @@ test.describe("create a client from the document workspace", () => {
     await registerCreatedViaUi(registry, "clients", "full_name", clientName);
 
     // Guarda y confirma que la asociación persiste tras recargar.
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     const documentId = page.url().match(/documents\/([0-9a-f-]{36})/)![1];
     await registerCreatedViaUi(registry, "documents", "title", title);
 
+    // El guardado avanza a "Revisar y finalizar"; el chip de "Cliente
+    // principal" solo vive en "Completar".
     await page.reload();
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await openClientPrincipalPopover(page);
     await expect(
       page.getByLabel("Cliente principal", { exact: true }),

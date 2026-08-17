@@ -27,7 +27,7 @@
  * porque tiene su propio `<form>`/Server Action (no puede anidarse).
  */
 
-import { useActionState, useCallback, useMemo, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { TemplateDocument } from "@/lib/editor/types";
 import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
@@ -65,6 +65,7 @@ import {
   MilestoneFeedback,
   MilestoneFeedbackAction,
 } from "@/components/feedback/MilestoneFeedback";
+import { useToast } from "@/components/feedback/Toast";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
@@ -77,6 +78,26 @@ import { DocumentReceivableStep } from "./DocumentReceivableStep";
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+
+// Orden fijo del flujo guiado — usado para saber a qué paso avanza
+// "Guardar y continuar" (Completar → Revisar y finalizar) en modo edición.
+// El primer guardado (create → edit) avanza por el mismo criterio desde
+// `content-actions.ts`, que mantiene su propia copia mínima del destino.
+const DOCUMENT_STEP_ORDER: DocumentWorkspaceSection[] = [
+  "completar",
+  "revisar",
+  "cobro",
+  "notarial",
+];
+
+function nextDocumentSection(
+  current: DocumentWorkspaceSection,
+): DocumentWorkspaceSection {
+  const index = DOCUMENT_STEP_ORDER.indexOf(current);
+  return index >= 0 && index < DOCUMENT_STEP_ORDER.length - 1
+    ? DOCUMENT_STEP_ORDER[index + 1]
+    : current;
+}
 
 type SharedProps = {
   document: TemplateDocument;
@@ -202,6 +223,25 @@ export function DocumentComposer(props: Props) {
   const [optionSelections, setOptionSelections] = useState<OptionSelectionsMap>(
     () => draft?.option_selections ?? {},
   );
+  const { showToast } = useToast();
+
+  // "Completar" muestra ✓ solo cuando fue confirmado por un guardado
+  // exitoso Y el título sigue siendo válido ahora mismo — igual que
+  // "Información" en Machotes. En modo edición arranca sembrado desde los
+  // datos ya persistidos; en creación arranca en falso (nada guardado
+  // todavía).
+  const [completarSavedOnceValid, setCompletarSavedOnceValid] = useState(
+    () => isEdit && title.trim() !== "",
+  );
+  // "Cobro" es legítimamente opcional: si ya existe una cuenta por cobrar
+  // vinculada, cuenta como resuelto sin acción extra. Si no, el usuario
+  // puede resolverlo explícitamente con "Continuar a Índice" / "Continuar
+  // sin cobro" (ver `DocumentReceivableStep`) — un estado de sesión, no
+  // persistido: no hay columna ni RPC dedicada para "Cobro resuelto", y no
+  // debe inventarse una solo para este check. Si se recarga la página sin
+  // haber creado una cuenta, es correcto que este acuse desaparezca — es
+  // progreso de navegación, no estado de negocio.
+  const [cobroAcknowledged, setCobroAcknowledged] = useState(false);
 
   // El cliente creado desde el diálogo contextual del chip "Cliente
   // principal" queda seleccionado de inmediato. El de un chip de Parte
@@ -234,6 +274,32 @@ export function DocumentComposer(props: Props) {
     optionSelections,
     draft?.option_selections,
   );
+
+  // Un guardado exitoso (siempre disparado por "Guardar y continuar", el
+  // único submit del formulario compartido) confirma "Completar", muestra
+  // el toast de confirmación, y avanza a "Revisar y finalizar" — pero solo
+  // si el guardado ocurrió estando en "Completar" (evita reaccionar a un
+  // eco de un `state` ya procesado al cambiar de paso).
+  const lastProcessedState = useRef<DocumentDraftState | null>(null);
+  useEffect(() => {
+    if (state.success && lastProcessedState.current !== state) {
+      lastProcessedState.current = state;
+      setCompletarSavedOnceValid(title.trim() !== "");
+      showToast("Escritura guardada.");
+      if (section === "completar") {
+        // `goToSection` sincroniza con un sistema externo (la URL, vía
+        // `history.pushState`) en reacción a que el Server Action ya
+        // confirmó el guardado — exactamente el caso que un efecto debe
+        // cubrir, no estado derivado que debiera calcularse en el render.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        goToSection(nextDocumentSection("completar"));
+      }
+    }
+    // Deliberadamente solo [state]: se lee el valor más reciente de title/
+    // section en cada disparo, pero el efecto solo debe reaccionar a un
+    // guardado nuevo, no a cada tecleo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const roleGroups = useMemo(() => groupVariablesByRole(fields), [fields]);
 
@@ -301,14 +367,16 @@ export function DocumentComposer(props: Props) {
     !state.success &&
     !state.message &&
     !state.errors;
-  const bannerKind: "milestone" | "saved" | null =
-    dirty || pending
-      ? null
-      : isFirstSaveMilestone && !milestoneDismissed
-        ? "milestone"
-        : state.success
-          ? "saved"
-          : null;
+  // El guardado exitoso "normal" ya no tiene un banner propio — lo
+  // confirma el toast disparado en el efecto de arriba.
+  const bannerKind: "milestone" | null =
+    !dirty && !pending && isFirstSaveMilestone && !milestoneDismissed
+      ? "milestone"
+      : null;
+
+  const completedCompletar = completarSavedOnceValid && title.trim() !== "";
+  const completedCobro =
+    isEdit && ((props.receivables.length > 0) || cobroAcknowledged);
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -439,7 +507,7 @@ export function DocumentComposer(props: Props) {
             disabled={pending}
             className="mt-2 w-full rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {pending ? "Guardando…" : "Guardar cambios"}
+            {pending ? "Guardando…" : "Guardar y continuar"}
           </button>
         </div>
       )}
@@ -460,6 +528,8 @@ export function DocumentComposer(props: Props) {
         onSectionChange={goToSection}
         activity={isEdit ? props.activity : undefined}
         canDuplicate={isEdit ? props.canDuplicate : false}
+        completarComplete={completedCompletar}
+        cobroComplete={completedCobro}
       />
 
       <form action={formAction} noValidate>
@@ -491,11 +561,6 @@ export function DocumentComposer(props: Props) {
             onDismiss={() => setMilestoneDismissed(true)}
             clearParams={["saved"]}
           />
-        )}
-        {bannerKind === "saved" && (
-          <div role="status" className="mb-6 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800">
-            Borrador guardado.
-          </div>
         )}
         {state.message && (
           <div role="alert" className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -641,6 +706,10 @@ export function DocumentComposer(props: Props) {
             clientOptions={clientOptions}
             defaultClientId={clientId || undefined}
             canManage={props.canManageReceivables}
+            onContinue={() => {
+              setCobroAcknowledged(true);
+              goToSection("notarial");
+            }}
           />
         ) : (
           <LockedStepPlaceholder title="Cobro" />

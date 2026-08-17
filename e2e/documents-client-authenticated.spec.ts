@@ -125,7 +125,7 @@ test.describe("document ↔ client relationship", () => {
     await closeClientPrincipalPopover(page);
 
     await fillInlineField(page, "comprador.nombre", "Cliente Prueba");
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
@@ -175,12 +175,15 @@ test.describe("document ↔ client relationship", () => {
     await clientSelect.selectOption("");
     await expect(page.getByText("Cambios sin guardar").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
 
+    // El guardado avanza a "Revisar y finalizar"; el chip de "Cliente
+    // principal" solo vive en "Completar".
     await page.reload();
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await openClientPrincipalPopover(page);
     await expect(page.getByLabel("Cliente principal", { exact: true })).toHaveValue(
       "",
@@ -215,7 +218,7 @@ test.describe("document ↔ client relationship", () => {
     // documental (ver nota en el test C).
     await closeClientPrincipalPopover(page);
     await fillInlineField(page, "comprador.nombre", "Otro Cliente");
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
     await expect(
       page.getByText("Escritura guardada como borrador", { exact: true }),

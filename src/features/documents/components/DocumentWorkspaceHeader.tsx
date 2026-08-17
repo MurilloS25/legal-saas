@@ -84,6 +84,16 @@ type Props = {
   onSectionChange: (section: DocumentWorkspaceSection) => void;
   activity?: DocumentActivityPage;
   canDuplicate?: boolean;
+  /**
+   * Señales de completitud reales, calculadas por `DocumentComposer` —
+   * regla única: cada una es `true` solo cuando ese paso fue confirmado por
+   * su propia acción (guardar, finalizar, resolver Cobro explícitamente),
+   * nunca por datos parciales ni por haber sido simplemente visitado.
+   * "Índice" mantiene su comportamiento actual (sin check) — no forma
+   * parte de este ajuste.
+   */
+  completarComplete?: boolean;
+  cobroComplete?: boolean;
 };
 
 export function DocumentWorkspaceHeader({
@@ -96,13 +106,15 @@ export function DocumentWorkspaceHeader({
   onSectionChange,
   activity,
   canDuplicate = false,
+  completarComplete = false,
+  cobroComplete = false,
 }: Props) {
   const persisted = !!documentId;
   const notarialUnlocked = persisted && status === "final";
   const completion: Record<DocumentWorkspaceSection, boolean> = {
-    completar: false,
+    completar: completarComplete,
     revisar: status === "final",
-    cobro: false,
+    cobro: cobroComplete,
     notarial: false,
   };
 

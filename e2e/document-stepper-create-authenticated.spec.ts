@@ -221,7 +221,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     ).toBeVisible();
 
     // Guardar desde Completar (paso activo al guardar).
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
     // El `?saved=1` es efímero — el propio compositor lo limpia de la URL
     // apenas monta el banner de hito, así que solo se afirma el id
@@ -233,12 +233,29 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     // podría no estar comprometida todavía, y el lookup por título fallaría.
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // El paso activo (Completar) se preserva tras el redirect create → edit
-    // — se siente como continuación del mismo stepper, no un cambio de
-    // pantalla. Los datos ingresados siguen ahí.
+    // El guardado desde "Completar" ahora avanza al siguiente paso del
+    // flujo guiado en vez de preservar el paso activo — Completar es
+    // siempre el único paso alcanzable antes de guardar, y su "siguiente"
+    // es siempre "Revisar y finalizar", así que el redirect del server
+    // action aterriza ahí directamente (`&section=revisar`, hardcodeado en
+    // `createDocumentDraftAction`).
     await expect(
-      stepper(page).getByRole("tab", { name: "Completar", exact: true }),
+      stepper(page).getByRole("tab", {
+        name: "Revisar y finalizar",
+        exact: true,
+      }),
     ).toHaveAttribute("aria-selected", "true");
+    // Completar ya muestra ✓ — el guardado que acaba de ocurrir fue exitoso
+    // y el título quedó no vacío.
+    await expect(
+      stepper(page)
+        .getByRole("tab", { name: "Completar", exact: true })
+        .getByText("✓", { exact: true }),
+    ).toBeVisible();
+
+    // Los datos ingresados siguen ahí — hay que volver a "Completar" para
+    // verlos, porque el paso activo tras el redirect ya no es ese panel.
+    await goToStep(page, "Completar");
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
       title,
     );
@@ -248,7 +265,9 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       }),
     ).toBeVisible();
 
-    // El copy del milestone apunta a Revisar, nunca directo a Cobro.
+    // El copy del milestone apunta a Revisar, nunca directo a Cobro. No
+    // depende del paso activo (no está condicionado por `section`), así que
+    // sigue visible incluso tras la navegación manual de vuelta a Completar.
     await expect(
       page.getByText(
         "Cuando completes los campos pendientes, continúa a Revisar para verificar la escritura antes de finalizarla o gestionar cobros.",
@@ -268,7 +287,9 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     );
 
     // Revisar y finalizar ahora expone los controles reales de finalización
-    // (la escritura ya existe).
+    // (la escritura ya existe). Ya estamos en este paso desde el redirect
+    // del guardado; esta navegación es un no-op idempotente que se deja
+    // explícito para no depender de en qué paso nos dejó el bloque anterior.
     await goToStep(page, "Revisar y finalizar");
     await expect(
       revisarPanel(page).getByRole("button", { name: "Finalizar escritura" }),
@@ -319,13 +340,16 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await page.keyboard.press("Escape");
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Cobro");
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
     const documentUrl = new URL(page.url());
 
+    // El guardado ya aterrizó en "Revisar y finalizar" (ver test B), pero la
+    // navegación manual a un paso desbloqueado es independiente de cuál sea
+    // el paso activo — funciona igual desde aquí.
     await goToStep(page, "Cobro");
     await expect(cobroSection(page)).toBeVisible();
     const cobroUrl = new URL(page.url());
