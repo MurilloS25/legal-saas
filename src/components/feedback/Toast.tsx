@@ -29,7 +29,13 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const AUTO_DISMISS_MS = 3500;
+// 5s (no 3.5s): los toasts de ciclo de vida (finalizar/reabrir/duplicar)
+// disparan tras una navegación completa de página, no un cambio de sección
+// en cliente — el efecto de montaje que muestra el toast corre después de
+// que el navegador ya resolvió la navegación, así que un usuario con una
+// conexión o hidratación lentas tiene menos margen para verlo con una
+// ventana corta. 5s da margen real sin sentirse pegajoso.
+const AUTO_DISMISS_MS = 5000;
 
 // Tope de toasts simultáneos: sin límite, una racha de guardados rápidos
 // (p. ej. "Guardar variable" repetido) apilaría indefinidamente y taparía

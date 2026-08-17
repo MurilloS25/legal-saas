@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 import {
   createClientAction,
   updateClientAction,
@@ -11,7 +11,6 @@ import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 import type { ClientRow } from "../model/types";
 import { DeleteClientButton } from "./DeleteClientButton";
 import { FieldError } from "@/components/forms/FieldError";
-import { useToast } from "@/components/feedback/Toast";
 
 // ------------------------------------------------------------------ styles
 
@@ -49,16 +48,12 @@ export function ClientForm(props: Props) {
     ? updateClientAction.bind(null, client!.id)
     : createClientAction;
 
+  // Éxito nunca resuelve en cliente: `createClientAction`/`updateClientAction`
+  // redirigen server-side antes de que este componente pudiera leer
+  // `state.success` — el toast de confirmación lo dispara
+  // `ClientLifecycleToast` en la página de listado tras el redirect
+  // (`?event=created|updated`), no un efecto aquí.
   const [state, formAction, pending] = useActionState(action, initialState);
-  const { showToast } = useToast();
-  const lastSuccessState = useRef<ClientState | null>(null);
-  useEffect(() => {
-    if (state.success && lastSuccessState.current !== state) {
-      lastSuccessState.current = state;
-      showToast(state.message ?? "Cliente guardado.");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
