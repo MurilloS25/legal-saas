@@ -174,7 +174,7 @@ test.describe("document composer workspace", () => {
     });
     draftPath = new URL(page.url()).pathname;
     await expect(
-      page.getByText("Escritura guardada como borrador", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible();
 
     // Register the persisted draft for cleanup (its id survives edits).
@@ -411,7 +411,7 @@ test.describe("document composer workspace", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByText("Escritura guardada como borrador", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible();
     await registerCreatedViaUi(registry, "documents", "title", bareDraftTitle);
 
@@ -483,7 +483,7 @@ test.describe("document composer workspace", () => {
     await fillFieldLive(page, "otorgante.nombre", "Otorgante Estructurado");
     await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Escritura guardada como borrador", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible({ timeout: 30_000 });
     await registerCreatedViaUi(registry, "documents", "title", structuredTitle);
 

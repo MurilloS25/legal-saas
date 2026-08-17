@@ -9,7 +9,6 @@ type Props = {
   balanceDue: string;
   status: string;
   payments: ReceivablePayment[];
-  paidJustNow?: boolean;
   canRegisterPayments: boolean;
   canVoidPayments: boolean;
 };
@@ -20,7 +19,6 @@ export function PaymentsSection({
   balanceDue,
   status,
   payments,
-  paidJustNow,
   canRegisterPayments,
   canVoidPayments,
 }: Props) {
@@ -45,15 +43,6 @@ export function PaymentsSection({
           )}
         </div>
       </div>
-
-      {paidJustNow && (
-        <div
-          role="status"
-          className="mb-4 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"
-        >
-          Pago registrado.
-        </div>
-      )}
 
       {isSettled && (
         <div className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-800">

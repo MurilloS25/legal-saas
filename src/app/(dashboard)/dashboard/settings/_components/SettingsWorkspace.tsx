@@ -13,6 +13,7 @@ import { saveSettingsAction, type SettingsState } from "../actions";
 import { ALLOWED_FONT_FAMILIES } from "@/lib/validations/settings";
 import { FieldError } from "@/components/forms/FieldError";
 import { SettingsActionsBar } from "./SettingsActionsBar";
+import { useToast } from "@/components/feedback/Toast";
 
 export type LawyerProfileData = {
   full_name: string;
@@ -113,12 +114,14 @@ export function SettingsWorkspace({
     initialState,
   );
 
+  const { showToast } = useToast();
   const lastHandled = useRef<SettingsState | null>(null);
   useEffect(() => {
     if (state.success && lastHandled.current !== state) {
       lastHandled.current = state;
       savedRef.current = values;
       setDirty(false);
+      showToast(state.message ?? "Configuración guardada.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -137,14 +140,6 @@ export function SettingsWorkspace({
 
   return (
     <form action={formAction} noValidate className="space-y-6">
-      {state.success && (
-        <div
-          role="status"
-          className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800"
-        >
-          {state.message}
-        </div>
-      )}
       {state.message && !state.success && (
         <div
           role="alert"

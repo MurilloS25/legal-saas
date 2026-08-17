@@ -48,6 +48,11 @@ export function ClientForm(props: Props) {
     ? updateClientAction.bind(null, client!.id)
     : createClientAction;
 
+  // Éxito nunca resuelve en cliente: `createClientAction`/`updateClientAction`
+  // redirigen server-side antes de que este componente pudiera leer
+  // `state.success` — el toast de confirmación lo dispara
+  // `ClientLifecycleToast` en la página de listado tras el redirect
+  // (`?event=created|updated`), no un efecto aquí.
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
@@ -106,14 +111,6 @@ export function ClientForm(props: Props) {
           </div>
         )}
         {/* Global feedback */}
-        {state.success && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
-          >
-            {state.message}
-          </div>
-        )}
         {state.message && !state.success && !state.errors && (
           <div
             role="alert"

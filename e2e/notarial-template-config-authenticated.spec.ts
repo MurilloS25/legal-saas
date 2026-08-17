@@ -166,7 +166,7 @@ async function fillStructuredMetadata(page: Page, instrument: number) {
     .getByRole("button", { name: "Guardar datos del índice" })
     .click();
   await expect(
-    section.getByText("Datos del índice guardados.", { exact: true }),
+    page.getByText("Datos del índice guardados.", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
 }
 
@@ -322,7 +322,7 @@ test.describe("template notarial index configuration", () => {
     ).toBeVisible();
 
     await section.getByRole("button", { name: "Guardar configuración" }).click();
-    await expect(section.getByText("Configuración guardada.")).toBeVisible({
+    await expect(page.getByText("Configuración guardada.")).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -405,7 +405,7 @@ test.describe("template notarial index configuration", () => {
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
     await expect(
-      section.getByText("Datos del índice guardados.", { exact: true }),
+      page.getByText("Datos del índice guardados.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(summaryCount(page, "pendientes")).toHaveText("0");
     await openIndexRow(page, "Partes");
@@ -439,7 +439,7 @@ test.describe("template notarial index configuration", () => {
       .getByRole("button", { name: "Restablecer desde el machote" })
       .click();
     await expect(
-      section.getByText("Partes restablecidas desde el machote."),
+      page.getByText("Partes restablecidas desde el machote."),
     ).toBeVisible({ timeout: 15_000 });
     await expect(section.getByLabel("Partes", { exact: true })).toHaveValue("");
     await expect(
@@ -503,7 +503,7 @@ test.describe("template notarial index configuration", () => {
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
-    await expect(section.getByText("Datos del índice guardados.")).toBeVisible({
+    await expect(page.getByText("Datos del índice guardados.")).toBeVisible({
       timeout: 15_000,
     });
     await page.reload();
