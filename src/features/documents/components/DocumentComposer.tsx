@@ -575,56 +575,46 @@ export function DocumentComposer(props: Props) {
               </div>
             </div>
             <div className="p-4 max-h-[70vh] overflow-y-auto">{documentSheet}</div>
+
+            {/* Estado + acciones finales — franja compacta dentro de la
+                misma card, en vez de una segunda card grande separada solo
+                para dos botones. Requiere que la Escritura ya exista. */}
+            <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+              {isEdit ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-slate-600">
+                    {dirty
+                      ? "Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado."
+                      : totalCount > 0
+                        ? `${completedCount} de ${totalCount} campos completos.`
+                        : "Este machote no tiene variables."}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <DownloadDocxButton
+                      documentId={props.draft.id}
+                      disabled={dirty}
+                      pendingVariableCount={persistedPendingCount}
+                      variant="compact"
+                    />
+                    <DocumentStatusControls
+                      key={status}
+                      documentId={props.draft.id}
+                      status={status}
+                      dirty={dirty}
+                      canFinalize={canFinalize}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Finalizar y descargar estarán disponibles después de
+                  guardar la escritura por primera vez.
+                </p>
+              )}
+            </div>
           </section>
           <div className="mt-4">
             <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
-          </div>
-
-          {/* Finalización — vive en el mismo paso que la revisión: la
-              escritura se aprueba mientras se está viendo, no en una
-              pantalla aparte. Requiere que la Escritura ya exista. */}
-          <div className="mt-4">
-            {isEdit ? (
-              <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                  <h2 className="text-sm font-semibold text-slate-900">Estado de la escritura</h2>
-                  <p className="text-xs text-slate-500">
-                    {totalCount > 0
-                      ? `${completedCount} de ${totalCount} campos completos.`
-                      : "Este machote no tiene variables."}
-                  </p>
-                </div>
-                <div className="px-6 py-5 space-y-4">
-                  {dirty && (
-                    <p className="text-xs text-amber-700">
-                      Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado.
-                    </p>
-                  )}
-                  <DocumentStatusControls
-                    key={status}
-                    documentId={props.draft.id}
-                    status={status}
-                    dirty={dirty}
-                    canFinalize={canFinalize}
-                  />
-                  <DownloadDocxButton
-                    documentId={props.draft.id}
-                    disabled={dirty}
-                    pendingVariableCount={persistedPendingCount}
-                  />
-                </div>
-              </section>
-            ) : (
-              <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                  <h2 className="text-sm font-semibold text-slate-900">Finalizar</h2>
-                </div>
-                <div className="px-6 py-8 text-center text-sm text-slate-500">
-                  Finalizar y descargar estarán disponibles después de
-                  guardar la escritura por primera vez.
-                </div>
-              </section>
-            )}
           </div>
         </div>
       </form>

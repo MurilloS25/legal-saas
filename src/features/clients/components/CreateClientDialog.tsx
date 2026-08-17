@@ -89,8 +89,13 @@ export function CreateClientDialog({ onCreated }: Props) {
       {open &&
         createPortal(
           <>
+          {/* Este diálogo se abre casi siempre DESDE otro ya abierto
+              (Cuenta por cobrar, Partes/Cliente principal de una Escritura)
+              — z-index una capa por encima del estándar del repo (z-40/z-50)
+              para taparlo por completo en vez de competir visualmente con
+              él, incluso si ambos comparten el mismo `document.body`. */}
           <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={close}
           />
@@ -100,8 +105,17 @@ export function CreateClientDialog({ onCreated }: Props) {
             aria-labelledby={titleId}
             ref={dialogRef}
             tabIndex={-1}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
             onKeyDown={(event) => {
+              // React reenvía eventos sintéticos según el árbol de React, no
+              // el DOM — al estar este diálogo anidado (vía props/JSX)
+              // dentro de otro ya abierto (p. ej. "Crear cuenta por
+              // cobrar"), sin cortar la propagación aquí un mismo Escape
+              // burbujea también hasta el onKeyDown del diálogo padre y lo
+              // cierra a él también, aunque ambos estén en portales
+              // distintos del DOM real.
+              event.stopPropagation();
+
               if (event.key === "Escape") {
                 close();
                 return;
