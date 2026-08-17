@@ -135,3 +135,23 @@ export const NOTARIAL_COMPLETENESS_LABEL: Record<NotarialCompleteness, string> =
     incomplete: "Incompleto",
     missing: "Sin datos",
   };
+
+/** Nombre legible de cada campo para mensajes ("Faltan: X, Y y Z."). */
+export const NOTARIAL_MISSING_FIELD_LABEL: Record<NotarialMissingField, string> =
+  {
+    instrument_number: "número de instrumento",
+    authorized_at: "fecha y hora de autorización",
+    protocol_book: "tomo",
+    initial_folio: "folio inicial",
+    final_folio: "folio final",
+    act_name: "acto o contrato",
+    parties: "partes",
+  };
+
+/** "a, b y c" — para incrustar en un mensaje de campos faltantes. */
+export function joinMissingFieldLabels(fields: NotarialMissingField[]): string {
+  const labels = fields.map((field) => NOTARIAL_MISSING_FIELD_LABEL[field]);
+  if (labels.length === 0) return "";
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join(", ")} y ${labels[labels.length - 1]}`;
+}

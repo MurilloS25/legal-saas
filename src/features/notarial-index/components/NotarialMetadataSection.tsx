@@ -25,7 +25,11 @@ import type {
   NotarialMetadataPrefill,
   NotarialPrefillField,
 } from "../model/prefill";
-import { isNotarialComplete } from "../model/notarial";
+import {
+  isNotarialComplete,
+  joinMissingFieldLabels,
+  notarialMissingFields,
+} from "../model/notarial";
 import { FieldError } from "@/components/forms/FieldError";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
@@ -80,7 +84,7 @@ export function NotarialMetadataSection({
   useEffect(() => {
     if (state.success && lastSuccessState.current !== state) {
       lastSuccessState.current = state;
-      showToast(state.successMessage ?? "Datos del índice guardados.");
+      showToast(state.successMessage ?? "Cambios del índice guardados.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -105,7 +109,7 @@ export function NotarialMetadataSection({
     }
   }
 
-  const complete = isNotarialComplete({
+  const liveMetadata = {
     instrument_number: Number(instrument),
     authorized_at: authorizedAt,
     protocol_book: protocolBook,
@@ -116,7 +120,9 @@ export function NotarialMetadataSection({
     parties_override: parties,
     generated_parties:
       metadata?.generated_parties ?? generatedPartiesPreview,
-  });
+  };
+  const complete = isNotarialComplete(liveMetadata);
+  const missingFields = notarialMissingFields(liveMetadata);
 
   function toggleRow(id: RowId) {
     setOpenRowId((current) => (current === id ? null : id));
@@ -197,7 +203,12 @@ export function NotarialMetadataSection({
           configuredCount={configuredCount}
           pendingCount={pendingCount}
           helperText="Completo significa completo según los campos del sistema, no una validación legal."
-          hasWarning={complete === false && configuredCount > 0}
+          hasWarning={!complete}
+          warningMessage={
+            complete
+              ? undefined
+              : `Faltan datos para completar el Índice: ${joinMissingFieldLabels(missingFields)}.`
+          }
         />
 
         <input type="hidden" name="version" value={metadata?.version ?? 1} />

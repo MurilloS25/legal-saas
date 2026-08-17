@@ -165,8 +165,11 @@ async function fillStructuredMetadata(page: Page, instrument: number) {
   await section
     .getByRole("button", { name: "Guardar datos del índice" })
     .click();
+  // Acto/Partes no se llenan aquí a propósito — ya vienen resueltos por el
+  // snapshot/generado del machote, así que con instrumento + fecha + tomo +
+  // folios los ocho valores quedan completos.
   await expect(
-    page.getByText("Datos del índice guardados.", { exact: true }),
+    page.getByText("Datos del índice completos.", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
 }
 
@@ -404,8 +407,11 @@ test.describe("template notarial index configuration", () => {
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
+    // Todos los campos quedaron configurados (línea siguiente lo confirma:
+    // "0 pendientes") — el toast lo refleja con el texto de completitud, no
+    // el genérico de guardado parcial.
     await expect(
-      page.getByText("Datos del índice guardados.", { exact: true }),
+      page.getByText("Datos del índice completos.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(summaryCount(page, "pendientes")).toHaveText("0");
     await openIndexRow(page, "Partes");
@@ -503,9 +509,12 @@ test.describe("template notarial index configuration", () => {
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
-    await expect(page.getByText("Datos del índice guardados.")).toBeVisible({
-      timeout: 15_000,
-    });
+    // El documento ya había quedado completo en el test F — editar solo
+    // Tomo no lo vuelve incompleto, así que sigue siendo el toast de
+    // completitud, no el genérico.
+    await expect(
+      page.getByText("Datos del índice completos.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     await page.reload();
     await openIndexRow(page, "Tomo");
     await expect(

@@ -17,6 +17,7 @@ const templateName = uniqueName("notarial", "machote");
 const instrumentNumber = 100_000 + Math.floor(Math.random() * 100_000);
 let workingId = "";
 let finalId = "";
+let partialId = "";
 
 function notarialSection(page: Page) {
   return page.getByRole("region", { name: "Datos para índice" });
@@ -94,6 +95,14 @@ test.describe("notarial index metadata", () => {
       rendered_content: "ESCRITURA. Comparece Persona Dos.",
     });
     finalId = final.id;
+
+    const partial = await createTestDocument(registry, template.id, {
+      title: uniqueName("notarial", "parcial"),
+      status: "final",
+      field_values: { "parte.nombre": "Persona Tres" },
+      rendered_content: "ESCRITURA. Comparece Persona Tres.",
+    });
+    partialId = partial.id;
   });
 
   test("B: the section starts incomplete and can be completed and saved", async ({
@@ -139,8 +148,11 @@ test.describe("notarial index metadata", () => {
     await section
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
+    // Con todos los campos configurados, el guardado es realmente completo
+    // — el toast lo confirma con ese texto exacto, no el genérico de
+    // "guardado" que también se muestra para un guardado parcial.
     await expect(
-      page.getByText("Datos del índice guardados.", { exact: true }),
+      page.getByText("Datos del índice completos.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -244,12 +256,11 @@ test.describe("notarial index metadata", () => {
       .getByRole("button", { name: "Guardar datos del índice" })
       .click();
     await expect(
-      page.getByText("Datos del índice guardados.", { exact: true }),
+      page.getByText("Datos del índice completos.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       section.getByText(/contenido de la escritura cambió/),
     ).toHaveCount(0);
-
   });
 
   test("F: a finalized document keeps notarial metadata reviewable", async ({
@@ -267,5 +278,68 @@ test.describe("notarial index metadata", () => {
     await expect(
       section.getByRole("button", { name: "Guardar datos del índice" }),
     ).toBeVisible();
+  });
+
+  // Regresión directa del reporte de smoke: guardar metadata incompleta no
+  // debe leerse como "la Escritura ya quedó agregada al Índice". El toast
+  // debe ser el genérico de "cambios guardados" (nunca "completo"/"agregado")
+  // y debe quedar visible, cerca del resumen, cuáles campos faltan.
+  test("G: saving partial metadata shows a modest toast and lists what's missing — never a false success", async ({
+    page,
+  }) => {
+    await open(page, partialId);
+    const section = notarialSection(page);
+
+    await openIndexRow(page, "Número de instrumento");
+    await section
+      .getByLabel("Número de instrumento", { exact: true })
+      .fill(String(900_000 + Math.floor(Math.random() * 90_000)));
+
+    // Todavía faltan Fecha, Tomo, Folios — el resumen ya lo refleja en vivo,
+    // antes de guardar.
+    await expect(
+      section.getByText(/Faltan datos para completar el Índice:/),
+    ).toBeVisible();
+
+    await section
+      .getByRole("button", { name: "Guardar datos del índice" })
+      .click();
+
+    // Nunca el texto que implicaría que el Índice quedó completo/agregado.
+    await expect(
+      page.getByText("Cambios del índice guardados.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("Datos del índice completos.", { exact: true }),
+    ).toHaveCount(0);
+
+    // Y el aviso de campos faltantes sigue visible después de guardar — no
+    // desaparece solo porque hubo un guardado exitoso.
+    await expect(
+      section.getByText(/Faltan datos para completar el Índice:/),
+    ).toBeVisible();
+    await expect(section.getByText(/fecha y hora de autorización/)).toBeVisible();
+  });
+
+  // El check ✓ del paso "Índice" debe reflejar la misma condición real de
+  // completitud que decide si la Escritura aparece sin advertencia en el
+  // Índice Notarial — nunca solo por haber guardado algo.
+  test("H: the stepper only checkmarks Índice when the metadata is actually complete", async ({
+    page,
+  }) => {
+    const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });
+    const indiceTab = stepper.getByRole("tab", { name: "Índice", exact: true });
+
+    // El paso activo nunca muestra su propio ✓ (convención ya existente del
+    // stepper, ver otros pasos) — hay que mirar "Índice" desde un paso
+    // distinto para que su check, si corresponde, sea visible.
+    // workingId quedó completo en el test B/E de esta misma corrida serial.
+    await page.goto(`/dashboard/documents/${workingId}?section=revisar`);
+    await expect(indiceTab.getByText("✓", { exact: true })).toBeVisible();
+
+    // partialId solo tiene el número de instrumento configurado (test G) —
+    // sigue incompleto, así que el paso no debe mostrar ✓.
+    await page.goto(`/dashboard/documents/${partialId}?section=revisar`);
+    await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
   });
 });
