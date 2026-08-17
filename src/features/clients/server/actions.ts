@@ -112,7 +112,7 @@ export async function createClientAction(
   const result = await createClientRow(formData);
   if (!result.ok) return result.state;
 
-  redirect("/dashboard/clients");
+  redirect("/dashboard/clients?event=created");
 }
 
 /**
@@ -156,7 +156,7 @@ export async function updateClientAction(
 
   revalidatePath(`/dashboard/clients/${id}`);
   revalidatePath("/dashboard/clients");
-  redirect("/dashboard/clients");
+  redirect("/dashboard/clients?event=updated");
 }
 
 // ------------------------------------------------------------------ delete

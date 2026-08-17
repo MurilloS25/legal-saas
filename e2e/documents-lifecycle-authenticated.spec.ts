@@ -111,16 +111,28 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByText("Escritura finalizada", { exact: true }),
-    ).toBeVisible();
+    // El toast "Escritura finalizada." (reemplazo del antiguo banner) se
+    // autodescarta a los 3.5s y este test ya tarda más que eso llegando
+    // hasta aquí — su cobertura dedicada vive en
+    // `document-milestone-feedback-authenticated.spec.ts` (test B), que lo
+    // verifica inmediatamente tras el click, antes de cualquier otra
+    // aserción.
     // El paso "Índice" del stepper deja de estar bloqueado tras finalizar.
     await expect(
       page.getByRole("tab", { name: "Índice", exact: true }),
     ).toBeEnabled();
 
-    // Finalizar redirige de verdad (server action) y reinicia el paso al
-    // inicial ("Completar") — hay que volver a Finalizar para ver el enlace.
+    // Finalizar redirige de verdad (server action) y avanza el paso activo
+    // a "Cobro" — el siguiente paso del flujo guiado tras completar
+    // "Revisar y finalizar" (antes este redirect no llevaba `section` y
+    // caía en el paso por defecto "Completar", el bug que este fix
+    // corrige). Hay que volver a "Revisar y finalizar" para ver el enlace.
+    await expect(
+      page.getByRole("tab", { name: "Revisar y finalizar", exact: true }),
+    ).toHaveAttribute("aria-selected", "false");
+    await expect(
+      page.getByRole("tab", { name: "Cobro", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
     await goToFinalizar(page);
     await expect(
       page.getByRole("link", { name: "Completar datos del índice" }),
@@ -152,12 +164,17 @@ test.describe("document lifecycle statuses", () => {
     ).toBeVisible();
     await dialog.getByRole("button", { name: "Reabrir escritura" }).click();
 
+    // El toast se verifica primero: se autodescarta a los 3.5s, y esperar
+    // primero por "Borrador" (que puede tardar en aparecer tras el redirect
+    // + reopen RPC) arriesga consumir esa ventana antes de comprobar el
+    // toast — mismo motivo que en `document-milestone-feedback-
+    // authenticated.spec.ts`.
+    await expect(
+      page.getByText("Escritura reabierta como borrador.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByText("Escritura reabierta como borrador.", { exact: true }),
-    ).toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
   });
 

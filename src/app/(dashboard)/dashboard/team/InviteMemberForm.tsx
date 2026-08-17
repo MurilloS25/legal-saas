@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { inviteMemberAction, type InviteMemberState } from "./actions";
 import { FieldError } from "@/components/forms/FieldError";
 import { INVITABLE_ROLES, ROLE_LABELS } from "@/lib/server/permissions";
+import { useToast } from "@/components/feedback/Toast";
 
 const initialState: InviteMemberState = {};
 
@@ -12,6 +13,15 @@ export function InviteMemberForm() {
     inviteMemberAction,
     initialState,
   );
+  const { showToast } = useToast();
+  const lastSuccessState = useRef<InviteMemberState | null>(null);
+  useEffect(() => {
+    if (state.success && lastSuccessState.current !== state) {
+      lastSuccessState.current = state;
+      showToast(state.message ?? "Invitación enviada.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -23,14 +33,10 @@ export function InviteMemberForm() {
         Workspace.
       </p>
 
-      {state.message && (
+      {state.message && !state.success && (
         <div
           role="alert"
-          className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
-            state.success
-              ? "border-green-200 bg-green-50 text-green-700"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
+          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {state.message}
         </div>

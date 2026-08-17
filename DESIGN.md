@@ -281,11 +281,20 @@ estado vacío (p. ej. "Crear la primera →").
 
 ### Loading / feedback
 
-Botones muestran su propio estado de carga (texto cambia, `disabled`).
-Feedback de éxito: banner `bg-accent-50 border-accent-200 text-accent-800`
-para acciones informativas ("Cuenta creada.", "Pago registrado."), o el
-color semántico correspondiente si el feedback es de otro tipo. Sin
+Botones muestran su propio estado de carga (texto cambia, `disabled`). Sin
 spinners globales de página completa fuera de lo ya existente.
+
+Feedback temporal de éxito/información ("Cuenta creada.", "Pago
+registrado.") usa el sistema de toast (`useToast()` de
+`src/components/feedback/Toast.tsx`), no un banner dentro del layout: se
+autodescarta, no desplaza contenido, y admite cierre manual. Tonos:
+`success` (`bg-emerald-50 border-emerald-200 text-emerald-800`, igual que
+"Éxito / positivo" en la tabla de estados semánticos), `info`
+(`bg-slate-100 border-slate-300 text-slate-700`, igual que "Informativo
+neutro"), `error` (`bg-red-50 border-red-200 text-red-800`). Errores y
+advertencias que deban permanecer visibles junto al campo o acción que
+falló, o bloqueos persistentes (permisos, pasos incompletos), siguen como
+mensajes inline (`role="alert"`) — no se convierten a toast.
 
 ### Preview de documentos
 

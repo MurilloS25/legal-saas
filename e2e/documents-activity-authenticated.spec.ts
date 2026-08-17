@@ -73,7 +73,7 @@ test.describe("document activity history", () => {
   test("B: creating a draft records a creation event", async ({ page }) => {
     await page.goto(`/dashboard/documents/new/${templateId}`);
     await fillInlineField(page, "parte.nombre", "Persona Uno");
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
@@ -95,9 +95,9 @@ test.describe("document activity history", () => {
     await page
       .getByLabel("Cliente principal", { exact: true })
       .selectOption({ label: clientName });
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
@@ -166,9 +166,14 @@ test.describe("document activity history", () => {
     const beforeContentEventCount = await contentEvents.count();
     await page.getByRole("button", { name: "Cerrar historial" }).click();
 
+    // Reabrir aterriza en "Revisar y finalizar" (no avanza — deshace la
+    // finalización), pero el campo de título y el botón "Guardar y
+    // continuar" solo se renderizan en "Completar".
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
+
     // Vaciar un campo requerido bloquea el guardado (operación fallida).
     await fillInlineField(page, "parte.nombre", "");
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
       page.getByText(`${fieldLabel} es requerido`),
     ).toBeVisible({ timeout: 15_000 });

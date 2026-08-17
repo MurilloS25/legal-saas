@@ -52,13 +52,33 @@ import {
   type IndexConfigurationOptionBlock,
   type TemplateIndexConfiguration,
 } from "@/features/notarial-index";
-import {
-  MilestoneFeedback,
-  MilestoneFeedbackAction,
-} from "@/components/feedback/MilestoneFeedback";
+import { useToast } from "@/components/feedback/Toast";
+import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { AiHelpDialog } from "./AiHelpDialog";
+
+// Orden fijo del flujo guiado — "Guardar y continuar" siempre avanza al
+// siguiente paso de esta lista, sin importar desde cuál se guardó. Vive
+// aquí (no en un módulo compartido) porque solo este componente decide
+// navegación tras un guardado en modo edición; `template-actions.ts`
+// mantiene su propia copia mínima para el redirect del primer guardado.
+const TEMPLATE_STEP_ORDER: TemplateWorkspaceSection[] = [
+  "information",
+  "document",
+  "variables",
+  "notarial",
+  "publish",
+];
+
+function nextTemplateSection(
+  current: TemplateWorkspaceSection,
+): TemplateWorkspaceSection {
+  const index = TEMPLATE_STEP_ORDER.indexOf(current);
+  return index >= 0 && index < TEMPLATE_STEP_ORDER.length - 1
+    ? TEMPLATE_STEP_ORDER[index + 1]
+    : current;
+}
 
 // ------------------------------------------------------------------ props
 
@@ -126,7 +146,6 @@ export function TemplateWorkspace(props: Props) {
   const [section, setSection] = useState<TemplateWorkspaceSection>(
     isEdit ? (props.initialSection ?? "information") : "information",
   );
-  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [aiHelpOpen, setAiHelpOpen] = useState(false);
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
@@ -177,18 +196,7 @@ export function TemplateWorkspace(props: Props) {
     ? updateTemplateWorkspaceAction.bind(null, template!.id)
     : createTemplateWorkspaceAction;
   const [state, formAction, pending] = useActionState(action, initialState);
-
-  // Un guardado exitoso limpia el estado de cambios sin guardar.
-  const lastSuccess = useRef<TemplateWorkspaceState | null>(null);
-  useEffect(() => {
-    if (state.success && lastSuccess.current !== state) {
-      lastSuccess.current = state;
-      setDirty(false);
-      if (state.updatedAt && expectedUpdatedAtRef.current) {
-        expectedUpdatedAtRef.current.value = state.updatedAt;
-      }
-    }
-  }, [state]);
+  const { showToast } = useToast();
 
   const { contentKeys, model: previewModel } =
     useTemplatePreview(documentJson);
@@ -211,6 +219,91 @@ export function TemplateWorkspace(props: Props) {
   // El Índice depende de template_id — no puede configurarse antes del
   // primer guardado, sin importar qué tan completos estén los demás pasos.
   const indexLocked = !isEdit;
+
+  // Un paso muestra ✓ solo cuando su condición fue confirmada por un
+  // guardado exitoso (`savedOnceValid`) Y sigue cumpliéndose ahora mismo —
+  // así un check nunca aparece antes de guardar, y desaparece de inmediato
+  // si el usuario deja datos localmente inválidos sin volver a guardar
+  // (sin esperar a un nuevo submit). En modo edición se siembra desde los
+  // valores iniciales (ya persistidos); en creación arranca todo en falso
+  // porque nada se ha guardado todavía.
+  const [savedOnceValid, setSavedOnceValid] = useState<
+    Record<TemplateWorkspaceSection, boolean>
+  >(() => ({
+    information: isEdit && informationComplete,
+    document: isEdit,
+    variables: isEdit && variablesComplete,
+    notarial: isEdit && indexComplete,
+    publish: isEdit && status === "active",
+  }));
+  // "advance" solo lo activa el botón principal "Guardar y continuar" —
+  // "Guardar variable" (autoguardado de Variables) reutiliza el mismo
+  // formulario/acción pero nunca debe navegar de paso.
+  const saveIntentRef = useRef<"advance" | "stay">("stay");
+
+  // Un guardado exitoso limpia el estado de cambios sin guardar, recalcula
+  // qué pasos quedan confirmados con los valores recién guardados, muestra
+  // el toast de confirmación, y avanza al siguiente paso solo si el
+  // guardado vino del botón principal.
+  const lastSuccess = useRef<TemplateWorkspaceState | null>(null);
+  useEffect(() => {
+    if (state.success && lastSuccess.current !== state) {
+      lastSuccess.current = state;
+      setDirty(false);
+      if (state.updatedAt && expectedUpdatedAtRef.current) {
+        expectedUpdatedAtRef.current.value = state.updatedAt;
+      }
+      setSavedOnceValid({
+        information: informationComplete,
+        document: true,
+        variables: variablesComplete,
+        notarial: indexComplete,
+        publish: status === "active",
+      });
+      showToast("Machote guardado.");
+      if (saveIntentRef.current === "advance") {
+        goToSection(nextTemplateSection(section));
+      }
+      saveIntentRef.current = "stay";
+    }
+    // Deliberadamente solo [state]: se leen los valores más recientes de
+    // los demás closures (informationComplete, section, etc.), pero el
+    // efecto solo debe reaccionar a un guardado nuevo, no a cada tecleo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  // El primer guardado en modo creación llega vía redirect del Server
+  // Action (`?created=1`), no vía `useActionState` — el `state` de este
+  // render arranca vacío, así que el efecto de arriba nunca dispara para
+  // este caso. Se muestra el mismo toast una sola vez al montar y se limpia
+  // el parámetro de la URL para que no reaparezca al recargar o volver
+  // atrás. `firedRef` evita un toast duplicado bajo React Strict Mode (dev):
+  // Strict Mode invoca cada efecto de montaje dos veces (monta → limpia →
+  // monta de nuevo) sobre la misma instancia, así que un simple `[]` sin
+  // guarda dispararía `showToast` dos veces.
+  const createdToastFired = useRef(false);
+  useEffect(() => {
+    if (!isEdit || !props.createdJustNow || createdToastFired.current) return;
+    createdToastFired.current = true;
+    showToast("Machote guardado.");
+    const next = stripSearchParams(
+      window.location.pathname,
+      window.location.search,
+      ["created"],
+    );
+    const current = window.location.pathname + window.location.search;
+    if (next !== current) {
+      window.history.replaceState(null, "", next);
+    }
+    // Solo debe ejecutarse una vez, al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const completedInformation = savedOnceValid.information && informationComplete;
+  const completedDocument = savedOnceValid.document;
+  const completedVariables = savedOnceValid.variables && variablesComplete;
+  const completedIndex = savedOnceValid.notarial && indexComplete;
+  const completedPublish = savedOnceValid.publish && status === "active";
 
   function markDirty() {
     if (!dirty) setDirty(true);
@@ -251,25 +344,17 @@ export function TemplateWorkspace(props: Props) {
    * igual aquí.
    */
   function saveVariableNow(next: TemplateWorkspaceVariable[]) {
+    saveIntentRef.current = "stay";
     flushSync(() => {
       handleVariablesChange(next);
     });
     formRef.current?.requestSubmit();
   }
 
-  // El hito "recién creado" solo aplica hasta el primer guardado posterior
-  // real: en cuanto state.success pasa a true por una acción nueva, el
-  // machote deja de ser "recién creado" y vuelve al feedback simple.
-  const isFirstSaveMilestone =
-    isEdit && props.createdJustNow && !state.success && !state.message;
-  const bannerKind: "milestone" | "saved" | null =
-    dirty || pending
-      ? null
-      : isFirstSaveMilestone && !milestoneDismissed
-        ? "milestone"
-        : state.success
-          ? "saved"
-          : null;
+  /** Handler del botón principal — la única acción que debe avanzar de paso. */
+  function handleSaveAndContinueClick() {
+    saveIntentRef.current = "advance";
+  }
 
   const saveStatusText = pending
     ? "Guardando…"
@@ -285,9 +370,11 @@ export function TemplateWorkspace(props: Props) {
         section={section}
         statusText={saveStatusText}
         onSectionChange={goToSection}
-        informationComplete={informationComplete}
-        variablesComplete={variablesComplete}
-        indexComplete={indexComplete}
+        informationComplete={completedInformation}
+        documentComplete={completedDocument}
+        variablesComplete={completedVariables}
+        indexComplete={completedIndex}
+        publishComplete={completedPublish}
         indexLocked={indexLocked}
         actions={props.mode === "edit" ? props.headerActions : undefined}
       />
@@ -317,34 +404,6 @@ export function TemplateWorkspace(props: Props) {
         )}
 
         {/* ---- feedback global ---- */}
-        {bannerKind === "milestone" && (
-          <MilestoneFeedback
-            title="Machote creado correctamente"
-            description="Ahora puedes configurar sus Variables y la información del Índice Notarial."
-            actions={
-              <>
-                <MilestoneFeedbackAction
-                  label="Revisar Variables"
-                  onClick={() => goToSection("variables")}
-                />
-                <MilestoneFeedbackAction
-                  label="Configurar Índice Notarial"
-                  onClick={() => goToSection("notarial")}
-                />
-              </>
-            }
-            onDismiss={() => setMilestoneDismissed(true)}
-            clearParams={["created"]}
-          />
-        )}
-        {bannerKind === "saved" && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-accent-50 border border-accent-200 px-4 py-3 text-sm text-accent-800"
-          >
-            Machote guardado.
-          </div>
-        )}
         {state.message && (
           <div
             role="alert"
@@ -548,6 +607,8 @@ export function TemplateWorkspace(props: Props) {
             saved={!!state.success}
             isEdit={isEdit}
             canWrite={canWrite}
+            hasNextStep={nextTemplateSection(section) !== section}
+            onSaveClick={handleSaveAndContinueClick}
           />
         )}
       </form>

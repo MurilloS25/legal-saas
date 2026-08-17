@@ -221,24 +221,47 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     ).toBeVisible();
 
     // Guardar desde Completar (paso activo al guardar).
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
-    // El `?saved=1` es efímero — el propio compositor lo limpia de la URL
-    // apenas monta el banner de hito, así que solo se afirma el id
-    // persistido, no ese query param.
+    // El `?saved=1` es efímero — un efecto de montaje en `DocumentComposer`
+    // lo limpia de la URL apenas dispara el toast de confirmación (el
+    // primer guardado llega vía redirect del server action, no vía
+    // `useActionState`), así que solo se afirma el id persistido, no ese
+    // query param.
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
+    await expect(
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page).not.toHaveURL(/saved=1/);
     // Registrar solo tras confirmar el redirect — antes de eso la fila
     // podría no estar comprometida todavía, y el lookup por título fallaría.
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // El paso activo (Completar) se preserva tras el redirect create → edit
-    // — se siente como continuación del mismo stepper, no un cambio de
-    // pantalla. Los datos ingresados siguen ahí.
+    // El guardado desde "Completar" ahora avanza al siguiente paso del
+    // flujo guiado en vez de preservar el paso activo — Completar es
+    // siempre el único paso alcanzable antes de guardar, y su "siguiente"
+    // es siempre "Revisar y finalizar", así que el redirect del server
+    // action aterriza ahí directamente (`&section=revisar`, hardcodeado en
+    // `createDocumentDraftAction`).
     await expect(
-      stepper(page).getByRole("tab", { name: "Completar", exact: true }),
+      stepper(page).getByRole("tab", {
+        name: "Revisar y finalizar",
+        exact: true,
+      }),
     ).toHaveAttribute("aria-selected", "true");
+    // Completar ya muestra ✓ — el guardado que acaba de ocurrir fue exitoso
+    // y el título quedó no vacío.
+    await expect(
+      stepper(page)
+        .getByRole("tab", { name: "Completar", exact: true })
+        .getByText("✓", { exact: true }),
+    ).toBeVisible();
+
+    // Los datos ingresados siguen ahí — hay que volver a "Completar" para
+    // verlos, porque el paso activo tras el redirect ya no es ese panel.
+    await goToStep(page, "Completar");
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
       title,
     );
@@ -248,15 +271,16 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       }),
     ).toBeVisible();
 
-    // El copy del milestone apunta a Revisar, nunca directo a Cobro.
+    // El antiguo banner de hito ("Ir a Revisar") desapareció por completo —
+    // el primer guardado en modo creación llega vía redirect, así que el
+    // toast de confirmación se dispara al montar (no vía `useActionState`,
+    // que arranca vacío en esta carga) y no queda como banner permanente.
     await expect(
       page.getByText(
         "Cuando completes los campos pendientes, continúa a Revisar para verificar la escritura antes de finalizarla o gestionar cobros.",
       ),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Ir a Revisar" }),
-    ).toHaveAttribute("href", /\?section=revisar$/);
+    ).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Ir a Revisar" })).toHaveCount(0);
 
     // Cobro queda habilitado; Índice sigue bloqueado porque requiere
     // además que la escritura esté finalizada.
@@ -268,7 +292,9 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     );
 
     // Revisar y finalizar ahora expone los controles reales de finalización
-    // (la escritura ya existe).
+    // (la escritura ya existe). Ya estamos en este paso desde el redirect
+    // del guardado; esta navegación es un no-op idempotente que se deja
+    // explícito para no depender de en qué paso nos dejó el bloque anterior.
     await goToStep(page, "Revisar y finalizar");
     await expect(
       revisarPanel(page).getByRole("button", { name: "Finalizar escritura" }),
@@ -319,13 +345,16 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await page.keyboard.press("Escape");
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Cobro");
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
     const documentUrl = new URL(page.url());
 
+    // El guardado ya aterrizó en "Revisar y finalizar" (ver test B), pero la
+    // navegación manual a un paso desbloqueado es independiente de cuál sea
+    // el paso activo — funciona igual desde aquí.
     await goToStep(page, "Cobro");
     await expect(cobroSection(page)).toBeVisible();
     const cobroUrl = new URL(page.url());
@@ -369,6 +398,12 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await createDialog.getByRole("button", { name: "Crear cuenta" }).click();
 
     await expect(createDialog).toBeHidden();
+    // El toast "Cuenta por cobrar creada." (disparado desde
+    // `DocumentReceivableStep.handleCreated`) tiene cobertura dedicada en
+    // `receivable-milestone-feedback-authenticated.spec.ts` (test A), que lo
+    // verifica inmediatamente tras la creación sin la carga adicional de
+    // este test (varios modales, `router.refresh()`) que lo hacía flaky
+    // aquí por el autodescarte de 3.5s.
     await expect(page).toHaveURL(cobroUrl.toString());
     // El nombre del cliente vive en un <p> anidado tres niveles dentro de
     // la tarjeta de la cuenta (headerInner > headerOuter > cardRoot) — el
@@ -394,6 +429,9 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await payDialog.getByRole("button", { name: "Registrar pago" }).click();
 
     await expect(payDialog).toBeHidden();
+    // El toast "Pago registrado." tiene cobertura dedicada en
+    // `receivable-payments-authenticated.spec.ts` (test B) — mismo motivo
+    // que arriba para no duplicarlo aquí.
     await expect(page).toHaveURL(cobroUrl.toString());
     await expect(summary.getByText("Pagada", { exact: true })).toBeVisible();
     await expect(summary.getByText("₡0,00 CRC")).toBeVisible();

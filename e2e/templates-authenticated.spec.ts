@@ -251,8 +251,8 @@ test.describe("templates module", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByText("Machote creado correctamente", { exact: true }),
-    ).toBeVisible();
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     templateUrl = new URL(page.url()).pathname;
   });
 
@@ -362,10 +362,13 @@ test.describe("templates module", () => {
     await expect(
       page.getByRole("status").filter({ hasText: "Cambios sin guardar" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
 
+    // Guardar exitoso avanza automáticamente al siguiente paso del stepper
+    // (Documento → Variables); la confirmación ahora es un toast transitorio,
+    // no un banner permanente.
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByRole("status").filter({ hasText: "Guardado" }).last(),

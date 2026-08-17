@@ -27,7 +27,8 @@ import {
 } from "@/lib/navigation/context-return";
 import {
   DocumentComposer,
-  DocumentFinalizedMilestone,
+  DocumentLifecycleToast,
+  type DocumentLifecycleEvent,
   type DocumentWorkspaceSection,
 } from "@/features/documents";
 import {
@@ -133,27 +134,14 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       )
     : undefined;
 
+  const lifecycleEvent: DocumentLifecycleEvent | undefined =
+    lifecycle === "finalized" || lifecycle === "reopened" || lifecycle === "duplicated"
+      ? lifecycle
+      : undefined;
+
   return (
     <PageContainer>
-      {lifecycle === "finalized" && (
-        <DocumentFinalizedMilestone documentId={document.id} />
-      )}
-      {lifecycle === "reopened" && (
-        <p
-          role="status"
-          className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm font-medium text-accent-800"
-        >
-          Escritura reabierta como borrador.
-        </p>
-      )}
-      {lifecycle === "duplicated" && (
-        <p
-          role="status"
-          className="mb-4 rounded-lg border border-accent-200 bg-accent-50 px-4 py-3 text-sm font-medium text-accent-800"
-        >
-          Escritura duplicada como borrador nuevo.
-        </p>
-      )}
+      <DocumentLifecycleToast lifecycle={lifecycleEvent} />
 
       {!template ? (
         // Caso raro: el machote de la Escritura ya no existe. Se conserva

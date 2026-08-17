@@ -308,13 +308,17 @@ test.describe("template pasted/typed variable detection", () => {
     await expect(row.getByText("Obligatoria")).toBeVisible();
     await expect(row.getByText("Dígitos en palabras")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
+    // Guardar desde "Variables" avanza automáticamente a "Índice"; hay que
+    // volver explícitamente a "Variables" tras cada reload para inspeccionar
+    // la fila.
     await expect(async () => {
       await page.reload({ waitUntil: "domcontentloaded" });
+      await goToTab(page, "Variables");
       const reloadedRow = variableRow(page, "cedula_compareciente");
       await expect(reloadedRow.getByText("Obligatoria")).toBeVisible({
         timeout: 5_000,
@@ -343,13 +347,17 @@ test.describe("template pasted/typed variable detection", () => {
     await expect(row.getByText("Configurada")).toBeVisible();
     await expect(row.getByText("Folio final")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
+    // Guardar desde "Variables" avanza automáticamente a "Índice"; hay que
+    // volver explícitamente a "Variables" tras cada reload para inspeccionar
+    // la fila.
     await expect(async () => {
       await page.reload({ waitUntil: "domcontentloaded" });
+      await goToTab(page, "Variables");
       await expect(
         variableRow(page, "folio_final").getByText("Configurada"),
       ).toBeVisible({ timeout: 5_000 });
@@ -402,8 +410,9 @@ test.describe("template pasted/typed variable detection", () => {
     await page.getByRole("button", { name: "Guardar variable" }).click();
     await expect(row.getByText("Marca del vehículo")).toBeVisible();
     // "Guardar variable" envía todo el formulario (documento + variables):
-    // no hace falta un clic adicional en "Guardar cambios" para persistir
-    // ni la etiqueta ni el contenido pegado antes.
+    // no hace falta un clic adicional en "Guardar y continuar" para
+    // persistir ni la etiqueta ni el contenido pegado antes. "Guardar
+    // variable" tampoco avanza de paso, así que seguimos en "Variables".
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });

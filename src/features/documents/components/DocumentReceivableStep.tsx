@@ -27,6 +27,7 @@ import {
   type ReceivableEntry,
   type ReceivableState,
 } from "@/features/receivables";
+import { useToast } from "@/components/feedback/Toast";
 
 type Props = {
   documentId: string;
@@ -36,6 +37,12 @@ type Props = {
   defaultClientId?: string;
   /** receivables.manage — controla si se ofrecen las acciones contextuales. */
   canManage: boolean;
+  /**
+   * Resuelve el paso "Cobro" explícitamente y avanza a "Índice" — Cobro es
+   * legítimamente opcional, así que esta es la única forma de marcarlo como
+   * resuelto sin haber creado una cuenta.
+   */
+  onContinue: () => void;
 };
 
 export function DocumentReceivableStep({
@@ -45,8 +52,10 @@ export function DocumentReceivableStep({
   clientOptions,
   defaultClientId,
   canManage,
+  onContinue,
 }: Props) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [receivables, setReceivables] = useState(initialReceivables);
   // `router.refresh()` le entrega props frescas a este componente, pero
   // `useState(initialReceivables)` solo usa ese valor una vez, al montar —
@@ -65,10 +74,12 @@ export function DocumentReceivableStep({
     receivable: NonNullable<ReceivableState["receivable"]>,
   ) {
     setReceivables((current) => [...current, receivable]);
+    showToast("Cuenta por cobrar creada.");
     router.refresh();
   }
 
   function handleRegistered() {
+    showToast("Pago registrado.");
     router.refresh();
   }
 
@@ -105,6 +116,16 @@ export function DocumentReceivableStep({
           ))}
         </div>
       )}
+
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+        >
+          {receivables.length === 0 ? "Continuar sin cobro" : "Continuar a Índice"}
+        </button>
+      </div>
     </section>
   );
 }

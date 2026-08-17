@@ -318,7 +318,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: "Insertar variable" }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar cambios$/ }),
+      page.getByRole("button", { name: /^Guardar y continuar$/ }),
     ).not.toBeVisible();
 
     // Solicitud manipulada: reactiva el campo "Nombre" a mano vía DOM (como
@@ -350,7 +350,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Negrita" })).toBeEnabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar cambios$/ }),
+      page.getByRole("button", { name: /^Guardar y continuar$/ }),
     ).toBeVisible();
   });
 
@@ -367,7 +367,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar cambios$/ }),
+      page.getByRole("button", { name: /^Guardar y continuar$/ }),
     ).not.toBeVisible();
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
@@ -402,7 +402,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).not.toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar cambios$/ }),
+      page.getByRole("button", { name: /^Guardar y continuar$/ }),
     ).toBeVisible();
     // asistente sí puede duplicar (documents.create) pero no finalizar
     // (documents.finalize es solo propietario/administrador).
@@ -427,7 +427,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(page.getByRole("alertdialog")).not.toBeVisible({
       timeout: 15_000,
     });
-    // Finalizar redirige de verdad y reinicia el paso a "Completar".
+    // Finalizar redirige de verdad y avanza el paso a "Cobro".
     await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByText("Finalizada es de solo lectura"),

@@ -107,12 +107,14 @@ test.describe("document docx download", () => {
   test("B: the download button appears on a saved draft", async ({ page }) => {
     await openComposer(page, completeDocId);
     await goToFinalizar(page);
+    // El botón vive en la franja compacta de estado (variant="compact"),
+    // sin el texto de ayuda del formulario completo de Cuentas por cobrar.
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
     await expect(
-      page.getByText("El archivo se genera con la última versión guardada."),
-    ).toBeVisible();
+      page.getByRole("button", { name: "Descargar Word" }),
+    ).toBeEnabled();
   });
 
   test("C: unsaved changes disable the download until saved", async ({
@@ -150,15 +152,11 @@ test.describe("document docx download", () => {
     await fillField("Cliente Uno Editado");
     await expect(button).toBeDisabled();
 
-    await expect(
-      page.getByText("Guarda los cambios antes de descargar el Word."),
-    ).toBeVisible();
-
     // Guardar reactiva la descarga (el botón de guardado vive en Completar).
     await goToCompletar(page);
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Borrador guardado.", { exact: true }),
+      page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
     await goToFinalizar(page);
     await expect(button).toBeEnabled();
