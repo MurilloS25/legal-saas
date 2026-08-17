@@ -194,10 +194,11 @@ export function DocumentStatusControls({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3">
-      <p className="text-xs font-medium text-slate-600 mb-2">
-        Estado de la escritura
-      </p>
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* Antes un <p> visible dentro de una card propia; ahora la franja de
+          estado compacta (DocumentComposer) ya da ese contexto. Se conserva
+          como encabezado accesible sin ocupar espacio visual. */}
+      <h2 className="sr-only">Estado de la escritura</h2>
 
       {status === "draft" && canFinalize && (
         <button
@@ -212,13 +213,13 @@ export function DocumentStatusControls({
       )}
 
       {status === "ready" && (
-        <div>
-          <p className="mb-2 text-xs text-amber-800">
+        <>
+          <p className="w-full text-right text-xs text-amber-800">
             Esta escritura conserva un estado histórico.
             {canFinalize && " Puedes finalizarla o devolverla a borrador."}
           </p>
           {canFinalize && (
-            <div className="flex flex-wrap gap-2">
+            <>
               <button
                 ref={triggerRef}
                 type="button"
@@ -236,14 +237,14 @@ export function DocumentStatusControls({
               >
                 Volver a borrador
               </button>
-            </div>
+            </>
           )}
-        </div>
+        </>
       )}
 
       {status === "final" && (
-        <div>
-          <p className="text-xs text-slate-500 mb-2">
+        <>
+          <p className="w-full text-right text-xs text-slate-500">
             Finalizada es de solo lectura. No significa firmada, presentada ni
             enviada oficialmente.
           </p>
@@ -260,15 +261,15 @@ export function DocumentStatusControls({
           )}
           <Link
             href={`/dashboard/documents/${documentId}?section=notarial`}
-            className="ml-2 inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+            className="inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           >
             Completar datos del índice
           </Link>
-        </div>
+        </>
       )}
 
       {dirty && status !== "final" && (
-        <p className="mt-2 text-xs text-amber-700">
+        <p className="w-full text-right text-xs text-amber-700">
           Guarda los cambios antes de cambiar el estado.
         </p>
       )}
