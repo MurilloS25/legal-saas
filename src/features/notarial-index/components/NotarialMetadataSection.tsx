@@ -14,7 +14,7 @@
  * el bug de FormData ya encontrado y corregido en Machotes.
  */
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
@@ -29,6 +29,7 @@ import { isNotarialComplete } from "../model/notarial";
 import { FieldError } from "@/components/forms/FieldError";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
+import { useToast } from "@/components/feedback/Toast";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
@@ -74,6 +75,15 @@ export function NotarialMetadataSection({
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const { showToast } = useToast();
+  const lastSuccessState = useRef<NotarialMetadataState | null>(null);
+  useEffect(() => {
+    if (state.success && lastSuccessState.current !== state) {
+      lastSuccessState.current = state;
+      showToast(state.successMessage ?? "Datos del índice guardados.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   // Valores controlados para el badge de completitud en vivo.
   const [instrument, setInstrument] = useState(prefill.instrumentNumber.value);
@@ -149,14 +159,6 @@ export function NotarialMetadataSection({
       </div>
 
       <form action={formAction} noValidate className="px-6 py-6">
-        {state.success && (
-          <div
-            role="status"
-            className="mb-6 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800"
-          >
-            {state.successMessage ?? "Datos del índice guardados."}
-          </div>
-        )}
         {state.message && (
           <div
             role="alert"

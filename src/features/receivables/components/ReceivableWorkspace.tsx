@@ -10,7 +10,7 @@
  * nunca reinicia el formulario ni descarta el estado del formulario de pago.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ReceivableActivityEvent,
 } from "../model/activity-format";
@@ -34,10 +34,8 @@ import {
   ReceivableWorkspaceHeader,
   type ReceivableWorkspaceSection,
 } from "./ReceivableWorkspaceHeader";
-import {
-  MilestoneFeedback,
-  MilestoneFeedbackAction,
-} from "@/components/feedback/MilestoneFeedback";
+import { useToast } from "@/components/feedback/Toast";
+import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 
 type Props = {
   entry: ReceivableEntry;
@@ -79,7 +77,7 @@ export function ReceivableWorkspace({
   const [section, setSection] = useState<ReceivableWorkspaceSection>(
     initialSection ?? "account",
   );
-  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
+  const { showToast } = useToast();
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
   // navegación real. `popstate` cubre atrás/adelante del navegador.
@@ -91,6 +89,51 @@ export function ReceivableWorkspace({
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // "Cuenta por cobrar creada" llega vía redirect del Server Action
+  // (`?created=1`) tras crear la cuenta — se muestra como toast una sola
+  // vez al montar (no como banner persistente) y se limpia el parámetro de
+  // la URL para que no reaparezca al recargar o volver atrás. `firedRef`
+  // evita un toast duplicado bajo React Strict Mode (dev), que invoca cada
+  // efecto de montaje dos veces sobre la misma instancia.
+  const createdToastFired = useRef(false);
+  useEffect(() => {
+    if (!createdJustNow || createdToastFired.current) return;
+    createdToastFired.current = true;
+    showToast("Cuenta por cobrar creada.");
+    const next = stripSearchParams(
+      window.location.pathname,
+      window.location.search,
+      ["created"],
+    );
+    const current = window.location.pathname + window.location.search;
+    if (next !== current) {
+      window.history.replaceState(null, "", next);
+    }
+    // Solo debe ejecutarse una vez, al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mismo patrón que "created" arriba, para el pago recién registrado
+  // (`?paid=1`, ver `payment-actions.ts`) — reemplaza el bloque inline que
+  // mostraba `PaymentsSection`.
+  const paidToastFired = useRef(false);
+  useEffect(() => {
+    if (!paidJustNow || paidToastFired.current) return;
+    paidToastFired.current = true;
+    showToast("Pago registrado.");
+    const next = stripSearchParams(
+      window.location.pathname,
+      window.location.search,
+      ["paid"],
+    );
+    const current = window.location.pathname + window.location.search;
+    if (next !== current) {
+      window.history.replaceState(null, "", next);
+    }
+    // Solo debe ejecutarse una vez, al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goToSection = useCallback((next: ReceivableWorkspaceSection) => {
@@ -133,21 +176,6 @@ export function ReceivableWorkspace({
           </>
         }
       />
-
-      {createdJustNow && !milestoneDismissed && (
-        <MilestoneFeedback
-          title="Cuenta por cobrar creada"
-          description="La cuenta ya está disponible. Ahora puedes registrar pagos y consultar su historial."
-          actions={
-            <MilestoneFeedbackAction
-              label="Ver Pagos"
-              onClick={() => goToSection("payments")}
-            />
-          }
-          onDismiss={() => setMilestoneDismissed(true)}
-          clearParams={["created"]}
-        />
-      )}
 
       {/* Resumen de montos — siempre visible, fuera de las pestañas. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-8">
@@ -201,7 +229,6 @@ export function ReceivableWorkspace({
           balanceDue={entry.balance_due}
           status={entry.status}
           payments={payments}
-          paidJustNow={paidJustNow}
           canRegisterPayments={canRegisterPayments}
           canVoidPayments={canVoidPayments}
         />

@@ -251,8 +251,8 @@ test.describe("templates module", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByText("Machote creado correctamente", { exact: true }),
-    ).toBeVisible();
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     templateUrl = new URL(page.url()).pathname;
   });
 

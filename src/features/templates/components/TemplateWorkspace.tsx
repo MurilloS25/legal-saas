@@ -52,11 +52,8 @@ import {
   type IndexConfigurationOptionBlock,
   type TemplateIndexConfiguration,
 } from "@/features/notarial-index";
-import {
-  MilestoneFeedback,
-  MilestoneFeedbackAction,
-} from "@/components/feedback/MilestoneFeedback";
 import { useToast } from "@/components/feedback/Toast";
+import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { AiHelpDialog } from "./AiHelpDialog";
@@ -149,7 +146,6 @@ export function TemplateWorkspace(props: Props) {
   const [section, setSection] = useState<TemplateWorkspaceSection>(
     isEdit ? (props.initialSection ?? "information") : "information",
   );
-  const [milestoneDismissed, setMilestoneDismissed] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [aiHelpOpen, setAiHelpOpen] = useState(false);
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
@@ -276,6 +272,33 @@ export function TemplateWorkspace(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  // El primer guardado en modo creación llega vía redirect del Server
+  // Action (`?created=1`), no vía `useActionState` — el `state` de este
+  // render arranca vacío, así que el efecto de arriba nunca dispara para
+  // este caso. Se muestra el mismo toast una sola vez al montar y se limpia
+  // el parámetro de la URL para que no reaparezca al recargar o volver
+  // atrás. `firedRef` evita un toast duplicado bajo React Strict Mode (dev):
+  // Strict Mode invoca cada efecto de montaje dos veces (monta → limpia →
+  // monta de nuevo) sobre la misma instancia, así que un simple `[]` sin
+  // guarda dispararía `showToast` dos veces.
+  const createdToastFired = useRef(false);
+  useEffect(() => {
+    if (!isEdit || !props.createdJustNow || createdToastFired.current) return;
+    createdToastFired.current = true;
+    showToast("Machote guardado.");
+    const next = stripSearchParams(
+      window.location.pathname,
+      window.location.search,
+      ["created"],
+    );
+    const current = window.location.pathname + window.location.search;
+    if (next !== current) {
+      window.history.replaceState(null, "", next);
+    }
+    // Solo debe ejecutarse una vez, al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const completedInformation = savedOnceValid.information && informationComplete;
   const completedDocument = savedOnceValid.document;
   const completedVariables = savedOnceValid.variables && variablesComplete;
@@ -333,18 +356,6 @@ export function TemplateWorkspace(props: Props) {
     saveIntentRef.current = "advance";
   }
 
-  // El hito "recién creado" solo aplica hasta el primer guardado posterior
-  // real: en cuanto state.success pasa a true por una acción nueva, el
-  // machote deja de ser "recién creado" y vuelve al feedback simple. El
-  // guardado exitoso "normal" ya no tiene un banner propio — lo confirma el
-  // toast disparado en el efecto de arriba.
-  const isFirstSaveMilestone =
-    isEdit && props.createdJustNow && !state.success && !state.message;
-  const bannerKind: "milestone" | null =
-    !dirty && !pending && isFirstSaveMilestone && !milestoneDismissed
-      ? "milestone"
-      : null;
-
   const saveStatusText = pending
     ? "Guardando…"
     : dirty
@@ -393,26 +404,6 @@ export function TemplateWorkspace(props: Props) {
         )}
 
         {/* ---- feedback global ---- */}
-        {bannerKind === "milestone" && (
-          <MilestoneFeedback
-            title="Machote creado correctamente"
-            description="Ahora puedes configurar sus Variables y la información del Índice Notarial."
-            actions={
-              <>
-                <MilestoneFeedbackAction
-                  label="Revisar Variables"
-                  onClick={() => goToSection("variables")}
-                />
-                <MilestoneFeedbackAction
-                  label="Configurar Índice Notarial"
-                  onClick={() => goToSection("notarial")}
-                />
-              </>
-            }
-            onDismiss={() => setMilestoneDismissed(true)}
-            clearParams={["created"]}
-          />
-        )}
         {state.message && (
           <div
             role="alert"

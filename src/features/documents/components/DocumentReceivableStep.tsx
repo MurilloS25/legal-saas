@@ -27,6 +27,7 @@ import {
   type ReceivableEntry,
   type ReceivableState,
 } from "@/features/receivables";
+import { useToast } from "@/components/feedback/Toast";
 
 type Props = {
   documentId: string;
@@ -54,6 +55,7 @@ export function DocumentReceivableStep({
   onContinue,
 }: Props) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [receivables, setReceivables] = useState(initialReceivables);
   // `router.refresh()` le entrega props frescas a este componente, pero
   // `useState(initialReceivables)` solo usa ese valor una vez, al montar —
@@ -72,10 +74,12 @@ export function DocumentReceivableStep({
     receivable: NonNullable<ReceivableState["receivable"]>,
   ) {
     setReceivables((current) => [...current, receivable]);
+    showToast("Cuenta por cobrar creada.");
     router.refresh();
   }
 
   function handleRegistered() {
+    showToast("Pago registrado.");
     router.refresh();
   }
 

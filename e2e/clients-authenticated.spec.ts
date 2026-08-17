@@ -80,6 +80,13 @@ test.describe("clients module", () => {
     await expect(page).toHaveURL(/\/dashboard\/clients$/, {
       timeout: 15_000,
     });
+    // Toast fires from `ClientLifecycleToast` after mount, reading `?event=created`
+    // — the create/update Server Actions redirect before `state.success` can ever
+    // resolve client-side, so this bridge is the only place the confirmation can
+    // come from. Check it before "Guardado." elsewhere on the page might steal focus.
+    await expect(
+      page.getByRole("status").getByText("Cliente creado.", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText(createdClientName).first()).toBeVisible();
   });
 
@@ -100,6 +107,11 @@ test.describe("clients module", () => {
 
     // After save the action redirects back to the client list.
     await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 15_000 });
+    await expect(
+      page.getByRole("status").getByText("Cliente actualizado.", {
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 
   test("F: edited client name persists after page reload", async ({ page }) => {
