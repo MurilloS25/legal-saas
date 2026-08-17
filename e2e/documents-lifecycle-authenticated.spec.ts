@@ -164,14 +164,16 @@ test.describe("document lifecycle statuses", () => {
     ).toBeVisible();
     await dialog.getByRole("button", { name: "Reabrir escritura" }).click();
 
-    await expect(
-      page.getByText("Borrador", { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    // Toast disparado por `DocumentLifecycleToast` tras hidratar (antes era
-    // un `<p>` ya presente en el HTML servido) — necesita un timeout mayor
-    // al default de 5s.
+    // El toast se verifica primero: se autodescarta a los 3.5s, y esperar
+    // primero por "Borrador" (que puede tardar en aparecer tras el redirect
+    // + reopen RPC) arriesga consumir esa ventana antes de comprobar el
+    // toast — mismo motivo que en `document-milestone-feedback-
+    // authenticated.spec.ts`.
     await expect(
       page.getByText("Escritura reabierta como borrador.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
   });
