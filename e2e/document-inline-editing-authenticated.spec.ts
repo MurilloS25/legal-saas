@@ -252,7 +252,7 @@ test.describe("document inline field editing", () => {
       .locator('input[data-variable-key="comprador.cedula"]')
       .blur();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
@@ -264,7 +264,11 @@ test.describe("document inline field editing", () => {
       `${templateName} — Borrador`,
     );
 
+    // El guardado avanza a "Revisar y finalizar"; la hoja documental
+    // editable (con `data-variable-key` en inputs) solo se renderiza en
+    // "Completar" — volver ahí tras recargar.
     await page.reload();
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
       "Cliente Persistido",
     );
@@ -286,6 +290,10 @@ test.describe("document inline field editing", () => {
     request,
   }) => {
     await page.goto(documentUrl);
+    // `documentUrl` quedó apuntando a "Revisar y finalizar" (paso al que
+    // avanzó el guardado en el test E) — la hoja documental editable solo
+    // se renderiza en "Completar".
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
     const documentId = new URL(documentUrl).pathname.split("/").pop();
     const response = await request.get(
@@ -308,8 +316,8 @@ test.describe("document inline field editing", () => {
       .getByRole("alertdialog")
       .getByRole("button", { name: "Finalizar escritura" })
       .click();
-    // Finalizar redirige de verdad (server action) y reinicia el paso al
-    // inicial ("Completar") — hay que volver a Finalizar para ver Reabrir.
+    // Finalizar redirige de verdad (server action) y avanza al paso
+    // siguiente ("Cobro") — hay que volver a Finalizar para ver Reabrir.
     await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),

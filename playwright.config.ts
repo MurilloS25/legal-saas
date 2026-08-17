@@ -226,6 +226,18 @@ export default defineConfig({
       dependencies: ["chromium-template-ai-help"],
     },
 
+    // Guided-flow progression in Machotes: auto-advance on save, toast
+    // confirmation, validation blocks advancing — authenticated.
+    {
+      name: "chromium-template-guided-progression",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-guided-progression-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-stepper-create"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
@@ -234,7 +246,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-stepper-create"],
+      dependencies: ["chromium-template-guided-progression"],
     },
 
     // Stepper always visible from document creation (Completar/Revisar/
@@ -249,6 +261,20 @@ export default defineConfig({
       dependencies: ["chromium-documents"],
     },
 
+    // Guided-flow progression in Escrituras: auto-advance on save, the
+    // Finalizar → Cobro redirect regression test, Cobro's explicit
+    // "Continuar" resolution, and validation blocking advance —
+    // authenticated.
+    {
+      name: "chromium-document-guided-progression",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-guided-progression-authenticated\.spec\.ts/,
+      dependencies: ["chromium-document-stepper-create"],
+    },
+
     // Inline editing of variables directly in the document sheet — authenticated.
     {
       name: "chromium-document-inline-editing",
@@ -257,7 +283,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-inline-editing-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-stepper-create"],
+      dependencies: ["chromium-document-guided-progression"],
     },
 
     // Using option blocks (variant selection) in documents — authenticated.

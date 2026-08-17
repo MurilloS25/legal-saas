@@ -17,6 +17,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState, useSyncExternalStore } from "react";
 import { logoutAction } from "../actions";
+import { ToastProvider } from "@/components/feedback/Toast";
 import {
   BookmarkIcon,
   ChevronLeftIcon,
@@ -381,7 +382,9 @@ export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props
         </header>
 
         {/* Page content */}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <ToastProvider>{children}</ToastProvider>
+        </main>
       </div>
     </div>
   );

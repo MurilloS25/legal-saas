@@ -69,8 +69,15 @@ type Props = {
   section: TemplateWorkspaceSection;
   statusText: string;
   onSectionChange: (section: TemplateWorkspaceSection) => void;
-  /** Señales de completitud reales, calculadas por `TemplateWorkspace`. */
+  /**
+   * Señales de completitud reales, calculadas por `TemplateWorkspace` —
+   * regla única: cada una es `true` solo cuando ese paso fue confirmado por
+   * un guardado exitoso Y su condición propia sigue cumpliéndose ahora
+   * mismo (nunca por datos parciales, ni por haber sido simplemente
+   * visitado).
+   */
   informationComplete: boolean;
+  documentComplete: boolean;
   /** true solo cuando hay al menos una variable detectada y ninguna queda
    * "Pendiente de configurar" — un machote sin variables (texto fijo) no
    * cuenta como "completo" aquí: no hay nada que evaluar todavía, así que
@@ -78,6 +85,7 @@ type Props = {
    * un check que no refleja ninguna revisión real. */
   variablesComplete: boolean;
   indexComplete: boolean;
+  publishComplete: boolean;
   /** true antes del primer guardado — el machote todavía no existe, así
    * que el Índice (que depende de `template_id`) no puede configurarse. */
   indexLocked: boolean;
@@ -91,17 +99,19 @@ export function TemplateWorkspaceHeader({
   statusText,
   onSectionChange,
   informationComplete,
+  documentComplete,
   variablesComplete,
   indexComplete,
+  publishComplete,
   indexLocked,
   actions,
 }: Props) {
   const completion: Record<TemplateWorkspaceSection, boolean> = {
     information: informationComplete,
-    document: false,
+    document: documentComplete,
     variables: variablesComplete,
     notarial: indexComplete,
-    publish: status === "active",
+    publish: publishComplete,
   };
 
   const steps = STEP_META.map(({ id, label, description }) => {

@@ -133,9 +133,9 @@ test.describe("template option blocks", () => {
       variablesRegion(page).getByText("vehiculo.chasis"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -164,9 +164,9 @@ test.describe("template option blocks", () => {
       contentEditor(page).getByText("Bloque: Chasis VIN Serie"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -206,9 +206,9 @@ test.describe("template option blocks", () => {
       previewRegion(page).getByText("CHASIS número"),
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -243,9 +243,9 @@ test.describe("template option blocks", () => {
     await dialog.getByRole("button", { name: "Insertar bloque" }).click();
     await expect(dialog).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      page.getByText("Machote guardado.", { exact: true }),
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();

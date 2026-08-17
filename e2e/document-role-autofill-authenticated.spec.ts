@@ -240,7 +240,7 @@ test.describe("document role autofill", () => {
       `${buyerName} (editado)`,
     );
 
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
@@ -266,6 +266,10 @@ test.describe("document role autofill", () => {
     await expect(fieldValue(page, "vendedor.nombre_completo")).toHaveValue(
       sellerName,
     );
+    // `documentUrl` conserva el `section=revisar` del redirect de "Guardar y
+    // continuar" — volver a "Completar" para ver la hoja documental, que
+    // solo se renderiza en ese paso.
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       documentRegion(page).getByText(
         "DOS CERO OCHO TRES NUEVE CERO UNO DOS TRES",
@@ -277,6 +281,10 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(documentUrl);
+    // `documentUrl` conserva el `section=revisar` del redirect de "Guardar y
+    // continuar" — la barra de chips de roles solo se renderiza en
+    // "Completar".
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await completeRoleFromClient(page, "Comprador", buyerName);
 
     const dialog = page.getByRole("alertdialog", {
@@ -304,6 +312,9 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(documentUrl);
+    // `documentUrl` conserva el `section=revisar` del redirect — volver a
+    // "Completar", donde vive la barra de chips de roles.
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await completeRoleFromClient(page, "Comprador", buyerName);
     await page.getByRole("button", { name: "Reemplazar campos" }).click();
     await expect(
@@ -328,6 +339,9 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(documentUrl);
+    // `documentUrl` conserva el `section=revisar` del redirect — volver a
+    // "Completar", donde vive el selector de Cliente principal.
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await page
       .getByRole("button", { name: /^Cliente principal/ })
       .click();
@@ -340,6 +354,9 @@ test.describe("document role autofill", () => {
     page,
   }) => {
     await page.goto(documentUrl);
+    // `documentUrl` conserva el `section=revisar` del redirect — volver a
+    // "Completar", donde vive la barra de chips de roles.
+    await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await openRolePopover(page, "Comprador");
     const combobox = roleBlock(page, "Comprador").getByLabel(
       "Completar desde Cliente registrado",
