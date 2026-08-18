@@ -409,4 +409,48 @@ test.describe("notarial index workspace", () => {
     expect(box).not.toBeNull();
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375);
   });
+
+  // Regresión de smoke: cambiar de un período con datos a uno sin datos
+  // debía mostrar el estado vacío, nunca las filas del período anterior.
+  // Se conduce por los propios controles del toolbar (no navegación directa
+  // por URL) para ejercer el mismo router.push() real que usa un usuario.
+  // completeness=complete además del token: missingId/noDateId (mismo
+  // token, sin fecha) son visibles en TODO período por diseño (PR #177) y
+  // contaminarían un período "vacío" — no es una fuga, es la regla vigente,
+  // así que se filtra explícitamente para aislar el caso realmente vacío.
+  test("N: switching from a fortnight with data to an empty one never keeps stale rows", async ({
+    page,
+  }) => {
+    // completeId está fechado el 2026-07-15 (hora CR) — Primera quincena de
+    // julio. Agosto (misma quincena) no tiene ninguna fila completa con
+    // este token.
+    await page.goto(
+      `/dashboard/notarial-index?year=2026&month=8&half=FIRST_HALF&search=${encodeURIComponent(token)}&completeness=complete`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "Índice notarial", exact: true }),
+    ).toBeVisible();
+    await expect(rowFor(page, completeId)).toHaveCount(0);
+    await expect(
+      page.getByText("No hay escrituras finalizadas con esos filtros"),
+    ).toBeVisible();
+
+    await page.getByLabel("Mes").selectOption("7");
+    await expect(rowFor(page, completeId)).toBeVisible();
+    await expect(
+      page.getByText("No hay escrituras finalizadas con esos filtros"),
+    ).toHaveCount(0);
+
+    await page.getByLabel("Mes").selectOption("9");
+    await expect(rowFor(page, completeId)).toHaveCount(0);
+    await expect(
+      page.getByText("No hay escrituras finalizadas con esos filtros"),
+    ).toBeVisible();
+
+    await page.getByLabel("Mes").selectOption("7");
+    await expect(rowFor(page, completeId)).toBeVisible();
+    await expect(
+      rowFor(page, completeId).getByText("Completo", { exact: true }),
+    ).toBeVisible();
+  });
 });
