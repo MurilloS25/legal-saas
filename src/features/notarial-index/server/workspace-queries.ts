@@ -4,6 +4,7 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   NOTARIAL_PAGE_SIZE,
+  notarialDateOrFilter,
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
@@ -48,8 +49,7 @@ export async function listNotarialIndex(
     countRequest = countRequest.eq("has_metadata", false);
   }
   if (query.actType) countRequest = countRequest.eq("act_name", query.actType);
-  if (fromIso) countRequest = countRequest.gte("authorized_at", fromIso);
-  if (toIso) countRequest = countRequest.lte("authorized_at", toIso);
+  countRequest = countRequest.or(notarialDateOrFilter(fromIso, toIso));
   if (term !== "") {
     const like = `%${term}%`;
     const filters = [
@@ -89,8 +89,7 @@ export async function listNotarialIndex(
   }
   if (query.actType) request = request.eq("act_name", query.actType);
 
-  if (fromIso) request = request.gte("authorized_at", fromIso);
-  if (toIso) request = request.lte("authorized_at", toIso);
+  request = request.or(notarialDateOrFilter(fromIso, toIso));
 
   if (term !== "") {
     const like = `%${term}%`;

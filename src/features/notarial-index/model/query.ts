@@ -91,6 +91,21 @@ export function notarialDateRangeIso(query: NotarialQuery): {
   );
 }
 
+/**
+ * Filtro PostgREST para el listado del Índice: una fila entra si cae dentro
+ * de la quincena activa, O si todavía no tiene `authorized_at` en absoluto.
+ * Año/Mes/Quincena navegan un calendario, pero una Escritura finalizada sin
+ * fecha de autorización aún no pertenece a ningún período — filtrarla por
+ * rango la dejaría invisible únicamente por faltarle ese dato. Se construye
+ * como texto en vez de encadenar `.gte()/.lte()` porque esas dos llamadas
+ * excluyen NULL siempre (`x >= a AND x <= b` nunca es verdadero si `x` es
+ * NULL) — hace falta el operador `or` explícito de PostgREST para incluir el
+ * caso NULL junto al rango.
+ */
+export function notarialDateOrFilter(fromIso: string, toIso: string): string {
+  return `authorized_at.is.null,and(authorized_at.gte.${fromIso},authorized_at.lte.${toIso})`;
+}
+
 export function notarialQueryToParams(
   query: Partial<NotarialQuery> & { selection?: FortnightSelection },
 ): Record<string, string> {

@@ -18,6 +18,7 @@ const instrumentNumber = 100_000 + Math.floor(Math.random() * 100_000);
 let workingId = "";
 let finalId = "";
 let partialId = "";
+let noInstrumentId = "";
 
 function notarialSection(page: Page) {
   return page.getByRole("region", { name: "Datos para índice" });
@@ -34,10 +35,13 @@ function summaryCount(page: Page, label: "configurados" | "pendientes") {
 }
 
 const TOTAL_NOTARIAL_FIELDS = 6;
-// "Acto o contrato" y "Partes" se autocompletan desde el contenido de la
-// escritura (act_name_snapshot / generated_parties) incluso antes de que el
-// usuario llene nada a mano.
-const AUTO_CONFIGURED_FIELDS = 2;
+// "Acto o contrato" se autocompleta con el nombre del machote
+// (act_name_snapshot) incluso antes de que el usuario llene nada a mano.
+// "Partes" NO se autocompleta aquí: requiere que el machote tenga configurado
+// explícitamente el mapeo de Índice → Partes (save_template_index_configuration),
+// que este seed nunca configura — descubierto al validar contra un workspace
+// limpio (`--no-deps`); la constante decía "2" pero solo hay 1 campo real.
+const AUTO_CONFIGURED_FIELDS = 1;
 
 async function open(page: Page, id: string, section: "document" | "notarial" = "notarial") {
   await page.goto(
@@ -103,6 +107,18 @@ test.describe("notarial index metadata", () => {
       rendered_content: "ESCRITURA. Comparece Persona Tres.",
     });
     partialId = partial.id;
+
+    // Caso Bug 2 del reporte de smoke: una Escritura finalizada que nunca
+    // tuvo metadata notarial guardada — el número de instrumento debe leerse
+    // "Sin configurar"/pendiente, nunca "1" (regresión de la sugerencia
+    // MAX+1 auto-poblando el campo como si fuera un valor real guardado).
+    const noInstrument = await createTestDocument(registry, template.id, {
+      title: uniqueName("notarial", "sin-instrumento"),
+      status: "final",
+      field_values: { "parte.nombre": "Persona Cuatro" },
+      rendered_content: "ESCRITURA. Comparece Persona Cuatro.",
+    });
+    noInstrumentId = noInstrument.id;
   });
 
   test("B: the section starts incomplete and can be completed and saved", async ({
@@ -341,5 +357,89 @@ test.describe("notarial index metadata", () => {
     // sigue incompleto, así que el paso no debe mostrar ✓.
     await page.goto(`/dashboard/documents/${partialId}?section=revisar`);
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
+  });
+
+  // Regresión directa del segundo bug de smoke: en una Escritura donde el
+  // número de instrumento nunca se configuró, el paso mostraba "1" /
+  // "Configurado" — una sugerencia (MAX+1 del Workspace, o 1 si no hay
+  // ninguna) confundida con un valor realmente guardado. Además, como el
+  // mismo estado se envía siempre en el submit (ver comentario en el
+  // componente), esa sugerencia sin confirmar podía terminar persistida
+  // como si el usuario la hubiera escrito, con solo guardar otro campo.
+  test("I: an unconfigured instrument number never shows as '1'/Configurado, and never gets silently saved", async ({
+    page,
+  }) => {
+    await open(page, noInstrumentId);
+    const section = notarialSection(page);
+
+    const instrumentRow = indexRow(page, "Número de instrumento");
+    await expect(instrumentRow).toContainText("Sin configurar");
+    await expect(instrumentRow).toContainText("Pendiente");
+    await expect(instrumentRow).not.toContainText("Configurado");
+
+    await openIndexRow(page, "Número de instrumento");
+    await expect(
+      section.getByLabel("Número de instrumento", { exact: true }),
+    ).toHaveValue("");
+
+    // Guardar otro campo no debe filtrar la sugerencia sin confirmar hacia
+    // instrument_number — el submit siempre envía el estado completo del
+    // formulario compartido (ver comentario en NotarialMetadataSection).
+    await openIndexRow(page, "Acto o contrato");
+    await section
+      .getByLabel("Acto o contrato", { exact: true })
+      .fill("Donación");
+    await section
+      .getByRole("button", { name: "Guardar datos del índice" })
+      .click();
+    // Solo "Acto o contrato" quedó configurado — el guardado es parcial, así
+    // que el toast es el genérico ("guardados"), no el de completitud.
+    await expect(
+      page.getByText("Cambios del índice guardados.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await expect(notarialSection(page)).toBeVisible();
+    const instrumentRowAfterSave = indexRow(page, "Número de instrumento");
+    await expect(instrumentRowAfterSave).toContainText("Sin configurar");
+    await expect(instrumentRowAfterSave).toContainText("Pendiente");
+    await openIndexRow(page, "Número de instrumento");
+    await expect(
+      section.getByLabel("Número de instrumento", { exact: true }),
+    ).toHaveValue("");
+  });
+
+  // El fix de I no debe sobrecorregir: un número de instrumento real "1",
+  // explícitamente escrito y guardado por el usuario, sigue siendo un valor
+  // válido — la distinción es "sugerencia sin confirmar" vs "dato guardado",
+  // nunca el valor literal 1 en sí.
+  test("J: an explicitly typed instrument number of 1 still saves and persists as Configurado", async ({
+    page,
+  }) => {
+    await open(page, noInstrumentId);
+    const section = notarialSection(page);
+
+    await openIndexRow(page, "Número de instrumento");
+    await section
+      .getByLabel("Número de instrumento", { exact: true })
+      .fill("1");
+    await section
+      .getByRole("button", { name: "Guardar datos del índice" })
+      .click();
+    // El resto de los campos requeridos siguen vacíos — sigue siendo un
+    // guardado parcial, mismo toast genérico que en I.
+    await expect(
+      page.getByText("Cambios del índice guardados.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await expect(notarialSection(page)).toBeVisible();
+    const instrumentRow = indexRow(page, "Número de instrumento");
+    await expect(instrumentRow).toContainText("Configurado");
+    await expect(instrumentRow).not.toContainText("Sin configurar");
+    await openIndexRow(page, "Número de instrumento");
+    await expect(
+      section.getByLabel("Número de instrumento", { exact: true }),
+    ).toHaveValue("1");
   });
 });
