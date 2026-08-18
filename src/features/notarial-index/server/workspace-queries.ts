@@ -3,8 +3,8 @@ import "server-only";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
+  NOTARIAL_DATE_FILTER_COLUMN,
   NOTARIAL_PAGE_SIZE,
-  notarialDateOrFilter,
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
@@ -49,7 +49,9 @@ export async function listNotarialIndex(
     countRequest = countRequest.eq("has_metadata", false);
   }
   if (query.actType) countRequest = countRequest.eq("act_name", query.actType);
-  countRequest = countRequest.or(notarialDateOrFilter(fromIso, toIso));
+  countRequest = countRequest
+    .gte(NOTARIAL_DATE_FILTER_COLUMN, fromIso)
+    .lte(NOTARIAL_DATE_FILTER_COLUMN, toIso);
   if (term !== "") {
     const like = `%${term}%`;
     const filters = [
@@ -89,7 +91,9 @@ export async function listNotarialIndex(
   }
   if (query.actType) request = request.eq("act_name", query.actType);
 
-  request = request.or(notarialDateOrFilter(fromIso, toIso));
+  request = request
+    .gte(NOTARIAL_DATE_FILTER_COLUMN, fromIso)
+    .lte(NOTARIAL_DATE_FILTER_COLUMN, toIso);
 
   if (term !== "") {
     const like = `%${term}%`;

@@ -453,6 +453,17 @@ export default defineConfig({
       dependencies: ["chromium-notarial-workspace"],
     },
 
+    // Notarial index inclusion (include_in_notarial_index) — authenticated.
+    {
+      name: "chromium-notarial-index-inclusion",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-index-inclusion-authenticated\.spec\.ts/,
+      dependencies: ["chromium-notarial-export"],
+    },
+
     // Receivables (Cuentas por cobrar) — authenticated.
     {
       name: "chromium-receivables",
@@ -461,7 +472,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivables-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-export"],
+      dependencies: ["chromium-notarial-index-inclusion"],
     },
 
     // Milestone feedback after creating a receivable — authenticated.

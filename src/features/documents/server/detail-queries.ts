@@ -30,6 +30,8 @@ export type DocumentRow = {
   rendered_content: string;
   created_at: string;
   updated_at: string;
+  /** Decisión de pertenencia al Índice Notarial — independiente de `status`. */
+  include_in_notarial_index: boolean;
   clients: { id: string; full_name: string } | null;
 };
 
@@ -70,7 +72,7 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
   const { data, error } = await supabase
     .from("documents")
     .select(
-      "id, title, status, template_id, client_id, field_values, option_selections, rendered_content, created_at, updated_at, clients(id, full_name)",
+      "id, title, status, template_id, client_id, field_values, option_selections, rendered_content, created_at, updated_at, include_in_notarial_index, clients(id, full_name)",
     )
     .eq("id", id)
     .eq("workspace_id", workspaceId)

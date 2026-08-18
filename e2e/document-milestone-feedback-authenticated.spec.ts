@@ -7,6 +7,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { currentCostaRicaFortnight } from "../src/features/notarial-index/model/fortnight";
 
 /**
  * El antiguo banner azul "Escritura guardada como borrador"/"Escritura
@@ -124,13 +125,18 @@ test.describe("document milestone feedback (toast replacement)", () => {
       page.getByRole("link", { name: "Ir al Índice Notarial" }),
     ).toHaveCount(0);
 
-    // Finalizar (status=final) ya la hace pertenecer al universo del
-    // Índice, aunque nunca se configuró su metadata notarial — visible
-    // como "Sin datos" (has_metadata=false), no ausente del listado.
-    // "Acto o contrato" cae al nombre del machote (nunca "Sin configurar"
-    // habiendo una fuente real).
+    // Finalizar con la casilla "Incluir en el Índice Notarial" en su valor
+    // por defecto (activada) ya la hace pertenecer al universo del Índice,
+    // aunque nunca se configuró su metadata notarial — visible como "Sin
+    // datos" (has_metadata=false), no ausente del listado. "Acto o
+    // contrato" cae al nombre del machote (nunca "Sin configurar" habiendo
+    // una fuente real). Sin authorized_at, effective_index_date la ubica
+    // provisionalmente por created_at (hoy) — se navega a la quincena
+    // actual, no a una fecha fija, porque ya no aparece en TODO período
+    // (ver 20260818130000_notarial_index_inclusion.sql).
+    const { year, month, half } = currentCostaRicaFortnight();
     await page.goto(
-      `/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${encodeURIComponent(title)}`,
+      `/dashboard/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(title)}`,
     );
     const row = page
       .locator("tr")

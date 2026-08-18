@@ -171,9 +171,16 @@ test.describe("notarial index DOCX export", () => {
     });
     await setTestDocumentStatus(complete.id, "final");
 
+    // Sin authorized_at, effective_index_date (notarial_index_entries) cae
+    // a created_at como resguardo — se fija dentro de la misma quincena del
+    // export (julio 2026, primera quincena) para que sigan siendo
+    // localizables ahí; sin este override quedarían en la quincena real de
+    // ejecución del test, no en `selection`.
+    const undatedCreatedAt = "2026-07-03T16:00:00.000Z";
     const partial = await createTestDocument(registry, template.id, {
       title: `${subToken} Parcial`,
       rendered_content: "Contenido fake",
+      created_at: undatedCreatedAt,
     });
     await createTestNotarialMetadata(partial.id, {
       instrument_number: 900_002,
@@ -183,6 +190,7 @@ test.describe("notarial index DOCX export", () => {
     const missing = await createTestDocument(registry, template.id, {
       title: `${subToken} SinMetadata`,
       rendered_content: "Contenido fake",
+      created_at: undatedCreatedAt,
     });
     await setTestDocumentStatus(missing.id, "final");
 
@@ -226,11 +234,10 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("generates a valid empty-period Word", async ({ request }) => {
-    // completeness=complete: sin este filtro, una Escritura finalizada sin
-    // fecha de otro spec del mismo Workspace (visible en todo período por
-    // diseño, ver PR #177 y el fix de Commit 2) podría "colarse" aquí y
-    // volver este período no-realmente-vacío — no es una fuga, es la regla
-    // vigente, así que se filtra explícitamente para probar el caso vacío.
+    // completeness=complete: aísla contra cualquier Escritura completa de
+    // otro spec del mismo Workspace que por azar cayera en este período —
+    // no depende de la quincena provisional de filas sin fecha (esas ya no
+    // aparecen en cualquier período, ver B2 de notarial-workspace).
     const response = await request.get(
       "/api/notarial-index/export?year=2026&month=1&half=FIRST_HALF&completeness=complete",
     );

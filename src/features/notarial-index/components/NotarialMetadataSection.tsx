@@ -19,6 +19,7 @@ import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
 } from "../server/metadata-actions";
+import { setNotarialIndexInclusionAction } from "@/features/documents/server/lifecycle-actions";
 import type { NotarialMetadata } from "../model/notarial";
 import type {
   NotarialAuthorizedAtPrefill,
@@ -63,6 +64,11 @@ type Props = {
   actNamePreview?: string | null;
   generatedPartiesPreview?: string | null;
   reviewRequired?: boolean;
+  /** Pertenencia actual al Índice Notarial (independiente de `status`). */
+  includeInNotarialIndex: boolean;
+  /** documents.finalize — mismo permiso que finalizar/reabrir; sin él el
+   * control se muestra pero deshabilitado. */
+  canChangeInclusion: boolean;
 };
 
 export function NotarialMetadataSection({
@@ -75,11 +81,41 @@ export function NotarialMetadataSection({
   actNamePreview = null,
   generatedPartiesPreview = null,
   reviewRequired = false,
+  includeInNotarialIndex,
+  canChangeInclusion,
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const { showToast } = useToast();
+  const [inclusion, setInclusion] = useState(includeInNotarialIndex);
+  const [inclusionPending, setInclusionPending] = useState(false);
+  const [inclusionError, setInclusionError] = useState<string | null>(null);
+
+  async function handleInclusionChange(next: boolean) {
+    if (
+      !next &&
+      !window.confirm(
+        "La escritura dejará de aparecer en el Índice Notarial. El contenido de la escritura no se modifica y podrás volver a incluirla cuando quieras. ¿Deseas continuar?",
+      )
+    ) {
+      return;
+    }
+    setInclusionError(null);
+    setInclusionPending(true);
+    const result = await setNotarialIndexInclusionAction(documentId, next);
+    setInclusionPending(false);
+    if (result.success && result.includeInNotarialIndex !== undefined) {
+      setInclusion(result.includeInNotarialIndex);
+      showToast(
+        result.includeInNotarialIndex
+          ? "Incluida en el Índice Notarial."
+          : "Excluida del Índice Notarial.",
+      );
+    } else {
+      setInclusionError(result.message ?? "No fue posible actualizar el Índice Notarial.");
+    }
+  }
   const lastSuccessState = useRef<NotarialMetadataState | null>(null);
   useEffect(() => {
     if (state.success && lastSuccessState.current !== state) {
@@ -184,6 +220,31 @@ export function NotarialMetadataSection({
           legal.
         </p>
       </div>
+
+      <div className="flex items-start gap-2 border-b border-slate-100 px-6 py-4">
+        <input
+          id="notarial-inclusion-toggle"
+          type="checkbox"
+          checked={inclusion}
+          disabled={!canChangeInclusion || inclusionPending}
+          onChange={(event) => handleInclusionChange(event.target.checked)}
+          className="mt-0.5 size-4 accent-accent-700"
+        />
+        <label htmlFor="notarial-inclusion-toggle" className="text-sm text-slate-700">
+          <span className="font-medium text-slate-900">
+            Incluir en el Índice Notarial
+          </span>
+          <br />
+          {inclusion
+            ? "Esta escritura aparece en el Índice Notarial."
+            : "Esta escritura está excluida del Índice Notarial. El contenido no se ve afectado."}
+        </label>
+      </div>
+      {inclusionError && (
+        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
+          {inclusionError}
+        </p>
+      )}
 
       <form action={formAction} noValidate className="px-6 py-6">
         {state.message && (
@@ -291,7 +352,11 @@ export function NotarialMetadataSection({
           <CollapsibleFieldRow
             id="notarial-authorized-at"
             name="Fecha y hora de autorización"
-            meta={authorizedAt ? formatDateTimeMeta(authorizedAt) : "Sin configurar"}
+            meta={
+              authorizedAt
+                ? formatDateTimeMeta(authorizedAt)
+                : "Fecha de autorización pendiente"
+            }
             status={authorizedAtConfigured ? "configured" : "pending"}
             open={openRowId === "authorized_at"}
             onToggle={() => toggleRow("authorized_at")}
