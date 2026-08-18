@@ -77,7 +77,52 @@ test.describe("notarial index DOCX export", () => {
       .filter({ hasText: "1 registro incompleto" });
     await expect(warning).toBeVisible();
     await expect(warning).toContainText("Partes");
-    await expect(page.getByRole("link", { name: "Exportar Word" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Exportar Word" })).toBeVisible();
+  });
+
+  // Regresión: "Exportar Word" generaba el archivo de inmediato, sin avisar
+  // al usuario que los datos incompletos aparecerían con campos faltantes.
+  test("clicking Exportar Word opens a confirmation dialog; Cancelar closes it without exporting", async ({
+    page,
+  }) => {
+    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.getByRole("button", { name: "Exportar Word" }).click();
+
+    const dialog = page.getByRole("alertdialog", {
+      name: "¿Exportar Índice Notarial a Word?",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByText(/se generará con la información actualmente configurada/),
+    ).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("confirming the dialog downloads the Word file and stays on the Índice", async ({
+    page,
+  }) => {
+    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.getByRole("button", { name: "Exportar Word" }).click();
+    const dialog = page.getByRole("alertdialog", {
+      name: "¿Exportar Índice Notarial a Word?",
+    });
+
+    const downloadPromise = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: "Exportar Word" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe(
+      "indice-notarial-primera-quincena-julio-2026.docx",
+    );
+
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Índice notarial", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Índice notarial exportado.", { exact: true }),
+    ).toBeVisible();
   });
 
   test("downloads all selected rows as an ordered DOCX", async ({ page }) => {
@@ -133,6 +178,42 @@ test.describe("notarial index DOCX export", () => {
       const response = await request.get(`/api/notarial-index/export?${selection}`);
       expect(response.status()).toBe(400);
       expect(await response.text()).toContain("Completa tu nombre");
+    } finally {
+      await replaceTestLawyerProfile("Notaria Prueba E2E");
+    }
+  });
+
+  // Regresión: cuando faltaba el nombre del notario, el enlace de exportación
+  // navegaba de lleno al endpoint y el navegador terminaba mostrando el JSON
+  // crudo del error como si fuera la página. Ahora la descarga va por fetch,
+  // así que un 400 debe quedarse en el Índice y mostrarse como toast.
+  test("missing notary profile keeps the user on the Índice with a friendly toast, no raw error page", async ({
+    page,
+  }) => {
+    await removeTestLawyerProfile();
+    try {
+      await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+      await page.getByRole("button", { name: "Exportar Word" }).click();
+      const dialog = page.getByRole("alertdialog", {
+        name: "¿Exportar Índice Notarial a Word?",
+      });
+      await dialog.getByRole("button", { name: "Exportar Word" }).click();
+
+      // El mensaje real del servidor para este caso específico — no un
+      // genérico inventado ni el JSON crudo de la respuesta.
+      await expect(
+        page.getByText(
+          "Completa tu nombre en Configuración antes de generar el índice.",
+          { exact: true },
+        ),
+      ).toBeVisible({ timeout: 15_000 });
+
+      // Sigue en el Índice: nunca navegó a una página de error ni mostró el
+      // JSON crudo `{"error": ...}` como contenido de la página.
+      await expect(
+        page.getByRole("heading", { name: "Índice notarial", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText('{"error"', { exact: false })).toHaveCount(0);
     } finally {
       await replaceTestLawyerProfile("Notaria Prueba E2E");
     }

@@ -251,8 +251,9 @@ test.describe("notarial index workspace", () => {
     });
     await expect(filters).toHaveAttribute("aria-busy", "false");
     const exportUrl = new URL(
-      (await page.getByRole("link", { name: "Exportar Word" }).getAttribute("href")) ??
-        "",
+      (await page
+        .getByRole("button", { name: "Exportar Word" })
+        .getAttribute("data-export-href")) ?? "",
       "http://localhost:3000",
     );
     expect(exportUrl.searchParams.get("search")).toBe(liveSearchTerm);

@@ -524,7 +524,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByText("Tu rol no permite generar el índice notarial"),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Exportar Word" }),
+      page.getByRole("button", { name: "Exportar Word" }),
     ).not.toBeVisible();
 
     // Solicitud manipulada: golpea el endpoint de exportación directamente
@@ -539,7 +539,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto("/dashboard/notarial-index");
     await expect(
-      page.getByRole("link", { name: "Exportar Word" }),
+      page.getByRole("button", { name: "Exportar Word" }),
     ).toBeVisible();
   });
 
