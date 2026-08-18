@@ -35,6 +35,14 @@ export type DocumentStatusState = {
 async function transitionDocument(
   documentId: string,
   action: DocumentAction,
+  /**
+   * Solo se usa (y solo tiene efecto) en la transición a `final`: decide si
+   * la Escritura entra al universo del Índice Notarial además de quedar
+   * finalizada — son dos preguntas distintas, `status='final'` ya no basta
+   * por sí solo (ver notarial_index_entries). `undefined` deja el default
+   * de la columna (`true`, preserva el comportamiento previo a este PR).
+   */
+  includeInNotarialIndex?: boolean,
 ): Promise<DocumentStatusState> {
   const { supabase, workspaceId, role } = await requireWorkspace();
 
@@ -123,7 +131,11 @@ async function transitionDocument(
 
   const { data: updated, error } = await supabase
     .from("documents")
-    .update({ status: target })
+    .update(
+      target === "final" && includeInNotarialIndex !== undefined
+        ? { status: target, include_in_notarial_index: includeInNotarialIndex }
+        : { status: target },
+    )
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .eq("status", doc.status)
@@ -168,11 +180,19 @@ export async function returnDocumentToDraftAction(
 export async function markDocumentFinalAction(
   documentId: string,
   _prev: DocumentStatusState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<DocumentStatusState> {
   void _prev;
-  void _formData;
-  const result = await transitionDocument(documentId, "mark_final");
+  // Checkbox del modal "Finalizar escritura" ("Incluir en el Índice
+  // Notarial"). Ausente del FormData cuando está desmarcado (comportamiento
+  // estándar de <input type="checkbox">), presente con cualquier valor
+  // cuando está marcado.
+  const includeInNotarialIndex = formData.has("include_in_notarial_index");
+  const result = await transitionDocument(
+    documentId,
+    "mark_final",
+    includeInNotarialIndex,
+  );
   if (result.success) {
     // Finalizar completa el paso "Revisar y finalizar" — avanza a "Cobro",
     // el siguiente paso del flujo guiado. Antes este redirect no llevaba
@@ -199,4 +219,74 @@ export async function reopenDocumentAction(
     redirect(`/dashboard/documents/${documentId}?lifecycle=reopened&section=revisar`);
   }
   return result;
+}
+
+export type NotarialIndexInclusionState = {
+  message?: string;
+  success?: boolean;
+  includeInNotarialIndex?: boolean;
+};
+
+/**
+ * Corrige después de finalizar si la Escritura pertenece o no al Índice
+ * Notarial — vive junto al resto de acciones de ciclo de vida porque el
+ * mismo trigger de permiso (`enforce_document_finalize_permission`) que
+ * guarda finalizar/reabrir también guarda este cambio, sin importar el
+ * status resultante. No depende de que exista una fila de
+ * document_notarial_metadata (una Escritura puede pertenecer o no al
+ * Índice sin haber guardado nunca su paso Índice).
+ */
+export async function setNotarialIndexInclusionAction(
+  documentId: string,
+  includeInNotarialIndex: boolean,
+): Promise<NotarialIndexInclusionState> {
+  const { supabase, workspaceId, role } = await requireWorkspace();
+
+  if (!DocumentIdSchema.safeParse(documentId).success) {
+    return { message: "No se encontró la escritura." };
+  }
+  if (!hasPermission(role, "documents.finalize")) {
+    return {
+      message:
+        "Solo el propietario o un administrador puede cambiar si la escritura pertenece al Índice Notarial.",
+    };
+  }
+
+  const { data: doc, error: documentError } = await supabase
+    .from("documents")
+    .select("id, status")
+    .eq("id", documentId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (documentError) throwDataAccessError("load document for index inclusion", documentError);
+  if (!doc) return { message: "No se encontró la escritura." };
+  if (doc.status !== "final") {
+    return {
+      message: "Solo una escritura finalizada puede pertenecer al Índice Notarial.",
+    };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("documents")
+    .update({ include_in_notarial_index: includeInNotarialIndex })
+    .eq("id", documentId)
+    .eq("workspace_id", workspaceId)
+    .select("id, include_in_notarial_index")
+    .maybeSingle();
+
+  if (error) {
+    return { message: "No fue posible actualizar el Índice Notarial. Intenta de nuevo." };
+  }
+  if (!updated) {
+    return { message: "No se encontró la escritura." };
+  }
+
+  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath("/dashboard/notarial-index");
+
+  return {
+    success: true,
+    includeInNotarialIndex: updated.include_in_notarial_index,
+  };
 }
