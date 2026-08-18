@@ -5,6 +5,7 @@ import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import { mapNotarialIndexRows, NOTARIAL_INDEX_SELECT } from "./mappers";
 import {
+  notarialDateOrFilter,
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
@@ -37,12 +38,18 @@ export async function queryNotarialIndexForExport(
 
   const { fromIso, toIso } = notarialDateRangeIso(query);
   const term = notarialSearchTerm(query.search);
+  // Igual que en listNotarialIndex(): encadenar .gte()/.lte() sobre
+  // authorized_at excluye para siempre cualquier fila con esa fecha en NULL
+  // (comparación NULL en Postgres nunca es verdadera) — una Escritura
+  // finalizada incompleta o sin metadata desaparecía por completo del
+  // export, aunque la UI sí la mostrara. El modal de exportación advierte
+  // explícitamente que los datos incompletos se incluyen con campos
+  // faltantes, así que el export debe usar el mismo universo que el listado.
   let request = supabase
     .from("notarial_index_entries")
     .select(NOTARIAL_INDEX_SELECT, { count: "exact" })
     .eq("workspace_id", workspaceId)
-    .gte("authorized_at", fromIso)
-    .lte("authorized_at", toIso);
+    .or(notarialDateOrFilter(fromIso, toIso));
 
   if (query.completeness === "complete") {
     request = request.eq("has_metadata", true).eq("is_complete", true);

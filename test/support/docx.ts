@@ -69,3 +69,8 @@ export function countParagraphs(documentXml: string): number {
 export function countLineBreaks(documentXml: string): number {
   return (documentXml.match(/<w:br\b/g) ?? []).length;
 }
+
+/** Número de filas de tabla (`<w:tr`) en document.xml, incluye el encabezado. */
+export function countTableRows(documentXml: string): number {
+  return (documentXml.match(/<w:tr\b/g) ?? []).length;
+}

@@ -193,8 +193,14 @@ test.describe("notarial index workspace", () => {
     await expect(
       rowFor(page, incompleteId).getByText("Incompleto", { exact: true }),
     ).toBeVisible();
+    // Regresión de smoke (Commit 2): el export/warnings ya no excluye por
+    // authorized_at NULL — el conteo ahora incluye también missingId y
+    // noDateId (antes invisibles para este cálculo), no solo incompleteId.
     await expect(
-      page.getByRole("alert").filter({ hasText: "registro incompleto" }),
+      page.getByRole("alert").filter({ hasText: "registros incompletos" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "3 registros incompletos" }),
     ).toBeVisible();
   });
 
