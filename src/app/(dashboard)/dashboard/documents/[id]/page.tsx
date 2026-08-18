@@ -151,6 +151,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         <NoTemplateFallback
           document={document}
           canEdit={canEdit}
+          canFinalize={canFinalize}
           canManageReceivables={canManageReceivables}
           receivables={receivables}
           receivablesNewHref={receivablesNewHref}
@@ -289,6 +290,7 @@ async function DocumentComposerLoader({
 function NoTemplateFallback({
   document,
   canEdit,
+  canFinalize,
   canManageReceivables,
   receivables,
   receivablesNewHref,
@@ -301,6 +303,7 @@ function NoTemplateFallback({
 }: {
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   canEdit: boolean;
+  canFinalize: boolean;
   canManageReceivables: boolean;
   receivables: Awaited<ReturnType<typeof listReceivablesByDocument>>;
   receivablesNewHref?: string;
@@ -390,6 +393,8 @@ function NoTemplateFallback({
           actNamePreview={null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
+          includeInNotarialIndex={document.include_in_notarial_index}
+          canChangeInclusion={canFinalize}
         />
       )}
     </div>

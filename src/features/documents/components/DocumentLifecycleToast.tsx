@@ -22,7 +22,13 @@ import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 export type DocumentLifecycleEvent = "finalized" | "reopened" | "duplicated";
 
 const MESSAGES: Record<DocumentLifecycleEvent, string> = {
-  finalized: "Escritura finalizada.",
+  // Finalizar solo cambia status a "final" — eso es lo que hace que la
+  // Escritura pertenezca al universo del Índice Notarial (notarial_index_
+  // entries), no que su metadata ya esté completa. El mensaje no debe
+  // afirmar "completo"/"listo" — eso lo decide is_complete, que puede seguir
+  // siendo false justo después de finalizar.
+  finalized:
+    "Escritura finalizada. Ya puede aparecer en el Índice Notarial. Revisa el paso Índice para completar o corregir sus datos.",
   reopened: "Escritura reabierta como borrador.",
   duplicated: "Escritura duplicada como borrador nuevo.",
 };
@@ -33,13 +39,21 @@ type Props = {
 
 export function DocumentLifecycleToast({ lifecycle }: Props) {
   const { showToast } = useToast();
-  // Evita un toast duplicado bajo React Strict Mode (dev), que invoca cada
-  // efecto de montaje dos veces sobre la misma instancia.
-  const fired = useRef(false);
+  // Guarda el ÚLTIMO valor ya disparado (no un simple booleano): un
+  // redirect() de Server Action hacia la MISMA ruta dinámica ([id]) solo
+  // cambia los search params, así que React puede preservar esta misma
+  // instancia del componente en vez de desmontarla/remontarla — un efecto
+  // con deps `[]` ("solo al montar") nunca volvía a correr para el nuevo
+  // `lifecycle`, y el toast de finalizar/reabrir/duplicar simplemente no
+  // se disparaba. Depender de `lifecycle` hace que el efecto SÍ reaccione
+  // a cada nuevo evento; el ref sigue evitando un duplicado bajo Strict
+  // Mode (que invoca el efecto dos veces) o si el mismo valor persistiera
+  // en un re-render posterior.
+  const lastFired = useRef<DocumentLifecycleEvent | null>(null);
 
   useEffect(() => {
-    if (!lifecycle || fired.current) return;
-    fired.current = true;
+    if (!lifecycle || lastFired.current === lifecycle) return;
+    lastFired.current = lifecycle;
     showToast(MESSAGES[lifecycle]);
     const next = stripSearchParams(
       window.location.pathname,
@@ -50,9 +64,7 @@ export function DocumentLifecycleToast({ lifecycle }: Props) {
     if (next !== current) {
       window.history.replaceState(null, "", next);
     }
-    // Solo debe ejecutarse una vez, al montar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lifecycle, showToast]);
 
   return null;
 }

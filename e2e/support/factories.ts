@@ -147,6 +147,15 @@ export async function createTestDocument(
     rendered_content?: string;
     client_id?: string;
     status?: "draft" | "ready" | "final";
+    /**
+     * Fija `created_at` en vez de dejarlo en "ahora". Necesario para
+     * fixtures sin `authorized_at` que dependan de una quincena concreta:
+     * `effective_index_date` (notarial_index_entries) cae a `created_at`
+     * como resguardo — sin este override, esas filas quedarían ubicadas en
+     * la quincena real de ejecución del test, no en la esperada por el
+     * fixture.
+     */
+    created_at?: string;
   },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
@@ -159,6 +168,7 @@ export async function createTestDocument(
     field_values: options.field_values ?? {},
     option_selections: options.option_selections ?? {},
     rendered_content: options.rendered_content ?? "",
+    ...(options.created_at ? { created_at: options.created_at } : {}),
   });
   registry.register("documents", id);
   return { id };
@@ -259,6 +269,16 @@ export async function setTestDocumentStatus(
   status: "draft" | "ready" | "final",
 ): Promise<void> {
   await restUpdate("documents", documentId, { status });
+}
+
+/** Cambia la pertenencia al Índice Notarial de una Escritura de prueba. */
+export async function setTestDocumentInclusion(
+  documentId: string,
+  includeInNotarialIndex: boolean,
+): Promise<void> {
+  await restUpdate("documents", documentId, {
+    include_in_notarial_index: includeInNotarialIndex,
+  });
 }
 
 /**

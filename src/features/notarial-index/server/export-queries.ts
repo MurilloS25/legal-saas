@@ -5,6 +5,7 @@ import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import { mapNotarialIndexRows, NOTARIAL_INDEX_SELECT } from "./mappers";
 import {
+  NOTARIAL_DATE_FILTER_COLUMN,
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
@@ -37,12 +38,19 @@ export async function queryNotarialIndexForExport(
 
   const { fromIso, toIso } = notarialDateRangeIso(query);
   const term = notarialSearchTerm(query.search);
+  // Mismo criterio de período que listNotarialIndex(): effective_index_date
+  // (authorized_at si existe, created_at si no) nunca es NULL, así que un
+  // .gte()/.lte() directo alcanza — la fila pertenece al export por
+  // pertenecer al universo (final + incluida en el Índice), nunca se
+  // excluye por is_complete/has_metadata/campo individual NULL. El modal de
+  // exportación advierte explícitamente que los datos incompletos se
+  // incluyen con campos faltantes.
   let request = supabase
     .from("notarial_index_entries")
     .select(NOTARIAL_INDEX_SELECT, { count: "exact" })
     .eq("workspace_id", workspaceId)
-    .gte("authorized_at", fromIso)
-    .lte("authorized_at", toIso);
+    .gte(NOTARIAL_DATE_FILTER_COLUMN, fromIso)
+    .lte(NOTARIAL_DATE_FILTER_COLUMN, toIso);
 
   if (query.completeness === "complete") {
     request = request.eq("has_metadata", true).eq("is_complete", true);

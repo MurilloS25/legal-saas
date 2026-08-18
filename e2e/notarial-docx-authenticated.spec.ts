@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { extractDocxText, readDocx } from "../test/support/docx";
+import { countTableRows, extractDocxText, readDocx } from "../test/support/docx";
 import {
   CleanupRegistry,
   cleanupNotarialExports,
@@ -143,6 +143,76 @@ test.describe("notarial index DOCX export", () => {
     expect(text).toContain("NOTARIA PRUEBA E2E");
   });
 
+  // Regresión de smoke: el export usaba `.gte()/.lte()` encadenados sobre
+  // `authorized_at` (a diferencia del listado, ya corregido en PR #177) —
+  // cualquier Escritura sin esa fecha (incompleta o sin metadata en
+  // absoluto) desaparecía del Word entero, contradiciendo el aviso propio
+  // del modal ("las escrituras con datos incompletos pueden aparecer con
+  // campos faltantes"). Las tres deben estar presentes; los campos
+  // ausentes quedan vacíos, nunca inventados.
+  test("includes complete, partial, and no-metadata finalized Escrituras in the same export", async ({
+    request,
+  }) => {
+    const subToken = uniqueName("notarial-docx", "mix");
+    const template = await createTestTemplate(registry, {
+      name: `${subToken} Machote`,
+      content: "ESCRITURA FAKE.",
+    });
+
+    const complete = await createTestDocument(registry, template.id, {
+      title: `${subToken} Completa`,
+      rendered_content: "Contenido fake",
+    });
+    await createTestNotarialMetadata(complete.id, {
+      instrument_number: 900_001,
+      authorized_at: "2026-07-05T16:00:00.000Z",
+      act_type: `${subToken} ACTO`,
+      appearing_parties_summary: `${subToken} PARTE`,
+    });
+    await setTestDocumentStatus(complete.id, "final");
+
+    // Sin authorized_at, effective_index_date (notarial_index_entries) cae
+    // a created_at como resguardo — se fija dentro de la misma quincena del
+    // export (julio 2026, primera quincena) para que sigan siendo
+    // localizables ahí; sin este override quedarían en la quincena real de
+    // ejecución del test, no en `selection`.
+    const undatedCreatedAt = "2026-07-03T16:00:00.000Z";
+    const partial = await createTestDocument(registry, template.id, {
+      title: `${subToken} Parcial`,
+      rendered_content: "Contenido fake",
+      created_at: undatedCreatedAt,
+    });
+    await createTestNotarialMetadata(partial.id, {
+      instrument_number: 900_002,
+    });
+    await setTestDocumentStatus(partial.id, "final");
+
+    const missing = await createTestDocument(registry, template.id, {
+      title: `${subToken} SinMetadata`,
+      rendered_content: "Contenido fake",
+      created_at: undatedCreatedAt,
+    });
+    await setTestDocumentStatus(missing.id, "final");
+
+    const response = await request.get(
+      `/api/notarial-index/export?${selection}&search=${encodeURIComponent(subToken)}`,
+    );
+    expect(response.status()).toBe(200);
+    const text = extractDocxText(
+      (await readDocx(await response.body())).documentXml,
+    );
+    // 3 filas de datos + 1 de encabezado — ninguna de las tres quedó
+    // excluida por is_complete=false, has_metadata=false, o un campo NULL.
+    expect(
+      countTableRows((await readDocx(await response.body())).documentXml),
+    ).toBe(4);
+    expect(text).toContain("900001");
+    expect(text).toContain("900002");
+    // La completa trae fecha real; ni la parcial ni la sin-metadata la
+    // tienen — no se les inventó una para que "encajaran" en el período.
+    expect(text).toContain("05/07/2026");
+  });
+
   test("applies the visible server filters to the exported DOCX", async ({
     request,
   }) => {
@@ -164,8 +234,12 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("generates a valid empty-period Word", async ({ request }) => {
+    // completeness=complete: aísla contra cualquier Escritura completa de
+    // otro spec del mismo Workspace que por azar cayera en este período —
+    // no depende de la quincena provisional de filas sin fecha (esas ya no
+    // aparecen en cualquier período, ver B2 de notarial-workspace).
     const response = await request.get(
-      "/api/notarial-index/export?year=2026&month=1&half=FIRST_HALF",
+      "/api/notarial-index/export?year=2026&month=1&half=FIRST_HALF&completeness=complete",
     );
     expect(response.status()).toBe(200);
     const text = extractDocxText((await readDocx(await response.body())).documentXml);

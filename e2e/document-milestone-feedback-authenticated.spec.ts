@@ -7,6 +7,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { currentCostaRicaFortnight } from "../src/features/notarial-index/model/fortnight";
 
 /**
  * El antiguo banner azul "Escritura guardada como borrador"/"Escritura
@@ -102,8 +103,15 @@ test.describe("document milestone feedback (toast replacement)", () => {
 
     // Toast, no banner — y aterriza en "Cobro" (regresión ya cubierta en
     // el spec de progresión guiada; aquí solo se confirma el feedback).
+    // El mensaje explica la relación con el Índice sin afirmar que sus
+    // datos ya están completos — finalizar solo cambia status a "final".
     await expect(
-      page.getByRole("status").getByText("Escritura finalizada.", { exact: true }),
+      page
+        .getByRole("status")
+        .getByText(
+          "Escritura finalizada. Ya puede aparecer en el Índice Notarial. Revisa el paso Índice para completar o corregir sus datos.",
+          { exact: true },
+        ),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page).not.toHaveURL(/lifecycle=/);
     // El banner antiguo describía el hito con este texto y ofrecía un
@@ -116,6 +124,26 @@ test.describe("document milestone feedback (toast replacement)", () => {
     await expect(
       page.getByRole("link", { name: "Ir al Índice Notarial" }),
     ).toHaveCount(0);
+
+    // Finalizar con la casilla "Incluir en el Índice Notarial" en su valor
+    // por defecto (activada) ya la hace pertenecer al universo del Índice,
+    // aunque nunca se configuró su metadata notarial — visible como "Sin
+    // datos" (has_metadata=false), no ausente del listado. "Acto o
+    // contrato" cae al nombre del machote (nunca "Sin configurar" habiendo
+    // una fuente real). Sin authorized_at, effective_index_date la ubica
+    // provisionalmente por created_at (hoy) — se navega a la quincena
+    // actual, no a una fecha fija, porque ya no aparece en TODO período
+    // (ver 20260818130000_notarial_index_inclusion.sql).
+    const { year, month, half } = currentCostaRicaFortnight();
+    await page.goto(
+      `/dashboard/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(title)}`,
+    );
+    const row = page
+      .locator("tr")
+      .filter({ has: page.locator(`a[href="/dashboard/documents/${doc.id}"]`) });
+    await expect(row).toBeVisible();
+    await expect(row.getByText("Sin datos", { exact: true })).toBeVisible();
+    await expect(row).toContainText(template.name);
 
     // "Reabrir escritura" vive en el paso "Revisar y finalizar".
     await page.goto(`/dashboard/documents/${doc.id}`);

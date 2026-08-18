@@ -751,6 +751,8 @@ export function DocumentComposer(props: Props) {
             actNamePreview={props.actNamePreview}
             generatedPartiesPreview={props.generatedPartiesPreview}
             reviewRequired={props.reviewRequired}
+            includeInNotarialIndex={props.draft.include_in_notarial_index}
+            canChangeInclusion={canFinalize}
           />
         ) : (
           <LockedStepPlaceholder title="Índice" />

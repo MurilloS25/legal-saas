@@ -173,6 +173,9 @@ export function DocumentStatusControls({
 
   const [dialog, setDialog] = useState<DialogKind>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  // Default activado: preserva el comportamiento previo a este cambio (toda
+  // Escritura finalizada entraba al Índice) para quien no toca la casilla.
+  const [includeInIndex, setIncludeInIndex] = useState(true);
 
   const anyPending = toDraftPending || finalPending || reopenPending;
 
@@ -187,10 +190,24 @@ export function DocumentStatusControls({
     triggerRef.current?.focus();
   }
 
-  function submitAction(formAction: (formData: FormData) => void) {
+  function submitAction(
+    formAction: (formData: FormData) => void,
+    formData: FormData = new FormData(),
+  ) {
     // useActionState requiere que la acción se dispare dentro de una
     // transición para que el estado `pending` se actualice correctamente.
-    startTransition(() => formAction(new FormData()));
+    startTransition(() => formAction(formData));
+  }
+
+  function submitFinal() {
+    const formData = new FormData();
+    if (includeInIndex) formData.set("include_in_notarial_index", "1");
+    submitAction(finalAction, formData);
+  }
+
+  function openFinalDialog() {
+    setIncludeInIndex(true);
+    setDialog("final");
   }
 
   return (
@@ -205,7 +222,7 @@ export function DocumentStatusControls({
           ref={triggerRef}
           type="button"
           disabled={dirty || anyPending}
-          onClick={() => setDialog("final")}
+          onClick={openFinalDialog}
           className={primaryButtonClass}
         >
           Finalizar escritura
@@ -224,7 +241,7 @@ export function DocumentStatusControls({
                 ref={triggerRef}
                 type="button"
                 disabled={dirty || anyPending}
-                onClick={() => setDialog("final")}
+                onClick={openFinalDialog}
                 className={primaryButtonClass}
               >
                 Finalizar escritura
@@ -277,11 +294,34 @@ export function DocumentStatusControls({
       {showFinalDialog && (
         <ConfirmDialog
           title="Finalizar escritura"
-          description="La escritura quedará bloqueada para edición. Podrás reabrirla posteriormente. Antes de continuar, revisa el contenido y los datos ingresados."
+          description={
+            <>
+              La escritura quedará bloqueada para edición. Podrás reabrirla
+              posteriormente. Antes de continuar, revisa el contenido y los
+              datos ingresados.
+              <label className="mt-4 flex items-start gap-2 text-left text-sm font-normal text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={includeInIndex}
+                  onChange={(event) => setIncludeInIndex(event.target.checked)}
+                  disabled={finalPending}
+                  className="mt-0.5 size-4 accent-accent-700"
+                />
+                <span>
+                  <span className="font-medium text-slate-900">
+                    Incluir en el Índice Notarial
+                  </span>
+                  <br />
+                  Si se activa, la Escritura aparecerá en el Índice Notarial
+                  una vez finalizada.
+                </span>
+              </label>
+            </>
+          }
           confirmLabel="Finalizar escritura"
           pending={finalPending}
           error={final.message}
-          onConfirm={() => submitAction(finalAction)}
+          onConfirm={submitFinal}
           onClose={closeDialog}
         />
       )}
