@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  NOTARIAL_DATE_FILTER_COLUMN,
   NOTARIAL_PAGE_SIZE,
-  notarialDateOrFilter,
   notarialDateRangeIso,
   notarialQueryToParams,
   notarialSearchHasNoSafeTerm,
@@ -64,25 +64,14 @@ describe("notarialDateRangeIso", () => {
   });
 });
 
-describe("notarialDateOrFilter", () => {
-  it("includes rows with a NULL authorized_at alongside the fortnight range", () => {
-    // Regresión directa del bug de smoke: `.gte()/.lte()` encadenados
-    // excluyen NULL siempre (`x >= a AND x <= b` nunca es verdadero si `x`
-    // es NULL) — una Escritura finalizada sin metadata/fecha desaparecía de
-    // TODO período. El filtro real debe expresar explícitamente la
-    // disyunción "sin fecha, o dentro del rango" vía el operador `or` de
-    // PostgREST, no una cadena de comparaciones directas.
-    const filter = notarialDateOrFilter(
-      "2026-07-01T06:00:00.000Z",
-      "2026-07-16T05:59:59.999Z",
-    );
-    expect(filter).toBe(
-      "authorized_at.is.null,and(authorized_at.gte.2026-07-01T06:00:00.000Z,authorized_at.lte.2026-07-16T05:59:59.999Z)",
-    );
-    // No debe degradar a un simple rango sin la mitad "is.null" — eso sería
-    // exactamente el bug original.
-    expect(filter).toContain("authorized_at.is.null");
-    expect(filter).toContain("and(authorized_at.gte.");
+describe("NOTARIAL_DATE_FILTER_COLUMN", () => {
+  it("filters by effective_index_date, not authorized_at directly", () => {
+    // effective_index_date (authorized_at ?? created_at, calculado en la
+    // vista notarial_index_entries) nunca es NULL, así que un .gte()/.lte()
+    // encadenado ya no excluye las Escrituras incluidas sin fecha de
+    // autorización real — a diferencia del bug original que este archivo
+    // cubría contra `authorized_at` crudo.
+    expect(NOTARIAL_DATE_FILTER_COLUMN).toBe("effective_index_date");
   });
 });
 

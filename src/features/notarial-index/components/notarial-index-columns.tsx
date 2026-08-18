@@ -95,6 +95,10 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
       enableHiding: true,
       cell: ({ getValue }) => {
         const value = getValue<string | null>();
+        // La fila puede estar ubicada en este período por
+        // effective_index_date (created_at de resguardo) sin tener todavía
+        // una fecha de autorización real — nunca se inventa ni se muestra
+        // como si lo fuera; se declara explícitamente pendiente.
         return value ? (
           <>
             {formatCostaRicaDate(value)}
@@ -104,7 +108,7 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
             </span>
           </>
         ) : (
-          <EmptyValue />
+          <span className="text-amber-700">Fecha de autorización pendiente</span>
         );
       },
     },
