@@ -324,6 +324,7 @@ export type Database = {
           created_at: string
           field_values: Json
           id: string
+          include_in_notarial_index: boolean
           option_selections: Json
           owner_id: string
           rendered_content: string
@@ -338,6 +339,7 @@ export type Database = {
           created_at?: string
           field_values?: Json
           id?: string
+          include_in_notarial_index?: boolean
           option_selections?: Json
           owner_id: string
           rendered_content?: string
@@ -352,6 +354,7 @@ export type Database = {
           created_at?: string
           field_values?: Json
           id?: string
+          include_in_notarial_index?: boolean
           option_selections?: Json
           owner_id?: string
           rendered_content?: string
@@ -1175,6 +1178,7 @@ export type Database = {
           authorized_at: string | null
           client_name: string | null
           document_id: string | null
+          effective_index_date: string | null
           final_folio: string | null
           generated_parties: string | null
           has_metadata: boolean | null
