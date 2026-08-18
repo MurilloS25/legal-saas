@@ -3,6 +3,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { NotarialToolbar } from "./NotarialToolbar";
 import { NotarialIndexTable } from "./NotarialIndexTable";
+import { NotarialExportButton } from "./NotarialExportButton";
 import {
   NOTARIAL_PAGE_SIZE,
   notarialQueryToParams,
@@ -65,14 +66,7 @@ export function NotarialIndexWorkspace({
             </p>
           )}
         </div>
-        {canGenerate && (
-          <a
-            href={exportHref}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
-          >
-            Exportar Word
-          </a>
-        )}
+        {canGenerate && <NotarialExportButton href={exportHref} />}
       </div>
 
       {!canGenerate && (

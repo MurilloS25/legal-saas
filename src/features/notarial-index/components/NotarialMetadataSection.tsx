@@ -25,7 +25,11 @@ import type {
   NotarialMetadataPrefill,
   NotarialPrefillField,
 } from "../model/prefill";
-import { isNotarialComplete } from "../model/notarial";
+import {
+  isNotarialComplete,
+  joinMissingFieldLabels,
+  notarialMissingFields,
+} from "../model/notarial";
 import { FieldError } from "@/components/forms/FieldError";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
@@ -80,17 +84,38 @@ export function NotarialMetadataSection({
   useEffect(() => {
     if (state.success && lastSuccessState.current !== state) {
       lastSuccessState.current = state;
-      showToast(state.successMessage ?? "Datos del índice guardados.");
+      showToast(state.successMessage ?? "Cambios del índice guardados.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   // Valores controlados para el badge de completitud en vivo.
-  const [instrument, setInstrument] = useState(prefill.instrumentNumber.value);
+  //
+  // `source === "suggestion"` (número de instrumento, tomo, folios cuando no
+  // hay mapeo del machote) es una estimación — "el siguiente número", "el
+  // último tomo usado en otra Escritura" — no un dato real de ESTA Escritura,
+  // a diferencia de `"template"` (interpretado de un valor que el usuario ya
+  // escribió en el propio documento). Precargar una sugerencia en el campo
+  // editable la volvería indistinguible de un valor real: el badge la
+  // mostraría como "Configurado", y como el submit siempre envía este mismo
+  // estado (ver el bloque de inputs ocultos más abajo), un guardado disparado
+  // por CUALQUIER otro campo la persistiría como si el usuario la hubiera
+  // escrito. Por eso una sugerencia arranca el campo vacío — se ofrece solo
+  // como texto de ayuda (`PrefillHelp`) hasta que el usuario la acepte
+  // explícitamente.
+  const startingValue = (field: NotarialPrefillField) =>
+    field.source === "suggestion" ? "" : field.value;
+  const [instrument, setInstrument] = useState(
+    startingValue(prefill.instrumentNumber),
+  );
   const [authorizedAt, setAuthorizedAt] = useState(prefill.authorizedAt.value);
-  const [protocolBook, setProtocolBook] = useState(prefill.protocolBook.value);
-  const [initialFolio, setInitialFolio] = useState(prefill.initialFolio.value);
-  const [finalFolio, setFinalFolio] = useState(prefill.finalFolio.value);
+  const [protocolBook, setProtocolBook] = useState(
+    startingValue(prefill.protocolBook),
+  );
+  const [initialFolio, setInitialFolio] = useState(
+    startingValue(prefill.initialFolio),
+  );
+  const [finalFolio, setFinalFolio] = useState(startingValue(prefill.finalFolio));
   const [actName, setActName] = useState(prefill.actName.value);
   const [parties, setParties] = useState(metadata?.parties_override ?? "");
   const [notes, setNotes] = useState(metadata?.notes ?? "");
@@ -105,7 +130,7 @@ export function NotarialMetadataSection({
     }
   }
 
-  const complete = isNotarialComplete({
+  const liveMetadata = {
     instrument_number: Number(instrument),
     authorized_at: authorizedAt,
     protocol_book: protocolBook,
@@ -116,7 +141,9 @@ export function NotarialMetadataSection({
     parties_override: parties,
     generated_parties:
       metadata?.generated_parties ?? generatedPartiesPreview,
-  });
+  };
+  const complete = isNotarialComplete(liveMetadata);
+  const missingFields = notarialMissingFields(liveMetadata);
 
   function toggleRow(id: RowId) {
     setOpenRowId((current) => (current === id ? null : id));
@@ -197,7 +224,12 @@ export function NotarialMetadataSection({
           configuredCount={configuredCount}
           pendingCount={pendingCount}
           helperText="Completo significa completo según los campos del sistema, no una validación legal."
-          hasWarning={complete === false && configuredCount > 0}
+          hasWarning={!complete}
+          warningMessage={
+            complete
+              ? undefined
+              : `Faltan datos para completar el Índice: ${joinMissingFieldLabels(missingFields)}.`
+          }
         />
 
         <input type="hidden" name="version" value={metadata?.version ?? 1} />
@@ -250,7 +282,10 @@ export function NotarialMetadataSection({
               id="instrument_number-error"
               message={state.errors?.instrument_number}
             />
-            <PrefillHelp field={prefill.instrumentNumber} />
+            <PrefillHelp
+              field={prefill.instrumentNumber}
+              onUseSuggestion={setInstrument}
+            />
           </CollapsibleFieldRow>
 
           <CollapsibleFieldRow
@@ -347,7 +382,10 @@ export function NotarialMetadataSection({
               id="protocol_book-error"
               message={state.errors?.protocol_book}
             />
-            <PrefillHelp field={prefill.protocolBook} />
+            <PrefillHelp
+              field={prefill.protocolBook}
+              onUseSuggestion={setProtocolBook}
+            />
           </CollapsibleFieldRow>
 
           <CollapsibleFieldRow
@@ -389,7 +427,10 @@ export function NotarialMetadataSection({
                   id="initial_folio-error"
                   message={state.errors?.initial_folio}
                 />
-                <PrefillHelp field={prefill.initialFolio} />
+                <PrefillHelp
+                  field={prefill.initialFolio}
+                  onUseSuggestion={setInitialFolio}
+                />
               </div>
               <div>
                 <label htmlFor="final_folio" className={labelClass}>
@@ -411,7 +452,10 @@ export function NotarialMetadataSection({
                   id="final_folio-error"
                   message={state.errors?.final_folio}
                 />
-                <PrefillHelp field={prefill.finalFolio} />
+                <PrefillHelp
+                  field={prefill.finalFolio}
+                  onUseSuggestion={setFinalFolio}
+                />
               </div>
             </div>
           </CollapsibleFieldRow>
@@ -539,8 +583,34 @@ function formatDateTimeMeta(value: string): string {
   return value.replace("T", " ");
 }
 
-function PrefillHelp({ field }: { field: NotarialPrefillField }) {
+function PrefillHelp({
+  field,
+  onUseSuggestion,
+}: {
+  field: NotarialPrefillField;
+  /** Presente solo para campos con sugerencia (número/tomo/folios). */
+  onUseSuggestion?: (value: string) => void;
+}) {
   if (!field.rawValue) {
+    if (field.source === "suggestion" && field.value) {
+      return (
+        <p className="mt-1 text-xs text-slate-500">
+          Sugerencia: {field.value}.{" "}
+          {onUseSuggestion ? (
+            <button
+              type="button"
+              onClick={() => onUseSuggestion(field.value)}
+              className="font-medium text-accent-700 hover:underline focus:outline-none focus:underline"
+            >
+              Usar este valor
+            </button>
+          ) : (
+            "Escríbelo si aplica."
+          )}{" "}
+          No se guarda hasta que lo confirmes.
+        </p>
+      );
+    }
     if (field.source !== "template") return null;
     return (
       <p className="mt-1 text-xs text-slate-500">

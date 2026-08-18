@@ -89,11 +89,14 @@ type Props = {
    * regla única: cada una es `true` solo cuando ese paso fue confirmado por
    * su propia acción (guardar, finalizar, resolver Cobro explícitamente),
    * nunca por datos parciales ni por haber sido simplemente visitado.
-   * "Índice" mantiene su comportamiento actual (sin check) — no forma
-   * parte de este ajuste.
+   * "Índice" usa la misma condición de completitud que determina si la
+   * Escritura aparece sin advertencia en el Índice Notarial
+   * (`isNotarialComplete`/`notarial_index_entries.is_complete`) — nunca por
+   * haber guardado parcialmente ni por haber visitado el paso.
    */
   completarComplete?: boolean;
   cobroComplete?: boolean;
+  notarialComplete?: boolean;
 };
 
 export function DocumentWorkspaceHeader({
@@ -108,6 +111,7 @@ export function DocumentWorkspaceHeader({
   canDuplicate = false,
   completarComplete = false,
   cobroComplete = false,
+  notarialComplete = false,
 }: Props) {
   const persisted = !!documentId;
   const notarialUnlocked = persisted && status === "final";
@@ -115,7 +119,7 @@ export function DocumentWorkspaceHeader({
     completar: completarComplete,
     revisar: status === "final",
     cobro: cobroComplete,
-    notarial: false,
+    notarial: notarialComplete,
   };
 
   const steps = STEP_META.map(({ id, label, description }) => {

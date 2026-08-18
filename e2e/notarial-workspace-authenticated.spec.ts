@@ -27,6 +27,7 @@ const liveSearchTerm = `Objetivo Dinámico ${token}`;
 let completeId = "";
 let incompleteId = "";
 let missingId = "";
+let noDateId = "";
 let secondHalfId = "";
 let draftId = "";
 let liveSearchId = "";
@@ -97,6 +98,14 @@ test.describe("notarial index workspace", () => {
       appearing_parties_summary: `Solo partes ${token}`,
     });
     missingId = await seedFinal(template.id, `${token} SinDatos`, null);
+    // Caso 2 del reporte de smoke: distinto de "sin metadata" — SÍ tiene
+    // metadata parcial (un número de instrumento), pero le falta
+    // específicamente `authorized_at`. Antes del fix, `.gte()/.lte()`
+    // encadenados sobre `authorized_at` excluían esta fila de CUALQUIER
+    // quincena, sin importar cuál — nunca era localizable.
+    noDateId = await seedFinal(template.id, `${token} SinFecha`, {
+      instrument_number: instrument + 500,
+    });
     secondHalfId = await seedFinal(template.id, `${token} SegundaQuincena`, {
       instrument_number: instrument + 1,
       authorized_at: "2026-07-16T16:35:00.000Z",
@@ -140,10 +149,40 @@ test.describe("notarial index workspace", () => {
     ).toBeVisible();
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, incompleteId)).toBeVisible();
-    await expect(rowFor(page, missingId)).toHaveCount(0);
+    // Regresión del bug de smoke: una Escritura finalizada sin metadata (o
+    // sin `authorized_at`) NUNCA debe quedar invisible solo por estarle
+    // faltando esos datos — antes el filtro de quincena la excluía de
+    // cualquier período, sin ninguna forma de localizarla.
+    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, noDateId)).toBeVisible();
+    // secondHalfId sí tiene fecha real, solo que en la OTRA quincena — a
+    // diferencia de missingId/noDateId, este caso correctamente no
+    // pertenece a la quincena activa.
     await expect(rowFor(page, secondHalfId)).toHaveCount(0);
     // Un borrador no aparece en el índice.
     await expect(rowFor(page, draftId)).toHaveCount(0);
+  });
+
+  test("B2: undated finalized entries stay visible in every fortnight, not just the default one", async ({
+    page,
+  }) => {
+    // La condición importante del reporte: nunca invisible "únicamente
+    // porque todavía le falten datos del Índice" — se verifica navegando a
+    // una quincena DISTINTA a la del seed y confirmando que siguen
+    // apareciendo, en vez de solo comprobarlo en el período por defecto.
+    await page.goto(
+      `/dashboard/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
+    );
+    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, noDateId)).toBeVisible();
+    // Un dato real que sí pertenece a la OTRA quincena, para contraste.
+    await expect(rowFor(page, completeId)).toHaveCount(0);
+
+    await page.goto(
+      `/dashboard/notarial-index?year=2020&month=1&half=FIRST_HALF&search=${token}`,
+    );
+    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, noDateId)).toBeVisible();
   });
 
   test("C: distinguishes complete and incomplete entries in the fortnight", async ({ page }) => {
@@ -190,10 +229,48 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, incompleteId)).toHaveCount(0);
     await expect(rowFor(page, missingId)).toHaveCount(0);
+    await expect(rowFor(page, noDateId)).toHaveCount(0);
   });
 
-  test("E: missing metadata cannot be assigned to a fortnight", async ({ page }) => {
+  // Antes decía "missing metadata cannot be assigned to a fortnight" y
+  // afirmaba exactamente lo contrario de lo correcto — codificaba el bug de
+  // smoke como comportamiento esperado. `completeness=missing` es
+  // precisamente el filtro que un usuario usaría para ENCONTRAR estas
+  // Escrituras y completarlas; debe combinarse con Año/Mes/Quincena sin
+  // perder ninguna fila por falta de fecha.
+  test("E: the 'missing' completeness filter locates undated finalized entries regardless of fortnight", async ({
+    page,
+  }) => {
     await search(page, token, "&completeness=missing");
+    await expect(rowFor(page, missingId)).toBeVisible();
+    // noDateId SÍ tiene metadata (instrument_number) — cae bajo
+    // completeness=incomplete (ver test E2), no bajo "missing"
+    // (has_metadata=false únicamente).
+    await expect(rowFor(page, noDateId)).toHaveCount(0);
+    // "completo"/"incompleto-con-fecha" no pertenecen al filtro "missing".
+    await expect(rowFor(page, completeId)).toHaveCount(0);
+    await expect(rowFor(page, incompleteId)).toHaveCount(0);
+
+    // Se mantiene localizable incluso en una quincena a la que nunca podría
+    // "pertenecer" por fecha.
+    await page.goto(
+      `/dashboard/notarial-index?year=2019&month=12&half=SECOND_HALF&search=${token}&completeness=missing`,
+    );
+    await expect(rowFor(page, missingId)).toBeVisible();
+  });
+
+  test("E2: the 'incomplete' completeness filter also locates entries missing only the date", async ({
+    page,
+  }) => {
+    // noDateId SÍ tiene metadata (instrument_number) — por diseño de
+    // `is_complete` en la vista, sigue siendo "incompleto" mientras falte
+    // `authorized_at` u otro campo requerido, así que cae bajo
+    // completeness=incomplete, no completeness=missing (esa es solo para
+    // has_metadata=false). Antes del fix esta combinación tampoco podía
+    // encontrarlo, por la misma exclusión de fecha.
+    await search(page, token, "&completeness=incomplete");
+    await expect(rowFor(page, incompleteId)).toBeVisible();
+    await expect(rowFor(page, noDateId)).toBeVisible();
     await expect(rowFor(page, missingId)).toHaveCount(0);
     await expect(rowFor(page, completeId)).toHaveCount(0);
   });
@@ -251,8 +328,9 @@ test.describe("notarial index workspace", () => {
     });
     await expect(filters).toHaveAttribute("aria-busy", "false");
     const exportUrl = new URL(
-      (await page.getByRole("link", { name: "Exportar Word" }).getAttribute("href")) ??
-        "",
+      (await page
+        .getByRole("button", { name: "Exportar Word" })
+        .getAttribute("data-export-href")) ?? "",
       "http://localhost:3000",
     );
     expect(exportUrl.searchParams.get("search")).toBe(liveSearchTerm);

@@ -6,6 +6,8 @@ import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "@/features/documents";
 import { parseNotarialFormData } from "../model/notarial-schema";
 import { generateConfiguredParties } from "./parties-generation";
+import { isNotarialComplete } from "../model/notarial";
+import { notarialSaveErrorMessage } from "./notarial-save-error";
 
 export type NotarialMetadataState = {
   errors?: Partial<Record<string, string>>;
@@ -159,9 +161,7 @@ export async function saveNotarialMetadataAction(
         .single();
 
   if (result.error) {
-    return {
-      message: "No fue posible guardar los datos del índice. Intenta de nuevo.",
-    };
+    return { message: notarialSaveErrorMessage(result.error) };
   }
   if (!result.data) {
     return {
@@ -171,5 +171,21 @@ export async function saveNotarialMetadataAction(
   }
 
   revalidatePath(`/dashboard/documents/${documentId}`);
-  return { success: true, successMessage: "Datos del índice guardados." };
+
+  // El mismo guardado nunca debe leerse como "la Escritura ya quedó
+  // agregada al Índice" si todavía faltan campos — el Índice se deriva de
+  // esta misma fila (ver `notarial_index_entries`), así que "completo" aquí
+  // es exactamente la condición real bajo la que aparecerá sin advertencia.
+  const complete = isNotarialComplete({
+    ...normalizedValues,
+    act_name_snapshot: actNameSnapshot,
+    generated_parties: generatedParties,
+  });
+
+  return {
+    success: true,
+    successMessage: complete
+      ? "Datos del índice completos."
+      : "Cambios del índice guardados.",
+  };
 }
