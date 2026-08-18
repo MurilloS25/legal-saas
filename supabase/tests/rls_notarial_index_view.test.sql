@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(15);
+select plan(16);
 
 select ok(
   'security_invoker=on' = any(coalesce(
@@ -90,6 +90,13 @@ select is((select count(*) from public.notarial_index_entries),
   1::bigint, 'Another owner sees only their own finalized entry');
 select ok((select not has_metadata from public.notarial_index_entries),
   'A finalized document without metadata remains visible as incomplete');
+-- Regresión: sin ninguna fila de metadata guardada (act_name_snapshot y
+-- act_name_override ambos NULL por el LEFT JOIN), act_name debe caer al
+-- nombre del machote — misma fuente ya usada por saveNotarialMetadataAction
+-- y por el prefill del cliente — nunca quedar NULL/"Sin configurar" cuando
+-- el machote sí tiene un nombre real.
+select is((select act_name from public.notarial_index_entries),
+  'Poder', 'act_name falls back to the template name with no saved metadata at all');
 
 reset role;
 select set_config('request.jwt.claim.sub','', true);
