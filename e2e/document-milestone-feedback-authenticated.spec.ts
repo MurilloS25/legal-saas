@@ -102,8 +102,15 @@ test.describe("document milestone feedback (toast replacement)", () => {
 
     // Toast, no banner — y aterriza en "Cobro" (regresión ya cubierta en
     // el spec de progresión guiada; aquí solo se confirma el feedback).
+    // El mensaje explica la relación con el Índice sin afirmar que sus
+    // datos ya están completos — finalizar solo cambia status a "final".
     await expect(
-      page.getByRole("status").getByText("Escritura finalizada.", { exact: true }),
+      page
+        .getByRole("status")
+        .getByText(
+          "Escritura finalizada. Ya puede aparecer en el Índice Notarial. Revisa el paso Índice para completar o corregir sus datos.",
+          { exact: true },
+        ),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page).not.toHaveURL(/lifecycle=/);
     // El banner antiguo describía el hito con este texto y ofrecía un
@@ -116,6 +123,21 @@ test.describe("document milestone feedback (toast replacement)", () => {
     await expect(
       page.getByRole("link", { name: "Ir al Índice Notarial" }),
     ).toHaveCount(0);
+
+    // Finalizar (status=final) ya la hace pertenecer al universo del
+    // Índice, aunque nunca se configuró su metadata notarial — visible
+    // como "Sin datos" (has_metadata=false), no ausente del listado.
+    // "Acto o contrato" cae al nombre del machote (nunca "Sin configurar"
+    // habiendo una fuente real).
+    await page.goto(
+      `/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${encodeURIComponent(title)}`,
+    );
+    const row = page
+      .locator("tr")
+      .filter({ has: page.locator(`a[href="/dashboard/documents/${doc.id}"]`) });
+    await expect(row).toBeVisible();
+    await expect(row.getByText("Sin datos", { exact: true })).toBeVisible();
+    await expect(row).toContainText(template.name);
 
     // "Reabrir escritura" vive en el paso "Revisar y finalizar".
     await page.goto(`/dashboard/documents/${doc.id}`);
