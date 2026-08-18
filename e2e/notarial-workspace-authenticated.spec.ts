@@ -36,11 +36,13 @@ async function seedFinal(
   templateId: string,
   title: string,
   metadata: Parameters<typeof createTestNotarialMetadata>[1] | null,
+  createdAt?: string,
 ): Promise<string> {
   const doc = await createTestDocument(registry, templateId, {
     title,
     field_values: { "parte.nombre": "Persona" },
     rendered_content: "x",
+    created_at: createdAt,
   });
   if (metadata) await createTestNotarialMetadata(doc.id, metadata);
   await setTestDocumentStatus(doc.id, "final");
@@ -97,15 +99,33 @@ test.describe("notarial index workspace", () => {
       authorized_at: "2026-07-15T17:00:00.000Z",
       appearing_parties_summary: `Solo partes ${token}`,
     });
-    missingId = await seedFinal(template.id, `${token} SinDatos`, null);
+    // `created_at` fijo dentro de la primera quincena de julio 2026 (mismo
+    // período que `authorizedAt`): sin `authorized_at`,
+    // `effective_index_date` (notarial_index_entries) cae a `created_at`
+    // como resguardo — solo para ubicación/navegación provisional, nunca
+    // como fecha real. Sin este override el fixture quedaría en la
+    // quincena real de ejecución del test, no en la esperada.
+    const undatedCreatedAt = "2026-07-02T16:00:00.000Z";
+    missingId = await seedFinal(
+      template.id,
+      `${token} SinDatos`,
+      null,
+      undatedCreatedAt,
+    );
     // Caso 2 del reporte de smoke: distinto de "sin metadata" — SÍ tiene
     // metadata parcial (un número de instrumento), pero le falta
     // específicamente `authorized_at`. Antes del fix, `.gte()/.lte()`
     // encadenados sobre `authorized_at` excluían esta fila de CUALQUIER
-    // quincena, sin importar cuál — nunca era localizable.
-    noDateId = await seedFinal(template.id, `${token} SinFecha`, {
-      instrument_number: instrument + 500,
-    });
+    // quincena, sin importar cuál — nunca era localizable. Ahora
+    // `effective_index_date` (authorized_at ?? created_at) siempre la ubica
+    // en exactamente una quincena provisional — la de su `created_at` — en
+    // vez de en ninguna.
+    noDateId = await seedFinal(
+      template.id,
+      `${token} SinFecha`,
+      { instrument_number: instrument + 500 },
+      undatedCreatedAt,
+    );
     secondHalfId = await seedFinal(template.id, `${token} SegundaQuincena`, {
       instrument_number: instrument + 1,
       authorized_at: "2026-07-16T16:35:00.000Z",
@@ -149,10 +169,11 @@ test.describe("notarial index workspace", () => {
     ).toBeVisible();
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, incompleteId)).toBeVisible();
-    // Regresión del bug de smoke: una Escritura finalizada sin metadata (o
-    // sin `authorized_at`) NUNCA debe quedar invisible solo por estarle
-    // faltando esos datos — antes el filtro de quincena la excluía de
-    // cualquier período, sin ninguna forma de localizarla.
+    // Regresión del bug de smoke original: una Escritura finalizada sin
+    // metadata (o sin `authorized_at`) NUNCA debe quedar invisible solo por
+    // estarle faltando esos datos. `effective_index_date` (authorized_at ??
+    // created_at) la ubica en su quincena provisional (la de created_at,
+    // fijada por el fixture) en vez de excluirla de todas.
     await expect(rowFor(page, missingId)).toBeVisible();
     await expect(rowFor(page, noDateId)).toBeVisible();
     // secondHalfId sí tiene fecha real, solo que en la OTRA quincena — a
@@ -163,26 +184,38 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, draftId)).toHaveCount(0);
   });
 
-  test("B2: undated finalized entries stay visible in every fortnight, not just the default one", async ({
+  // Comportamiento corregido respecto a PR #177/#181: antes una Escritura
+  // sin `authorized_at` aparecía en TODO período (filtro `authorized_at.is.
+  // null OR rango`), lo que le quitaba sentido a Año/Mes/Quincena. Ahora
+  // `effective_index_date` la ubica en exactamente UNA quincena provisional
+  // (la de su `created_at`, ver 20260818130000_notarial_index_inclusion.sql)
+  // — localizable, pero ya no omnipresente.
+  test("B2: undated finalized entries are locatable in their provisional fortnight, not in every fortnight", async ({
     page,
   }) => {
-    // La condición importante del reporte: nunca invisible "únicamente
-    // porque todavía le falten datos del Índice" — se verifica navegando a
-    // una quincena DISTINTA a la del seed y confirmando que siguen
-    // apareciendo, en vez de solo comprobarlo en el período por defecto.
+    // Su propia quincena provisional (created_at fijado por el fixture,
+    // misma primera quincena de julio que completeId) — ya cubierto por B,
+    // se repite aquí solo como línea base del contraste.
+    await search(page, token);
+    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, noDateId)).toBeVisible();
+
+    // Una quincena DISTINTA a la provisional: ya no deben aparecer — a
+    // diferencia del comportamiento antiguo (omnipresente por NULL).
     await page.goto(
       `/dashboard/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
     );
-    await expect(rowFor(page, missingId)).toBeVisible();
-    await expect(rowFor(page, noDateId)).toBeVisible();
-    // Un dato real que sí pertenece a la OTRA quincena, para contraste.
+    await expect(rowFor(page, missingId)).toHaveCount(0);
+    await expect(rowFor(page, noDateId)).toHaveCount(0);
+    // completeId sí pertenece a la primera quincena, no a esta — mismo
+    // contraste que arriba, en la otra dirección.
     await expect(rowFor(page, completeId)).toHaveCount(0);
 
     await page.goto(
       `/dashboard/notarial-index?year=2020&month=1&half=FIRST_HALF&search=${token}`,
     );
-    await expect(rowFor(page, missingId)).toBeVisible();
-    await expect(rowFor(page, noDateId)).toBeVisible();
+    await expect(rowFor(page, missingId)).toHaveCount(0);
+    await expect(rowFor(page, noDateId)).toHaveCount(0);
   });
 
   test("C: distinguishes complete and incomplete entries in the fortnight", async ({ page }) => {
@@ -243,8 +276,9 @@ test.describe("notarial index workspace", () => {
   // smoke como comportamiento esperado. `completeness=missing` es
   // precisamente el filtro que un usuario usaría para ENCONTRAR estas
   // Escrituras y completarlas; debe combinarse con Año/Mes/Quincena sin
-  // perder ninguna fila por falta de fecha.
-  test("E: the 'missing' completeness filter locates undated finalized entries regardless of fortnight", async ({
+  // perder la fila por falta de fecha EN SU PROPIA quincena provisional
+  // (ver B2: ya no aparece en cualquier quincena, solo en la de created_at).
+  test("E: the 'missing' completeness filter locates undated finalized entries in their provisional fortnight", async ({
     page,
   }) => {
     await search(page, token, "&completeness=missing");
@@ -257,12 +291,13 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, completeId)).toHaveCount(0);
     await expect(rowFor(page, incompleteId)).toHaveCount(0);
 
-    // Se mantiene localizable incluso en una quincena a la que nunca podría
-    // "pertenecer" por fecha.
+    // Una quincena a la que nunca podría "pertenecer" por fecha (ni la real
+    // ni la provisional): ya no es localizable ahí, a diferencia del
+    // comportamiento antiguo (omnipresente por NULL).
     await page.goto(
       `/dashboard/notarial-index?year=2019&month=12&half=SECOND_HALF&search=${token}&completeness=missing`,
     );
-    await expect(rowFor(page, missingId)).toBeVisible();
+    await expect(rowFor(page, missingId)).toHaveCount(0);
   });
 
   test("E2: the 'incomplete' completeness filter also locates entries missing only the date", async ({
@@ -420,10 +455,9 @@ test.describe("notarial index workspace", () => {
   // debía mostrar el estado vacío, nunca las filas del período anterior.
   // Se conduce por los propios controles del toolbar (no navegación directa
   // por URL) para ejercer el mismo router.push() real que usa un usuario.
-  // completeness=complete además del token: missingId/noDateId (mismo
-  // token, sin fecha) son visibles en TODO período por diseño (PR #177) y
-  // contaminarían un período "vacío" — no es una fuga, es la regla vigente,
-  // así que se filtra explícitamente para aislar el caso realmente vacío.
+  // completeness=complete además del token: aísla completeId de
+  // missingId/noDateId (mismo token), que ahora viven en su propia quincena
+  // provisional (julio, ver B2) y ya no contaminarían agosto de todos modos.
   test("N: switching from a fortnight with data to an empty one never keeps stale rows", async ({
     page,
   }) => {
