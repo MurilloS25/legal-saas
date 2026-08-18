@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isNotarialComplete,
+  joinMissingFieldLabels,
   notarialCompleteness,
   notarialMissingFields,
   type NotarialMetadata,
@@ -71,5 +72,41 @@ describe("notarialMissingFields", () => {
         generated_parties: null,
       }),
     ).toEqual(["initial_folio"]);
+  });
+
+  it("reports every core field when metadata is null", () => {
+    expect(notarialMissingFields(null)).toEqual([
+      "protocol_book",
+      "initial_folio",
+      "final_folio",
+      "instrument_number",
+      "authorized_at",
+      "act_name",
+      "parties",
+    ]);
+  });
+});
+
+describe("joinMissingFieldLabels", () => {
+  it("returns an empty string for no missing fields", () => {
+    expect(joinMissingFieldLabels([])).toBe("");
+  });
+
+  it("returns a single label as-is", () => {
+    expect(joinMissingFieldLabels(["instrument_number"])).toBe(
+      "número de instrumento",
+    );
+  });
+
+  it("joins two labels with 'y'", () => {
+    expect(joinMissingFieldLabels(["instrument_number", "authorized_at"])).toBe(
+      "número de instrumento y fecha y hora de autorización",
+    );
+  });
+
+  it("joins three or more labels with commas and a final 'y'", () => {
+    expect(
+      joinMissingFieldLabels(["instrument_number", "authorized_at", "parties"]),
+    ).toBe("número de instrumento, fecha y hora de autorización y partes");
   });
 });

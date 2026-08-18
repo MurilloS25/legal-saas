@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NOTARIAL_PAGE_SIZE,
+  notarialDateOrFilter,
   notarialDateRangeIso,
   notarialQueryToParams,
   notarialSearchHasNoSafeTerm,
@@ -60,6 +61,28 @@ describe("notarialDateRangeIso", () => {
     );
     expect(range.fromIso).toBe("2026-07-01T06:00:00.000Z");
     expect(range.toIso).toBe("2026-07-16T05:59:59.999Z");
+  });
+});
+
+describe("notarialDateOrFilter", () => {
+  it("includes rows with a NULL authorized_at alongside the fortnight range", () => {
+    // Regresión directa del bug de smoke: `.gte()/.lte()` encadenados
+    // excluyen NULL siempre (`x >= a AND x <= b` nunca es verdadero si `x`
+    // es NULL) — una Escritura finalizada sin metadata/fecha desaparecía de
+    // TODO período. El filtro real debe expresar explícitamente la
+    // disyunción "sin fecha, o dentro del rango" vía el operador `or` de
+    // PostgREST, no una cadena de comparaciones directas.
+    const filter = notarialDateOrFilter(
+      "2026-07-01T06:00:00.000Z",
+      "2026-07-16T05:59:59.999Z",
+    );
+    expect(filter).toBe(
+      "authorized_at.is.null,and(authorized_at.gte.2026-07-01T06:00:00.000Z,authorized_at.lte.2026-07-16T05:59:59.999Z)",
+    );
+    // No debe degradar a un simple rango sin la mitad "is.null" — eso sería
+    // exactamente el bug original.
+    expect(filter).toContain("authorized_at.is.null");
+    expect(filter).toContain("and(authorized_at.gte.");
   });
 });
 
