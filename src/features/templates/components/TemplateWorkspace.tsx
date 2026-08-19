@@ -88,6 +88,7 @@ export type WorkspaceTemplate = {
   description: string | null;
   status: string;
   updated_at: string;
+  include_in_notarial_index_by_default: boolean;
 };
 
 type EditModeProps = {
@@ -640,6 +641,7 @@ export function TemplateWorkspace(props: Props) {
             readOnly={!canWrite}
             fields={props.indexFields}
             optionBlocks={props.indexOptionBlocks}
+            includeByDefault={props.template.include_in_notarial_index_by_default}
           />
         ) : (
           <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">

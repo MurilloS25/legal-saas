@@ -10,6 +10,7 @@ import type {
 } from "../model/template-index-configuration";
 import {
   saveTemplateIndexConfigurationAction,
+  setTemplateNotarialIndexDefaultAction,
   type TemplateIndexConfigurationState,
 } from "../server/template-index-config-actions";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
@@ -35,6 +36,10 @@ type Props = {
   /** templates.write — sin este permiso, toda la sección es de solo
    * lectura. */
   readOnly?: boolean;
+  /** Valor que heredarán las nuevas Escrituras creadas desde este Machote
+   * (documents.include_in_notarial_index al crear — snapshot, no vínculo
+   * permanente). */
+  includeByDefault: boolean;
 };
 
 const SIMPLE_FIELDS: Array<{
@@ -84,7 +89,44 @@ export function TemplateIndexConfigurationSection({
   optionBlocks,
   configuration,
   readOnly = false,
+  includeByDefault,
 }: Props) {
+  const { showToast } = useToast();
+  const [inclusion, setInclusion] = useState(includeByDefault);
+  const [inclusionPending, setInclusionPending] = useState(false);
+  const [inclusionError, setInclusionError] = useState<string | null>(null);
+  // Mismo riesgo de estado local obsoleto ya corregido en
+  // NotarialMetadataSection (ver 20260818140000): este componente tampoco
+  // se desmonta al navegar entre pasos del Machote, así que se resincroniza
+  // explícitamente cuando el prop del servidor cambia de verdad.
+  const lastSyncedInclusion = useRef(includeByDefault);
+  useEffect(() => {
+    if (lastSyncedInclusion.current !== includeByDefault) {
+      lastSyncedInclusion.current = includeByDefault;
+      setInclusion(includeByDefault);
+    }
+  }, [includeByDefault]);
+
+  async function handleInclusionChange(next: boolean) {
+    setInclusionError(null);
+    setInclusionPending(true);
+    const result = await setTemplateNotarialIndexDefaultAction(templateId, next);
+    setInclusionPending(false);
+    if (result.success && result.includeByDefault !== undefined) {
+      lastSyncedInclusion.current = result.includeByDefault;
+      setInclusion(result.includeByDefault);
+      showToast(
+        result.includeByDefault
+          ? "Las nuevas Escrituras de este Machote se incluirán en el Índice Notarial."
+          : "Las nuevas Escrituras de este Machote no se incluirán en el Índice Notarial.",
+      );
+    } else {
+      setInclusionError(
+        result.message ?? "No fue posible actualizar la configuración del Índice.",
+      );
+    }
+  }
+
   const availableIds = useMemo(
     () => new Set(fields.map((field) => field.id)),
     [fields],
@@ -124,7 +166,6 @@ export function TemplateIndexConfigurationSection({
 
   const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
-  const { showToast } = useToast();
   const lastSuccessState = useRef<TemplateIndexConfigurationState | null>(null);
   useEffect(() => {
     if (state.success && lastSuccessState.current !== state) {
@@ -268,7 +309,45 @@ export function TemplateIndexConfigurationSection({
       <div className="px-6 py-4 text-sm font-semibold text-slate-900 border-b border-slate-200">
         Configuración del índice notarial
       </div>
-      <form action={formAction} className="px-6 py-5">
+
+      <div className="flex items-start gap-2 border-b border-slate-100 px-6 py-4">
+        <input
+          id="template-notarial-inclusion-toggle"
+          type="checkbox"
+          checked={inclusion}
+          disabled={readOnly || inclusionPending}
+          onChange={(event) => handleInclusionChange(event.target.checked)}
+          className="mt-0.5 size-4 accent-accent-700"
+        />
+        <label
+          htmlFor="template-notarial-inclusion-toggle"
+          className="text-sm text-slate-700"
+        >
+          <span className="font-medium text-slate-900">
+            Incluir en Índice Notarial
+          </span>
+          <br />
+          Las nuevas Escrituras creadas desde este Machote aparecerán en el
+          Índice Notarial por defecto. Podrás cambiar esta decisión
+          individualmente en una Escritura si fuera necesario.
+        </label>
+      </div>
+      {inclusionError && (
+        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
+          {inclusionError}
+        </p>
+      )}
+      {!inclusion && (
+        <p className="border-b border-slate-100 px-6 py-4 text-sm text-slate-500">
+          Este Machote no utilizará configuración del Índice.
+        </p>
+      )}
+
+      <form
+        action={formAction}
+        className="px-6 py-5"
+        hidden={!inclusion}
+      >
         {readOnly && (
           <div
             role="status"

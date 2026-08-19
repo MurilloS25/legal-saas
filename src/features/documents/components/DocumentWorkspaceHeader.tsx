@@ -97,6 +97,10 @@ type Props = {
   completarComplete?: boolean;
   cobroComplete?: boolean;
   notarialComplete?: boolean;
+  /** documents.include_in_notarial_index — cuando es false, "Índice" no
+   * aparece en la navegación normal del stepper (la ruta sigue siendo
+   * alcanzable por enlace directo; ver NotarialMetadataSection). */
+  includeInNotarialIndex?: boolean;
 };
 
 export function DocumentWorkspaceHeader({
@@ -112,6 +116,7 @@ export function DocumentWorkspaceHeader({
   completarComplete = false,
   cobroComplete = false,
   notarialComplete = false,
+  includeInNotarialIndex = true,
 }: Props) {
   const persisted = !!documentId;
   const notarialUnlocked = persisted && status === "final";
@@ -122,7 +127,9 @@ export function DocumentWorkspaceHeader({
     notarial: notarialComplete,
   };
 
-  const steps = STEP_META.map(({ id, label, description }) => {
+  const steps = STEP_META.filter(
+    ({ id }) => id !== "notarial" || includeInNotarialIndex,
+  ).map(({ id, label, description }) => {
     const needsPersistence = id === "cobro" || id === "notarial";
     const locked =
       (needsPersistence && !persisted) || (id === "notarial" && persisted && !notarialUnlocked);
