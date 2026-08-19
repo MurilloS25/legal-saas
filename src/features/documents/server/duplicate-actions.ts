@@ -22,7 +22,10 @@ export type DuplicateDocumentState = {
  *
  * Nunca copia: id, estado (siempre nace `draft`), fechas, historial de
  * actividad, metadata notarial (número de instrumento, fechas de
- * autorización, etc. — únicos por instrumento) ni cuentas por cobrar/pagos.
+ * autorización, etc. — únicos por instrumento), cuentas por cobrar/pagos, ni
+ * la pertenencia al Índice Notarial del original (si esta se corrigió
+ * individualmente) — la copia toma el default actual del Machote, igual que
+ * cualquier Escritura nueva creada desde él.
  * El original nunca se modifica, sin importar su estado.
  */
 export async function duplicateDocumentAction(
@@ -42,7 +45,7 @@ export async function duplicateDocumentAction(
   const { data: source, error: sourceError } = await supabase
     .from("documents")
     .select(
-      "title, template_id, client_id, field_values, option_selections, rendered_content",
+      "title, template_id, client_id, field_values, option_selections, rendered_content, templates(include_in_notarial_index_by_default)",
     )
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
@@ -67,6 +70,12 @@ export async function duplicateDocumentAction(
       field_values: source.field_values,
       option_selections: source.option_selections,
       rendered_content: source.rendered_content,
+      // Nace desde el machote de origen, no del original que se duplica —
+      // mismo criterio que ya usa createDocumentDraftAction (snapshot del
+      // default del Machote al momento de crear, no una copia del posible
+      // override individual de la Escritura original).
+      include_in_notarial_index:
+        source.templates?.include_in_notarial_index_by_default ?? true,
     })
     .select("id")
     .single();

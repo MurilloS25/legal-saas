@@ -57,7 +57,7 @@ async function loadOwnedTemplateWithFields(
 ) {
   const { data: template, error: templateError } = await supabase
     .from("templates")
-    .select("id, name, status, content_json")
+    .select("id, name, status, content_json, include_in_notarial_index_by_default")
     .eq("id", templateId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -258,6 +258,11 @@ export async function createDocumentDraftAction(
       field_values: result.values,
       option_selections: result.optionSelections,
       rendered_content: result.rendered,
+      // Snapshot único al crear — el Machote solo define el valor INICIAL.
+      // Cambiar el Machote después nunca modifica Escrituras ya creadas;
+      // `documents.include_in_notarial_index` sigue siendo la única fuente
+      // real por Escritura (ver 20260819210000).
+      include_in_notarial_index: loaded.template.include_in_notarial_index_by_default,
     })
     .select("id")
     .single();
