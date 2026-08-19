@@ -1,10 +1,16 @@
 import "server-only";
 
 export {
+  getLatestNotarialConfirmationActorName,
   getNotarialMetadata,
   getNotarialMetadataReviewRequired,
   getNotarialMetadataSuggestions,
 } from "./server/detail-queries";
+export {
+  confirmNotarialMetadataAction,
+  startNotarialCorrectionAction,
+  type NotarialConfirmationActionState,
+} from "./server/confirmation-actions";
 export { getTemplateIndexConfiguration } from "./server/template-index-config-queries";
 export type { TemplateIndexConfiguration } from "./model/template-index-configuration";
 export { prepareNotarialDocxExport } from "./server/export-actions";

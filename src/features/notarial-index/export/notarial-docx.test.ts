@@ -22,6 +22,8 @@ const row: NotarialIndexRow = {
   version: 1,
   has_metadata: true,
   is_complete: true,
+  notarial_confirmed_at: null,
+  notarial_review_required: false,
 };
 
 function wordAttributes(xml: string, tag: string): Record<string, string> {

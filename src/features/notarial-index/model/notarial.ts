@@ -20,6 +20,12 @@ export type NotarialMetadata = {
   notes: string | null;
   version: number;
   updated_at: string;
+  /** NULL = no confirmado. Única fuente de verdad de la confirmación. */
+  notarial_confirmed_at: string | null;
+  notarial_confirmed_by: string | null;
+  /** true = estuvo confirmado y una acción posterior lo invalidó (reabrir,
+   * o "Corregir datos" explícito). Los valores existentes se conservan. */
+  notarial_review_required: boolean;
 };
 
 export type NotarialMetadataSuggestions = {
@@ -155,3 +161,53 @@ export function joinMissingFieldLabels(fields: NotarialMissingField[]): string {
   if (labels.length === 1) return labels[0];
   return `${labels.slice(0, -1).join(", ")} y ${labels[labels.length - 1]}`;
 }
+
+/**
+ * Ciclo de vida de los datos del Índice — distinto de "Finalizar Escritura"
+ * y de "Guardar datos del Índice". Nunca se almacena como columna de
+ * estado: se deriva de `notarial_confirmed_at` / `notarial_review_required`
+ * / `isNotarialComplete()`, en ese orden de prioridad.
+ *
+ *   confirmed_at != null      -> "confirmed"
+ *   review_required           -> "review_required" (aunque ya esté completa
+ *                                 de nuevo — el botón Confirmar reaparece,
+ *                                 pero la etiqueta sigue avisando que hubo
+ *                                 una corrección pendiente de reconfirmar)
+ *   isNotarialComplete()      -> "ready_to_confirm"
+ *   si no                     -> "pending"
+ */
+export type NotarialConfirmationState =
+  | "pending"
+  | "ready_to_confirm"
+  | "confirmed"
+  | "review_required";
+
+export function notarialConfirmationState(
+  metadata: Pick<
+    NotarialMetadata,
+    "notarial_confirmed_at" | "notarial_review_required"
+  > | null,
+  isComplete: boolean,
+): NotarialConfirmationState {
+  if (metadata?.notarial_confirmed_at) return "confirmed";
+  if (metadata?.notarial_review_required) return "review_required";
+  return isComplete ? "ready_to_confirm" : "pending";
+}
+
+/** El botón "Confirmar datos del Índice" aparece en este estado. */
+export function canConfirmNotarialIndex(
+  state: NotarialConfirmationState,
+  isComplete: boolean,
+): boolean {
+  return isComplete && state !== "confirmed";
+}
+
+export const NOTARIAL_CONFIRMATION_STATE_LABEL: Record<
+  NotarialConfirmationState,
+  string
+> = {
+  pending: "Pendiente",
+  ready_to_confirm: "Listo para confirmar",
+  confirmed: "Confirmado",
+  review_required: "Revisión requerida",
+};

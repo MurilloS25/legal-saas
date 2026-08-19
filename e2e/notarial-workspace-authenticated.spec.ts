@@ -218,13 +218,18 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, noDateId)).toHaveCount(0);
   });
 
-  test("C: distinguishes complete and incomplete entries in the fortnight", async ({ page }) => {
+  // El badge de la fila ahora refleja el ciclo de confirmación, no solo
+  // completitud (ver 20260818140000_notarial_index_confirmation_lifecycle):
+  // metadata completa pero nunca confirmada (seed directo, sin pasar por el
+  // botón "Confirmar datos del Índice") se muestra "Listo para confirmar",
+  // no "Completo"; metadata parcial se muestra "Pendiente", no "Incompleto".
+  test("C: distinguishes ready-to-confirm and pending entries in the fortnight", async ({ page }) => {
     await search(page, token);
     await expect(
-      rowFor(page, completeId).getByText("Completo", { exact: true }),
+      rowFor(page, completeId).getByText("Listo para confirmar", { exact: true }),
     ).toBeVisible();
     await expect(
-      rowFor(page, incompleteId).getByText("Incompleto", { exact: true }),
+      rowFor(page, incompleteId).getByText("Pendiente", { exact: true }),
     ).toBeVisible();
     // Regresión de smoke (Commit 2): el export/warnings ya no excluye por
     // authorized_at NULL — el conteo ahora incluye también missingId y
@@ -490,7 +495,7 @@ test.describe("notarial index workspace", () => {
     await page.getByLabel("Mes").selectOption("7");
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(
-      rowFor(page, completeId).getByText("Completo", { exact: true }),
+      rowFor(page, completeId).getByText("Listo para confirmar", { exact: true }),
     ).toBeVisible();
   });
 });

@@ -7,14 +7,7 @@
  * Finalizar se valida en servidor (bloquea si hay variables pendientes).
  */
 
-import {
-  startTransition,
-  useActionState,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import {
   markDocumentFinalAction,
@@ -23,115 +16,9 @@ import {
   type DocumentStatusState,
 } from "../server/lifecycle-actions";
 import type { DocumentStatus } from "../model/lifecycle";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 
 const initialState: DocumentStatusState = {};
-
-// ------------------------------------------------------------------ confirm dialog
-
-type ConfirmDialogProps = {
-  title: string;
-  description: React.ReactNode;
-  confirmLabel: string;
-  pending: boolean;
-  error?: string;
-  onConfirm: () => void;
-  onClose: () => void;
-};
-
-function ConfirmDialog({
-  title,
-  description,
-  confirmLabel,
-  pending,
-  error,
-  onConfirm,
-  onClose,
-}: ConfirmDialogProps) {
-  const titleId = useId();
-  const descId = useId();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>("button")?.focus();
-  }, []);
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        ref={dialogRef}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            onClose();
-            return;
-          }
-          if (event.key !== "Tab") return;
-          const focusable = Array.from(
-            dialogRef.current?.querySelectorAll<HTMLElement>(
-              "button:not([disabled])",
-            ) ?? [],
-          );
-          if (focusable.length === 0) return;
-          const first = focusable[0];
-          const last = focusable[focusable.length - 1];
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-          }
-        }}
-      >
-        <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
-          <div className="px-6 pt-6 pb-4">
-            <h2
-              id={titleId}
-              className="text-base font-semibold text-slate-900 mb-2"
-            >
-              {title}
-            </h2>
-            <p id={descId} className="text-sm text-slate-600 leading-relaxed">
-              {description}
-            </p>
-            {error && (
-              <p role="alert" className="mt-3 text-sm text-red-700">
-                {error}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={pending}
-              className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={pending}
-              className="flex-1 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
-            >
-              {pending ? "Aplicando…" : confirmLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
 
 // ------------------------------------------------------------------ controls
 
@@ -142,6 +29,9 @@ type Props = {
   dirty: boolean;
   /** documents.finalize — controla Finalizar/Reabrir/Volver a borrador. */
   canFinalize: boolean;
+  /** true si los datos del Índice están actualmente Confirmados — el
+   * diálogo de reabrir advierte que esa confirmación quedará invalidada. */
+  notarialDataConfirmed: boolean;
 };
 
 type DialogKind = "final" | "reopen" | "draft" | null;
@@ -157,6 +47,7 @@ export function DocumentStatusControls({
   status,
   dirty,
   canFinalize,
+  notarialDataConfirmed,
 }: Props) {
   const [toDraft, toDraftAction, toDraftPending] = useActionState(
     returnDocumentToDraftAction.bind(null, documentId),
@@ -312,8 +203,9 @@ export function DocumentStatusControls({
                     Incluir en el Índice Notarial
                   </span>
                   <br />
-                  Si se activa, la Escritura aparecerá en el Índice Notarial
-                  una vez finalizada.
+                  Si la incluyes, la Escritura aparecerá en el Índice
+                  Notarial al finalizar. Después deberás revisar y, cuando
+                  estén completos, confirmar sus datos del Índice.
                 </span>
               </label>
             </>
@@ -329,7 +221,21 @@ export function DocumentStatusControls({
       {showReopenDialog && (
         <ConfirmDialog
           title="¿Reabrir la escritura?"
-          description="La Escritura volverá a estar editable. Podrás finalizarla nuevamente después."
+          description={
+            notarialDataConfirmed ? (
+              <>
+                La Escritura volverá a estar editable. Podrás finalizarla
+                nuevamente después.
+                <br />
+                <br />
+                Al reabrir esta Escritura, la confirmación de sus datos del
+                Índice quedará invalidada y deberás revisarlos nuevamente al
+                finalizar.
+              </>
+            ) : (
+              "La Escritura volverá a estar editable. Podrás finalizarla nuevamente después."
+            )
+          }
           confirmLabel="Reabrir escritura"
           pending={reopenPending}
           error={reopened.message}

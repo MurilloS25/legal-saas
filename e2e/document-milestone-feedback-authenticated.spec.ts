@@ -127,13 +127,13 @@ test.describe("document milestone feedback (toast replacement)", () => {
 
     // Finalizar con la casilla "Incluir en el Índice Notarial" en su valor
     // por defecto (activada) ya la hace pertenecer al universo del Índice,
-    // aunque nunca se configuró su metadata notarial — visible como "Sin
-    // datos" (has_metadata=false), no ausente del listado. "Acto o
-    // contrato" cae al nombre del machote (nunca "Sin configurar" habiendo
-    // una fuente real). Sin authorized_at, effective_index_date la ubica
-    // provisionalmente por created_at (hoy) — se navega a la quincena
-    // actual, no a una fecha fija, porque ya no aparece en TODO período
-    // (ver 20260818130000_notarial_index_inclusion.sql).
+    // aunque nunca se configuró su metadata notarial — visible con estado
+    // "Pendiente" (has_metadata=false, nunca confirmada), no ausente del
+    // listado. "Acto o contrato" cae al nombre del machote (nunca "Sin
+    // configurar" habiendo una fuente real). Sin authorized_at,
+    // effective_index_date la ubica provisionalmente por created_at (hoy) —
+    // se navega a la quincena actual, no a una fecha fija, porque ya no
+    // aparece en TODO período (ver 20260818130000_notarial_index_inclusion.sql).
     const { year, month, half } = currentCostaRicaFortnight();
     await page.goto(
       `/dashboard/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(title)}`,
@@ -142,7 +142,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
       .locator("tr")
       .filter({ has: page.locator(`a[href="/dashboard/documents/${doc.id}"]`) });
     await expect(row).toBeVisible();
-    await expect(row.getByText("Sin datos", { exact: true })).toBeVisible();
+    await expect(row.getByText("Pendiente", { exact: true })).toBeVisible();
     await expect(row).toContainText(template.name);
 
     // "Reabrir escritura" vive en el paso "Revisar y finalizar".

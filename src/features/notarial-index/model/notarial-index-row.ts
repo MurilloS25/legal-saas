@@ -15,4 +15,6 @@ export type NotarialIndexRow = {
   version: number | null;
   has_metadata: boolean;
   is_complete: boolean;
+  notarial_confirmed_at: string | null;
+  notarial_review_required: boolean;
 };

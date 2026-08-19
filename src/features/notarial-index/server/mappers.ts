@@ -5,7 +5,7 @@ import { throwDataAccessError } from "@/lib/server/errors";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 
 export const NOTARIAL_INDEX_SELECT =
-  "document_id, title, client_name, instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name, parties, period_year, period_month, period_half, version, has_metadata, is_complete";
+  "document_id, title, client_name, instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name, parties, period_year, period_month, period_half, version, has_metadata, is_complete, notarial_confirmed_at, notarial_review_required";
 
 type ViewRow = Pick<
   Database["public"]["Views"]["notarial_index_entries"]["Row"],
@@ -25,6 +25,8 @@ type ViewRow = Pick<
   | "version"
   | "has_metadata"
   | "is_complete"
+  | "notarial_confirmed_at"
+  | "notarial_review_required"
 >;
 
 export function mapNotarialIndexRows(rows: ViewRow[]): NotarialIndexRow[] {
@@ -56,6 +58,8 @@ export function mapNotarialIndexRows(rows: ViewRow[]): NotarialIndexRow[] {
       version: row.version,
       has_metadata: row.has_metadata,
       is_complete: row.is_complete,
+      notarial_confirmed_at: row.notarial_confirmed_at,
+      notarial_review_required: row.notarial_review_required ?? false,
     };
   });
 }
