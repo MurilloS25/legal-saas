@@ -8,6 +8,7 @@ import type {
 import { NOTARIAL_PAGE_SIZE } from "../model/query";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import { formatCostaRicaDate, formatCostaRicaTime } from "../model/datetime";
+import { notarialConfirmationState, NOTARIAL_CONFIRMATION_STATE_LABEL } from "../model/notarial";
 
 export const NOTARIAL_COLUMN_IDS = [
   "instrument_number",
@@ -29,7 +30,7 @@ export const NOTARIAL_COLUMN_LABELS: Record<NotarialColumnId, string> = {
   parties: "Comparecientes",
   client_name: "Cliente",
   title: "Escritura",
-  completeness: "Completitud",
+  completeness: "Estado",
   actions: "Acciones",
 };
 
@@ -62,21 +63,42 @@ function EmptyValue() {
   return <span className="text-slate-400">—</span>;
 }
 
-function completenessBadge(row: NotarialIndexRow) {
-  if (!row.has_metadata) {
-    return { label: "Sin datos", className: "bg-slate-100 text-slate-500" };
-  }
-  // "Completo" es un estado positivo real (el registro tiene todos los
-  // datos) → verde semántico, no el acento decorativo.
-  return row.is_complete
-    ? {
-        label: "Completo",
+// El badge del listado refleja el ciclo de confirmación (Pendiente/Listo
+// para confirmar/Confirmado/Revisión requerida), no solo completitud —
+// "completo" ya no implica "listo para el Índice sin revisión" (ver
+// docs de 20260818140000_notarial_index_confirmation_lifecycle.sql). El
+// filtro "Completitud" del toolbar es un concepto aparte (calidad del
+// dato) y sigue intacto — is_complete/has_metadata no cambian de
+// significado, solo dejan de ser lo único que se muestra por fila.
+function confirmationBadge(row: NotarialIndexRow) {
+  const state = notarialConfirmationState(
+    {
+      notarial_confirmed_at: row.notarial_confirmed_at,
+      notarial_review_required: row.notarial_review_required,
+    },
+    row.is_complete,
+  );
+  const label = NOTARIAL_CONFIRMATION_STATE_LABEL[state];
+  switch (state) {
+    case "confirmed":
+      return {
+        label,
         className: "border border-emerald-200 bg-emerald-50 text-emerald-700",
-      }
-    : {
-        label: "Incompleto",
+      };
+    case "review_required":
+      return {
+        label,
         className: "border border-amber-300 bg-amber-50 text-amber-800",
       };
+    case "ready_to_confirm":
+      return {
+        label,
+        className: "border border-accent-200 bg-accent-50 text-accent-700",
+      };
+    case "pending":
+    default:
+      return { label, className: "bg-slate-100 text-slate-500" };
+  }
 }
 
 export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
@@ -140,7 +162,7 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
       header: NOTARIAL_COLUMN_LABELS.completeness,
       enableSorting: false,
       cell: ({ row }) => {
-        const badge = completenessBadge(row.original);
+        const badge = confirmationBadge(row.original);
         return (
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}

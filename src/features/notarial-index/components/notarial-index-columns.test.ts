@@ -27,7 +27,7 @@ describe("notarial index table contract", () => {
       "Comparecientes",
       "Cliente",
       "Escritura",
-      "Completitud",
+      "Estado",
       "Acciones",
     ]);
   });

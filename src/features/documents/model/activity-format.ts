@@ -108,6 +108,31 @@ export function formatActivityEvent(event: ActivityEvent): FormattedActivity {
     case "notarial_metadata_marked_incomplete":
       return { title: "Datos para índice marcados como incompletos", lines: [] };
 
+    case "notarial_index_data_confirmed":
+      return { title: "Datos del Índice confirmados", lines: [] };
+
+    case "notarial_index_data_correction_started": {
+      const changed = meta.changedFields;
+      const lines =
+        Array.isArray(changed) && changed.every((f) => typeof f === "string")
+          ? [`Campos corregidos: ${changed.join(", ")}`]
+          : [];
+      return { title: "Corrección de datos del Índice iniciada", lines };
+    }
+
+    case "notarial_index_inclusion_changed": {
+      const included = meta.includeInNotarialIndex;
+      return {
+        title:
+          included === true
+            ? "Incluida en el Índice Notarial"
+            : included === false
+              ? "Excluida del Índice Notarial"
+              : "Índice Notarial actualizado",
+        lines: [],
+      };
+    }
+
     default:
       return {
         title: event.summary?.trim() || "Actividad registrada",

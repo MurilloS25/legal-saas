@@ -12,6 +12,15 @@
  * viven siempre montados fuera de la fila colapsable (mismo `<input>`, sin
  * duplicar `name`) — nunca dentro de `{open && children}`, para no repetir
  * el bug de FormData ya encontrado y corregido en Machotes.
+ *
+ * Ciclo de confirmación (20260818140000_notarial_index_confirmation_lifecycle):
+ * Finalizar Escritura ≠ Guardar datos del Índice ≠ Confirmar datos del
+ * Índice. Guardar nunca bloquea campos ni confirma; Confirmar es una acción
+ * explícita aparte que sí bloquea edición normal hasta que alguien con
+ * permiso pulse "Corregir datos". El estado se deriva (nunca se infiere
+ * localmente): `notarialConfirmationState()` a partir de
+ * `notarial_confirmed_at`/`notarial_review_required` (servidor) +
+ * completitud en vivo (cliente).
  */
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
@@ -19,6 +28,10 @@ import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
 } from "../server/metadata-actions";
+import {
+  confirmNotarialMetadataAction,
+  startNotarialCorrectionAction,
+} from "../server/confirmation-actions";
 import { setNotarialIndexInclusionAction } from "@/features/documents/server/lifecycle-actions";
 import type { NotarialMetadata } from "../model/notarial";
 import type {
@@ -27,14 +40,18 @@ import type {
   NotarialPrefillField,
 } from "../model/prefill";
 import {
+  canConfirmNotarialIndex,
   isNotarialComplete,
   joinMissingFieldLabels,
+  notarialConfirmationState,
   notarialMissingFields,
+  NOTARIAL_CONFIRMATION_STATE_LABEL,
 } from "../model/notarial";
 import { FieldError } from "@/components/forms/FieldError";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
 import { useToast } from "@/components/feedback/Toast";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
@@ -63,12 +80,20 @@ type Props = {
   canResetParties?: boolean;
   actNamePreview?: string | null;
   generatedPartiesPreview?: string | null;
+  /** El contenido de la Escritura cambió después del último guardado de
+   * estos datos — distinto del ciclo de confirmación (ver abajo). */
   reviewRequired?: boolean;
   /** Pertenencia actual al Índice Notarial (independiente de `status`). */
   includeInNotarialIndex: boolean;
   /** documents.finalize — mismo permiso que finalizar/reabrir; sin él el
    * control se muestra pero deshabilitado. */
   canChangeInclusion: boolean;
+  /** notarial_index.generate — confirmar/corregir datos del Índice; sin
+   * este permiso el estado se ve pero los botones no aparecen. */
+  canConfirm: boolean;
+  /** Nombre del actor de la confirmación más reciente, o null si nunca se
+   * confirmó. */
+  confirmedByName: string | null;
 };
 
 export function NotarialMetadataSection({
@@ -83,6 +108,8 @@ export function NotarialMetadataSection({
   reviewRequired = false,
   includeInNotarialIndex,
   canChangeInclusion,
+  canConfirm,
+  confirmedByName,
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
@@ -91,16 +118,10 @@ export function NotarialMetadataSection({
   const [inclusion, setInclusion] = useState(includeInNotarialIndex);
   const [inclusionPending, setInclusionPending] = useState(false);
   const [inclusionError, setInclusionError] = useState<string | null>(null);
+  const [inclusionDialog, setInclusionDialog] = useState<"exclude" | "include" | null>(null);
 
-  async function handleInclusionChange(next: boolean) {
-    if (
-      !next &&
-      !window.confirm(
-        "La escritura dejará de aparecer en el Índice Notarial. El contenido de la escritura no se modifica y podrás volver a incluirla cuando quieras. ¿Deseas continuar?",
-      )
-    ) {
-      return;
-    }
+  async function applyInclusionChange(next: boolean) {
+    setInclusionDialog(null);
     setInclusionError(null);
     setInclusionPending(true);
     const result = await setNotarialIndexInclusionAction(documentId, next);
@@ -116,6 +137,54 @@ export function NotarialMetadataSection({
       setInclusionError(result.message ?? "No fue posible actualizar el Índice Notarial.");
     }
   }
+
+  // ------------------------------------------------------- confirmación
+  const [confirmationBusy, setConfirmationBusy] = useState(false);
+  const [confirmationDialog, setConfirmationDialog] = useState<
+    "confirm" | "correct" | null
+  >(null);
+  const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const [confirmedAt, setConfirmedAt] = useState(metadata?.notarial_confirmed_at ?? null);
+  const [reviewRequiredFlag, setReviewRequiredFlag] = useState(
+    metadata?.notarial_review_required ?? false,
+  );
+
+  async function handleConfirm() {
+    if (!metadata) return;
+    setConfirmationDialog(null);
+    setConfirmationError(null);
+    setConfirmationBusy(true);
+    const result = await confirmNotarialMetadataAction(documentId, metadata.version);
+    setConfirmationBusy(false);
+    if (result.success) {
+      setConfirmedAt(new Date().toISOString());
+      setReviewRequiredFlag(false);
+      showToast("Datos del Índice confirmados.");
+    } else {
+      setConfirmationError(
+        result.message ?? "No fue posible confirmar los datos del índice.",
+      );
+    }
+  }
+
+  async function handleStartCorrection() {
+    if (!metadata) return;
+    setConfirmationDialog(null);
+    setConfirmationError(null);
+    setConfirmationBusy(true);
+    const result = await startNotarialCorrectionAction(documentId, metadata.version);
+    setConfirmationBusy(false);
+    if (result.success) {
+      setConfirmedAt(null);
+      setReviewRequiredFlag(true);
+      showToast("Corrección de datos del Índice iniciada.");
+    } else {
+      setConfirmationError(
+        result.message ?? "No fue posible iniciar la corrección.",
+      );
+    }
+  }
+
   const lastSuccessState = useRef<NotarialMetadataState | null>(null);
   useEffect(() => {
     if (state.success && lastSuccessState.current !== state) {
@@ -181,6 +250,20 @@ export function NotarialMetadataSection({
   const complete = isNotarialComplete(liveMetadata);
   const missingFields = notarialMissingFields(liveMetadata);
 
+  const confirmationState = notarialConfirmationState(
+    { notarial_confirmed_at: confirmedAt, notarial_review_required: reviewRequiredFlag },
+    complete,
+  );
+  const isConfirmed = confirmationState === "confirmed";
+  // Mientras está Confirmado, el contenido es de solo lectura para TODOS —
+  // la única salida es "Corregir datos" (canConfirm), nunca un guardado
+  // directo. La base de datos ya rechaza esto de todos modos
+  // (enforce_notarial_metadata_editable); deshabilitar aquí evita el
+  // viaje de red innecesario y comunica el bloqueo con claridad.
+  const fieldsDisabled = !canEdit || isConfirmed;
+  const canConfirmNow = canConfirm && canConfirmNotarialIndex(confirmationState, complete);
+  const canCorrectNow = canConfirm && isConfirmed;
+
   function toggleRow(id: RowId) {
     setOpenRowId((current) => (current === id ? null : id));
   }
@@ -227,7 +310,9 @@ export function NotarialMetadataSection({
           type="checkbox"
           checked={inclusion}
           disabled={!canChangeInclusion || inclusionPending}
-          onChange={(event) => handleInclusionChange(event.target.checked)}
+          onChange={(event) =>
+            setInclusionDialog(event.target.checked ? "include" : "exclude")
+          }
           className="mt-0.5 size-4 accent-accent-700"
         />
         <label htmlFor="notarial-inclusion-toggle" className="text-sm text-slate-700">
@@ -243,6 +328,64 @@ export function NotarialMetadataSection({
       {inclusionError && (
         <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
           {inclusionError}
+        </p>
+      )}
+
+      {/* ------------------------------------------------- estado de confirmación */}
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4 ${
+          isConfirmed
+            ? "bg-emerald-50/60"
+            : confirmationState === "review_required"
+              ? "bg-amber-50/60"
+              : ""
+        }`}
+      >
+        <div>
+          <p className="text-sm font-medium text-slate-900">
+            {isConfirmed
+              ? "Datos del Índice confirmados"
+              : `Estado de los datos del Índice: ${NOTARIAL_CONFIRMATION_STATE_LABEL[confirmationState]}`}
+          </p>
+          {isConfirmed && (
+            <p className="mt-0.5 text-xs text-slate-600">
+              {confirmedByName ? `Confirmado por ${confirmedByName}` : "Confirmado"}
+              {confirmedAt && ` · ${formatDateTimeMeta(confirmedAt)}`}
+            </p>
+          )}
+          {confirmationState === "review_required" && (
+            <p className="mt-0.5 text-xs text-amber-800">
+              Estos datos estuvieron confirmados; revísalos y confírmalos de
+              nuevo.
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {canConfirmNow && (
+            <button
+              type="button"
+              disabled={confirmationBusy}
+              onClick={() => setConfirmationDialog("confirm")}
+              className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              Confirmar datos del Índice
+            </button>
+          )}
+          {canCorrectNow && (
+            <button
+              type="button"
+              disabled={confirmationBusy}
+              onClick={() => setConfirmationDialog("correct")}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              Corregir datos
+            </button>
+          )}
+        </div>
+      </div>
+      {confirmationError && (
+        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
+          {confirmationError}
         </p>
       )}
 
@@ -264,7 +407,15 @@ export function NotarialMetadataSection({
             lectura.
           </div>
         )}
-        {canEdit && readOnly && (
+        {canEdit && isConfirmed && (
+          <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
+            Estos datos están confirmados y de solo lectura.
+            {canConfirmNow || canCorrectNow
+              ? " Usa “Corregir datos” para editarlos."
+              : " Solo el propietario o un administrador puede corregirlos."}
+          </div>
+        )}
+        {canEdit && !isConfirmed && readOnly && (
           <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
             La escritura está finalizada. Puedes corregir estos datos del
             índice sin modificar el contenido de la escritura.
@@ -328,7 +479,7 @@ export function NotarialMetadataSection({
               type="number"
               min={1}
               step={1}
-              disabled={!canEdit}
+              disabled={fieldsDisabled}
               value={instrument}
               onChange={(e) => setInstrument(e.target.value)}
               className={inputClass}
@@ -367,7 +518,7 @@ export function NotarialMetadataSection({
             <input
               id="authorized_at"
               type="datetime-local"
-              disabled={!canEdit}
+              disabled={fieldsDisabled}
               value={authorizedAt}
               onChange={(e) => setAuthorizedAt(e.target.value)}
               className={inputClass}
@@ -398,7 +549,7 @@ export function NotarialMetadataSection({
             <input
               id="act_name_override"
               type="text"
-              disabled={!canEdit}
+              disabled={fieldsDisabled}
               value={actName}
               onChange={(e) => setActName(e.target.value)}
               className={inputClass}
@@ -434,7 +585,7 @@ export function NotarialMetadataSection({
             <input
               id="protocol_book"
               type="text"
-              disabled={!canEdit}
+              disabled={fieldsDisabled}
               value={protocolBook}
               onChange={(event) => setProtocolBook(event.target.value)}
               className={inputClass}
@@ -473,7 +624,7 @@ export function NotarialMetadataSection({
                 <input
                   id="initial_folio"
                   type="text"
-                  disabled={!canEdit}
+                  disabled={fieldsDisabled}
                   value={initialFolio}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -504,7 +655,7 @@ export function NotarialMetadataSection({
                 <input
                   id="final_folio"
                   type="text"
-                  disabled={!canEdit}
+                  disabled={fieldsDisabled}
                   value={finalFolio}
                   onChange={(event) => setFinalFolio(event.target.value)}
                   className={inputClass}
@@ -545,7 +696,7 @@ export function NotarialMetadataSection({
             <textarea
               id="parties_override"
               rows={3}
-              disabled={!canEdit}
+              disabled={fieldsDisabled}
               value={parties}
               onChange={(event) => setParties(event.target.value)}
               placeholder={
@@ -567,7 +718,7 @@ export function NotarialMetadataSection({
             <p className="mt-1 text-xs text-slate-400">
               Una corrección manual tiene prioridad sobre el valor generado.
             </p>
-            {canEdit && canResetParties && metadata && (
+            {canEdit && !isConfirmed && canResetParties && metadata && (
               <button
                 type="submit"
                 name="intent"
@@ -605,7 +756,7 @@ export function NotarialMetadataSection({
             <textarea
               id="notes"
               rows={2}
-              disabled={!canEdit}
+              disabled={fieldsDisabled}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               className={inputClass + " resize-y"}
@@ -616,7 +767,7 @@ export function NotarialMetadataSection({
           </CollapsibleFieldRow>
         </div>
 
-        {canEdit && (
+        {canEdit && !isConfirmed && (
           <div className="mt-5 flex justify-end">
             <button
               type="submit"
@@ -630,6 +781,50 @@ export function NotarialMetadataSection({
           </div>
         )}
       </form>
+
+      {inclusionDialog === "exclude" && (
+        <ConfirmDialog
+          title="¿Excluir esta Escritura del Índice Notarial?"
+          description="Dejará de aparecer en el Índice, pero la Escritura y sus datos no se eliminarán. Podrás volver a incluirla posteriormente."
+          confirmLabel="Excluir"
+          tone="danger"
+          pending={inclusionPending}
+          onConfirm={() => applyInclusionChange(false)}
+          onClose={() => setInclusionDialog(null)}
+        />
+      )}
+      {inclusionDialog === "include" && (
+        <ConfirmDialog
+          title="¿Incluir esta Escritura en el Índice Notarial?"
+          description="Volverá a aparecer en el Índice Notarial. Sus datos y su completitud no cambian."
+          confirmLabel="Incluir"
+          pending={inclusionPending}
+          onConfirm={() => applyInclusionChange(true)}
+          onClose={() => setInclusionDialog(null)}
+        />
+      )}
+
+      {confirmationDialog === "confirm" && (
+        <ConfirmDialog
+          title="¿Confirmar datos del Índice?"
+          description="Confirma que revisaste la información utilizada para el Índice Notarial. Después de confirmar, los datos quedarán bloqueados para edición normal. Si necesitas corregirlos posteriormente, el cambio quedará registrado."
+          confirmLabel="Confirmar datos"
+          pending={confirmationBusy}
+          onConfirm={handleConfirm}
+          onClose={() => setConfirmationDialog(null)}
+        />
+      )}
+      {confirmationDialog === "correct" && (
+        <ConfirmDialog
+          title="¿Corregir datos del Índice?"
+          description="Estos datos ya habían sido confirmados. Las modificaciones quedarán registradas en el historial y deberás confirmarlos nuevamente al terminar."
+          confirmLabel="Corregir datos"
+          tone="danger"
+          pending={confirmationBusy}
+          onConfirm={handleStartCorrection}
+          onClose={() => setConfirmationDialog(null)}
+        />
+      )}
     </section>
   );
 }
