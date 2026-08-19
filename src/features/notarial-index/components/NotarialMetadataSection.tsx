@@ -119,6 +119,24 @@ export function NotarialMetadataSection({
   const [inclusionPending, setInclusionPending] = useState(false);
   const [inclusionError, setInclusionError] = useState<string | null>(null);
   const [inclusionDialog, setInclusionDialog] = useState<"exclude" | "include" | null>(null);
+  // `NotarialMetadataSection` no se desmonta al navegar entre pasos de la
+  // misma Escritura (mismo route [id], solo cambian los searchParams —
+  // mismo patrón que el bug ya documentado y corregido en
+  // DocumentLifecycleToast), así que `useState(includeInNotarialIndex)`
+  // solo captura el prop del PRIMER montaje. Si la Escritura se finaliza
+  // (o se excluye/reincluye) después de ese montaje, la prop del servidor
+  // sí llega actualizada en el siguiente render, pero el estado local se
+  // queda con el valor viejo — el toggle podía mostrarse marcado aunque
+  // `documents.include_in_notarial_index` ya fuera `false` en la base de
+  // datos. Se resincroniza explícitamente cuando el prop cambia, sin pisar
+  // una actualización optimista local que todavía no llegó por props.
+  const lastSyncedInclusion = useRef(includeInNotarialIndex);
+  useEffect(() => {
+    if (lastSyncedInclusion.current !== includeInNotarialIndex) {
+      lastSyncedInclusion.current = includeInNotarialIndex;
+      setInclusion(includeInNotarialIndex);
+    }
+  }, [includeInNotarialIndex]);
 
   async function applyInclusionChange(next: boolean) {
     setInclusionDialog(null);
@@ -127,6 +145,7 @@ export function NotarialMetadataSection({
     const result = await setNotarialIndexInclusionAction(documentId, next);
     setInclusionPending(false);
     if (result.success && result.includeInNotarialIndex !== undefined) {
+      lastSyncedInclusion.current = result.includeInNotarialIndex;
       setInclusion(result.includeInNotarialIndex);
       showToast(
         result.includeInNotarialIndex
@@ -148,6 +167,24 @@ export function NotarialMetadataSection({
   const [reviewRequiredFlag, setReviewRequiredFlag] = useState(
     metadata?.notarial_review_required ?? false,
   );
+  // Mismo riesgo de estado local obsoleto que `inclusion` arriba: reabrir
+  // la Escritura invalida la confirmación en el servidor sin desmontar
+  // este componente, así que el prop `metadata` se resincroniza aquí en
+  // vez de confiar solo en el valor capturado al primer montaje.
+  const lastSyncedConfirmedAt = useRef(metadata?.notarial_confirmed_at ?? null);
+  const lastSyncedReviewRequired = useRef(metadata?.notarial_review_required ?? false);
+  useEffect(() => {
+    const serverConfirmedAt = metadata?.notarial_confirmed_at ?? null;
+    const serverReviewRequired = metadata?.notarial_review_required ?? false;
+    if (lastSyncedConfirmedAt.current !== serverConfirmedAt) {
+      lastSyncedConfirmedAt.current = serverConfirmedAt;
+      setConfirmedAt(serverConfirmedAt);
+    }
+    if (lastSyncedReviewRequired.current !== serverReviewRequired) {
+      lastSyncedReviewRequired.current = serverReviewRequired;
+      setReviewRequiredFlag(serverReviewRequired);
+    }
+  }, [metadata?.notarial_confirmed_at, metadata?.notarial_review_required]);
 
   async function handleConfirm() {
     if (!metadata) return;
@@ -157,7 +194,10 @@ export function NotarialMetadataSection({
     const result = await confirmNotarialMetadataAction(documentId, metadata.version);
     setConfirmationBusy(false);
     if (result.success) {
-      setConfirmedAt(new Date().toISOString());
+      const confirmedNow = new Date().toISOString();
+      lastSyncedConfirmedAt.current = confirmedNow;
+      lastSyncedReviewRequired.current = false;
+      setConfirmedAt(confirmedNow);
       setReviewRequiredFlag(false);
       showToast("Datos del Índice confirmados.");
     } else {
@@ -175,6 +215,8 @@ export function NotarialMetadataSection({
     const result = await startNotarialCorrectionAction(documentId, metadata.version);
     setConfirmationBusy(false);
     if (result.success) {
+      lastSyncedConfirmedAt.current = null;
+      lastSyncedReviewRequired.current = true;
       setConfirmedAt(null);
       setReviewRequiredFlag(true);
       showToast("Corrección de datos del Índice iniciada.");
