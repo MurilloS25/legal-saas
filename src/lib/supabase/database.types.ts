@@ -195,6 +195,9 @@ export type Database = {
           id: string
           initial_folio: string | null
           instrument_number: number | null
+          notarial_confirmed_at: string | null
+          notarial_confirmed_by: string | null
+          notarial_review_required: boolean
           notes: string | null
           owner_id: string
           parties_override: string | null
@@ -214,6 +217,9 @@ export type Database = {
           id?: string
           initial_folio?: string | null
           instrument_number?: number | null
+          notarial_confirmed_at?: string | null
+          notarial_confirmed_by?: string | null
+          notarial_review_required?: boolean
           notes?: string | null
           owner_id: string
           parties_override?: string | null
@@ -233,6 +239,9 @@ export type Database = {
           id?: string
           initial_folio?: string | null
           instrument_number?: number | null
+          notarial_confirmed_at?: string | null
+          notarial_confirmed_by?: string | null
+          notarial_review_required?: boolean
           notes?: string | null
           owner_id?: string
           parties_override?: string | null
@@ -1185,6 +1194,8 @@ export type Database = {
           initial_folio: string | null
           instrument_number: number | null
           is_complete: boolean | null
+          notarial_confirmed_at: string | null
+          notarial_review_required: boolean | null
           owner_id: string | null
           parties: string | null
           parties_override: string | null
