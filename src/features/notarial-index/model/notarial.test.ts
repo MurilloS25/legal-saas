@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  canConfirmNotarialIndex,
   isNotarialComplete,
   joinMissingFieldLabels,
   notarialCompleteness,
+  notarialConfirmationState,
   notarialMissingFields,
   type NotarialMetadata,
 } from "./notarial";
@@ -20,6 +22,9 @@ const full: NotarialMetadata = {
   notes: null,
   version: 1,
   updated_at: "2026-07-13T16:35:00.000Z",
+  notarial_confirmed_at: null,
+  notarial_confirmed_by: null,
+  notarial_review_required: false,
 };
 
 describe("isNotarialComplete", () => {
@@ -108,5 +113,81 @@ describe("joinMissingFieldLabels", () => {
     expect(
       joinMissingFieldLabels(["instrument_number", "authorized_at", "parties"]),
     ).toBe("número de instrumento, fecha y hora de autorización y partes");
+  });
+});
+
+describe("notarialConfirmationState", () => {
+  it("is pending when incomplete, never confirmed, no review pending", () => {
+    expect(notarialConfirmationState(null, false)).toBe("pending");
+    expect(
+      notarialConfirmationState(
+        { notarial_confirmed_at: null, notarial_review_required: false },
+        false,
+      ),
+    ).toBe("pending");
+  });
+
+  it("is ready_to_confirm once complete, still unconfirmed", () => {
+    expect(
+      notarialConfirmationState(
+        { notarial_confirmed_at: null, notarial_review_required: false },
+        true,
+      ),
+    ).toBe("ready_to_confirm");
+  });
+
+  it("is confirmed whenever notarial_confirmed_at is set, regardless of completeness", () => {
+    expect(
+      notarialConfirmationState(
+        {
+          notarial_confirmed_at: "2026-07-13T16:35:00.000Z",
+          notarial_review_required: false,
+        },
+        true,
+      ),
+    ).toBe("confirmed");
+  });
+
+  it("is review_required after an invalidated confirmation, even if already complete again", () => {
+    expect(
+      notarialConfirmationState(
+        { notarial_confirmed_at: null, notarial_review_required: true },
+        false,
+      ),
+    ).toBe("review_required");
+    expect(
+      notarialConfirmationState(
+        { notarial_confirmed_at: null, notarial_review_required: true },
+        true,
+      ),
+    ).toBe("review_required");
+  });
+
+  it("confirmed_at takes priority over review_required (defensive — should never coexist)", () => {
+    expect(
+      notarialConfirmationState(
+        {
+          notarial_confirmed_at: "2026-07-13T16:35:00.000Z",
+          notarial_review_required: true,
+        },
+        true,
+      ),
+    ).toBe("confirmed");
+  });
+});
+
+describe("canConfirmNotarialIndex", () => {
+  it("requires completeness", () => {
+    expect(canConfirmNotarialIndex("pending", false)).toBe(false);
+    expect(canConfirmNotarialIndex("review_required", false)).toBe(false);
+  });
+
+  it("allows confirming once complete, from ready_to_confirm or review_required", () => {
+    expect(canConfirmNotarialIndex("ready_to_confirm", true)).toBe(true);
+    expect(canConfirmNotarialIndex("review_required", true)).toBe(true);
+  });
+
+  it("never re-offers confirming an already-confirmed state", () => {
+    expect(canConfirmNotarialIndex("confirmed", true)).toBe(false);
   });
 });

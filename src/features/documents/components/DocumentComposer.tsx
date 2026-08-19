@@ -66,10 +66,7 @@ import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
-import {
-  isNotarialComplete,
-  type NotarialMetadata,
-} from "@/features/notarial-index/model/notarial";
+import type { NotarialMetadata } from "@/features/notarial-index/model/notarial";
 import type { NotarialMetadataPrefill } from "@/features/notarial-index/model/prefill";
 import { NotarialMetadataSection } from "@/features/notarial-index";
 import type { ReceivableEntry } from "@/features/receivables";
@@ -131,6 +128,9 @@ type Props = SharedProps &
         actNamePreview: string | null;
         generatedPartiesPreview: string | null;
         reviewRequired: boolean;
+        /** notarial_index.generate — confirmar/corregir datos del Índice. */
+        canConfirmNotarial: boolean;
+        notarialConfirmedByName: string | null;
       }
   );
 
@@ -391,23 +391,12 @@ export function DocumentComposer(props: Props) {
   const completedCompletar = completarSavedOnceValid && title.trim() !== "";
   const completedCobro =
     isEdit && ((props.receivables.length > 0) || cobroAcknowledged);
-  // Misma condición que decide si la Escritura aparece sin advertencia en
-  // `notarial_index_entries.is_complete` — reutiliza el modelo compartido en
-  // vez de inventar un criterio propio del stepper.
-  const completedNotarial =
-    isEdit &&
-    isNotarialComplete(
-      props.notarialMetadata
-        ? {
-            ...props.notarialMetadata,
-            act_name_snapshot:
-              props.notarialMetadata.act_name_snapshot ?? props.actNamePreview,
-            generated_parties:
-              props.notarialMetadata.generated_parties ??
-              props.generatedPartiesPreview,
-          }
-        : null,
-    );
+  // El check del stepper representa "datos confirmados", no solo
+  // "isNotarialComplete()" — completar los campos ya no basta; el usuario
+  // debe revisar y confirmar explícitamente (ver
+  // 20260818140000_notarial_index_confirmation_lifecycle.sql). Completos
+  // pero sin confirmar, o en Revisión requerida tras reabrir, no muestran ✓.
+  const completedNotarial = isEdit && !!props.notarialMetadata?.notarial_confirmed_at;
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -685,6 +674,7 @@ export function DocumentComposer(props: Props) {
                       status={status}
                       dirty={dirty}
                       canFinalize={canFinalize}
+                      notarialDataConfirmed={!!props.notarialMetadata?.notarial_confirmed_at}
                     />
                   </div>
                 </div>
@@ -753,6 +743,8 @@ export function DocumentComposer(props: Props) {
             reviewRequired={props.reviewRequired}
             includeInNotarialIndex={props.draft.include_in_notarial_index}
             canChangeInclusion={canFinalize}
+            canConfirm={props.canConfirmNotarial}
+            confirmedByName={props.notarialConfirmedByName}
           />
         ) : (
           <LockedStepPlaceholder title="Índice" />

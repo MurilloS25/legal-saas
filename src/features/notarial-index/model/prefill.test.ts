@@ -255,6 +255,9 @@ describe("resolveNotarialMetadataPrefill", () => {
       notes: "Nota",
       version: 3,
       updated_at: "2026-07-14T16:30:00.000Z",
+      notarial_confirmed_at: null,
+      notarial_confirmed_by: null,
+      notarial_review_required: false,
     };
 
     const result = resolveNotarialMetadataPrefill({

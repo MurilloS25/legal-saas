@@ -136,4 +136,42 @@ describe("formatActivityEvent", () => {
       lines: [],
     });
   });
+
+  it("formats notarial index confirmation and correction events", () => {
+    expect(formatActivityEvent(event("notarial_index_data_confirmed"))).toEqual({
+      title: "Datos del Índice confirmados",
+      lines: [],
+    });
+
+    expect(
+      formatActivityEvent(
+        event("notarial_index_data_correction_started", {
+          changedFields: ["protocol_book", "initial_folio"],
+        }),
+      ),
+    ).toEqual({
+      title: "Corrección de datos del Índice iniciada",
+      lines: ["Campos corregidos: protocol_book, initial_folio"],
+    });
+
+    expect(
+      formatActivityEvent(event("notarial_index_data_correction_started")),
+    ).toEqual({
+      title: "Corrección de datos del Índice iniciada",
+      lines: [],
+    });
+  });
+
+  it("formats notarial index inclusion changes", () => {
+    expect(
+      formatActivityEvent(
+        event("notarial_index_inclusion_changed", { includeInNotarialIndex: true }),
+      ).title,
+    ).toBe("Incluida en el Índice Notarial");
+    expect(
+      formatActivityEvent(
+        event("notarial_index_inclusion_changed", { includeInNotarialIndex: false }),
+      ).title,
+    ).toBe("Excluida del Índice Notarial");
+  });
 });

@@ -6,6 +6,7 @@ import {
   listDocumentActivity,
 } from "@/features/documents/server";
 import {
+  getLatestNotarialConfirmationActorName,
   getNotarialMetadata,
   getNotarialMetadataReviewRequired,
   getNotarialMetadataSuggestions,
@@ -61,6 +62,9 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   const canFinalize = hasPermission(role, "documents.finalize");
   const canDuplicate = hasPermission(role, "documents.create");
   const canManageReceivables = hasPermission(role, "receivables.manage");
+  // Confirmar/corregir datos del Índice es la misma clase de decisión de
+  // confianza que ya gobierna exportar el Índice a Word.
+  const canConfirmNotarial = hasPermission(role, "notarial_index.generate");
 
   // getDocumentById devuelve null tanto para documentos inexistentes como
   // ajenos: el 404 no revela cuál de los dos casos ocurrió.
@@ -115,6 +119,9 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         notarialMetadata.updated_at,
       )
     : false;
+  const notarialConfirmedByName = notarialMetadata?.notarial_confirmed_at
+    ? await getLatestNotarialConfirmationActorName(document.id)
+    : null;
   const notarialUnlocked = document.status === "final";
   const initialSection: DocumentWorkspaceSection =
     requestedSection === "revisar" || requestedSection === "cobro"
@@ -161,6 +168,8 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           indexConfiguration={indexConfiguration}
           generatedPartiesPreview={generatedPartiesPreview}
           requestedSection={requestedSection}
+          canConfirmNotarial={canConfirmNotarial}
+          notarialConfirmedByName={notarialConfirmedByName}
         />
       ) : (
         <DocumentComposerLoader
@@ -182,6 +191,8 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           actNamePreview={template?.name ?? null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
+          canConfirmNotarial={canConfirmNotarial}
+          notarialConfirmedByName={notarialConfirmedByName}
         />
       )}
     </PageContainer>
@@ -208,6 +219,8 @@ async function DocumentComposerLoader({
   actNamePreview,
   generatedPartiesPreview,
   reviewRequired,
+  canConfirmNotarial,
+  notarialConfirmedByName,
 }: {
   templateName: string;
   contentJson: unknown;
@@ -227,6 +240,8 @@ async function DocumentComposerLoader({
   actNamePreview: string | null;
   generatedPartiesPreview: string | null;
   reviewRequired: boolean;
+  canConfirmNotarial: boolean;
+  notarialConfirmedByName: string | null;
 }) {
   const { document: templateDocument, templateText } =
     resolveTemplateContent(contentJson);
@@ -274,6 +289,8 @@ async function DocumentComposerLoader({
       actNamePreview={actNamePreview}
       generatedPartiesPreview={generatedPartiesPreview}
       reviewRequired={reviewRequired}
+      canConfirmNotarial={canConfirmNotarial}
+      notarialConfirmedByName={notarialConfirmedByName}
     />
   );
 }
@@ -300,6 +317,8 @@ function NoTemplateFallback({
   indexConfiguration,
   generatedPartiesPreview,
   requestedSection,
+  canConfirmNotarial,
+  notarialConfirmedByName,
 }: {
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   canEdit: boolean;
@@ -313,6 +332,8 @@ function NoTemplateFallback({
   indexConfiguration: Awaited<ReturnType<typeof getTemplateIndexConfiguration>>;
   generatedPartiesPreview: string | null;
   requestedSection?: string;
+  canConfirmNotarial: boolean;
+  notarialConfirmedByName: string | null;
 }) {
   const notarialUnlocked = document.status === "final";
   const section =
@@ -395,6 +416,8 @@ function NoTemplateFallback({
           reviewRequired={notarialReviewRequired}
           includeInNotarialIndex={document.include_in_notarial_index}
           canChangeInclusion={canFinalize}
+          canConfirm={canConfirmNotarial}
+          confirmedByName={notarialConfirmedByName}
         />
       )}
     </div>

@@ -19,6 +19,8 @@ const complete: NotarialIndexRow = {
   version: 1,
   has_metadata: true,
   is_complete: true,
+  notarial_confirmed_at: null,
+  notarial_review_required: false,
 };
 
 describe("notarial index warnings", () => {

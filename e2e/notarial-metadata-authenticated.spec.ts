@@ -337,24 +337,43 @@ test.describe("notarial index metadata", () => {
     await expect(section.getByText(/fecha y hora de autorización/)).toBeVisible();
   });
 
-  // El check ✓ del paso "Índice" debe reflejar la misma condición real de
-  // completitud que decide si la Escritura aparece sin advertencia en el
-  // Índice Notarial — nunca solo por haber guardado algo.
-  test("H: the stepper only checkmarks Índice when the metadata is actually complete", async ({
+  // El check ✓ del paso "Índice" representa "datos confirmados", no solo
+  // "completos" (ver 20260818140000_notarial_index_confirmation_lifecycle,
+  // que sustituye la semántica anterior de este test — cobertura completa
+  // del ciclo de confirmación vive en
+  // notarial-index-confirmation-authenticated.spec.ts). Completar los
+  // campos ya no basta: hace falta confirmar explícitamente.
+  test("H: the stepper only checkmarks Índice once the data is confirmed, never just complete", async ({
     page,
   }) => {
     const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });
     const indiceTab = stepper.getByRole("tab", { name: "Índice", exact: true });
 
+    // workingId quedó completo (sin confirmar) en el test B/E de esta misma
+    // corrida serial — completo ya no implica ✓.
+    await page.goto(`/dashboard/documents/${workingId}?section=revisar`);
+    await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
+
+    await page.goto(`/dashboard/documents/${workingId}?section=notarial`);
+    await notarialSection(page)
+      .getByRole("button", { name: "Confirmar datos del Índice" })
+      .click();
+    await page
+      .getByRole("alertdialog", { name: "¿Confirmar datos del Índice?" })
+      .getByRole("button", { name: "Confirmar datos" })
+      .click();
+    await expect(
+      page.getByText("Datos del Índice confirmados.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
     // El paso activo nunca muestra su propio ✓ (convención ya existente del
     // stepper, ver otros pasos) — hay que mirar "Índice" desde un paso
     // distinto para que su check, si corresponde, sea visible.
-    // workingId quedó completo en el test B/E de esta misma corrida serial.
     await page.goto(`/dashboard/documents/${workingId}?section=revisar`);
     await expect(indiceTab.getByText("✓", { exact: true })).toBeVisible();
 
     // partialId solo tiene el número de instrumento configurado (test G) —
-    // sigue incompleto, así que el paso no debe mostrar ✓.
+    // sigue incompleto (y sin confirmar), así que el paso no debe mostrar ✓.
     await page.goto(`/dashboard/documents/${partialId}?section=revisar`);
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
   });
