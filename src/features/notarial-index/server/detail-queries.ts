@@ -12,7 +12,7 @@ import { costaRicaDayEndIso, costaRicaDayStartIso } from "../model/datetime";
 import { requiresNotarialReview } from "../model/review-state";
 
 const SELECT =
-  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version, updated_at";
+  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version, updated_at, notarial_confirmed_at, notarial_confirmed_by, notarial_review_required";
 
 /** Metadata notarial de una Escritura propia (o null si no existe). */
 export async function getNotarialMetadata(
@@ -56,6 +56,34 @@ export async function getNotarialMetadataReviewRequired(
 
   if (error) throwDataAccessError("load notarial review state", error);
   return requiresNotarialReview(data?.created_at ?? null, metadataUpdatedAt);
+}
+
+/**
+ * Nombre del actor de la confirmación más reciente ("Confirmado por X"),
+ * derivado del propio registro de auditoría en vez de una columna nueva —
+ * reutiliza el snapshot que `document_activity` ya guarda por evento
+ * (nombre en el momento de la acción, no el nombre actual del miembro).
+ * Devuelve null si nunca hubo un evento de confirmación (metadata nunca
+ * confirmada, o el actor no pudo resolverse).
+ */
+export async function getLatestNotarialConfirmationActorName(
+  documentId: string,
+): Promise<string | null> {
+  const { supabase, workspaceId } = await requireWorkspace();
+  if (!DocumentIdSchema.safeParse(documentId).success) return null;
+
+  const { data, error } = await supabase
+    .from("document_activity")
+    .select("actor_name_snapshot")
+    .eq("document_id", documentId)
+    .eq("workspace_id", workspaceId)
+    .eq("event_type", "notarial_index_data_confirmed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throwDataAccessError("load notarial confirmation actor", error);
+  return data?.actor_name_snapshot ?? null;
 }
 
 export async function getNotarialMetadataSuggestions(): Promise<NotarialMetadataSuggestions> {
