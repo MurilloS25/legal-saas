@@ -216,11 +216,14 @@ export type NotarialIndexInclusionState = {
 /**
  * Corrige después de finalizar si la Escritura pertenece o no al Índice
  * Notarial — vive junto al resto de acciones de ciclo de vida porque el
- * mismo trigger de permiso (`enforce_document_finalize_permission`) que
- * guarda finalizar/reabrir también guarda este cambio, sin importar el
- * status resultante. No depende de que exista una fila de
- * document_notarial_metadata (una Escritura puede pertenecer o no al
- * Índice sin haber guardado nunca su paso Índice).
+ * mismo trigger (`enforce_document_finalize_permission`) que guarda
+ * finalizar/reabrir también guarda este cambio, aunque con un requisito de
+ * rol propio: incluir/excluir es trabajo del Índice (`notarial_index.generate`,
+ * que incluye a asistente), no una decisión de ciclo de vida como finalizar/
+ * reabrir (`documents.finalize`, solo propietario/administrador) — el
+ * trigger en DB aplica esa misma distinción. No depende de que exista una
+ * fila de document_notarial_metadata (una Escritura puede pertenecer o no
+ * al Índice sin haber guardado nunca su paso Índice).
  */
 export async function setNotarialIndexInclusionAction(
   documentId: string,
@@ -231,10 +234,10 @@ export async function setNotarialIndexInclusionAction(
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
-  if (!hasPermission(role, "documents.finalize")) {
+  if (!hasPermission(role, "notarial_index.generate")) {
     return {
       message:
-        "Solo el propietario o un administrador puede cambiar si la escritura pertenece al Índice Notarial.",
+        "No tienes permiso para cambiar si la escritura pertenece al Índice Notarial.",
     };
   }
 

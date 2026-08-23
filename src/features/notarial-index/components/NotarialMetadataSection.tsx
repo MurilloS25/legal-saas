@@ -85,8 +85,10 @@ type Props = {
   reviewRequired?: boolean;
   /** Pertenencia actual al Índice Notarial (independiente de `status`). */
   includeInNotarialIndex: boolean;
-  /** documents.finalize — mismo permiso que finalizar/reabrir; sin él el
-   * control se muestra pero deshabilitado. */
+  /** notarial_index.generate — trabajar el Índice (incluye asistente),
+   * distinto de `documents.finalize` (finalizar/reabrir la Escritura en sí,
+   * solo propietario/administrador); sin este permiso el control se muestra
+   * pero deshabilitado. */
   canChangeInclusion: boolean;
   /** notarial_index.generate — confirmar/corregir datos del Índice; sin
    * este permiso el estado se ve pero los botones no aparecen. */
@@ -514,7 +516,7 @@ export function NotarialMetadataSection({
             Estos datos están confirmados y de solo lectura.
             {canConfirmNow || canCorrectNow
               ? " Usa “Corregir datos” para editarlos."
-              : " Solo el propietario o un administrador puede corregirlos."}
+              : " No tienes permiso para corregirlos."}
           </div>
         )}
         {canEdit && !isConfirmed && readOnly && (

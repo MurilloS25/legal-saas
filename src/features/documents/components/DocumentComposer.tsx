@@ -724,9 +724,13 @@ export function DocumentComposer(props: Props) {
             clientOptions={clientOptions}
             defaultClientId={clientId || undefined}
             canManage={props.canManageReceivables}
+            includeInNotarialIndex={includeInNotarialIndex}
             onContinue={() => {
               setCobroAcknowledged(true);
-              goToSection("notarial");
+              // Excluida: "Índice" no es un paso siguiente real (oculto del
+              // stepper) — cierra el flujo volviendo a "Revisar y finalizar"
+              // en vez de navegar a un paso que el usuario no verá.
+              goToSection(includeInNotarialIndex ? "notarial" : "revisar");
             }}
           />
         ) : (
@@ -752,7 +756,7 @@ export function DocumentComposer(props: Props) {
             generatedPartiesPreview={props.generatedPartiesPreview}
             reviewRequired={props.reviewRequired}
             includeInNotarialIndex={props.draft.include_in_notarial_index}
-            canChangeInclusion={canFinalize}
+            canChangeInclusion={props.canConfirmNotarial}
             canConfirm={props.canConfirmNotarial}
             confirmedByName={props.notarialConfirmedByName}
             onExcludedFromIndex={() => {

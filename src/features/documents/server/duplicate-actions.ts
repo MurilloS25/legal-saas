@@ -45,7 +45,7 @@ export async function duplicateDocumentAction(
   const { data: source, error: sourceError } = await supabase
     .from("documents")
     .select(
-      "title, template_id, client_id, field_values, option_selections, rendered_content, templates(include_in_notarial_index_by_default)",
+      "title, template_id, client_id, field_values, option_selections, rendered_content",
     )
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
@@ -71,11 +71,9 @@ export async function duplicateDocumentAction(
       option_selections: source.option_selections,
       rendered_content: source.rendered_content,
       // Nace desde el machote de origen, no del original que se duplica —
-      // mismo criterio que ya usa createDocumentDraftAction (snapshot del
-      // default del Machote al momento de crear, no una copia del posible
-      // override individual de la Escritura original).
-      include_in_notarial_index:
-        source.templates?.include_in_notarial_index_by_default ?? true,
+      // el trigger `documents_notarial_index_snapshot` (ver 20260822090000)
+      // deriva `include_in_notarial_index` de `template_id` al insertar, sin
+      // copiar el posible override individual de la Escritura original.
     })
     .select("id")
     .single();

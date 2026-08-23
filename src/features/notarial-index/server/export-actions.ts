@@ -38,7 +38,7 @@ export async function prepareNotarialDocxExport(
   const { supabase, workspaceId, role } = await requireApiWorkspace();
   if (!hasPermission(role, "notarial_index.generate")) {
     throw new ValidationError(
-      "Solo el propietario o un administrador puede generar el Índice Notarial.",
+      "No tienes permiso para generar el Índice Notarial.",
     );
   }
   const [{ data: profile, error: profileError }, exportData, formatting] =
