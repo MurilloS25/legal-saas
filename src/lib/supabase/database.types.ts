@@ -1442,7 +1442,7 @@ export type Database = {
       }
       set_template_notarial_index_default: {
         Args: { p_include_by_default: boolean; p_template_id: string }
-        Returns: undefined
+        Returns: string
       }
       suspend_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }
