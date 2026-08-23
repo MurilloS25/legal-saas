@@ -1,17 +1,20 @@
--- Template notarial index default (20260819210000_template_notarial_index_default.sql).
+-- Template notarial index default (20260819210000, extendida por
+-- 20260822090000_template_notarial_index_default_invariant.sql).
 --
 -- Cubre: default true para Machotes existentes/nuevos, la RPC
 -- set_template_notarial_index_default respeta permisos de Workspace
--- (templates.write: propietario/administrador/asistente; solo_lectura y
--- miembros de otro Workspace bloqueados), y que el snapshot al crear una
--- Escritura es independiente de cambios posteriores al Machote (probado a
--- nivel de datos — el snapshot real ocurre en application code, no en DB).
+-- (propietario/administrador/asistente — trabajar el Índice, incluido el
+-- default del Machote, es tarea de asistente; solo_lectura bloqueado), y que
+-- el trigger `documents_notarial_index_snapshot` (no application code) es
+-- quien deriva `include_in_notarial_index` al insertar una Escritura —
+-- incluyendo el caso de un insert que intenta forzar un valor distinto al
+-- del Machote.
 
 begin;
 
 set search_path = public, extensions;
 
-select plan(10);
+select plan(11);
 
 create schema tnid_test;
 grant usage on schema tnid_test to public;
@@ -82,8 +85,10 @@ select is(
   '2) Propietario puede desactivar el default vía la RPC'
 );
 
--- 3) Asistente (templates.write) puede reactivarlo.
-reset role;
+-- 3) Asistente (templates.write, y desde 20260822090000 también
+-- notarial_index.generate) puede reactivarlo — trabajar el Índice
+-- (incluido el default de un Machote) es tarea de asistente, decisión de
+-- producto explícita.
 select set_config('request.jwt.claim.sub', 'e3333333-3333-3333-3333-333333333333', true);
 set local role authenticated;
 select public.set_template_notarial_index_default('e1111111-0000-0000-0000-000000000001', true);
@@ -91,7 +96,7 @@ select is(
   (select include_in_notarial_index_by_default from public.templates
     where id = 'e1111111-0000-0000-0000-000000000001'),
   true,
-  '3) Asistente (templates.write) puede reactivar el default'
+  '3) Asistente puede reactivar el default'
 );
 reset role;
 
@@ -168,6 +173,23 @@ select ok(
   (select include_in_notarial_index from public.documents where id = 'e1111111-d000-0000-0000-000000000001')
   and (select not include_in_notarial_index from public.documents where id = 'e1111111-d000-0000-0000-000000000002'),
   '9) Cambiar el Machote después no modifica Escrituras ya creadas'
+);
+
+-- 10) AUD-01/AUD-05: un insert directo que intenta forzar un
+-- include_in_notarial_index distinto al del Machote es ignorado — el
+-- trigger documents_notarial_index_snapshot lo sobrescribe con el default
+-- vigente (true en este punto), sin importar lo que el cliente haya
+-- enviado. Antes de este fix, un insert por Data API podía saltarse el
+-- snapshot y quedar con el valor forzado.
+insert into public.documents (id, owner_id, workspace_id, template_id, title, status, field_values, rendered_content, include_in_notarial_index)
+values (
+  'e1111111-d000-0000-0000-000000000003', 'e1111111-1111-1111-1111-111111111111',
+  'e1111111-1111-1111-1111-111111111111', 'e1111111-0000-0000-0000-000000000001',
+  'Escritura con override malicioso', 'draft', '{}'::jsonb, '', false
+);
+select ok(
+  (select include_in_notarial_index from public.documents where id = 'e1111111-d000-0000-0000-000000000003'),
+  '10) El trigger ignora un include_in_notarial_index forzado en el insert y usa el default del Machote'
 );
 
 reset role;

@@ -5,8 +5,10 @@
 -- testing role/membership restriction. This is the test-first audit for
 -- "Gap A": confirm (or expose and fix) whether the RPC's authorization is
 -- workspace-membership+permission based, per `notarial_index.generate`
--- (propietario/administrador only, src/lib/server/permissions.ts), or still
--- leaking on `owner_id`.
+-- (propietario/administrador/asistente — trabajar el Índice, incluido
+-- generar/exportarlo, es tarea de asistente; decisión de producto corregida
+-- en 20260822090000_template_notarial_index_default_invariant.sql), or
+-- still leaking on `owner_id`.
 
 begin;
 
@@ -135,8 +137,8 @@ select is(
   '2) Administrador: el RPC registra la exportación'
 );
 
--- 3) Asistente (sin notarial_index.generate): la llamada no rompe, pero no
--- registra nada — mismo patrón "silencioso" que un formato inválido.
+-- 3) Asistente (SÍ tiene notarial_index.generate — trabajar el Índice,
+-- incluido exportarlo, es tarea de asistente): permitido, queda registrado.
 select set_config('request.jwt.claim.sub', 'a3333333-3333-3333-3333-333333333333', true);
 set local role authenticated;
 select public.log_notarial_index_export('docx', '2026-07-01', '2026-07-15', 7);
@@ -144,8 +146,8 @@ reset role;
 
 select is(
   (select count(*) from public.notarial_index_exports where owner_id = 'a3333333-3333-3333-3333-333333333333'),
-  0::bigint,
-  '3) Asistente: sin permiso funcional, el RPC no registra nada (rol insuficiente)'
+  1::bigint,
+  '3) Asistente: el RPC registra la exportación'
 );
 
 -- 4) Solo_lectura: igual, sin permiso funcional.
@@ -232,8 +234,8 @@ reset role;
 
 select is(
   (select count(*) from public.notarial_index_exports),
-  3::bigint,
-  '9) Total esperado: propietario + administrador + miembro de otro Workspace (3), nada más'
+  4::bigint,
+  '9) Total esperado: propietario + administrador + asistente + miembro de otro Workspace (4), nada más'
 );
 
 select * from finish();

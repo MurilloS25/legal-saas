@@ -157,6 +157,20 @@ test.describe("template notarial index default", () => {
     ).toHaveCount(0);
   });
 
+  test("C2: Cobro's continue button reads 'Finalizar flujo' and returns to Revisar y finalizar when the document is excluded from the Índice (AUD-04)", async ({
+    page,
+  }) => {
+    await page.goto(`/dashboard/documents/${docFromOffId}?section=cobro`);
+    const cobro = page.getByRole("region", { name: "Cuentas por cobrar de la escritura" });
+    await expect(cobro).toBeVisible();
+    const continueButton = cobro.getByRole("button", { name: "Finalizar flujo" });
+    await expect(continueButton).toBeVisible();
+    await continueButton.click();
+    await expect(
+      stepper(page).getByRole("tab", { name: "Revisar y finalizar", exact: true }),
+    ).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+  });
+
   test("D: finalize dialog shows no checkbox, only static status text matching the current value", async ({
     page,
   }) => {
