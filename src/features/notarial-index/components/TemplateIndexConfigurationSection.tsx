@@ -40,6 +40,10 @@ type Props = {
    * (documents.include_in_notarial_index al crear — snapshot, no vínculo
    * permanente). */
   includeByDefault: boolean;
+  /** Notifica el `updated_at` fresco del Machote tras guardar el toggle —
+   * quien lo reciba debe resincronizar su propio `expected_updated_at` para
+   * evitar un conflicto optimista contra el propio usuario. */
+  onIncludeByDefaultSaved?: (updatedAt: string) => void;
 };
 
 const SIMPLE_FIELDS: Array<{
@@ -90,6 +94,7 @@ export function TemplateIndexConfigurationSection({
   configuration,
   readOnly = false,
   includeByDefault,
+  onIncludeByDefaultSaved,
 }: Props) {
   const { showToast } = useToast();
   const [inclusion, setInclusion] = useState(includeByDefault);
@@ -115,6 +120,7 @@ export function TemplateIndexConfigurationSection({
     if (result.success && result.includeByDefault !== undefined) {
       lastSyncedInclusion.current = result.includeByDefault;
       setInclusion(result.includeByDefault);
+      if (result.updatedAt) onIncludeByDefaultSaved?.(result.updatedAt);
       showToast(
         result.includeByDefault
           ? "Las nuevas Escrituras de este Machote se incluirán en el Índice Notarial."

@@ -99,6 +99,7 @@ export type TemplateNotarialIndexDefaultState = {
   message?: string;
   success?: boolean;
   includeByDefault?: boolean;
+  updatedAt?: string;
 };
 
 /**
@@ -118,10 +119,13 @@ export async function setTemplateNotarialIndexDefaultAction(
     return { message: "No se encontró el machote." };
   }
 
-  const { error } = await supabase.rpc("set_template_notarial_index_default", {
-    p_template_id: templateId,
-    p_include_by_default: includeByDefault,
-  });
+  const { data: updatedAt, error } = await supabase.rpc(
+    "set_template_notarial_index_default",
+    {
+      p_template_id: templateId,
+      p_include_by_default: includeByDefault,
+    },
+  );
   if (error) {
     return {
       message:
@@ -130,5 +134,5 @@ export async function setTemplateNotarialIndexDefaultAction(
   }
 
   revalidatePath(`/dashboard/templates/${templateId}`);
-  return { success: true, includeByDefault };
+  return { success: true, includeByDefault, updatedAt: updatedAt ?? undefined };
 }
