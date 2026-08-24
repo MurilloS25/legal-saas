@@ -14,6 +14,7 @@ export type TemplateRow = Pick<
   | "content_json"
   | "created_at"
   | "updated_at"
+  | "include_in_notarial_index_by_default"
 >;
 
 export type TemplateFieldRow = Pick<
@@ -35,7 +36,9 @@ export async function getTemplateById(id: string): Promise<TemplateRow | null> {
   const { supabase, workspaceId } = await requireWorkspace();
   const { data, error } = await supabase
     .from("templates")
-    .select("id, name, description, status, content_json, created_at, updated_at")
+    .select(
+      "id, name, description, status, content_json, created_at, updated_at, include_in_notarial_index_by_default",
+    )
     .eq("id", id)
     .eq("workspace_id", workspaceId)
     .maybeSingle();

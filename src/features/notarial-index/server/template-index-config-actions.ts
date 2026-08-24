@@ -94,3 +94,45 @@ function fieldId(formData: FormData, key: string): string | null {
   const value = String(formData.get(`${key}_field_id`) ?? "").trim();
   return value || null;
 }
+
+export type TemplateNotarialIndexDefaultState = {
+  message?: string;
+  success?: boolean;
+  includeByDefault?: boolean;
+  updatedAt?: string;
+};
+
+/**
+ * Preferencia del Machote — no una decisión por Escritura. Cada Escritura
+ * nueva toma un snapshot de este valor al crearse
+ * (createDocumentDraftAction); cambiar el Machote después nunca modifica
+ * Escrituras ya creadas. `templates.write` (propietario/administrador/
+ * asistente) — mismo permiso que ya gobierna el resto del paso Índice del
+ * Machote.
+ */
+export async function setTemplateNotarialIndexDefaultAction(
+  templateId: string,
+  includeByDefault: boolean,
+): Promise<TemplateNotarialIndexDefaultState> {
+  const { supabase } = await requireUser();
+  if (!TemplateIdSchema.safeParse(templateId).success) {
+    return { message: "No se encontró el machote." };
+  }
+
+  const { data: updatedAt, error } = await supabase.rpc(
+    "set_template_notarial_index_default",
+    {
+      p_template_id: templateId,
+      p_include_by_default: includeByDefault,
+    },
+  );
+  if (error) {
+    return {
+      message:
+        "No fue posible actualizar la configuración del Índice Notarial. Intenta de nuevo.",
+    };
+  }
+
+  revalidatePath(`/dashboard/templates/${templateId}`);
+  return { success: true, includeByDefault, updatedAt: updatedAt ?? undefined };
+}

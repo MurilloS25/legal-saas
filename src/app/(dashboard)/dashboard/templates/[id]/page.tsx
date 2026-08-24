@@ -72,6 +72,8 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           description: template.description,
           status: template.status,
           updated_at: template.updated_at,
+          include_in_notarial_index_by_default:
+            template.include_in_notarial_index_by_default,
         }}
         createdJustNow={created === "1"}
         initialSection={resolveInitialSection(section)}

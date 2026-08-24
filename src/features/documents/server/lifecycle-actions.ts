@@ -31,18 +31,16 @@ export type DocumentStatusState = {
  * cliente: la acción determina el destino y se valida contra la máquina de
  * estados. Finalizar exige que no queden variables pendientes (validado en
  * servidor sobre el snapshot persistido).
+ *
+ * No decide `include_in_notarial_index`: ese valor ya se fijó al crear la
+ * Escritura (snapshot del default del Machote, ver createDocumentDraftAction)
+ * y puede corregirse aparte desde el paso Índice
+ * (setNotarialIndexInclusionAction) — finalizar es un cambio de estado puro,
+ * nunca vuelve a preguntar esa decisión.
  */
 async function transitionDocument(
   documentId: string,
   action: DocumentAction,
-  /**
-   * Solo se usa (y solo tiene efecto) en la transición a `final`: decide si
-   * la Escritura entra al universo del Índice Notarial además de quedar
-   * finalizada — son dos preguntas distintas, `status='final'` ya no basta
-   * por sí solo (ver notarial_index_entries). `undefined` deja el default
-   * de la columna (`true`, preserva el comportamiento previo a este PR).
-   */
-  includeInNotarialIndex?: boolean,
 ): Promise<DocumentStatusState> {
   const { supabase, workspaceId, role } = await requireWorkspace();
 
@@ -131,11 +129,7 @@ async function transitionDocument(
 
   const { data: updated, error } = await supabase
     .from("documents")
-    .update(
-      target === "final" && includeInNotarialIndex !== undefined
-        ? { status: target, include_in_notarial_index: includeInNotarialIndex }
-        : { status: target },
-    )
+    .update({ status: target })
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .eq("status", doc.status)
@@ -180,19 +174,11 @@ export async function returnDocumentToDraftAction(
 export async function markDocumentFinalAction(
   documentId: string,
   _prev: DocumentStatusState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<DocumentStatusState> {
   void _prev;
-  // Checkbox del modal "Finalizar escritura" ("Incluir en el Índice
-  // Notarial"). Ausente del FormData cuando está desmarcado (comportamiento
-  // estándar de <input type="checkbox">), presente con cualquier valor
-  // cuando está marcado.
-  const includeInNotarialIndex = formData.has("include_in_notarial_index");
-  const result = await transitionDocument(
-    documentId,
-    "mark_final",
-    includeInNotarialIndex,
-  );
+  void _formData;
+  const result = await transitionDocument(documentId, "mark_final");
   if (result.success) {
     // Finalizar completa el paso "Revisar y finalizar" — avanza a "Cobro",
     // el siguiente paso del flujo guiado. Antes este redirect no llevaba
@@ -230,11 +216,14 @@ export type NotarialIndexInclusionState = {
 /**
  * Corrige después de finalizar si la Escritura pertenece o no al Índice
  * Notarial — vive junto al resto de acciones de ciclo de vida porque el
- * mismo trigger de permiso (`enforce_document_finalize_permission`) que
- * guarda finalizar/reabrir también guarda este cambio, sin importar el
- * status resultante. No depende de que exista una fila de
- * document_notarial_metadata (una Escritura puede pertenecer o no al
- * Índice sin haber guardado nunca su paso Índice).
+ * mismo trigger (`enforce_document_finalize_permission`) que guarda
+ * finalizar/reabrir también guarda este cambio, aunque con un requisito de
+ * rol propio: incluir/excluir es trabajo del Índice (`notarial_index.generate`,
+ * que incluye a asistente), no una decisión de ciclo de vida como finalizar/
+ * reabrir (`documents.finalize`, solo propietario/administrador) — el
+ * trigger en DB aplica esa misma distinción. No depende de que exista una
+ * fila de document_notarial_metadata (una Escritura puede pertenecer o no
+ * al Índice sin haber guardado nunca su paso Índice).
  */
 export async function setNotarialIndexInclusionAction(
   documentId: string,
@@ -245,10 +234,10 @@ export async function setNotarialIndexInclusionAction(
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
-  if (!hasPermission(role, "documents.finalize")) {
+  if (!hasPermission(role, "notarial_index.generate")) {
     return {
       message:
-        "Solo el propietario o un administrador puede cambiar si la escritura pertenece al Índice Notarial.",
+        "No tienes permiso para cambiar si la escritura pertenece al Índice Notarial.",
     };
   }
 

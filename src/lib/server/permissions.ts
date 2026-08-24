@@ -37,7 +37,14 @@ const ROLES_BY_PERMISSION: Record<Permission, readonly WorkspaceRole[]> = {
   "documents.edit": ["propietario", "administrador", "asistente"],
   "documents.export": ["propietario", "administrador", "asistente", "solo_lectura"],
   "documents.finalize": ["propietario", "administrador"],
-  "notarial_index.generate": ["propietario", "administrador"],
+  // Trabajar el Índice Notarial (preparar/confirmar/corregir metadata,
+  // incluir/excluir una Escritura del Índice, generar/exportar el Índice, y
+  // configurar el default del Machote vía templates.write) es tarea de
+  // asistente — decisión de producto explícita. Lo que asistente NO obtiene
+  // por esto es `documents.finalize` (finalizar/reabrir la Escritura en sí
+  // sigue reservado a propietario/administrador) ni administración de
+  // usuarios/workspace.
+  "notarial_index.generate": ["propietario", "administrador", "asistente"],
   "receivables.manage": ["propietario", "administrador", "asistente"],
   "payments.register": ["propietario", "administrador", "asistente"],
   "payments.void": ["propietario", "administrador"],

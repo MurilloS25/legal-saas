@@ -258,6 +258,11 @@ export async function createDocumentDraftAction(
       field_values: result.values,
       option_selections: result.optionSelections,
       rendered_content: result.rendered,
+      // El snapshot del default del Machote lo garantiza el trigger
+      // `documents_notarial_index_snapshot` (ver 20260822090000) — cualquier
+      // valor enviado aquí se descarta, así que no se envía ninguno.
+      // `documents.include_in_notarial_index` sigue siendo la única fuente
+      // real por Escritura una vez creada.
     })
     .select("id")
     .single();

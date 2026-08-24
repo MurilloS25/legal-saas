@@ -32,6 +32,10 @@ type Props = {
   /** true si los datos del Índice están actualmente Confirmados — el
    * diálogo de reabrir advierte que esa confirmación quedará invalidada. */
   notarialDataConfirmed: boolean;
+  /** documents.include_in_notarial_index — heredado del Machote al crear
+   * (o corregido individualmente desde el paso Índice). Finalizar ya no
+   * decide este valor; solo lo muestra. */
+  includeInNotarialIndex: boolean;
 };
 
 type DialogKind = "final" | "reopen" | "draft" | null;
@@ -48,6 +52,7 @@ export function DocumentStatusControls({
   dirty,
   canFinalize,
   notarialDataConfirmed,
+  includeInNotarialIndex,
 }: Props) {
   const [toDraft, toDraftAction, toDraftPending] = useActionState(
     returnDocumentToDraftAction.bind(null, documentId),
@@ -64,9 +69,6 @@ export function DocumentStatusControls({
 
   const [dialog, setDialog] = useState<DialogKind>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  // Default activado: preserva el comportamiento previo a este cambio (toda
-  // Escritura finalizada entraba al Índice) para quien no toca la casilla.
-  const [includeInIndex, setIncludeInIndex] = useState(true);
 
   const anyPending = toDraftPending || finalPending || reopenPending;
 
@@ -91,14 +93,7 @@ export function DocumentStatusControls({
   }
 
   function submitFinal() {
-    const formData = new FormData();
-    if (includeInIndex) formData.set("include_in_notarial_index", "1");
-    submitAction(finalAction, formData);
-  }
-
-  function openFinalDialog() {
-    setIncludeInIndex(true);
-    setDialog("final");
+    submitAction(finalAction);
   }
 
   return (
@@ -113,7 +108,7 @@ export function DocumentStatusControls({
           ref={triggerRef}
           type="button"
           disabled={dirty || anyPending}
-          onClick={openFinalDialog}
+          onClick={() => setDialog("final")}
           className={primaryButtonClass}
         >
           Finalizar escritura
@@ -132,7 +127,7 @@ export function DocumentStatusControls({
                 ref={triggerRef}
                 type="button"
                 disabled={dirty || anyPending}
-                onClick={openFinalDialog}
+                onClick={() => setDialog("final")}
                 className={primaryButtonClass}
               >
                 Finalizar escritura
@@ -171,7 +166,7 @@ export function DocumentStatusControls({
             href={`/dashboard/documents/${documentId}?section=notarial`}
             className="inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           >
-            Completar datos del índice
+            {includeInNotarialIndex ? "Completar datos del índice" : "Ver Índice Notarial"}
           </Link>
         </>
       )}
@@ -190,24 +185,11 @@ export function DocumentStatusControls({
               La escritura quedará bloqueada para edición. Podrás reabrirla
               posteriormente. Antes de continuar, revisa el contenido y los
               datos ingresados.
-              <label className="mt-4 flex items-start gap-2 text-left text-sm font-normal text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={includeInIndex}
-                  onChange={(event) => setIncludeInIndex(event.target.checked)}
-                  disabled={finalPending}
-                  className="mt-0.5 size-4 accent-accent-700"
-                />
-                <span>
-                  <span className="font-medium text-slate-900">
-                    Incluir en el Índice Notarial
-                  </span>
-                  <br />
-                  Si la incluyes, la Escritura aparecerá en el Índice
-                  Notarial al finalizar. Después deberás revisar y, cuando
-                  estén completos, confirmar sus datos del Índice.
-                </span>
-              </label>
+              <br />
+              <br />
+              {includeInNotarialIndex
+                ? "Esta Escritura se incluirá en el Índice Notarial según su configuración actual."
+                : "Esta Escritura no se incluirá en el Índice Notarial según su configuración actual."}
             </>
           }
           confirmLabel="Finalizar escritura"

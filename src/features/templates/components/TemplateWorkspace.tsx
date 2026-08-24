@@ -88,6 +88,7 @@ export type WorkspaceTemplate = {
   description: string | null;
   status: string;
   updated_at: string;
+  include_in_notarial_index_by_default: boolean;
 };
 
 type EditModeProps = {
@@ -156,6 +157,17 @@ export function TemplateWorkspace(props: Props) {
   function closeAiHelp() {
     setAiHelpOpen(false);
     window.setTimeout(() => aiHelpButtonRef.current?.focus(), 0);
+  }
+
+  // El toggle del default notarial vive en un <form> hermano (ver comentario
+  // de módulo) con su propia Server Action — sin esto, guardar el toggle
+  // deja el `expected_updated_at` de ESTE formulario apuntando al
+  // `updated_at` viejo, y el siguiente guardado del Machote se rechaza como
+  // conflicto optimista contra el propio usuario (nadie más lo tocó).
+  function handleNotarialIndexDefaultSaved(updatedAt: string) {
+    if (expectedUpdatedAtRef.current) {
+      expectedUpdatedAtRef.current.value = updatedAt;
+    }
   }
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
@@ -640,6 +652,8 @@ export function TemplateWorkspace(props: Props) {
             readOnly={!canWrite}
             fields={props.indexFields}
             optionBlocks={props.indexOptionBlocks}
+            includeByDefault={props.template.include_in_notarial_index_by_default}
+            onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
           />
         ) : (
           <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">

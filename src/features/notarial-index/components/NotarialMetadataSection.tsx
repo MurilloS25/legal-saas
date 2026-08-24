@@ -85,8 +85,10 @@ type Props = {
   reviewRequired?: boolean;
   /** Pertenencia actual al Índice Notarial (independiente de `status`). */
   includeInNotarialIndex: boolean;
-  /** documents.finalize — mismo permiso que finalizar/reabrir; sin él el
-   * control se muestra pero deshabilitado. */
+  /** notarial_index.generate — trabajar el Índice (incluye asistente),
+   * distinto de `documents.finalize` (finalizar/reabrir la Escritura en sí,
+   * solo propietario/administrador); sin este permiso el control se muestra
+   * pero deshabilitado. */
   canChangeInclusion: boolean;
   /** notarial_index.generate — confirmar/corregir datos del Índice; sin
    * este permiso el estado se ve pero los botones no aparecen. */
@@ -94,6 +96,10 @@ type Props = {
   /** Nombre del actor de la confirmación más reciente, o null si nunca se
    * confirmó. */
   confirmedByName: string | null;
+  /** Se llama justo después de excluir con éxito — el compositor lo usa
+   * para sacar al usuario del paso "Índice" si estaba parado ahí, ya que
+   * ese paso deja de aparecer en la navegación normal del stepper. */
+  onExcludedFromIndex?: () => void;
 };
 
 export function NotarialMetadataSection({
@@ -110,6 +116,7 @@ export function NotarialMetadataSection({
   canChangeInclusion,
   canConfirm,
   confirmedByName,
+  onExcludedFromIndex,
 }: Props) {
   const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
@@ -152,6 +159,7 @@ export function NotarialMetadataSection({
           ? "Incluida en el Índice Notarial."
           : "Excluida del Índice Notarial.",
       );
+      if (!result.includeInNotarialIndex) onExcludedFromIndex?.();
     } else {
       setInclusionError(result.message ?? "No fue posible actualizar el Índice Notarial.");
     }
@@ -330,6 +338,60 @@ export function NotarialMetadataSection({
   const configuredCount = requiredRows.filter(Boolean).length;
   const pendingCount = requiredRows.length - configuredCount;
 
+  // Escritura excluida del Índice: nunca mostrar número de instrumento,
+  // fecha/hora, tomo, folios, acto, partes, estado de confirmación ni
+  // acciones Confirmar/Corregir — sea cual sea la ruta/estado que llevó a
+  // renderizar este componente. Solo un estado compacto + la acción para
+  // volver a incluirla (misma metadata y confirmación se conservan
+  // intactas, sin importar cuánto tiempo permanezca excluida).
+  if (!inclusion) {
+    return (
+      <section
+        aria-labelledby={headingId}
+        className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+      >
+        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+          <h2 id={headingId} className="text-sm font-semibold text-slate-900">
+            Datos para índice
+          </h2>
+        </div>
+        <div className="px-6 py-8 text-center">
+          <p className="text-sm font-medium text-slate-900">
+            No pertenece al Índice Notarial
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            Esta Escritura no está incluida en el Índice Notarial.
+          </p>
+          {canChangeInclusion && (
+            <button
+              type="button"
+              disabled={inclusionPending}
+              onClick={() => setInclusionDialog("include")}
+              className="mt-4 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              Incluir en el Índice
+            </button>
+          )}
+        </div>
+        {inclusionError && (
+          <p role="alert" className="border-t border-slate-100 px-6 py-2 text-xs text-red-700">
+            {inclusionError}
+          </p>
+        )}
+        {inclusionDialog === "include" && (
+          <ConfirmDialog
+            title="¿Incluir esta Escritura en el Índice Notarial?"
+            description="Volverá a aparecer en el Índice Notarial. Sus datos y su estado de confirmación se conservan tal como estaban."
+            confirmLabel="Incluir"
+            pending={inclusionPending}
+            onConfirm={() => applyInclusionChange(true)}
+            onClose={() => setInclusionDialog(null)}
+          />
+        )}
+      </section>
+    );
+  }
+
   return (
     <section
       aria-labelledby={headingId}
@@ -454,7 +516,7 @@ export function NotarialMetadataSection({
             Estos datos están confirmados y de solo lectura.
             {canConfirmNow || canCorrectNow
               ? " Usa “Corregir datos” para editarlos."
-              : " Solo el propietario o un administrador puede corregirlos."}
+              : " No tienes permiso para corregirlos."}
           </div>
         )}
         {canEdit && !isConfirmed && readOnly && (
