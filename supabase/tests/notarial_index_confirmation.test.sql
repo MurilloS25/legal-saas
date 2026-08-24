@@ -1,12 +1,13 @@
--- Notarial index confirmation lifecycle (20260818140000_notarial_index_confirmation_lifecycle.sql).
+-- Notarial index confirmation lifecycle (20260818140000_notarial_index_confirmation_lifecycle.sql,
+-- permiso corregido por 20260822090000_template_notarial_index_default_invariant.sql).
 --
 -- Cubre: confirmar exige completitud, edición bloqueada mientras confirmado
--- (incluso vía request directa), permisos (propietario/administrador para
--- confirmar/corregir, asistente puede seguir guardando contenido mientras
--- NO está confirmado), corregir preserva valores y reabre edición,
--- corrección concurrente/doble confirmación no rompe estado, reopen de la
--- Escritura invalida la confirmación sin borrar metadata, y los eventos de
--- auditoría nuevos quedan registrados.
+-- (incluso vía request directa), permisos (propietario/administrador/
+-- asistente pueden confirmar/corregir — trabajar el Índice es tarea de
+-- asistente, decisión de producto explícita), corregir preserva valores y
+-- reabre edición, corrección concurrente/doble confirmación no rompe
+-- estado, reopen de la Escritura invalida la confirmación sin borrar
+-- metadata, y los eventos de auditoría nuevos quedan registrados.
 --
 -- Nota: `dnm_update_workspace` exige `owner_id = auth.uid()` (misma
 -- restricción estructural ya documentada para `documents_update_workspace`
@@ -118,32 +119,44 @@ values (
   '1F', '1V', 'Compraventa', 'ANA Y BETO'
 );
 
--- 2) Asistente NO puede confirmar aunque los datos estén completos (rol
--- insuficiente) — sigue pudiendo guardar contenido (probado en 3).
-select ok(
-  nic_test.statement_fails($$
-    update public.document_notarial_metadata
-       set notarial_confirmed_at = now(), notarial_confirmed_by = 'c3333333-3333-3333-3333-333333333333'
-     where document_id = 'c3333333-d000-0000-0000-000000000001'
-  $$),
-  '2) Asistente no puede confirmar (rol insuficiente)'
-);
-
--- 3) Asistente SÍ puede seguir guardando contenido mientras no está
+-- 2) Asistente SÍ puede seguir guardando contenido mientras no está
 -- confirmado (documents.edit ya lo permite; sin cambios de comportamiento).
+-- Se prueba ANTES de confirmar (2b) porque confirmar bloquea el contenido.
 update public.document_notarial_metadata
    set protocol_book = '09'
  where document_id = 'c3333333-d000-0000-0000-000000000001';
 select is(
   (select protocol_book from public.document_notarial_metadata where document_id = 'c3333333-d000-0000-0000-000000000001'),
   '09',
-  '3) Asistente puede seguir guardando contenido sin confirmar'
+  '2) Asistente puede seguir guardando contenido sin confirmar'
 );
 
--- 8) Asistente no puede iniciar corrección (mismo rol que confirmar) —
--- primero confirma como propietario en su propia fila para tener algo que
--- corregir, sin poder hacerlo desde el rol asistente.
+-- 3) Asistente SÍ puede confirmar datos completos — trabajar el Índice
+-- (confirmar/corregir incluido) es tarea de asistente, decisión de producto
+-- explícita.
+update public.document_notarial_metadata
+   set notarial_confirmed_at = now(), notarial_confirmed_by = 'c3333333-3333-3333-3333-333333333333'
+ where document_id = 'c3333333-d000-0000-0000-000000000001';
+select ok(
+  (select notarial_confirmed_at is not null and notarial_confirmed_by = 'c3333333-3333-3333-3333-333333333333'
+     from public.document_notarial_metadata where document_id = 'c3333333-d000-0000-0000-000000000001'),
+  '3) Asistente puede confirmar datos completos'
+);
+
+-- 8) Asistente SÍ puede iniciar corrección (mismo rol que confirmar) sobre
+-- su propia fila, ya confirmada en el paso 3.
+update public.document_notarial_metadata
+   set notarial_confirmed_at = null, notarial_confirmed_by = null, notarial_review_required = true
+ where document_id = 'c3333333-d000-0000-0000-000000000001';
+select ok(
+  (select notarial_confirmed_at is null and notarial_review_required
+     from public.document_notarial_metadata where document_id = 'c3333333-d000-0000-0000-000000000001'),
+  '8) Asistente puede iniciar Corregir datos en su propia fila'
+);
 reset role;
+
+-- Propietario confirma su propia fila (c1111111-d000-...001, completada
+-- tras el paso 1) — setup para el flujo principal de abajo (4-14).
 select set_config('request.jwt.claim.sub', 'c1111111-1111-1111-1111-111111111111', true);
 set local role authenticated;
 update public.document_notarial_metadata
@@ -151,24 +164,12 @@ update public.document_notarial_metadata
  where document_id = 'c1111111-d000-0000-0000-000000000001';
 reset role;
 
-select set_config('request.jwt.claim.sub', 'c3333333-3333-3333-3333-333333333333', true);
-set local role authenticated;
-select ok(
-  nic_test.statement_fails($$
-    update public.document_notarial_metadata
-       set notarial_confirmed_at = null, notarial_confirmed_by = null, notarial_review_required = true
-     where document_id = 'c3333333-d000-0000-0000-000000000001'
-  $$),
-  '8) Asistente no puede iniciar Corregir datos en su propia fila (rol insuficiente)'
-);
-reset role;
-
 -- ------------------------------------------------------ flujo principal (propietario)
 
 select set_config('request.jwt.claim.sub', 'c1111111-1111-1111-1111-111111111111', true);
 set local role authenticated;
 
--- 4) Propietario ya confirmó (paso 8 arriba, en su propia fila) — verifica
+-- 4) Propietario ya confirmó (arriba, en su propia fila) — verifica
 -- actor + timestamp.
 select ok(
   (select notarial_confirmed_at is not null and notarial_confirmed_by = 'c1111111-1111-1111-1111-111111111111'

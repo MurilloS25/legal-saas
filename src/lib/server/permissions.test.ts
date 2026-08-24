@@ -37,7 +37,7 @@ describe("hasPermission", () => {
     expect(hasPermission("solo_lectura", "payments.register")).toBe(false);
   });
 
-  it("lets asistente create/edit drafts but not finalize or generate the índice", () => {
+  it("lets asistente create/edit drafts and work the Índice Notarial, but not finalize/reabrir or manage members/settings", () => {
     expect(hasPermission("asistente", "documents.create")).toBe(true);
     expect(hasPermission("asistente", "documents.edit")).toBe(true);
     expect(hasPermission("asistente", "clients.write")).toBe(true);
@@ -46,16 +46,26 @@ describe("hasPermission", () => {
     expect(hasPermission("asistente", "payments.register")).toBe(true);
 
     expect(hasPermission("asistente", "documents.finalize")).toBe(false);
-    expect(hasPermission("asistente", "notarial_index.generate")).toBe(false);
     expect(hasPermission("asistente", "payments.void")).toBe(false);
     expect(hasPermission("asistente", "members.manage")).toBe(false);
     expect(hasPermission("asistente", "settings.manage")).toBe(false);
   });
 
+  it("lets propietario, administrador and asistente work the Índice Notarial (notarial_index.generate) — decisión de producto explícita; solo_lectura queda bloqueado", () => {
+    expect(hasPermission("propietario", "notarial_index.generate")).toBe(true);
+    expect(hasPermission("administrador", "notarial_index.generate")).toBe(true);
+    expect(hasPermission("asistente", "notarial_index.generate")).toBe(true);
+    expect(hasPermission("solo_lectura", "notarial_index.generate")).toBe(false);
+  });
+
+  it("does NOT let notarial_index.generate widen documents.finalize — asistente still can't finalize/reabrir a document", () => {
+    expect(hasPermission("asistente", "notarial_index.generate")).toBe(true);
+    expect(hasPermission("asistente", "documents.finalize")).toBe(false);
+  });
+
   it("restricts finalize/void/members/settings to propietario and administrador", () => {
     const sensitivePermissions = [
       "documents.finalize",
-      "notarial_index.generate",
       "payments.void",
       "members.manage",
       "settings.manage",

@@ -37,10 +37,15 @@ type Props = {
   defaultClientId?: string;
   /** receivables.manage — controla si se ofrecen las acciones contextuales. */
   canManage: boolean;
+  /** documents.include_in_notarial_index — cuando es false, "Índice" no es
+   * un paso siguiente real (está oculto del stepper), así que el botón debe
+   * cerrar el flujo en vez de prometer un paso que no existe. */
+  includeInNotarialIndex: boolean;
   /**
-   * Resuelve el paso "Cobro" explícitamente y avanza a "Índice" — Cobro es
-   * legítimamente opcional, así que esta es la única forma de marcarlo como
-   * resuelto sin haber creado una cuenta.
+   * Resuelve el paso "Cobro" explícitamente — Cobro es legítimamente
+   * opcional, así que esta es la única forma de marcarlo como resuelto sin
+   * haber creado una cuenta. Avanza a "Índice" si la Escritura pertenece al
+   * Índice, o cierra el flujo (vuelve a "Revisar y finalizar") si no.
    */
   onContinue: () => void;
 };
@@ -52,6 +57,7 @@ export function DocumentReceivableStep({
   clientOptions,
   defaultClientId,
   canManage,
+  includeInNotarialIndex,
   onContinue,
 }: Props) {
   const router = useRouter();
@@ -123,7 +129,11 @@ export function DocumentReceivableStep({
           onClick={onContinue}
           className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
         >
-          {receivables.length === 0 ? "Continuar sin cobro" : "Continuar a Índice"}
+          {includeInNotarialIndex
+            ? receivables.length === 0
+              ? "Continuar sin cobro"
+              : "Continuar a Índice"
+            : "Finalizar flujo"}
         </button>
       </div>
     </section>

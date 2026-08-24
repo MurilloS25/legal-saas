@@ -158,7 +158,15 @@ export function DocumentComposer(props: Props) {
     draft && isDocumentStatus(draft.status) ? draft.status : "draft";
   const canEdit = isEdit ? props.canEdit : true;
   const readOnly = (isEdit && isReadOnlyStatus(status)) || !canEdit;
+  // Controla si la RUTA "notarial" es alcanzable (sin cambios: depende solo
+  // de status, no de la inclusión) — el paso puede seguir siendo alcanzable
+  // por enlace directo aunque esté excluido, para mostrar la tarjeta
+  // compacta "No pertenece al Índice Notarial" (ver NotarialMetadataSection).
   const notarialUnlocked = isEdit && status === "final";
+  // Controla si el paso aparece en la fila normal del stepper — distinto de
+  // `notarialUnlocked`: una Escritura excluida no muestra el paso en la
+  // navegación normal, aunque la ruta siga siendo válida.
+  const includeInNotarialIndex = isEdit ? props.draft.include_in_notarial_index : true;
 
   const action = isEdit
     ? updateDocumentDraftAction.bind(null, props.draft.id)
@@ -548,6 +556,7 @@ export function DocumentComposer(props: Props) {
         onSectionChange={goToSection}
         activity={isEdit ? props.activity : undefined}
         canDuplicate={isEdit ? props.canDuplicate : false}
+        includeInNotarialIndex={includeInNotarialIndex}
         completarComplete={completedCompletar}
         cobroComplete={completedCobro}
         notarialComplete={completedNotarial}
@@ -675,6 +684,7 @@ export function DocumentComposer(props: Props) {
                       dirty={dirty}
                       canFinalize={canFinalize}
                       notarialDataConfirmed={!!props.notarialMetadata?.notarial_confirmed_at}
+                      includeInNotarialIndex={includeInNotarialIndex}
                     />
                   </div>
                 </div>
@@ -714,9 +724,13 @@ export function DocumentComposer(props: Props) {
             clientOptions={clientOptions}
             defaultClientId={clientId || undefined}
             canManage={props.canManageReceivables}
+            includeInNotarialIndex={includeInNotarialIndex}
             onContinue={() => {
               setCobroAcknowledged(true);
-              goToSection("notarial");
+              // Excluida: "Índice" no es un paso siguiente real (oculto del
+              // stepper) — cierra el flujo volviendo a "Revisar y finalizar"
+              // en vez de navegar a un paso que el usuario no verá.
+              goToSection(includeInNotarialIndex ? "notarial" : "revisar");
             }}
           />
         ) : (
@@ -742,9 +756,15 @@ export function DocumentComposer(props: Props) {
             generatedPartiesPreview={props.generatedPartiesPreview}
             reviewRequired={props.reviewRequired}
             includeInNotarialIndex={props.draft.include_in_notarial_index}
-            canChangeInclusion={canFinalize}
+            canChangeInclusion={props.canConfirmNotarial}
             canConfirm={props.canConfirmNotarial}
             confirmedByName={props.notarialConfirmedByName}
+            onExcludedFromIndex={() => {
+              // Excluir mientras se está parado en "Índice" saca el paso de
+              // la fila normal del stepper — navegar al paso anterior
+              // válido en vez de dejar un paso inexistente seleccionado.
+              if (section === "notarial") goToSection("cobro");
+            }}
           />
         ) : (
           <LockedStepPlaceholder title="Índice" />

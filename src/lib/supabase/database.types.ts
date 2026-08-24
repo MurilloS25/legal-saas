@@ -1028,6 +1028,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          include_in_notarial_index_by_default: boolean
           name: string
           owner_id: string
           status: string
@@ -1041,6 +1042,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          include_in_notarial_index_by_default?: boolean
           name: string
           owner_id: string
           status?: string
@@ -1054,6 +1056,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          include_in_notarial_index_by_default?: boolean
           name?: string
           owner_id?: string
           status?: string
@@ -1436,6 +1439,10 @@ export type Database = {
           template_id: string
           updated_at: string
         }[]
+      }
+      set_template_notarial_index_default: {
+        Args: { p_include_by_default: boolean; p_template_id: string }
+        Returns: string
       }
       suspend_workspace_member: {
         Args: { p_user_id: string; p_workspace_id: string }

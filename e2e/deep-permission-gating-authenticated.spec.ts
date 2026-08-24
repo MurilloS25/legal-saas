@@ -515,10 +515,25 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
   // ================= Índice Notarial =================
 
-  test("Índice Notarial: asistente no ve el botón de exportar y una llamada directa al endpoint de exportación es rechazada; propietario sí puede exportar", async ({
+  test("Índice Notarial: asistente SÍ ve el botón de exportar y puede exportar (trabajar el Índice es tarea de asistente); solo_lectura no", async ({
     page,
   }) => {
+    // Decisión de producto (corregida en
+    // 20260822090000_template_notarial_index_default_invariant.sql):
+    // trabajar el Índice Notarial — incluido generar/exportarlo — es tarea
+    // de propietario, administrador Y asistente. Antes este test afirmaba
+    // lo contrario; se invierte para asistente y se agrega solo_lectura
+    // como el rol realmente bloqueado.
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
+    await page.goto("/dashboard/notarial-index");
+    await expect(
+      page.getByText("Tu rol no permite generar el índice notarial"),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Exportar Word" }),
+    ).toBeVisible();
+
+    await loginAndExpectDashboard(page, readerEmail, PASSWORD);
     await page.goto("/dashboard/notarial-index");
     await expect(
       page.getByText("Tu rol no permite generar el índice notarial"),
@@ -527,14 +542,14 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: "Exportar Word" }),
     ).not.toBeVisible();
 
-    // Solicitud manipulada: golpea el endpoint de exportación directamente
-    // (como si alguien copiara la URL o manipulara la petición), sin pasar
-    // por el enlace oculto. export-actions.ts valida notarial_index.generate
-    // server-side — debe rechazarlo igual.
-    const response = await page.request.get(
+    // Solicitud manipulada de solo_lectura: golpea el endpoint de
+    // exportación directamente, sin pasar por el enlace oculto.
+    // export-actions.ts valida notarial_index.generate server-side — debe
+    // rechazarlo igual.
+    const readerResponse = await page.request.get(
       "/api/notarial-index/export?year=2026&month=7&half=first",
     );
-    expect(response.ok()).toBe(false);
+    expect(readerResponse.ok()).toBe(false);
 
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto("/dashboard/notarial-index");
@@ -543,16 +558,17 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
   });
 
-  test("Índice Notarial: la RPC de registro de exportación (log_notarial_index_export) rechaza a asistente y acepta a propietario, invocada directamente vía PostgREST", async ({
+  test("Índice Notarial: la RPC de registro de exportación (log_notarial_index_export) acepta a asistente y propietario, rechaza a solo_lectura, invocada directamente vía PostgREST", async ({
     page,
   }) => {
     // Gap A: el RPC ya valida membresía activa del Workspace + permiso
     // notarial_index.generate (pgTAP: rls_notarial_index_export_
-    // workspace_roles.test.sql) — esto prueba lo mismo con una sesión real
-    // de asistente/propietario, golpeando PostgREST directamente sin pasar
-    // por ningún Server Action ni ruta de la app. La RPC nunca lanza error
-    // por rol insuficiente (retorna silenciosamente sin registrar), así que
-    // la prueba real es si el conteo de exportaciones cambia o no.
+    // workspace_roles.test.sql) — esto prueba lo mismo con sesiones reales
+    // de asistente/propietario/solo_lectura, golpeando PostgREST
+    // directamente sin pasar por ningún Server Action ni ruta de la app. La
+    // RPC nunca lanza error por rol insuficiente (retorna silenciosamente
+    // sin registrar), así que la prueba real es si el conteo de
+    // exportaciones cambia o no.
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     const countBefore = await directRestCount(page, "notarial_index_exports");
 
@@ -563,11 +579,24 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       p_to: "2026-07-15",
       p_row_count: 1,
     });
-    expect(assistantAttempt.ok).toBe(true); // no lanza error — solo no registra nada.
+    expect(assistantAttempt.ok).toBe(true);
 
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     const countAfterAssistant = await directRestCount(page, "notarial_index_exports");
-    expect(countAfterAssistant).toBe(countBefore);
+    expect(countAfterAssistant).toBe(countBefore + 1);
+
+    await loginAndExpectDashboard(page, readerEmail, PASSWORD);
+    const readerAttempt = await directRpcCall(page, "log_notarial_index_export", {
+      p_format: "docx",
+      p_from: "2026-07-01",
+      p_to: "2026-07-15",
+      p_row_count: 1,
+    });
+    expect(readerAttempt.ok).toBe(true); // no lanza error — solo no registra nada.
+
+    await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
+    const countAfterReader = await directRestCount(page, "notarial_index_exports");
+    expect(countAfterReader).toBe(countAfterAssistant);
 
     const ownerAttempt = await directRpcCall(page, "log_notarial_index_export", {
       p_format: "docx",
@@ -578,7 +607,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     expect(ownerAttempt.ok).toBe(true);
 
     const countAfterOwner = await directRestCount(page, "notarial_index_exports");
-    expect(countAfterOwner).toBe(countBefore + 1);
+    expect(countAfterOwner).toBe(countAfterReader + 1);
   });
 
   // ================= Cuentas por cobrar =================

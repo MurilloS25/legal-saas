@@ -1,17 +1,37 @@
--- Notarial index inclusion (20260818130000_notarial_index_inclusion.sql).
+-- Notarial index inclusion (20260818130000_notarial_index_inclusion.sql,
+-- permiso de inclusión corregido por
+-- 20260822090000_template_notarial_index_default_invariant.sql).
 --
 -- `status = 'final'` ya no implica por sí solo pertenencia al Índice
 -- Notarial: `documents.include_in_notarial_index` es la decisión explícita.
 -- Cubre: default true (compatibilidad hacia atrás), la vista
 -- `notarial_index_entries` filtrando por status+inclusion, el resguardo
 -- `effective_index_date` (nunca afecta is_complete ni la fecha real), el
--- trigger de permiso extendido, y el nuevo evento de auditoría.
+-- trigger de permiso — asistente SÍ puede cambiar inclusión (decisión de
+-- producto: trabajar el Índice es tarea de asistente), solo_lectura no —,
+-- y el nuevo evento de auditoría.
 
 begin;
 
 set search_path = public, extensions;
 
-select plan(12);
+select plan(14);
+
+create schema tnid_incl_test;
+grant usage on schema tnid_incl_test to public;
+
+create function tnid_incl_test.statement_fails(statement text)
+returns boolean
+language plpgsql
+as $$
+begin
+  execute statement;
+  raise notice 'statement unexpectedly succeeded: %', statement;
+  return false;
+exception when others then
+  return true;
+end;
+$$;
 
 -- ------------------------------------------------------------------ fixtures
 
@@ -21,14 +41,21 @@ insert into auth.users (
 )
 values
   ('f1111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'incl-owner@example.test', 'fake-hash', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()),
-  ('f3333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'incl-assistant@example.test', 'fake-hash', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now());
+  ('f3333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'incl-assistant@example.test', 'fake-hash', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()),
+  ('f4444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'incl-readonly@example.test', 'fake-hash', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now());
 
 select set_config('request.jwt.claim.sub', 'f1111111-1111-1111-1111-111111111111', true);
 set local role authenticated;
 select public.invite_workspace_member('f3333333-3333-3333-3333-333333333333', 'asistente');
+select public.invite_workspace_member('f4444444-4444-4444-4444-444444444444', 'solo_lectura');
 reset role;
 
 select set_config('request.jwt.claim.sub', 'f3333333-3333-3333-3333-333333333333', true);
+set local role authenticated;
+select public.accept_workspace_invitation('f1111111-1111-1111-1111-111111111111');
+reset role;
+
+select set_config('request.jwt.claim.sub', 'f4444444-4444-4444-4444-444444444444', true);
 set local role authenticated;
 select public.accept_workspace_invitation('f1111111-1111-1111-1111-111111111111');
 reset role;
@@ -62,13 +89,19 @@ select is(
   '2) Caso A: un borrador (aunque include=true) no aparece en el Índice'
 );
 
--- Caso B: final + include=false → excluida.
-insert into public.documents (id, owner_id, workspace_id, template_id, title, status, field_values, rendered_content, include_in_notarial_index)
+-- Caso B: final + include=false → excluida. El trigger
+-- documents_notarial_index_snapshot (20260822090000) fuerza el default del
+-- Machote (true) al INSERT sin importar el valor enviado, así que este
+-- fixture corrige a `false` con un UPDATE aparte — no es el mismo insert
+-- directo con override que ya cubre AUD-05 en template_notarial_index_default.test.sql.
+insert into public.documents (id, owner_id, workspace_id, template_id, title, status, field_values, rendered_content)
 values (
   'f1111111-d000-0000-0000-000000000002', 'f1111111-1111-1111-1111-111111111111',
   'f1111111-1111-1111-1111-111111111111', 'f1111111-0000-0000-0000-000000000001',
-  'Caso B constancia', 'final', '{}'::jsonb, '', false
+  'Caso B constancia', 'final', '{}'::jsonb, ''
 );
+update public.documents set include_in_notarial_index = false
+ where id = 'f1111111-d000-0000-0000-000000000002';
 select is(
   (select count(*) from public.notarial_index_entries where document_id = 'f1111111-d000-0000-0000-000000000002'),
   0::bigint,
@@ -104,8 +137,10 @@ select ok(
   '7) Caso E: la fecha provisional nunca marca is_complete=true'
 );
 
--- 8) Permission trigger: asistente no puede cambiar include_in_notarial_index
--- de una escritura propia finalizada, mismo guardia que finalizar/reabrir.
+-- 8) AUD-02 (corregido): trabajar el Índice es tarea de asistente —
+-- asistente SÍ puede cambiar include_in_notarial_index de su propia
+-- escritura finalizada, aunque el mismo rol no pueda finalizar/reabrirla
+-- (ver 8b más abajo). El trigger separa ambos chequeos desde 20260822090000.
 insert into public.documents (id, owner_id, workspace_id, template_id, title, status, field_values, rendered_content, include_in_notarial_index)
 values (
   'f1111111-d000-0000-0000-000000000004', 'f1111111-1111-1111-1111-111111111111',
@@ -124,12 +159,38 @@ values (
   'Doc asistente', 'final', '{}'::jsonb, '', true
 );
 
-select throws_ok(
-  $$update public.documents set include_in_notarial_index = false
-    where id = 'f1111111-d000-0000-0000-000000000005'$$,
-  '42501',
-  null,
-  '8) Asistente NO puede cambiar la inclusión (rol insuficiente, mismo trigger de finalizar/reabrir)'
+update public.documents set include_in_notarial_index = false
+ where id = 'f1111111-d000-0000-0000-000000000005';
+select ok(
+  (select not include_in_notarial_index from public.documents where id = 'f1111111-d000-0000-0000-000000000005'),
+  '8) Asistente SÍ puede cambiar la inclusión de su propia escritura (decisión de producto)'
+);
+
+-- 8b) Regresión: ese mismo asistente sigue sin poder finalizar/reabrir —
+-- trabajar el Índice no amplía documents.finalize. Reutiliza el mismo doc,
+-- que sigue 'final'; intenta reabrirlo (entrar a 'draft').
+select ok(
+  tnid_incl_test.statement_fails($$
+    update public.documents set status = 'draft'
+    where id = 'f1111111-d000-0000-0000-000000000005'
+  $$),
+  '8b) Ese mismo asistente sigue sin poder reabrir su escritura (documents.finalize intacto)'
+);
+
+reset role;
+
+-- 8c) Solo_lectura no puede cambiar la inclusión — su rol no está en
+-- `documents_update_workspace`'s `with check` en absoluto (mismo motivo que
+-- bloquea reabrir/finalizar para ese rol), independiente del trigger.
+select set_config('request.jwt.claim.sub', 'f4444444-4444-4444-4444-444444444444', true);
+set local role authenticated;
+
+select ok(
+  tnid_incl_test.statement_fails($$
+    update public.documents set include_in_notarial_index = false
+    where id = 'f1111111-d000-0000-0000-000000000004'
+  $$),
+  '8c) Solo_lectura NO puede cambiar la inclusión (rechazado por RLS, sin rol de escritura)'
 );
 
 reset role;

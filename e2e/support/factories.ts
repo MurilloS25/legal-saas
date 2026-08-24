@@ -46,6 +46,10 @@ export async function createTestTemplate(
      * forma que persiste el workspace.
      */
     doc?: unknown;
+    /** Valor que heredarán las nuevas Escrituras creadas desde este
+     * Machote. Default true (columna DB), como el resto del comportamiento
+     * histórico. */
+    includeInNotarialIndexByDefault?: boolean;
   },
 ): Promise<{ id: string; name: string }> {
   const { userId } = getTestUserAuth();
@@ -62,6 +66,9 @@ export async function createTestTemplate(
       ? { text: options.content, doc: options.doc }
       : { text: options.content },
     text_preview: options.content.slice(0, 300),
+    ...(options.includeInNotarialIndexByDefault !== undefined
+      ? { include_in_notarial_index_by_default: options.includeInNotarialIndexByDefault }
+      : {}),
   });
   registry.register("templates", id);
   return { id, name: options.name };

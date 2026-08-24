@@ -11,18 +11,43 @@ import {
 } from "./support/factories";
 import { currentCostaRicaFortnight } from "../src/features/notarial-index/model/fortnight";
 
+/**
+ * Semántica ACTUAL (desde feat/template-notarial-index-default):
+ * pertenecer al Índice Notarial se decide por el default del Machote
+ * (`templates.include_in_notarial_index_by_default`), tomado como snapshot
+ * en `documents.include_in_notarial_index` al CREAR la Escritura — no al
+ * finalizarla. Finalizar ya no vuelve a preguntar esa decisión: el diálogo
+ * solo muestra texto estático que refleja el valor ya fijado. Una vez
+ * finalizada, la única forma de cambiar la pertenencia es el control
+ * incluir/excluir del paso Índice (`setNotarialIndexInclusionAction`), no un
+ * checkbox del diálogo de finalizar (que ya no existe — ver
+ * `template-notarial-index-default-authenticated.spec.ts` para la cobertura
+ * completa Machote → Escritura → stepper).
+ *
+ * Este archivo cubre lo que esa otra spec NO cubre: el listado
+ * `/dashboard/notarial-index` (búsqueda, presencia/ausencia de filas) bajo
+ * este modelo, incluyendo que un cambio hecho por navegación cliente (tabs,
+ * sin `page.goto`) se refleje correctamente ahí.
+ */
+
 test.describe.configure({ mode: "serial" });
 test.setTimeout(90_000);
 
 const registry = new CleanupRegistry();
 
 const token = uniqueName("nii", "t").split("-").pop() as string;
-const templateName = uniqueName("nii", "machote");
+const templateOnName = uniqueName("nii", "machote-on");
+const templateOffName = uniqueName("nii", "machote-off");
 
-let templateId = "";
-let draftId = "";
+let templateOnId = "";
+let templateOffId = "";
+let includedId = "";
 let excludedId = "";
 let toggleId = "";
+
+function stepper(page: Page) {
+  return page.getByRole("navigation", { name: "Pasos de la escritura" });
+}
 
 function notarialSection(page: Page) {
   return page.getByRole("region", { name: "Datos para índice" });
@@ -53,42 +78,52 @@ test.describe("notarial index inclusion", () => {
     await runCleanup(registry, "nii");
   });
 
-  test("A: seed a template and a draft document", async () => {
-    const template = await createTestTemplate(registry, {
-      name: templateName,
+  test("A: seed a default=true and a default=false template", async () => {
+    const templateOn = await createTestTemplate(registry, {
+      name: templateOnName,
       content: "ESCRITURA. Comparece {{parte.nombre}}.",
+      includeInNotarialIndexByDefault: true,
     });
-    templateId = template.id;
-    await createTestTemplateField(registry, template.id, {
+    templateOnId = templateOn.id;
+    await createTestTemplateField(registry, templateOnId, {
       field_key: "parte.nombre",
       label: "Parte",
       required: true,
     });
 
-    const draft = await createTestDocument(registry, template.id, {
-      title: `${token} Borrador`,
+    const templateOff = await createTestTemplate(registry, {
+      name: templateOffName,
+      content: "CONSTANCIA. Comparece {{parte.nombre}}.",
+      includeInNotarialIndexByDefault: false,
+    });
+    templateOffId = templateOff.id;
+    await createTestTemplateField(registry, templateOffId, {
+      field_key: "parte.nombre",
+      label: "Parte",
+      required: true,
+    });
+  });
+
+  // La pertenencia al Índice ya fue decidida por el Machote al crear la
+  // Escritura (snapshot) — finalizar es un cambio de estado puro, no vuelve
+  // a preguntar. El diálogo no tiene checkbox: solo confirma el valor ya
+  // vigente.
+  test("B: a document created from a default=true template has no checkbox at finalize, only static confirming text, and ends up in the índice", async ({
+    page,
+  }) => {
+    const doc = await createTestDocument(registry, templateOnId, {
+      title: `${token} Incluida por Machote`,
       field_values: { "parte.nombre": "Persona Uno" },
       rendered_content: "ESCRITURA. Comparece Persona Uno.",
     });
-    draftId = draft.id;
-  });
+    includedId = doc.id;
 
-  // Caso A del PR: un borrador nunca aparece en el Índice, sin importar el
-  // valor por defecto de include_in_notarial_index.
-  test("B: the finalize checkbox defaults to checked and includes the document once finalized", async ({
-    page,
-  }) => {
-    await page.goto(`/dashboard/documents/${draftId}?section=revisar`);
-    const dialogTrigger = page.getByRole("button", { name: "Finalizar escritura" });
-    await dialogTrigger.click();
-
+    await page.goto(`/dashboard/documents/${includedId}?section=revisar`);
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
-    const checkbox = dialog.getByRole("checkbox", {
-      name: /Incluir en el Índice Notarial/,
-    });
-    await expect(checkbox).toBeChecked();
+    await expect(dialog.getByRole("checkbox")).toHaveCount(0);
     await expect(
-      dialog.getByText(/aparecerá en el Índice Notarial al finalizar/),
+      dialog.getByText("Esta Escritura se incluirá en el Índice Notarial según su configuración actual."),
     ).toBeVisible();
 
     await dialog.getByRole("button", { name: "Finalizar escritura" }).click();
@@ -97,40 +132,50 @@ test.describe("notarial index inclusion", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await search(page, token);
-    await expect(rowFor(page, draftId)).toBeVisible();
+    await expect(rowFor(page, includedId)).toBeVisible();
   });
 
-  // Caso B del PR: desmarcar la casilla al finalizar mantiene la Escritura
-  // finalizada pero fuera del universo del Índice.
-  test("C: unchecking the box at finalize excludes the document from the index while it stays finalized", async ({
+  // Simétrico a B: nace excluida porque su Machote tiene el default en
+  // false — finalizar tampoco pregunta nada aquí, y el paso Índice del
+  // stepper deja de aparecer en la navegación normal.
+  test("C: a document created from a default=false template has no checkbox at finalize, only static excluding text, stays finalized, and never appears in the índice", async ({
     page,
   }) => {
-    const doc = await createTestDocument(registry, templateId, {
-      title: `${token} Excluida al finalizar`,
+    const doc = await createTestDocument(registry, templateOffId, {
+      title: `${token} Excluida por Machote`,
       field_values: { "parte.nombre": "Persona Dos" },
-      rendered_content: "ESCRITURA. Comparece Persona Dos.",
+      rendered_content: "CONSTANCIA. Comparece Persona Dos.",
     });
     excludedId = doc.id;
 
     await page.goto(`/dashboard/documents/${excludedId}?section=revisar`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
-    await dialog
-      .getByRole("checkbox", { name: /Incluir en el Índice Notarial/ })
-      .uncheck();
+    await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+    await expect(
+      dialog.getByText("Esta Escritura no se incluirá en el Índice Notarial según su configuración actual."),
+    ).toBeVisible();
+
     await dialog.getByRole("button", { name: "Finalizar escritura" }).click();
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    await search(page, token);
-    await expect(rowFor(page, excludedId)).toHaveCount(0);
-
-    // La escritura sigue finalizada — excluirla del Índice no la reabre.
+    // La escritura sigue finalizada — nacer excluida no la reabre ni la
+    // bloquea de otro modo.
     await page.goto(`/dashboard/documents/${excludedId}?section=revisar`);
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible();
+
+    // El paso "Índice" ya no aparece en la navegación normal del stepper.
+    await page.goto(`/dashboard/documents/${excludedId}`);
+    await expect(
+      stepper(page).getByRole("tab", { name: "Índice", exact: true }),
+    ).toHaveCount(0);
+
+    await search(page, token);
+    await expect(rowFor(page, excludedId)).toHaveCount(0);
   });
 
   // Casos G/H del PR original, y C/D del bug de estado obsoleto reportado
@@ -139,10 +184,21 @@ test.describe("notarial index inclusion", () => {
   // sección, con confirmación vía el `ConfirmDialog` propio (no
   // `window.confirm`) y que sobrevive un refresh completo, no solo la
   // actualización optimista en memoria.
+  //
+  // Excluir MIENTRAS se está parado en "Índice" saca ese paso de la
+  // navegación normal del stepper y navega a "Cobro" de inmediato
+  // (`onExcludedFromIndex` en DocumentComposer) — el toggle que se acaba de
+  // usar queda en un panel `hidden` (fuera del árbol de accesibilidad, no
+  // solo invisible), así que no tiene sentido seguir leyéndolo ahí después
+  // de excluir. La única forma de volver a ver el paso Índice de una
+  // Escritura excluida es la tarjeta compacta ("No pertenece al Índice
+  // Notarial" + botón "Incluir en el Índice"), no el toggle de la sección
+  // completa — mismo patrón que
+  // `template-notarial-index-default-authenticated.spec.ts` (casos E-G).
   test("D: the Índice step lets a finalized document be excluded and re-included later, surviving a reload", async ({
     page,
   }) => {
-    const doc = await createTestDocument(registry, templateId, {
+    const doc = await createTestDocument(registry, templateOnId, {
       title: `${token} Alternar después`,
       field_values: { "parte.nombre": "Persona Tres" },
       rendered_content: "ESCRITURA. Comparece Persona Tres.",
@@ -154,43 +210,52 @@ test.describe("notarial index inclusion", () => {
     await expect(rowFor(page, toggleId)).toBeVisible();
 
     await page.goto(`/dashboard/documents/${toggleId}?section=notarial`);
-    const section = notarialSection(page);
-    const toggle = section.getByLabel("Incluir en el Índice Notarial");
+    const toggle = notarialSection(page).getByLabel("Incluir en el Índice Notarial");
     await expect(toggle).toBeChecked();
 
-    // Caso C: incluida → excluir → desmarcado de inmediato (sin reload) →
-    // sigue desmarcado tras un refresh completo (no solo optimista).
+    // Caso C: incluida → excluir → la app navega a "Cobro" de inmediato (el
+    // paso Índice deja de existir en la fila normal) → el cambio ya quedó
+    // persistido en el servidor, no solo en memoria.
     await toggle.click();
     await page
       .getByRole("alertdialog", { name: "¿Excluir esta Escritura del Índice Notarial?" })
       .getByRole("button", { name: "Excluir" })
       .click();
-    await expect(toggle).not.toBeChecked({ timeout: 15_000 });
     await expect(
-      section.getByText(/está excluida del Índice Notarial/),
+      page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      stepper(page).getByRole("tab", { name: "Índice", exact: true }),
+    ).toHaveCount(0);
 
     await search(page, token);
     await expect(rowFor(page, toggleId)).toHaveCount(0);
 
+    // La ruta sigue alcanzable por enlace directo — muestra la tarjeta
+    // compacta, no el toggle (fue un refresh completo: confirma que el
+    // cambio sobrevivió, no que quedó solo en el estado optimista).
     await page.goto(`/dashboard/documents/${toggleId}?section=notarial`);
-    await expect(notarialSection(page)).toBeVisible();
-    await expect(notarialSection(page).getByLabel("Incluir en el Índice Notarial")).not.toBeChecked();
+    await expect(
+      page.getByText("No pertenece al Índice Notarial", { exact: true }),
+    ).toBeVisible();
 
-    // Caso D: excluida → volver a incluir → marcado de inmediato → sigue
-    // marcado tras un refresh completo.
-    const reincludeToggle = notarialSection(page).getByLabel(
-      "Incluir en el Índice Notarial",
-    );
-    await reincludeToggle.click();
+    // Caso D: excluida → volver a incluir desde la tarjeta compacta → la
+    // sección completa reaparece con el toggle marcado → sigue marcado tras
+    // un refresh completo.
+    await page.getByRole("button", { name: "Incluir en el Índice" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Incluir esta Escritura en el Índice Notarial?" })
       .getByRole("button", { name: "Incluir" })
       .click();
-    await expect(reincludeToggle).toBeChecked({ timeout: 15_000 });
+    await expect(notarialSection(page)).toBeVisible({ timeout: 15_000 });
     await expect(
-      notarialSection(page).getByText(/aparece en el Índice Notarial/),
-    ).toBeVisible({ timeout: 15_000 });
+      notarialSection(page).getByLabel("Incluir en el Índice Notarial"),
+    ).toBeChecked({ timeout: 15_000 });
+
+    // El paso reaparece de inmediato en la navegación normal del stepper.
+    await expect(
+      stepper(page).getByRole("tab", { name: "Índice", exact: true }),
+    ).toBeVisible();
 
     await search(page, token);
     await expect(rowFor(page, toggleId)).toBeVisible();
@@ -200,45 +265,65 @@ test.describe("notarial index inclusion", () => {
     await expect(notarialSection(page).getByLabel("Incluir en el Índice Notarial")).toBeChecked();
   });
 
-  // Bug real encontrado en revisión manual de #184: el checkbox del paso
-  // Índice mostraba `true` aunque `documents.include_in_notarial_index`
-  // fuera `false`, porque `NotarialMetadataSection` no se desmonta al
-  // navegar entre pasos de la misma Escritura (mismo route [id], solo
-  // cambian los searchParams) — `useState(includeInNotarialIndex)` solo
-  // capturaba el prop del primer montaje. Se reproduce navegando por los
-  // tabs del stepper (clic real, no `page.goto`), que es exactamente el
-  // caso que NO desmonta el componente y por eso no lo detectaban los
-  // demás tests de este archivo (todos usan `page.goto`, que sí fuerza un
-  // remount y enmascaraba el bug).
-  test("F: the Índice toggle reflects the real persisted value after finalizing, navigated via the stepper tabs (not page.goto)", async ({
+  // Bug real encontrado en revisión manual de #184 (el checkbox del paso
+  // Índice podía mostrar un valor obsoleto tras navegar por los tabs del
+  // stepper sin recargar, porque NotarialMetadataSection no se desmonta
+  // entre pasos de la misma Escritura). Bajo el modelo actual, la única
+  // forma de que la inclusión cambie DESPUÉS de finalizar es el control
+  // incluir/excluir mismo — así que la regresión ahora se reformula
+  // alrededor de ESE control: la exclusión hecha en una sesión que nunca
+  // recargó la página (solo clics de tab) debe reflejarse tanto en la
+  // navegación del stepper como en el listado del Índice, no solo en el
+  // estado local optimista de este componente.
+  test("F: excluding via the Índice step reached by stepper tab clicks (not page.goto) is correctly reflected in the stepper and the índice listing, not just local state", async ({
     page,
   }) => {
-    const doc = await createTestDocument(registry, templateId, {
-      title: `${token} Stepper sin reload`,
+    const doc = await createTestDocument(registry, templateOnId, {
+      title: `${token} Excluir sin reload`,
       field_values: { "parte.nombre": "Persona Cuatro" },
       rendered_content: "ESCRITURA. Comparece Persona Cuatro.",
     });
 
-    // Un solo `page.goto` inicial: monta el compositor una vez, mientras
-    // el documento sigue en borrador (include_in_notarial_index = true por
-    // default en esa fila). Todo lo demás usa navegación en la app.
+    // Un solo `page.goto` inicial: monta el compositor una vez, con la
+    // Escritura ya nacida incluida (default=true del Machote). Todo lo
+    // demás usa navegación en la app (clics de tab), sin recargar.
     await page.goto(`/dashboard/documents/${doc.id}`);
     await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const finalDialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
-    await finalDialog
-      .getByRole("checkbox", { name: /Incluir en el Índice Notarial/ })
-      .uncheck();
+    await expect(finalDialog.getByRole("checkbox")).toHaveCount(0);
     await finalDialog.getByRole("button", { name: "Finalizar escritura" }).click();
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
     // Clic en el tab del stepper — navegación cliente sobre la MISMA ruta,
-    // sin recarga completa. Es el paso donde el bug reproducía.
+    // sin recarga completa. Es el paso donde el bug original reproducía.
     await page.getByRole("tab", { name: "Índice", exact: true }).click();
     const toggle = notarialSection(page).getByLabel("Incluir en el Índice Notarial");
-    await expect(toggle).not.toBeChecked();
+    await expect(toggle).toBeChecked();
+
+    await toggle.click();
+    await page
+      .getByRole("alertdialog", { name: "¿Excluir esta Escritura del Índice Notarial?" })
+      .getByRole("button", { name: "Excluir" })
+      .click();
+
+    // Excluir mientras se está parado en "Índice" navega a "Cobro" de
+    // inmediato (sin recargar) y el paso deja de existir en el stepper —
+    // ambos son evidencia de que el cambio llegó al servidor, no solo al
+    // estado local optimista de este componente.
+    await expect(
+      page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      stepper(page).getByRole("tab", { name: "Índice", exact: true }),
+    ).toHaveCount(0);
+
+    // La exclusión (hecha sin recargar la página del documento) debe
+    // reflejarse en el listado separado del Índice.
+    await search(page, token);
+    await expect(rowFor(page, doc.id)).toHaveCount(0);
   });
 
   // Caso E del PR: incluida, finalizada, sin authorized_at — sigue siendo

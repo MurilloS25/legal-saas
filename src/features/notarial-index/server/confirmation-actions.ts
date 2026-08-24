@@ -17,11 +17,12 @@ export type NotarialConfirmationActionState = {
  * y de Finalizar/Reabrir (documents/server/lifecycle-actions.ts) — viven
  * aparte para no mezclar los tres conceptos en un mismo archivo.
  *
- * `notarial_index.generate` (propietario/administrador): confirmar o
- * corregir es la misma clase de decisión de confianza sobre estos datos que
- * ya gobierna exportar el Índice a Word — no `documents.edit` (que permite
- * guardar contenido, incluyendo al asistente) ni `documents.finalize` (ciclo
- * de vida del documento, un concepto distinto).
+ * `notarial_index.generate` (propietario/administrador/asistente — trabajar
+ * el Índice, decisión de producto explícita): confirmar o corregir es la
+ * misma clase de decisión sobre estos datos que ya gobierna exportar el
+ * Índice a Word — no `documents.edit` (guardar contenido) ni
+ * `documents.finalize` (ciclo de vida del documento, un concepto distinto
+ * que sigue reservado a propietario/administrador).
  *
  * La base de datos es la autoridad real (trigger
  * enforce_notarial_metadata_editable): estas comprobaciones son solo UX —
@@ -54,8 +55,7 @@ export async function confirmNotarialMetadataAction(
   }
   if (!hasPermission(role, "notarial_index.generate")) {
     return {
-      message:
-        "Solo el propietario o un administrador puede confirmar los datos del Índice.",
+      message: "No tienes permiso para confirmar los datos del Índice.",
     };
   }
 
@@ -119,8 +119,7 @@ export async function startNotarialCorrectionAction(
   }
   if (!hasPermission(role, "notarial_index.generate")) {
     return {
-      message:
-        "Solo el propietario o un administrador puede corregir datos ya confirmados del Índice.",
+      message: "No tienes permiso para corregir datos ya confirmados del Índice.",
     };
   }
 
