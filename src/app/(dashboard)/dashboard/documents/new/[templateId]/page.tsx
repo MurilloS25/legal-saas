@@ -151,6 +151,9 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
         templateId={template.id}
         templateName={template.name}
         defaultTitle={`${template.name} — Borrador`}
+        templateIncludeInNotarialIndexByDefault={
+          template.include_in_notarial_index_by_default
+        }
         document={labeledDocument}
         fields={fields}
         clients={clientOptions}
