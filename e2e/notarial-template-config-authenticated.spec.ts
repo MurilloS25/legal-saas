@@ -533,4 +533,57 @@ test.describe("template notarial index configuration", () => {
     expect(text).toContain(String(firstInstrument));
     expect(text).not.toContain("TOMO SIETE");
   });
+
+  // Combobox buscable de Partes: verifica específicamente búsqueda/filtrado
+  // y selección por teclado (Enter), no solo clic directo por nombre — ya
+  // cubierto en el resto de este archivo (tests B/C). No se toca la
+  // selección hecha por B/C: reordena y limpia lo que agrega, dejando el
+  // machote como test C lo dejó.
+  test("I: the searchable Partes combobox filters by typing and supports keyboard selection", async ({
+    page,
+  }) => {
+    await openTemplate(page);
+    const section = configurationSection(page);
+    await openConfigIndexRow(page, "parties");
+
+    const search = section.getByLabel("Buscar variable para Partes");
+    await expect(search).toHaveAttribute("role", "combobox");
+    await expect(search).toHaveAttribute("aria-expanded", "true");
+
+    // Filtra: de 9 variables del machote, solo una coincide con "folio
+    // inicial" — las 2 ya seleccionadas por B/C (vendedor, comprador) el
+    // filtro nunca las oculta, así que la opción filtrada queda en la
+    // tercera posición (índice 2) de la lista visible, no en la primera.
+    await search.fill("folio inicial");
+    await expect(
+      section.getByRole("option", { name: /Folio inicial del instrumento/ }),
+    ).toBeVisible();
+    await expect(
+      section.getByRole("option", { name: /Número del instrumento/ }),
+    ).toHaveCount(0);
+
+    // Selección por teclado: baja hasta la opción filtrada y Enter la
+    // alterna, sin necesidad de clic.
+    await search.press("ArrowDown");
+    await search.press("ArrowDown");
+    await search.press("Enter");
+    await expect(
+      section.getByRole("checkbox", { name: /Folio inicial del instrumento/ }),
+    ).toBeChecked();
+
+    // Deshace la selección hecha por este test (no por B/C): con el mismo
+    // término de búsqueda, la opción vuelve a quedar en el índice 2.
+    await search.press("ArrowDown");
+    await search.press("ArrowDown");
+    await search.press("Enter");
+    await expect(
+      section.getByRole("checkbox", { name: /Folio inicial del instrumento/ }),
+    ).not.toBeChecked();
+    await search.fill("");
+
+    // Escape limpia la búsqueda sin cerrar la sección ni perder el estado.
+    await search.fill("vendedor");
+    await search.press("Escape");
+    await expect(search).toHaveValue("");
+  });
 });

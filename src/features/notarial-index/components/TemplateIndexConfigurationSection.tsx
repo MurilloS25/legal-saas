@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/feedback/Toast";
 import { generateIndexParties } from "../model/parties";
 import type {
@@ -152,6 +152,12 @@ export function TemplateIndexConfigurationSection({
     configuration?.allowEmpty ?? false,
   );
   const [partiesSearch, setPartiesSearch] = useState("");
+  // Índice resaltado por teclado dentro de `visibleFields` — patrón ARIA
+  // combobox+listbox (mismo que `ClientCombobox`), adaptado a multi-select:
+  // Enter alterna (no reemplaza) la variable resaltada, así que el
+  // reordenamiento con ↑/↓ y la selección múltiple siguen funcionando.
+  const [partiesActiveIndex, setPartiesActiveIndex] = useState(0);
+  const partiesListboxId = useId();
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   // Los 6 selects simples eran no-controlados (`defaultValue`) porque su
   // valor solo importaba al enviar el formulario. La presentación
@@ -241,6 +247,30 @@ export function TemplateIndexConfigurationSection({
     });
   }
 
+  function handlePartiesSearchKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setPartiesActiveIndex((current) =>
+        Math.min(current + 1, visibleFields.length - 1),
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setPartiesActiveIndex((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter") {
+      const field = visibleFields[partiesActiveIndex];
+      if (!field) return;
+      event.preventDefault();
+      toggleField(field.id, !selectedIds.includes(field.id));
+    } else if (event.key === "Escape") {
+      if (partiesSearch !== "") {
+        event.preventDefault();
+        setPartiesSearch("");
+      }
+    }
+  }
+
   function simpleFieldMeta(key: SimpleIndexMappingKey): string {
     const raw = simpleFieldValues[key];
     if (!raw) return "Sin configurar";
@@ -279,6 +309,16 @@ export function TemplateIndexConfigurationSection({
       field.fieldKey.toLocaleLowerCase("es-CR").includes(normalizedSearch)
     );
   });
+  // Filtrar (o vaciar la selección) puede dejar `partiesActiveIndex`
+  // apuntando fuera de rango — se ajusta durante el render, mismo patrón
+  // que el resto de este componente (ver auto-expand de errores arriba).
+  const clampedPartiesActiveIndex = Math.min(
+    partiesActiveIndex,
+    Math.max(visibleFields.length - 1, 0),
+  );
+  if (clampedPartiesActiveIndex !== partiesActiveIndex) {
+    setPartiesActiveIndex(clampedPartiesActiveIndex);
+  }
 
   const simpleConfiguredCount = SIMPLE_FIELDS.filter(
     ({ key }) => simpleFieldValues[key] !== "",
@@ -478,28 +518,54 @@ export function TemplateIndexConfigurationSection({
               entidades que deben aparecer en la columna &ldquo;Partes&rdquo;
               del índice.
             </p>
-            {fields.length > 8 && (
-              <input
-                type="text"
-                value={partiesSearch}
-                onChange={(event) => setPartiesSearch(event.target.value)}
-                disabled={readOnly}
-                placeholder="Buscar variable…"
-                aria-label="Buscar variable para Partes"
-                className={`${inputClass} mt-3`}
-              />
-            )}
-            <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200">
+            <input
+              type="text"
+              role="combobox"
+              value={partiesSearch}
+              onChange={(event) => {
+                setPartiesSearch(event.target.value);
+                setPartiesActiveIndex(0);
+              }}
+              onKeyDown={handlePartiesSearchKeyDown}
+              disabled={readOnly}
+              placeholder="Buscar variable…"
+              aria-label="Buscar variable para Partes"
+              aria-expanded="true"
+              aria-controls={partiesListboxId}
+              aria-activedescendant={
+                visibleFields[clampedPartiesActiveIndex]
+                  ? `${partiesListboxId}-option-${visibleFields[clampedPartiesActiveIndex].id}`
+                  : undefined
+              }
+              autoComplete="off"
+              className={`${inputClass} mt-3`}
+            />
+            <div
+              id={partiesListboxId}
+              role="listbox"
+              aria-label="Variables disponibles para Partes"
+              className="mt-3 max-h-72 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200"
+            >
               {visibleFields.length === 0 && (
                 <p className="px-3 py-4 text-sm text-slate-500">
                   Ninguna variable coincide con la búsqueda.
                 </p>
               )}
-              {visibleFields.map((field) => {
+              {visibleFields.map((field, index) => {
                 const selectedIndex = selectedIds.indexOf(field.id);
                 const selected = selectedIndex >= 0;
+                const active = index === clampedPartiesActiveIndex;
                 return (
-                  <div key={field.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
+                  <div
+                    key={field.id}
+                    id={`${partiesListboxId}-option-${field.id}`}
+                    role="option"
+                    aria-selected={selected}
+                    onMouseEnter={() => setPartiesActiveIndex(index)}
+                    className={`flex min-h-12 items-center gap-3 px-3 py-2 ${
+                      active ? "bg-accent-50" : ""
+                    }`}
+                  >
                     <input
                       id={`index-party-${field.id}`}
                       type="checkbox"
