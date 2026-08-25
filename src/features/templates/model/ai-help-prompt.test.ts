@@ -34,4 +34,32 @@ describe("MACHOTE_AI_HELP_PROMPT", () => {
     expect(MACHOTE_AI_HELP_PROMPT.toLowerCase()).not.toContain("api");
     expect(MACHOTE_AI_HELP_PROMPT.toLowerCase()).not.toContain("lexcr enviará");
   });
+
+  it("instructs the model to return only the pasteable document, with no trailing variable list or commentary", () => {
+    expect(MACHOTE_AI_HELP_PROMPT).toMatch(/ÚNICAMENTE el texto final del machote/);
+    expect(MACHOTE_AI_HELP_PROMPT.toLowerCase()).not.toContain(
+      "lista de las variables utilizadas y explica",
+    );
+    expect(MACHOTE_AI_HELP_PROMPT).toMatch(
+      /No agregues explicaciones, comentarios, resumen, lista de variables/,
+    );
+  });
+
+  it("teaches the [[OPCIÓN MÚLTIPLE: ...]] marker for content the editor can't parse from pasted text", () => {
+    expect(MACHOTE_AI_HELP_PROMPT).toContain("[[OPCIÓN MÚLTIPLE:");
+    expect(MACHOTE_AI_HELP_PROMPT).toMatch(/opciones sugeridas/);
+    // El marcador nunca debe parecer una variable real ({{...}}).
+    expect(MACHOTE_AI_HELP_PROMPT).not.toMatch(/\{\{OPCIÓN/i);
+  });
+
+  it("is organized into short labeled sections instead of one long block", () => {
+    for (const heading of [
+      "OBJETIVO",
+      "SINTAXIS DE VARIABLES",
+      "OPCIONES MÚLTIPLES",
+      "FORMATO DE RESPUESTA",
+    ]) {
+      expect(MACHOTE_AI_HELP_PROMPT).toContain(heading);
+    }
+  });
 });
