@@ -38,6 +38,15 @@ export type VariableRow = {
   output_transform: VariableOutputTransform;
 };
 
+// Ejemplo corto para que "Dígitos en palabras" y "Número completo en
+// palabras" no se confundan entre sí — mismo valor de entrada (125), salida
+// real de `applyVariableTransform` (ver src/lib/editor/text-transforms.ts),
+// no un ejemplo inventado.
+const OUTPUT_TRANSFORM_EXAMPLES: Partial<Record<VariableOutputTransform, string>> = {
+  digits_to_words: "Ejemplo: 125 → UNO DOS CINCO",
+  number_to_words: "Ejemplo: 125 → CIENTO VEINTICINCO",
+};
+
 const STATUS_UI: Record<
   VariableRowStatus,
   { label: string; className: string }
@@ -182,6 +191,11 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
             </option>
           ))}
         </select>
+        {OUTPUT_TRANSFORM_EXAMPLES[outputTransform] && (
+          <p className="mt-1 text-xs text-slate-500">
+            {OUTPUT_TRANSFORM_EXAMPLES[outputTransform]}
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end gap-2">
