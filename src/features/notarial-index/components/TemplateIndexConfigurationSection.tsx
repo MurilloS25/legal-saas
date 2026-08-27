@@ -13,8 +13,11 @@ import {
   setTemplateNotarialIndexDefaultAction,
   type TemplateIndexConfigurationState,
 } from "../server/template-index-config-actions";
+import type { TemplateOptionBlockAttrs } from "@/lib/editor/types";
+import type { OptionBlockSummary } from "@/lib/editor/option-blocks";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
+import { OptionBlockTimeMappingEditor } from "./OptionBlockTimeMappingEditor";
 
 export type IndexConfigurationField = {
   id: string;
@@ -22,11 +25,10 @@ export type IndexConfigurationField = {
   label: string;
 };
 
-export type IndexConfigurationOptionBlock = {
-  blockId: string;
-  name: string;
-  type: "time";
-};
+/** Todos los Bloques de opciones del Machote — no solo los que ya tienen
+ * mapeo Hora/Minutos, porque esta pantalla es ahora quien lo configura (ver
+ * `OptionBlockTimeMappingEditor`). */
+export type IndexConfigurationOptionBlock = OptionBlockSummary;
 
 type Props = {
   templateId: string;
@@ -44,6 +46,13 @@ type Props = {
    * quien lo reciba debe resincronizar su propio `expected_updated_at` para
    * evitar un conflicto optimista contra el propio usuario. */
   onIncludeByDefaultSaved?: (updatedAt: string) => void;
+  /** Aplica el mapeo Hora/Minutos de un Bloque de opciones al documento en
+   * vivo del editor (ver `OptionBlockTimeMappingEditor`) — persiste con el
+   * guardado normal del Machote, no con esta pantalla. */
+  onSaveOptionBlockTimeMapping?: (
+    blockId: string,
+    structuredOutput: TemplateOptionBlockAttrs["structuredOutput"],
+  ) => void;
 };
 
 const SIMPLE_FIELDS: Array<{
@@ -95,6 +104,7 @@ export function TemplateIndexConfigurationSection({
   readOnly = false,
   includeByDefault,
   onIncludeByDefaultSaved,
+  onSaveOptionBlockTimeMapping,
 }: Props) {
   const { showToast } = useToast();
   const [inclusion, setInclusion] = useState(includeByDefault);
@@ -495,6 +505,38 @@ export function TemplateIndexConfigurationSection({
                   ))
                 )}
               </select>
+
+              {key === "authorized_time" &&
+                simpleFieldValues[key].startsWith("block:") &&
+                onSaveOptionBlockTimeMapping &&
+                (() => {
+                  const selectedBlock = optionBlocks.find(
+                    (block) =>
+                      `block:${block.blockId}` === simpleFieldValues[key],
+                  );
+                  if (!selectedBlock) return null;
+                  return (
+                    <>
+                      {selectedBlock.structuredOutput?.type !== "time" && (
+                        <p className="mt-2 text-xs text-amber-700">
+                          Este bloque todavía no tiene mapeo de hora guardado
+                          — configúralo abajo y guarda los cambios del
+                          machote antes de guardar esta selección.
+                        </p>
+                      )}
+                      <OptionBlockTimeMappingEditor
+                        key={selectedBlock.blockId}
+                        block={selectedBlock}
+                        fields={fields.map((field) => ({
+                          fieldKey: field.fieldKey,
+                          label: field.label,
+                        }))}
+                        readOnly={readOnly}
+                        onSave={onSaveOptionBlockTimeMapping}
+                      />
+                    </>
+                  );
+                })()}
             </CollapsibleFieldRow>
           ))}
 

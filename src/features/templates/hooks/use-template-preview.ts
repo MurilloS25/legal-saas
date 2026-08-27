@@ -21,5 +21,5 @@ export function useTemplatePreview(documentJson: unknown) {
     [document],
   );
 
-  return { contentKeys, model };
+  return { contentKeys, document, model };
 }

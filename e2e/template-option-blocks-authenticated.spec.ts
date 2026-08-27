@@ -89,6 +89,13 @@ test.describe("template option blocks", () => {
     await page.keyboard.type(" ");
 
     const dialog = await openInsertDialog(page);
+    // K: el diálogo ya no pregunta por "Tipo de salida estructurada" — ese
+    // mapeo se configura ahora desde el Índice Notarial
+    // (`OptionBlockTimeMappingEditor`), no aquí. Ver test E para la
+    // cobertura completa del nuevo flujo.
+    await expect(
+      dialog.getByLabel("Tipo de salida estructurada"),
+    ).toHaveCount(0);
     await dialog.getByLabel("Nombre del bloque").fill("Chasis, VIN y Serie");
 
     await dialog.getByLabel("Etiqueta de variante").fill("Todos iguales");
@@ -232,14 +239,6 @@ test.describe("template option blocks", () => {
       .getByLabel("Contenido de variante")
       .nth(1)
       .fill("a las {{hora.valor}} horas con {{hora.minutos}} minutos");
-    await dialog.getByLabel("Tipo de salida estructurada").selectOption("time");
-    await dialog.getByLabel("Hora", { exact: true }).nth(0).selectOption("hora.valor");
-    await dialog.getByLabel("Minutos", { exact: true }).nth(0).selectOption("__zero__");
-    await dialog.getByLabel("Hora", { exact: true }).nth(1).selectOption("hora.valor");
-    await dialog
-      .getByLabel("Minutos", { exact: true })
-      .nth(1)
-      .selectOption("hora.minutos");
     await dialog.getByRole("button", { name: "Insertar bloque" }).click();
     await expect(dialog).not.toBeVisible();
 
@@ -247,27 +246,114 @@ test.describe("template option blocks", () => {
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
-
-    await page.reload();
-    await waitForWorkspace(page);
+    // "Guardar y continuar" avanza al siguiente paso (Variables) — vuelve a
+    // Documento para poder ver el chip, que sigue montado pero oculto.
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(
       contentEditor(page).getByText("Bloque: Hora"),
     ).toBeVisible();
-    await contentEditor(page).getByText("Bloque: Hora").click();
-    await page.getByRole("button", { name: "Editar bloque" }).click();
-    const savedDialog = page.getByRole("dialog", {
-      name: "Editar bloque de opciones",
+  });
+
+  // El mapeo Hora/Minutos ya no se configura en el diálogo del bloque — se
+  // configura desde el Índice Notarial (`OptionBlockTimeMappingEditor`),
+  // que escribe en vivo sobre el mismo documento del editor y persiste con
+  // el guardado normal del Machote, no con un RPC propio. Corre después de
+  // E porque depende del bloque "Hora" que esa prueba deja guardado.
+  test("F: the Índice Notarial's Hora de autorización configures and persists the option block's hour/minute mapping", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await page.getByRole("tab", { name: "Índice", exact: true }).click();
+    const configSection = page.getByRole("region", {
+      name: "Configuración del índice notarial",
     });
-    await expect(savedDialog.getByLabel("Tipo de salida estructurada")).toHaveValue(
-      "time",
-    );
-    await expect(savedDialog.getByLabel("Hora", { exact: true }).nth(0)).toHaveValue(
-      "hora.valor",
-    );
-    await savedDialog.getByRole("button", { name: "Cancelar", exact: true }).click();
-    await goToVariablesTab(page);
+    await expect(configSection).toBeVisible();
+
+    await page.locator("#idx-authorized_time-trigger").click();
+    await configSection
+      .getByLabel("Variable sugerida")
+      .selectOption({ label: "Hora" });
+
+    const mappingEditor = configSection.getByRole("group", {
+      name: /Hora de otorgamiento — Hora/,
+    });
+    await expect(mappingEditor).toBeVisible();
+
+    await mappingEditor
+      .getByLabel("Hora", { exact: true })
+      .nth(0)
+      .selectOption("hora.valor");
+    await mappingEditor
+      .getByLabel("Minutos", { exact: true })
+      .nth(0)
+      .selectOption("__zero__");
+    await mappingEditor
+      .getByLabel("Hora", { exact: true })
+      .nth(1)
+      .selectOption("hora.valor");
+    await mappingEditor
+      .getByLabel("Minutos", { exact: true })
+      .nth(1)
+      .selectOption("hora.minutos");
+    await mappingEditor
+      .getByRole("button", { name: "Aplicar mapeo de hora" })
+      .click();
     await expect(
-      variablesRegion(page).getByText("hora.valor"),
+      mappingEditor.getByText(/Aplicado al machote/),
     ).toBeVisible();
+
+    // El RPC de guardado del Índice exige que el bloque YA tenga
+    // `structuredOutput.type: "time"` persistido en `content_json` antes de
+    // poder seleccionarlo como fuente (ver
+    // `save_template_index_mapping_with_block_source` — `option_block_not_found`
+    // si no) — el orden real es: aplicar el mapeo, guardar el MACHOTE
+    // primero, y solo entonces guardar la configuración del Índice.
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("tab", { name: "Índice", exact: true }).click();
+    await expect(configSection).toBeVisible();
+    await page.locator("#idx-authorized_time-trigger").click();
+    await expect(
+      configSection.getByText(/todavía no tiene mapeo de hora guardado/),
+    ).toHaveCount(0);
+
+    // El formulario de configuración del Índice es uno solo para todos sus
+    // campos: "Partes" sin resolver (ni variables ni confirmación vacía)
+    // bloquea el guardado completo, sin relación con lo que esta prueba
+    // cubre — se confirma vacío para poder aislar la parte que sí importa.
+    await page.locator("#idx-parties-trigger").click();
+    await configSection
+      .getByLabel("Confirmo que este machote no requiere Partes para el índice.")
+      .check();
+
+    await configSection
+      .getByRole("button", { name: "Guardar configuración" })
+      .click();
+    await expect(page.getByText("Configuración guardada.")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.reload();
+    await page.getByRole("tab", { name: "Índice", exact: true }).click();
+    await expect(configSection).toBeVisible();
+    await page.locator("#idx-authorized_time-trigger").click();
+    await expect(configSection.getByLabel("Variable sugerida")).toHaveValue(
+      /^block:/,
+    );
+
+    const reloadedMappingEditor = configSection.getByRole("group", {
+      name: /Hora de otorgamiento — Hora/,
+    });
+    await expect(reloadedMappingEditor).toBeVisible();
+    await expect(
+      reloadedMappingEditor.getByLabel("Hora", { exact: true }).nth(0),
+    ).toHaveValue("hora.valor");
+    await expect(
+      reloadedMappingEditor.getByLabel("Minutos", { exact: true }).nth(1),
+    ).toHaveValue("hora.minutos");
   });
 });

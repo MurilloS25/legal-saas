@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   attrsToDraft,
   buildOptionBlockAttrs,
+  extractOptionBlockSummaries,
   generateOptionId,
   parseVariantContentText,
   serializeVariantContentToText,
   type OptionBlockDraft,
 } from "./option-blocks";
 import { TEMPLATE_DOC_LIMITS } from "./types";
+import type { TemplateDocument, TemplateOptionBlockAttrs } from "./types";
 
 describe("parseVariantContentText", () => {
   it("parses text with a single variable placeholder", () => {
@@ -135,68 +137,116 @@ describe("buildOptionBlockAttrs", () => {
     if (result.ok) expect(result.attrs.variants).toHaveLength(5);
   });
 
-  it("builds the Hora block with its two variants", () => {
-    const hora = draft({
-      name: "Hora",
-      variants: [
-        {
-          id: "en_punto",
-          label: "Hora en punto",
-          contentText: "{{hora.valor}} horas",
-          timeOutput: { hourFieldKey: "hora.valor", minuteFieldKey: null },
-        },
-        {
-          id: "con_minutos",
-          label: "Hora con minutos",
-          contentText: "{{hora.valor}} con {{hora.minutos}}",
-          timeOutput: {
-            hourFieldKey: "hora.valor",
-            minuteFieldKey: "hora.minutos",
-          },
-        },
-      ],
-      defaultVariantId: "en_punto",
-      structuredOutputType: "time",
-    });
-    const result = buildOptionBlockAttrs(hora);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.attrs.structuredOutput).toEqual({
+  // El diálogo ya no edita `structuredOutput` (ver `OptionBlockDialog.tsx` —
+  // se configura desde el Índice Notarial, `OptionBlockTimeMappingEditor`):
+  // `buildOptionBlockAttrs` solo lo recibe como pass-through y lo poda
+  // contra las variantes resultantes.
+  describe("structuredOutput pass-through", () => {
+    const hourVariants: OptionBlockDraft["variants"] = [
+      { id: "en_punto", label: "Hora en punto", contentText: "{{hora.valor}} horas" },
+      {
+        id: "con_minutos",
+        label: "Hora con minutos",
+        contentText: "{{hora.valor}} con {{hora.minutos}}",
+      },
+    ];
+    const existing: TemplateOptionBlockAttrs["structuredOutput"] = {
       type: "time",
       variants: [
-        {
-          variantId: "en_punto",
-          hourFieldKey: "hora.valor",
-          minuteFieldKey: null,
-        },
+        { variantId: "en_punto", hourFieldKey: "hora.valor", minuteFieldKey: null },
         {
           variantId: "con_minutos",
           hourFieldKey: "hora.valor",
           minuteFieldKey: "hora.minutos",
         },
       ],
-    });
-  });
+    };
 
-  it("rejects a structured component that is not present in its variant", () => {
-    const result = buildOptionBlockAttrs(
-      draft({
-        structuredOutputType: "time",
-        variants: [
-          {
-            id: "v1",
-            label: "Hora",
-            contentText: "{{hora}} horas",
-            timeOutput: {
-              hourFieldKey: "otra_hora",
-              minuteFieldKey: null,
+    it("keeps the existing mapping unchanged when every reference still exists", () => {
+      const result = buildOptionBlockAttrs(
+        draft({ name: "Hora", variants: hourVariants, defaultVariantId: "en_punto" }),
+        existing,
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.attrs.structuredOutput).toEqual(existing);
+    });
+
+    it("drops the mapping entry for a variant that no longer exists", () => {
+      const result = buildOptionBlockAttrs(
+        draft({
+          name: "Hora",
+          variants: [hourVariants[0]],
+          defaultVariantId: "en_punto",
+        }),
+        existing,
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.attrs.structuredOutput).toEqual({
+          type: "time",
+          variants: [
+            { variantId: "en_punto", hourFieldKey: "hora.valor", minuteFieldKey: null },
+          ],
+        });
+      }
+    });
+
+    it("drops the whole entry when its hour variable no longer exists in the (edited) variant content", () => {
+      const result = buildOptionBlockAttrs(
+        draft({
+          name: "Hora",
+          variants: [
+            { id: "en_punto", label: "Hora en punto", contentText: "sin variable" },
+            hourVariants[1],
+          ],
+          defaultVariantId: "en_punto",
+        }),
+        existing,
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.attrs.structuredOutput).toEqual({
+          type: "time",
+          variants: [
+            {
+              variantId: "con_minutos",
+              hourFieldKey: "hora.valor",
+              minuteFieldKey: "hora.minutos",
             },
-          },
-        ],
-        defaultVariantId: "v1",
-      }),
-    );
-    expect(result).toMatchObject({ ok: false });
+          ],
+        });
+      }
+    });
+
+    it("falls back the minute mapping to fixed 00 when only the minute variable no longer exists", () => {
+      const result = buildOptionBlockAttrs(
+        draft({
+          name: "Hora",
+          variants: [
+            hourVariants[0],
+            { id: "con_minutos", label: "Hora con minutos", contentText: "{{hora.valor}}" },
+          ],
+          defaultVariantId: "en_punto",
+        }),
+        existing,
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.attrs.structuredOutput).toEqual({
+          type: "time",
+          variants: [
+            { variantId: "en_punto", hourFieldKey: "hora.valor", minuteFieldKey: null },
+            { variantId: "con_minutos", hourFieldKey: "hora.valor", minuteFieldKey: null },
+          ],
+        });
+      }
+    });
+
+    it("is null when there is no existing mapping to pass through", () => {
+      const result = buildOptionBlockAttrs(draft());
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.attrs.structuredOutput).toBeNull();
+    });
   });
 
   it("rejects an empty block name", () => {
@@ -250,5 +300,69 @@ describe("attrsToDraft", () => {
     expect(roundTripped.variants[1].contentText).toBe(
       "CHASIS número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}} y SERIE número {{vehiculo.serie}}",
     );
+  });
+});
+
+describe("extractOptionBlockSummaries", () => {
+  function documentWithBlock(
+    attrs: TemplateOptionBlockAttrs,
+  ): TemplateDocument {
+    return {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "optionBlock", attrs }] }],
+    };
+  }
+
+  it("returns every option block, including ones without a structuredOutput mapping", () => {
+    const built = buildOptionBlockAttrs(draft());
+    if (!built.ok) throw new Error("expected ok");
+    const summaries = extractOptionBlockSummaries(documentWithBlock(built.attrs));
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].blockId).toBe(built.attrs.blockId);
+    expect(summaries[0].structuredOutput).toBeNull();
+  });
+
+  it("lists each variant's variable keys, for the Índice's Hora/Minutos selects", () => {
+    const built = buildOptionBlockAttrs(
+      draft({
+        name: "Hora",
+        variants: [
+          {
+            id: "en_punto",
+            label: "Hora en punto",
+            contentText: "{{hora.valor}} horas",
+          },
+          {
+            id: "con_minutos",
+            label: "Hora con minutos",
+            contentText: "{{hora.valor}} con {{hora.minutos}}",
+          },
+        ],
+        defaultVariantId: "en_punto",
+      }),
+    );
+    if (!built.ok) throw new Error("expected ok");
+    const [summary] = extractOptionBlockSummaries(documentWithBlock(built.attrs));
+    expect(summary.variants).toEqual([
+      { id: "en_punto", label: "Hora en punto", variableKeys: ["hora.valor"] },
+      {
+        id: "con_minutos",
+        label: "Hora con minutos",
+        variableKeys: ["hora.valor", "hora.minutos"],
+      },
+    ]);
+  });
+
+  it("surfaces the current structuredOutput mapping when one is set", () => {
+    const existing: TemplateOptionBlockAttrs["structuredOutput"] = {
+      type: "time",
+      variants: [
+        { variantId: "v2", hourFieldKey: "vehiculo.chasis", minuteFieldKey: null },
+      ],
+    };
+    const built = buildOptionBlockAttrs(draft(), existing);
+    if (!built.ok) throw new Error("expected ok");
+    const [summary] = extractOptionBlockSummaries(documentWithBlock(built.attrs));
+    expect(summary.structuredOutput).toEqual(existing);
   });
 });

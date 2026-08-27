@@ -99,15 +99,30 @@ type Props = {
 
 /**
  * Acciones imperativas que el workspace necesita disparar sobre el
- * contenido del editor desde fuera (p. ej. al renombrar una variable desde
- * la pestaña Variables). El nodo Tiptap guarda su propia copia de `label`
+ * contenido del editor desde fuera. Ambas mutan el documento en vivo
+ * (dispara `onUpdate` → `onDocumentChange`, igual que cualquier edición del
+ * usuario) — la persistencia real sigue pasando por el guardado normal del
+ * Machote, no por una llamada de red separada.
+ *
+ * `updateVariableLabel`: el nodo Tiptap guarda su propia copia de `label`
  * para poder mostrarla sin depender de la configuración externa (fichas
  * pegadas/legacy sin configurar todavía) — por eso, cuando la etiqueta
- * configurada cambia, hay que empujar el cambio a los nodos existentes en
- * vez de dejarlos con una copia obsoleta.
+ * configurada cambia (desde la pestaña Variables), hay que empujar el
+ * cambio a los nodos existentes en vez de dejarlos con una copia obsoleta.
+ *
+ * `updateOptionBlockStructuredOutput`: el mapeo Hora/Minutos de un Bloque de
+ * opciones (`optionBlock.attrs.structuredOutput`) se configura desde la
+ * pestaña Índice (`TemplateIndexConfigurationSection`), no desde el diálogo
+ * del bloque — ver `option-blocks.ts`. Vive en el mismo `content_json` del
+ * documento aunque se edite desde otra pestaña, así que se escribe aquí, no
+ * en una tabla/RPC separada.
  */
 export type TemplateEditorHandle = {
   updateVariableLabel: (key: string, label: string) => void;
+  updateOptionBlockStructuredOutput: (
+    blockId: string,
+    structuredOutput: TemplateOptionBlockAttrs["structuredOutput"],
+  ) => void;
 };
 
 export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
@@ -357,6 +372,24 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
 
         if (changed) view.dispatch(tr);
       },
+      updateOptionBlockStructuredOutput(
+        blockId: string,
+        structuredOutput: TemplateOptionBlockAttrs["structuredOutput"],
+      ) {
+        if (!editor) return;
+        const { state, view } = editor;
+        let tr = state.tr;
+        let changed = false;
+
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== "optionBlock") return;
+          if (node.attrs.blockId !== blockId) return;
+          tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, structuredOutput });
+          changed = true;
+        });
+
+        if (changed) view.dispatch(tr);
+      },
     }),
     [editor],
   );
@@ -509,7 +542,6 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
 
       {optionBlockDialog !== "closed" && (
         <OptionBlockDialog
-          variables={variables}
           initialAttrs={
             optionBlockDialog === "insert" ? undefined : optionBlockDialog.attrs
           }
