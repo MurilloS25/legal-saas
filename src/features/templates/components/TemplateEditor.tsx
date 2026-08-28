@@ -14,7 +14,11 @@ import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import { buildEditorExtensions } from "@/lib/editor/tiptap";
 import type { TemplateDocument, TemplateOptionBlockAttrs } from "@/lib/editor/types";
-import { detectLegacyVariables } from "@/lib/editor/legacy-variables";
+import {
+  detectLegacyVariables,
+  humanizeLegacyLabel,
+  type LegacyVariableMatch,
+} from "@/lib/editor/legacy-variables";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import { suggestAutofillSource } from "../model/variable-autofill";
 import { InsertVariableDialog } from "./InsertVariableDialog";
@@ -142,6 +146,12 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   const [legacyMatches, setLegacyMatches] = useState<
     ReturnType<typeof detectLegacyVariables>
   >([]);
+  // Variables nuevas detectadas al guardar un Bloque de opciones (item 1):
+  // mismo diálogo de revisión que el paste, pero sin buscar/reemplazar
+  // texto — los nodos ya existen en el documento, solo falta configurarlos.
+  const [optionBlockNewVariables, setOptionBlockNewVariables] = useState<
+    LegacyVariableMatch[]
+  >([]);
   const insertOptionBlockButtonRef = useRef<HTMLButtonElement | null>(null);
   const [optionBlockDialog, setOptionBlockDialog] = useState<
     "closed" | "insert" | { mode: "edit"; pos: number; attrs: TemplateOptionBlockAttrs }
@@ -243,6 +253,54 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
       editor.chain().focus().insertOptionBlock(attrs).run();
     }
     closeOptionBlockDialog();
+
+    // Claves referenciadas en CUALQUIER variante (misma regla que ya
+    // decide qué variables están "activas" — ver `extractTemplateVariablesFromDocument`)
+    // que todavía no tengan configuración — una sola apertura del diálogo
+    // para todas, sin duplicar una ya repetida entre variantes.
+    const configuredKeys = new Set(variables.map((v) => v.field_key));
+    const newKeys: string[] = [];
+    const seen = new Set<string>();
+    for (const variant of attrs.variants) {
+      for (const node of variant.content) {
+        if (node.type !== "templateVariable") continue;
+        if (configuredKeys.has(node.attrs.key) || seen.has(node.attrs.key)) continue;
+        seen.add(node.attrs.key);
+        newKeys.push(node.attrs.key);
+      }
+    }
+    if (newKeys.length > 0) {
+      setOptionBlockNewVariables(
+        newKeys.map((key) => ({ raw: key, key, label: humanizeLegacyLabel(key) })),
+      );
+    }
+  }
+
+  /**
+   * Confirma la configuración de variables nuevas detectadas en un Bloque
+   * de opciones recién guardado. A diferencia de `convertLegacyVariables`,
+   * no toca el documento: los nodos ya existen (vienen de
+   * `parseVariantContentText`, no de texto crudo pegado), solo falta
+   * registrar su configuración — mismo camino que "Insertar variable"
+   * (`onCreateVariable`). Cancelar o excluir una variable la deja como
+   * "Pendiente de configurar" en el paso Variables, sin perder el bloque
+   * ni las variables del documento.
+   */
+  function configureOptionBlockVariables(
+    selections: Map<string, LegacyVariableSelection>,
+  ) {
+    const alreadyConfigured = new Set(variables.map((v) => v.field_key));
+    for (const selection of selections.values()) {
+      if (!selection.included) continue;
+      if (alreadyConfigured.has(selection.key)) continue;
+      onCreateVariable({
+        field_key: selection.key,
+        label: selection.label.trim() || selection.key,
+        required: selection.required,
+        autofill_source: suggestAutofillSource(selection.key),
+        output_transform: selection.output_transform,
+      });
+    }
   }
 
   function deleteOptionBlock() {
@@ -560,6 +618,30 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
             setLegacyMatches([]);
           }}
           onCancel={() => setLegacyMatches([])}
+        />
+      )}
+
+      {optionBlockNewVariables.length > 0 && (
+        <LegacyVariablesReviewDialog
+          matches={optionBlockNewVariables}
+          configuredKeys={new Set(variables.map((v) => v.field_key))}
+          title="Configurar variables nuevas del bloque"
+          description={
+            <>
+              El bloque de opciones usa{" "}
+              {optionBlockNewVariables.length === 1
+                ? "una variable nueva"
+                : `${optionBlockNewVariables.length} variables nuevas`}
+              . Configúralas ahora, o ciérralo y hazlo después desde el paso
+              Variables — el bloque ya quedó guardado de cualquier forma.
+            </>
+          }
+          keyEditable={false}
+          onConvert={(selections) => {
+            configureOptionBlockVariables(selections);
+            setOptionBlockNewVariables([]);
+          }}
+          onCancel={() => setOptionBlockNewVariables([])}
         />
       )}
     </div>

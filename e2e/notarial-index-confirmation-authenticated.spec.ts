@@ -51,9 +51,8 @@ async function fillCompleteMetadata(page: Page) {
     .getByLabel("Número de instrumento", { exact: true })
     .fill(String(instrumentNumber));
   await openIndexRow(page, "Fecha y hora de autorización");
-  await section
-    .getByLabel("Fecha y hora de autorización", { exact: true })
-    .fill("2026-07-13T10:35");
+  await section.getByLabel("Fecha de autorización", { exact: true }).fill("2026-07-13");
+  await section.getByLabel("Hora de autorización", { exact: true }).fill("10:35");
   await openIndexRow(page, "Acto o contrato");
   await section.getByLabel("Acto o contrato", { exact: true }).fill("Compraventa");
   await openIndexRow(page, "Tomo");

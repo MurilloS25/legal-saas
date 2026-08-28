@@ -119,6 +119,18 @@ test.describe("template option blocks", () => {
     await dialog.getByRole("button", { name: "Insertar bloque" }).click();
     await expect(dialog).not.toBeVisible();
 
+    // El bloque se inserta con 4 variables nuevas (una por variante, más
+    // dos en la segunda) — el mismo flujo del Item 1 se dispara también al
+    // insertar, no solo al editar, así que hay que resolver esta
+    // configuración antes de seguir interactuando con el resto de la
+    // página.
+    const newVariableDialog = page.getByRole("dialog", {
+      name: "Configurar variables nuevas del bloque",
+    });
+    await expect(newVariableDialog).toBeVisible();
+    await newVariableDialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(newVariableDialog).not.toBeVisible();
+
     await expect(
       contentEditor(page).getByText("Bloque: Chasis, VIN y Serie"),
     ).toBeVisible();
@@ -242,6 +254,13 @@ test.describe("template option blocks", () => {
     await dialog.getByRole("button", { name: "Insertar bloque" }).click();
     await expect(dialog).not.toBeVisible();
 
+    const newVariableDialog = page.getByRole("dialog", {
+      name: "Configurar variables nuevas del bloque",
+    });
+    await expect(newVariableDialog).toBeVisible();
+    await newVariableDialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(newVariableDialog).not.toBeVisible();
+
     await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
@@ -355,5 +374,104 @@ test.describe("template option blocks", () => {
     await expect(
       reloadedMappingEditor.getByLabel("Minutos", { exact: true }).nth(1),
     ).toHaveValue("hora.minutos");
+  });
+
+  // Item 1 del ajuste de PR #189: escribir una variable nueva dentro de una
+  // variante de un Bloque de opciones y guardar el bloque debe ofrecer de
+  // inmediato el mismo flujo de configuración que las variables detectadas
+  // en texto pegado — sin obligar a ir aparte al paso Variables.
+  test("G: saving an option block variant with a brand-new variable immediately opens its configuration, reusing the pasted-variable review flow", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
+
+    await contentEditor(page).getByText("Bloque: Hora").click();
+    await page.getByRole("button", { name: "Editar bloque" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Editar bloque de opciones" });
+    await expect(editDialog).toBeVisible();
+
+    // Agrega una variable nueva ("lugar.ciudad") a la primera variante,
+    // junto a la ya configurada "hora.valor".
+    await editDialog
+      .getByLabel("Contenido de variante")
+      .nth(0)
+      .fill("a las {{hora.valor}} horas en {{lugar.ciudad}}");
+    await editDialog.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(editDialog).not.toBeVisible();
+
+    // El bloque se guarda de inmediato (no hay modal por cada "}}" mientras
+    // se escribe) y solo AL GUARDAR el bloque se abre la configuración de
+    // la variable nueva detectada.
+    const newVariableDialog = page.getByRole("dialog", {
+      name: "Configurar variables nuevas del bloque",
+    });
+    await expect(newVariableDialog).toBeVisible();
+    await expect(
+      newVariableDialog.getByLabel("Incluir variable lugar.ciudad"),
+    ).toBeChecked();
+    // "hora.valor" ya estaba configurada — no se vuelve a pedir.
+    await expect(
+      newVariableDialog.getByLabel(/Incluir variable hora\.valor/),
+    ).toHaveCount(0);
+
+    await newVariableDialog.getByRole("button", { name: "Convertir" }).click();
+    await expect(newVariableDialog).not.toBeVisible();
+
+    // El bloque sigue ahí con el contenido nuevo, y la variable queda
+    // configurada de inmediato (mismo camino que "Insertar variable").
+    await expect(
+      contentEditor(page).getByText("Bloque: Hora"),
+    ).toBeVisible();
+    await goToVariablesTab(page);
+    const cityRow = variablesRegion(page)
+      .locator("li")
+      .filter({ hasText: "lugar.ciudad" });
+    await expect(cityRow.getByText("Configurada")).toBeVisible();
+
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  // Cancelar la configuración no debe perder el bloque ni las variables ya
+  // guardadas en el documento — quedan pendientes de configurar, igual que
+  // cualquier otra variable sin configuración.
+  test("H: canceling the new-variable configuration keeps the option block and content, leaving the variable pending instead of lost", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
+
+    await contentEditor(page).getByText("Bloque: Hora").click();
+    await page.getByRole("button", { name: "Editar bloque" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Editar bloque de opciones" });
+    await editDialog
+      .getByLabel("Contenido de variante")
+      .nth(0)
+      .fill("a las {{hora.valor}} horas en {{lugar.provincia}}");
+    await editDialog.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(editDialog).not.toBeVisible();
+
+    const newVariableDialog = page.getByRole("dialog", {
+      name: "Configurar variables nuevas del bloque",
+    });
+    await expect(newVariableDialog).toBeVisible();
+    await newVariableDialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(newVariableDialog).not.toBeVisible();
+
+    // El bloque y el nuevo texto de la variante se conservan.
+    await expect(
+      contentEditor(page).getByText("Bloque: Hora"),
+    ).toBeVisible();
+    await goToVariablesTab(page);
+    const provinceRow = variablesRegion(page)
+      .locator("li")
+      .filter({ hasText: "lugar.provincia" });
+    await expect(
+      provinceRow.getByText("Pendiente de configurar"),
+    ).toBeVisible();
   });
 });

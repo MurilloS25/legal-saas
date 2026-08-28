@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TemplateIndexConfiguration } from "./template-index-configuration";
 import type { NotarialMetadata } from "./notarial";
 import { resolveNotarialMetadataPrefill } from "./prefill";
+import { costaRicaLocalToIso } from "./datetime";
 import type { TemplateDocument } from "@/lib/editor/types";
 
 const fieldIds = {
@@ -101,6 +102,38 @@ const timeBlockDocument: TemplateDocument = {
   ],
 };
 
+/** Fila `document_notarial_metadata` completa, con snapshots derivados
+ * `null` por defecto (equivalente a una fila creada antes de la migración
+ * que los agregó, o a una que nunca se guardó desde un valor derivado). */
+function metadataFixture(
+  overrides: Partial<NotarialMetadata> = {},
+): NotarialMetadata {
+  return {
+    instrument_number: null,
+    authorized_at: null,
+    protocol_book: null,
+    initial_folio: null,
+    final_folio: null,
+    act_name_snapshot: null,
+    act_name_override: null,
+    generated_parties: null,
+    parties_override: null,
+    notes: null,
+    version: 1,
+    updated_at: "2026-07-14T16:30:00.000Z",
+    notarial_confirmed_at: null,
+    notarial_confirmed_by: null,
+    notarial_review_required: false,
+    instrument_number_derived_snapshot: null,
+    authorized_date_derived_snapshot: null,
+    authorized_time_derived_snapshot: null,
+    protocol_book_derived_snapshot: null,
+    initial_folio_derived_snapshot: null,
+    final_folio_derived_snapshot: null,
+    ...overrides,
+  };
+}
+
 describe("resolveNotarialMetadataPrefill", () => {
   it("combines a mapped date with the selected Hora block output", () => {
     const result = resolveNotarialMetadataPrefill({
@@ -123,13 +156,17 @@ describe("resolveNotarialMetadataPrefill", () => {
       suggestions,
     });
 
-    expect(result.authorizedAt).toMatchObject({
-      value: "2026-07-15T10:20",
+    expect(result.authorizedAt.date).toMatchObject({
+      value: "2026-07-15",
       compatible: true,
-      rawTime: "diez / veinte",
-      optionBlockName: "Hora",
-      optionVariantLabel: "Hora y minutos",
     });
+    expect(result.authorizedAt.time).toMatchObject({
+      value: "10:20",
+      compatible: true,
+      rawValue: "diez / veinte",
+    });
+    expect(result.authorizedAt.optionBlockName).toBe("Hora");
+    expect(result.authorizedAt.optionVariantLabel).toBe("Hora y minutos");
   });
 
   it("leaves an invalid Hora block output for manual review", () => {
@@ -149,12 +186,12 @@ describe("resolveNotarialMetadataPrefill", () => {
       suggestions,
     });
 
-    expect(result.authorizedAt).toMatchObject({
+    expect(result.authorizedAt.time).toMatchObject({
       value: "",
       compatible: false,
-      rawTime: "25 / 00",
-      optionBlockName: "Hora",
+      rawValue: "25 / 00",
     });
+    expect(result.authorizedAt.optionBlockName).toBe("Hora");
   });
 
   it("normalizes mapped values without changing the rendered document", () => {
@@ -182,12 +219,15 @@ describe("resolveNotarialMetadataPrefill", () => {
       rawValue: "sesenta y uno",
       compatible: true,
     });
-    expect(result.authorizedAt).toMatchObject({
-      value: "2026-07-15T16:30",
+    expect(result.authorizedAt.date).toMatchObject({
+      value: "2026-07-15",
       source: "template",
       compatible: true,
-      rawDate: "quince de julio de dos mil veintiséis",
-      rawTime: "dieciséis horas con treinta minutos",
+    });
+    expect(result.authorizedAt.time).toMatchObject({
+      value: "16:30",
+      source: "template",
+      compatible: true,
     });
     expect(result.protocolBook).toMatchObject({
       value: "",
@@ -234,60 +274,8 @@ describe("resolveNotarialMetadataPrefill", () => {
       source: "template",
       compatible: true,
     });
-    expect(result.authorizedAt).toMatchObject({
-      value: "2026-07-15T16:30",
-      source: "template",
-      compatible: true,
-    });
-  });
-
-  it("never overwrites an existing document metadata snapshot", () => {
-    const metadata: NotarialMetadata = {
-      instrument_number: 7,
-      authorized_at: "2026-07-14T16:30:00.000Z",
-      protocol_book: "Guardado",
-      initial_folio: "1F",
-      final_folio: "2V",
-      act_name_snapshot: "Nombre histórico",
-      act_name_override: "Corrección manual",
-      generated_parties: "PARTE HISTÓRICA",
-      parties_override: "PARTE CORREGIDA",
-      notes: "Nota",
-      version: 3,
-      updated_at: "2026-07-14T16:30:00.000Z",
-      notarial_confirmed_at: null,
-      notarial_confirmed_by: null,
-      notarial_review_required: false,
-    };
-
-    const result = resolveNotarialMetadataPrefill({
-      metadata,
-      configuration,
-      availableFields: fields,
-      fieldValues: {
-        "instrument.number": "99",
-        "protocol.book": "Nuevo",
-      },
-      templateName: "Nombre nuevo",
-      generatedParties: "PARTE NUEVA",
-      suggestions,
-    });
-
-    expect(result.instrumentNumber).toMatchObject({ value: "7", source: "saved" });
-    expect(result.instrumentNumber.rawValue).toBe("99");
-    expect(result.protocolBook).toMatchObject({
-      value: "Guardado",
-      source: "saved",
-      rawValue: "Nuevo",
-    });
-    expect(result.actName).toMatchObject({
-      value: "Corrección manual",
-      source: "saved",
-    });
-    expect(result.parties).toMatchObject({
-      value: "PARTE CORREGIDA",
-      source: "saved",
-    });
+    expect(result.authorizedAt.date.value).toBe("2026-07-15");
+    expect(result.authorizedAt.time.value).toBe("16:30");
   });
 
   it("uses suggestions only when a mapped value is absent", () => {
@@ -320,5 +308,271 @@ describe("resolveNotarialMetadataPrefill", () => {
     });
     expect(result.initialFolio.value).toBe("10");
     expect(result.finalFolio.value).toBe("10");
+  });
+
+  // ------------------------------------------------------------ item 2:
+  // Fecha y Hora se derivan de forma independiente.
+  describe("independent Fecha/Hora derivation", () => {
+    it("Caso A — derives both when both are mappable", () => {
+      const result = resolveNotarialMetadataPrefill({
+        metadata: null,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "authorized.date": "2026-07-15", "authorized.time": "16:30" },
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.authorizedAt.date.value).toBe("2026-07-15");
+      expect(result.authorizedAt.time.value).toBe("16:30");
+    });
+
+    it("Caso B — derives Fecha alone, Hora stays pending, never invents 00:00", () => {
+      const result = resolveNotarialMetadataPrefill({
+        metadata: null,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "authorized.date": "2026-07-15" },
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.authorizedAt.date.value).toBe("2026-07-15");
+      expect(result.authorizedAt.time).toMatchObject({ value: "", source: "empty" });
+    });
+
+    it("Caso C — derives Hora alone, Fecha stays pending, never invents today's date", () => {
+      const result = resolveNotarialMetadataPrefill({
+        metadata: null,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "authorized.time": "16:30" },
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.authorizedAt.time.value).toBe("16:30");
+      expect(result.authorizedAt.date).toMatchObject({ value: "", source: "empty" });
+    });
+
+    it("Caso D — derives neither when nothing is mappable", () => {
+      const result = resolveNotarialMetadataPrefill({
+        metadata: null,
+        configuration: {
+          ...configuration,
+          simpleFields: {
+            ...configuration.simpleFields,
+            authorized_date: null,
+            authorized_time: null,
+          },
+        },
+        availableFields: fields,
+        fieldValues: {},
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.authorizedAt.date).toMatchObject({ value: "", source: "empty" });
+      expect(result.authorizedAt.time).toMatchObject({ value: "", source: "empty" });
+    });
+  });
+
+  // ------------------------------------------------------------ item 3:
+  // precedencia manual vs. derivado tras reabrir/corregir la Escritura.
+  describe("manual override precedence (reopen re-derivation)", () => {
+    it("regression: a saved manual value survives even when the mapped source is currently unreadable", () => {
+      // La fuente mapeada nunca se pudo interpretar (ni antes ni ahora), pero
+      // el usuario corrigió manualmente el número de instrumento — esa
+      // corrección NO debe desaparecer solo porque la fuente sigue siendo
+      // ilegible (bug real encontrado en `notarial-template-config-authenticated.spec.ts`,
+      // caso F: "ambiguous input requires a manual correction that survives reload").
+      const metadata = metadataFixture({
+        instrument_number: 324965,
+        instrument_number_derived_snapshot: null,
+      });
+      const result = resolveNotarialMetadataPrefill({
+        metadata,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "instrument.number": "siete ocho" }, // sigue sin poder interpretarse
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.instrumentNumber).toMatchObject({
+        value: "324965",
+        source: "saved",
+        compatible: true,
+      });
+    });
+
+    it("shows the 'needs manual review' state only when nothing was ever saved AND the source is unreadable", () => {
+      const result = resolveNotarialMetadataPrefill({
+        metadata: null,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "instrument.number": "siete ocho" },
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.instrumentNumber).toMatchObject({
+        value: "",
+        compatible: false,
+        rawValue: "siete ocho",
+      });
+    });
+
+    it("refreshes an untouched value to the fresh derivation (source changed since last save)", () => {
+      const metadata = metadataFixture({
+        instrument_number: 7,
+        instrument_number_derived_snapshot: 7, // igual al efectivo: nunca se tocó a mano
+      });
+      const result = resolveNotarialMetadataPrefill({
+        metadata,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "instrument.number": "9" },
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.instrumentNumber).toMatchObject({ value: "9", source: "template" });
+    });
+
+    it("preserves a manual correction when the source hasn't changed", () => {
+      const metadata = metadataFixture({
+        protocol_book: "15", // corregido a mano
+        protocol_book_derived_snapshot: "9", // lo que ya había cuando se corrigió
+      });
+      const result = resolveNotarialMetadataPrefill({
+        metadata,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "protocol.book": "9" }, // misma fuente, sin cambios
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.protocolBook).toMatchObject({
+        value: "15",
+        source: "saved",
+        sourceChanged: false,
+      });
+    });
+
+    it("preserves a manual correction AND flags sourceChanged when the source diverged since the correction (Caso D del pedido)", () => {
+      const metadata = metadataFixture({
+        protocol_book: "15", // corregido a mano
+        protocol_book_derived_snapshot: "8", // lo que había cuando se corrigió
+      });
+      const result = resolveNotarialMetadataPrefill({
+        metadata,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "protocol.book": "9" }, // la fuente cambió desde la corrección
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.protocolBook).toMatchObject({
+        value: "15",
+        source: "saved",
+        sourceChanged: true,
+      });
+    });
+
+    it("treats a pre-migration row (no snapshot ever recorded) as manually set — never silently overwritten", () => {
+      const metadata = metadataFixture({
+        instrument_number: 7,
+        protocol_book: "5",
+        initial_folio: "1",
+        final_folio: "2",
+        act_name_snapshot: "Nombre histórico",
+        act_name_override: "Corrección manual",
+        generated_parties: "PARTE HISTÓRICA",
+        parties_override: "PARTE CORREGIDA",
+        // *_derived_snapshot quedan null — fila anterior a la migración.
+      });
+      const result = resolveNotarialMetadataPrefill({
+        metadata,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "instrument.number": "99", "protocol.book": "9" },
+        templateName: "Nombre nuevo",
+        generatedParties: "PARTE NUEVA",
+        suggestions,
+      });
+
+      expect(result.instrumentNumber).toMatchObject({ value: "7", source: "saved" });
+      expect(result.instrumentNumber.rawValue).toBe("99");
+      expect(result.protocolBook).toMatchObject({
+        value: "5",
+        source: "saved",
+        rawValue: "9",
+      });
+      expect(result.actName).toMatchObject({ value: "Corrección manual", source: "saved" });
+      expect(result.parties).toMatchObject({ value: "PARTE CORREGIDA", source: "saved" });
+    });
+
+    it("Fecha independently refreshed while Hora manual override is preserved", () => {
+      const metadata = metadataFixture({
+        authorized_date_derived_snapshot: "2026-07-13",
+        authorized_time_derived_snapshot: "10:00",
+      });
+      // authorized_at combinado: fecha vieja + hora corregida a mano.
+      const withCombined: NotarialMetadata = {
+        ...metadata,
+        authorized_at: costaRicaLocalToIso("2026-07-13T10:30"), // hora CR real
+      };
+      const result = resolveNotarialMetadataPrefill({
+        metadata: withCombined,
+        configuration,
+        availableFields: fields,
+        fieldValues: { "authorized.date": "2026-07-15", "authorized.time": "10:00" },
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      // Fecha: nadie la tocó (guardada == snapshot) -> se refresca a la nueva.
+      expect(result.authorizedAt.date).toMatchObject({
+        value: "2026-07-15",
+        source: "template",
+      });
+      // Hora: 10:30 guardada != 10:00 snapshot -> corrección manual preservada.
+      expect(result.authorizedAt.time).toMatchObject({
+        value: "10:30",
+        source: "saved",
+      });
+    });
+
+    it("Option Block variant change updates the derived Hora when untouched", () => {
+      const metadata = metadataFixture({
+        authorized_time_derived_snapshot: "10:00",
+      });
+      const withCombined: NotarialMetadata = {
+        ...metadata,
+        authorized_at: costaRicaLocalToIso("2026-07-15T10:00"),
+      };
+      const result = resolveNotarialMetadataPrefill({
+        metadata: withCombined,
+        configuration: {
+          ...configuration,
+          simpleFields: { ...configuration.simpleFields, authorized_time: null },
+          authorizedTimeOptionBlockId: "hora-block",
+        },
+        availableFields: fields,
+        fieldValues: { hora: "10", minutos: "45" },
+        templateDocument: timeBlockDocument,
+        optionSelections: { "hora-block": "con_minutos" }, // antes era "en_punto" -> 10:00
+        templateName: "Compraventa",
+        generatedParties: null,
+        suggestions,
+      });
+      expect(result.authorizedAt.time).toMatchObject({
+        value: "10:45",
+        source: "template",
+      });
+    });
   });
 });

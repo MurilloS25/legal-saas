@@ -22,6 +22,27 @@ const optionalText = (max: number) =>
     .transform((value) => (value === "" ? null : value))
     .nullable();
 
+const optionalInteger = () =>
+  z.preprocess(
+    (value) => (value === "" || value === null ? null : Number(value)),
+    z.number().int().nullable(),
+  );
+
+/** HH:MM, mismo formato que produce `resolveOptionBlockTime`/`normalizeNotarialValue`. */
+const optionalTimeSnapshot = () =>
+  z
+    .string()
+    .trim()
+    .transform((value) => (value === "" ? null : value))
+    .nullable();
+
+const optionalDateSnapshot = () =>
+  z
+    .string()
+    .trim()
+    .transform((value) => (value === "" ? null : value))
+    .nullable();
+
 export const NotarialMetadataSchema = z.object({
   instrument_number: z.preprocess(
     (value) => (value === "" || value === null ? null : Number(value)),
@@ -54,6 +75,18 @@ export const NotarialMetadataSchema = z.object({
       return iso;
     })
     .nullable(),
+  // "Último valor derivado conocido" que ya se calculó server-side al
+  // renderizar el formulario (`resolveNotarialMetadataPrefill`) — se
+  // relaya tal cual para no recalcular la derivación dentro de la Server
+  // Action (ver comentario en `NotarialMetadataSection.tsx`). Nunca se
+  // muestra ni se exporta directamente, solo alimenta la próxima
+  // comparación de `resolveDerivedPrecedence`.
+  instrument_number_derived_snapshot: optionalInteger(),
+  authorized_date_derived_snapshot: optionalDateSnapshot(),
+  authorized_time_derived_snapshot: optionalTimeSnapshot(),
+  protocol_book_derived_snapshot: optionalText(MAX_SHORT),
+  initial_folio_derived_snapshot: optionalText(MAX_SHORT),
+  final_folio_derived_snapshot: optionalText(MAX_SHORT),
 });
 
 export type NotarialMetadataInput = z.infer<typeof NotarialMetadataSchema>;
@@ -69,5 +102,23 @@ export function parseNotarialFormData(formData: FormData) {
     notes: String(formData.get("notes") ?? ""),
     version: String(formData.get("version") ?? "1"),
     authorized_at: String(formData.get("authorized_at") ?? ""),
+    instrument_number_derived_snapshot: String(
+      formData.get("instrument_number_derived_snapshot") ?? "",
+    ),
+    authorized_date_derived_snapshot: String(
+      formData.get("authorized_date_derived_snapshot") ?? "",
+    ),
+    authorized_time_derived_snapshot: String(
+      formData.get("authorized_time_derived_snapshot") ?? "",
+    ),
+    protocol_book_derived_snapshot: String(
+      formData.get("protocol_book_derived_snapshot") ?? "",
+    ),
+    initial_folio_derived_snapshot: String(
+      formData.get("initial_folio_derived_snapshot") ?? "",
+    ),
+    final_folio_derived_snapshot: String(
+      formData.get("final_folio_derived_snapshot") ?? "",
+    ),
   });
 }

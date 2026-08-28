@@ -154,9 +154,8 @@ async function fillStructuredMetadata(page: Page, instrument: number) {
     .getByLabel("Número de instrumento", { exact: true })
     .fill(String(instrument));
   await openIndexRow(page, "Fecha y hora de autorización");
-  await section
-    .getByLabel("Fecha y hora de autorización", { exact: true })
-    .fill("2026-07-14T10:30");
+  await section.getByLabel("Fecha de autorización", { exact: true }).fill("2026-07-14");
+  await section.getByLabel("Hora de autorización", { exact: true }).fill("10:30");
   await openIndexRow(page, "Tomo");
   await section.getByLabel("Tomo", { exact: true }).fill("9");
   await openIndexRow(page, "Folios");
@@ -373,8 +372,11 @@ test.describe("template notarial index configuration", () => {
 
     await openIndexRow(page, "Fecha y hora de autorización");
     await expect(
-      section.getByLabel("Fecha y hora de autorización", { exact: true }),
-    ).toHaveValue("2026-07-14T10:20");
+      section.getByLabel("Fecha de autorización", { exact: true }),
+    ).toHaveValue("2026-07-14");
+    await expect(
+      section.getByLabel("Hora de autorización", { exact: true }),
+    ).toHaveValue("10:20");
     await expect(
       section.getByText("Fuente: Bloque de opciones · Hora", { exact: true }),
     ).toBeVisible();
@@ -382,7 +384,7 @@ test.describe("template notarial index configuration", () => {
       section.getByText("Variante: Hora y minutos", { exact: true }),
     ).toBeVisible();
     await expect(
-      section.getByText("Interpretado: 2026-07-14T10:20", { exact: true }),
+      section.getByText("Interpretado: 10:20", { exact: true }),
     ).toBeVisible();
 
     await openIndexRow(page, "Tomo");
@@ -460,8 +462,11 @@ test.describe("template notarial index configuration", () => {
     const section = metadataSection(page);
     await openIndexRow(page, "Fecha y hora de autorización");
     await expect(
-      section.getByLabel("Fecha y hora de autorización", { exact: true }),
-    ).toHaveValue("2026-07-15T11:00");
+      section.getByLabel("Fecha de autorización", { exact: true }),
+    ).toHaveValue("2026-07-15");
+    await expect(
+      section.getByLabel("Hora de autorización", { exact: true }),
+    ).toHaveValue("11:00");
     await expect(
       section.getByText("Variante: Hora en punto", { exact: true }),
     ).toBeVisible();
@@ -585,5 +590,55 @@ test.describe("template notarial index configuration", () => {
     await search.fill("vendedor");
     await search.press("Escape");
     await expect(search).toHaveValue("");
+  });
+
+  // Item 3 del pedido: reabrir la Escritura y corregir una fuente que
+  // alimenta el Índice debe re-derivar el valor automático, no conservar
+  // el que ya se había mostrado/guardado antes de reabrir.
+  test("J: reopening the document and correcting the Hora source re-derives the Índice value, not the stale one", async ({
+    page,
+  }) => {
+    await open(page, firstDocumentId);
+    const section = metadataSection(page);
+    await openIndexRow(page, "Fecha y hora de autorización");
+    await expect(
+      section.getByLabel("Hora de autorización", { exact: true }),
+    ).toHaveValue("10:20"); // hora.valor="diez", hora.minutos="veinte"
+
+    await page.goto(`/dashboard/documents/${firstDocumentId}?section=revisar`);
+    await page.getByRole("button", { name: "Reabrir escritura" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Reabrir escritura" })
+      .click();
+
+    await page.getByRole("tab", { name: "Completar" }).click();
+    const documentRegion = page.getByRole("region", { name: "Documento", exact: true });
+    await expect(async () => {
+      await documentRegion.locator('[data-variable-key="hora.valor"]').first().click();
+      const input = documentRegion.locator('input[data-variable-key="hora.valor"]');
+      await input.fill("once");
+      await input.blur();
+      await expect(documentRegion.getByText("once").first()).toBeVisible({
+        timeout: 2_000,
+      });
+    }).toPass({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Finalizar escritura" })
+      .click();
+
+    await page.getByRole("tab", { name: "Índice", exact: true }).click();
+    await expect(section).toBeVisible();
+    await openIndexRow(page, "Fecha y hora de autorización");
+    // hora.valor ahora "once" (11), hora.minutos sigue "veinte" (20) —
+    // 11:20, no el 10:20 que ya se había mostrado antes de reabrir.
+    await expect(
+      section.getByLabel("Hora de autorización", { exact: true }),
+    ).toHaveValue("11:20");
   });
 });
