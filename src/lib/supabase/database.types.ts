@@ -188,13 +188,18 @@ export type Database = {
           act_name_override: string | null
           act_name_snapshot: string | null
           authorized_at: string | null
+          authorized_date_derived_snapshot: string | null
+          authorized_time_derived_snapshot: string | null
           created_at: string
           document_id: string
           final_folio: string | null
+          final_folio_derived_snapshot: string | null
           generated_parties: string | null
           id: string
           initial_folio: string | null
+          initial_folio_derived_snapshot: string | null
           instrument_number: number | null
+          instrument_number_derived_snapshot: number | null
           notarial_confirmed_at: string | null
           notarial_confirmed_by: string | null
           notarial_review_required: boolean
@@ -202,6 +207,7 @@ export type Database = {
           owner_id: string
           parties_override: string | null
           protocol_book: string | null
+          protocol_book_derived_snapshot: string | null
           updated_at: string
           version: number
           workspace_id: string
@@ -210,13 +216,18 @@ export type Database = {
           act_name_override?: string | null
           act_name_snapshot?: string | null
           authorized_at?: string | null
+          authorized_date_derived_snapshot?: string | null
+          authorized_time_derived_snapshot?: string | null
           created_at?: string
           document_id: string
           final_folio?: string | null
+          final_folio_derived_snapshot?: string | null
           generated_parties?: string | null
           id?: string
           initial_folio?: string | null
+          initial_folio_derived_snapshot?: string | null
           instrument_number?: number | null
+          instrument_number_derived_snapshot?: number | null
           notarial_confirmed_at?: string | null
           notarial_confirmed_by?: string | null
           notarial_review_required?: boolean
@@ -224,6 +235,7 @@ export type Database = {
           owner_id: string
           parties_override?: string | null
           protocol_book?: string | null
+          protocol_book_derived_snapshot?: string | null
           updated_at?: string
           version?: number
           workspace_id: string
@@ -232,13 +244,18 @@ export type Database = {
           act_name_override?: string | null
           act_name_snapshot?: string | null
           authorized_at?: string | null
+          authorized_date_derived_snapshot?: string | null
+          authorized_time_derived_snapshot?: string | null
           created_at?: string
           document_id?: string
           final_folio?: string | null
+          final_folio_derived_snapshot?: string | null
           generated_parties?: string | null
           id?: string
           initial_folio?: string | null
+          initial_folio_derived_snapshot?: string | null
           instrument_number?: number | null
+          instrument_number_derived_snapshot?: number | null
           notarial_confirmed_at?: string | null
           notarial_confirmed_by?: string | null
           notarial_review_required?: boolean
@@ -246,6 +263,7 @@ export type Database = {
           owner_id?: string
           parties_override?: string | null
           protocol_book?: string | null
+          protocol_book_derived_snapshot?: string | null
           updated_at?: string
           version?: number
           workspace_id?: string

@@ -66,6 +66,23 @@ async function fillFieldLive(page: Page, key: string, value: string) {
   }).toPass({ timeout: 20_000 });
 }
 
+/** Navega a la pantalla de creación de una Escritura desde un Machote, sin
+ * guardar nada — para inspeccionar el stepper ANTES de que exista fila en
+ * `documents` (regresión: mostraba el paso Índice temporalmente aquí,
+ * hardcodeado a `true` en modo creación, sin importar el default real del
+ * Machote — ver DocumentComposer.tsx). */
+async function openCreatePage(page: Page, templateName: string): Promise<void> {
+  await page.goto("/dashboard/documents/new");
+  await page
+    .locator("li")
+    .filter({ hasText: templateName })
+    .getByRole("link", { name: "Usar este machote" })
+    .click();
+  await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
+    timeout: 15_000,
+  });
+}
+
 /** Crea una Escritura desde un machote vía la UI real y devuelve su id. */
 async function createDocumentFromTemplate(
   page: Page,
@@ -123,6 +140,28 @@ test.describe("template notarial index default", () => {
       label: fieldLabel,
       required: true,
     });
+  });
+
+  // Regresión encontrada en smoke manual de producción: en modo creación
+  // (antes del primer guardado, la Escritura todavía no existe en DB) el
+  // stepper mostraba SIEMPRE 4 pasos, sin importar el default real del
+  // Machote — corregido a nivel de bug, no solo de test (ver
+  // DocumentComposer.tsx: `includeInNotarialIndex` en modo "create" ahora
+  // lee `template.include_in_notarial_index_by_default`, no `true` fijo).
+  test("A2: the stepper reflects the Machote's default from the very first render, before any save exists", async ({
+    page,
+  }) => {
+    await openCreatePage(page, templateOnName);
+    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
+    await expect(
+      stepper(page).getByRole("tab", { name: "Índice", exact: true }),
+    ).toBeVisible();
+
+    await openCreatePage(page, templateOffName);
+    await expect(stepper(page).getByRole("tab")).toHaveCount(3);
+    await expect(
+      stepper(page).getByRole("tab", { name: "Índice", exact: true }),
+    ).toHaveCount(0);
   });
 
   test("B: creating from a default=true template shows 4 steps (Índice included) after saving", async ({

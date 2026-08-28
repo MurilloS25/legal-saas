@@ -454,9 +454,15 @@ test.describe("template pasted/typed variable detection", () => {
     await page.keyboard.type("Comparece {{parte.unica}}.");
 
     await expect(reviewDialog(page)).toHaveCount(0);
-    await expect(
-      contentEditor(page).locator('[data-variable-key="parte.unica"]'),
-    ).toBeVisible();
+    const chip = contentEditor(page).locator(
+      '[data-variable-key="parte.unica"]',
+    );
+    await expect(chip).toBeVisible();
+    // Ningún delimitador "{{"/"}}" debe sobrevivir fuera del chip — la
+    // etiqueta propia del chip ("{{parte.unica}}") es la única aparición
+    // esperada. `toContainText` (no `toHaveText`): este documento acumula
+    // contenido de pruebas anteriores en la misma suite serial.
+    await expect(contentEditor(page)).toContainText("Comparece {{parte.unica}}.");
 
     // Escribir a mano sigue dejando la variable pendiente de configurar —
     // a diferencia de pegar, que ahora siempre pasa por el diálogo.
@@ -484,5 +490,176 @@ test.describe("template pasted/typed variable detection", () => {
 
     await goToTab(page, "Documento");
     await expect(contentEditor(page).getByText("Parte única")).toBeVisible();
+  });
+
+  // Regresión: el input rule dejaba "{{"/"}}" como texto literal alrededor
+  // del chip convertido (usaba `nodeInputRule`, que solo reemplaza la clave
+  // capturada, no los delimitadores completos — ver `tiptap.ts`). Corre
+  // sobre un párrafo nuevo del mismo machote, con dos variables y una clave
+  // inválida en el medio para probar que ninguna de las tres interfiere con
+  // las otras.
+  test("J: typing consumes both delimiters fully, with no residual braces, across multiple variables in one paragraph", async ({
+    page,
+  }) => {
+    await openWorkspace(page);
+
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type(
+      " Comparece {{comprador.nombre}}, cédula {{comprador.identificacion}}, texto con llave inválida {{Mal}} que debe quedar literal.",
+    );
+
+    await expect(reviewDialog(page)).toHaveCount(0);
+    await expect(
+      contentEditor(page).locator('[data-variable-key="comprador.nombre"]'),
+    ).toBeVisible();
+    await expect(
+      contentEditor(page).locator(
+        '[data-variable-key="comprador.identificacion"]',
+      ),
+    ).toBeVisible();
+
+    // El texto del editor sin el contenido propio de los chips (que sí
+    // muestra "{{clave}}" a propósito como su etiqueta, ver `tiptap.ts`) no
+    // debe tener ninguna llave suelta: ni delimitadores residuales de las
+    // variables convertidas, ni nada roto por la clave inválida.
+    const strayBraces = await contentEditor(page).evaluate((el) => {
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone
+        .querySelectorAll("[data-variable-key]")
+        .forEach((chip) => chip.remove());
+      return clone.textContent ?? "";
+    });
+    expect(strayBraces).not.toContain("{{comprador");
+    expect(strayBraces).toContain("{{Mal}}");
+  });
+
+  // El contenido es la única fuente de verdad de qué variables existen (ver
+  // `TemplateVariablesPanel.tsx`): una variable configurada deja de existir
+  // en cuanto su última referencia se borra del documento — no queda
+  // "No utilizada" acumulando configuración vieja.
+  test("K: a variable disappears once its last reference is deleted, survives while any reference remains, and can be recreated without conflict", async ({
+    page,
+  }) => {
+    await openWorkspace(page);
+
+    // Dos referencias de la misma clave, en un párrafo nuevo.
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type(" {{precio}} y otra vez {{precio}}.");
+
+    await goToTab(page, "Variables");
+    const row = variableRow(page, "precio");
+    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
+    await row
+      .getByRole("button", { name: "Configurar variable precio" })
+      .click();
+    await page.getByLabel("Etiqueta").fill("Precio");
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+    await expect(row.getByText("Configurada")).toBeVisible();
+
+    // Borra solo la PRIMERA referencia — la segunda mantiene la variable
+    // viva y configurada.
+    await goToTab(page, "Documento");
+    const chips = contentEditor(page).locator('[data-variable-key="precio"]');
+    await expect(chips).toHaveCount(2);
+    await chips.first().click();
+    await page.keyboard.press("Backspace");
+    await expect(chips).toHaveCount(1);
+
+    await goToTab(page, "Variables");
+    await expect(row.getByText("Configurada")).toBeVisible();
+
+    // Borra la ÚLTIMA referencia — ahora sí desaparece del panel por
+    // completo (no "No utilizada").
+    await goToTab(page, "Documento");
+    await chips.first().click();
+    await page.keyboard.press("Backspace");
+    await expect(chips).toHaveCount(0);
+
+    await goToTab(page, "Variables");
+    await expect(variablesRegion(page)).toBeVisible();
+    await expect(row).toHaveCount(0);
+
+    // Recrearla con el mismo nombre funciona sin conflicto: vuelve a
+    // aparecer como "Pendiente de configurar", una variable nueva, no la
+    // configuración vieja resucitada (nunca se le puso etiqueta ahora). En
+    // un párrafo nuevo propio — evita depender de la posición del cursor
+    // que dejó el borrado del chip anterior en el párrafo previo.
+    await goToTab(page, "Documento");
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("{{precio}}");
+    // Espera a que el input rule termine de convertir antes de cambiar de
+    // paso — cambiar de pestaña mientras esa transacción sigue en curso ha
+    // dejado, intermitentemente, el clic de la pestaña sin efecto.
+    await expect(chips).toHaveCount(1);
+
+    await goToTab(page, "Variables");
+    await expect(variablesRegion(page)).toBeVisible();
+    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
+  });
+
+  // Persistencia del podado (caso E del pedido original): un machote propio,
+  // pequeño y recién creado — no el documento compartido y ya muy grande de
+  // A-K — porque el guardado de ESE documento se ha visto tardar más de 30s
+  // en este entorno bajo carga sostenida (probablemente por su tamaño
+  // acumulado, no por la lógica bajo prueba, ya validada en K sin tocar
+  // guardado/recarga). Aislarlo aquí evita que la lentitud de un documento
+  // gigante de prueba oscurezca la señal real: que guardar realmente poda la
+  // configuración huérfana en vez de solo ocultarla en el panel.
+  test("L: pruning a deleted variable's configuration actually persists — reload never resurrects it", async ({
+    page,
+  }) => {
+    const templateName = uniqueName("pasted-vars-prune", "machote");
+    const template = await createTestTemplate(registry, {
+      name: templateName,
+      content: "Contenido inicial.",
+    });
+    const url = `/dashboard/templates/${template.id}`;
+
+    await page.goto(url);
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await expect(contentEditor(page)).toBeVisible();
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type(" {{monto}}");
+
+    await goToTab(page, "Variables");
+    const row = variableRow(page, "monto");
+    await row
+      .getByRole("button", { name: "Configurar variable monto" })
+      .click();
+    await page.getByLabel("Etiqueta").fill("Monto");
+    await page.getByRole("button", { name: "Guardar variable" }).click();
+    await expect(row.getByText("Configurada")).toBeVisible();
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
+
+    await goToTab(page, "Documento");
+    const chip = contentEditor(page).locator('[data-variable-key="monto"]');
+    await chip.click();
+    await page.keyboard.press("Backspace");
+    await expect(chip).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await goToTab(page, "Documento");
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type(" {{monto}}");
+
+    await goToTab(page, "Variables");
+    // Si el guardado anterior solo hubiera ocultado la fila en el panel sin
+    // podar `variables`, esta reaparecería ya "Configurada" con la etiqueta
+    // vieja "Monto" — en vez de "Pendiente de configurar", una variable
+    // nueva sin ningún rastro de la configuración eliminada.
+    await expect(row.getByText("Pendiente de configurar")).toBeVisible();
   });
 });

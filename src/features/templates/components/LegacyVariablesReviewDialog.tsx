@@ -40,6 +40,18 @@ type Props = {
   configuredKeys: Set<string>;
   onConvert: (selections: Map<string, LegacyVariableSelection>) => void;
   onCancel: () => void;
+  /** Título y texto introductorio — reemplaza el copy pensado para pegado
+   * cuando este diálogo se reutiliza para otra fuente de variables nuevas
+   * (p. ej. un Bloque de opciones recién guardado, donde los nodos YA
+   * existen en el documento — "no se agregan automáticamente" sería
+   * incorrecto ahí). */
+  title?: string;
+  description?: React.ReactNode;
+  /** `false` cuando la clave ya existe como nodo real en el documento (un
+   * Bloque de opciones, por ejemplo) — editarla aquí solo cambiaría la
+   * configuración, no el nodo, dejando una clave huérfana. Paste sigue
+   * pudiendo editarla porque ahí el nodo todavía no existe. */
+  keyEditable?: boolean;
 };
 
 export function LegacyVariablesReviewDialog({
@@ -47,6 +59,9 @@ export function LegacyVariablesReviewDialog({
   configuredKeys,
   onConvert,
   onCancel,
+  title = "Revisar variables detectadas",
+  description,
+  keyEditable = true,
 }: Props) {
   const titleId = useId();
   const [selections, setSelections] = useState<
@@ -123,15 +138,19 @@ export function LegacyVariablesReviewDialog({
         <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-xl">
           <div className="px-6 pt-5 pb-4 border-b border-slate-100">
             <h2 id={titleId} className="text-base font-semibold text-slate-900">
-              Revisar variables detectadas
+              {title}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Se detectaron {matches.length} posibles{" "}
-              {matches.length === 1 ? "variable" : "variables"} en el
-              contenido pegado con formato{" "}
-              <code className="font-mono">{"{{ }}"}</code>. Configura cada una
-              antes de convertirla — no se agregan al documento
-              automáticamente.
+              {description ?? (
+                <>
+                  Se detectaron {matches.length} posibles{" "}
+                  {matches.length === 1 ? "variable" : "variables"} en el
+                  contenido pegado con formato{" "}
+                  <code className="font-mono">{"{{ }}"}</code>. Configura cada
+                  una antes de convertirla — no se agregan al documento
+                  automáticamente.
+                </>
+              )}
             </p>
           </div>
 
@@ -187,7 +206,7 @@ export function LegacyVariablesReviewDialog({
                           <input
                             type="text"
                             value={selection.key}
-                            disabled={!selection.included}
+                            disabled={!selection.included || !keyEditable}
                             onChange={(event) =>
                               update(match.raw, { key: event.target.value })
                             }
