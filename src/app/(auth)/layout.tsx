@@ -25,10 +25,7 @@ export default function AuthLayout({
         />
 
         <div className="relative select-none">
-          <span className="flex size-9 items-center justify-center rounded-md bg-accent-500 text-sm font-bold tracking-tight text-white ring-1 ring-white/15">
-            Lx
-          </span>
-          <p className="mt-4 text-lg font-semibold tracking-tight text-white">
+          <p className="text-lg font-semibold tracking-tight text-white">
             LexCR
           </p>
           <p className="text-sm text-ink-400">Gestión Notarial</p>

@@ -1,29 +1,24 @@
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission, type Permission } from "@/lib/server/permissions";
 import { listClients } from "@/features/clients/server";
 import { listTemplates } from "@/features/templates/server";
 import { listDocuments } from "@/features/documents/server";
-import {
-  documentStatusBadgeClass,
-  documentStatusLabel,
-} from "@/features/documents/model/status";
 import { getReceivablesSummary, listReceivables } from "@/features/receivables/server";
 import {
   parseReceivablesQuery,
-  receivableStatusBadgeClass,
-  receivableStatusLabel,
   formatMoney,
 } from "@/features/receivables";
 import { listNotarialIndex } from "@/features/notarial-index/server";
 import { parseNotarialQuery } from "@/features/notarial-index/model/query";
 import {
+  AlertIcon,
   ArrowRightIcon,
   BookmarkIcon,
   CheckCircleIcon,
   ScrollIcon,
-  SparkIcon,
   StackIcon,
   UsersIcon,
   WalletIcon,
@@ -51,22 +46,6 @@ function todayLabel(now: Date): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function relativeTime(iso: string, now: Date): string {
-  const diffMs = now.getTime() - new Date(iso).getTime();
-  const minutes = Math.round(diffMs / 60_000);
-  if (minutes < 1) return "hace un momento";
-  if (minutes < 60) return `hace ${minutes} min`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.round(hours / 24);
-  if (days === 1) return "ayer";
-  if (days < 7) return `hace ${days} días`;
-  return new Date(iso).toLocaleDateString("es-CR", {
-    day: "2-digit",
-    month: "short",
-  });
-}
-
 function daysUntil(iso: string, now: Date): number {
   const due = new Date(`${iso}T00:00:00`);
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -77,15 +56,7 @@ function plural(count: number, singular: string, pluralForm: string): string {
   return count === 1 ? singular : pluralForm;
 }
 
-// ------------------------------------------------------------------ shared card treatment
-
-const cardIconChipClass =
-  "flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600";
-
-const cardClass =
-  "press-feedback group flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-ink-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-ink-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2";
-
-/** Cascada de entrada para las cuadrículas de la portada — CSS puro (server component, sin JS de motion). */
+/** Cascada de entrada — CSS puro (server component, sin JS de motion). */
 function stagger(index: number): React.CSSProperties {
   return { animationDelay: `${index * 40}ms` };
 }
@@ -94,25 +65,25 @@ function stagger(index: number): React.CSSProperties {
 
 const QUICK_ACTIONS = [
   {
-    label: "Nueva escritura",
+    label: "Escritura",
     href: "/dashboard/documents/new",
     Icon: ScrollIcon,
     permission: "documents.create",
   },
   {
-    label: "Nuevo cliente",
+    label: "Cliente",
     href: "/dashboard/clients/new",
     Icon: UsersIcon,
     permission: "clients.write",
   },
   {
-    label: "Nuevo machote",
+    label: "Machote",
     href: "/dashboard/templates/new",
     Icon: StackIcon,
     permission: "templates.write",
   },
   {
-    label: "Nueva cuenta",
+    label: "Cuenta",
     href: "/dashboard/receivables/new",
     Icon: WalletIcon,
     permission: "receivables.manage",
@@ -124,13 +95,24 @@ const QUICK_ACTIONS = [
   permission: Permission;
 }>;
 
+// ------------------------------------------------------------------ attention model
+
+type AttentionItem = {
+  key: string;
+  href: string;
+  title: string;
+  meta: string;
+  tone: "error" | "warning";
+  badgeLabel: string;
+  urgency: number;
+};
+
 // ------------------------------------------------------------------ page
 
 export default async function DashboardPage() {
   const { supabase, workspaceId, role } = await requireWorkspace();
   const now = new Date();
   const canManageSettings = hasPermission(role, "settings.manage");
-  const canCreateDocuments = hasPermission(role, "documents.create");
   const visibleQuickActions = QUICK_ACTIONS.filter(({ permission }) =>
     hasPermission(role, permission),
   );
@@ -142,7 +124,6 @@ export default async function DashboardPage() {
     documents,
     receivablesSummary,
     receivables,
-    notarialFortnightAll,
     notarialFortnightIncomplete,
   ] = await Promise.all([
     supabase
@@ -158,7 +139,6 @@ export default async function DashboardPage() {
     // Misma lógica server-side que usa el propio Índice Notarial para
     // determinar la quincena vigente y qué cuenta como "incompleto" — no
     // se duplican esas reglas aquí.
-    listNotarialIndex(parseNotarialQuery({})),
     listNotarialIndex(parseNotarialQuery({ completeness: "incomplete" })),
   ]);
 
@@ -166,23 +146,74 @@ export default async function DashboardPage() {
   const firstName = profile?.full_name?.split(" ")[0] ?? null;
   const isConfigured = !!profile;
 
-  const fortnightTotal = notarialFortnightAll.total;
-  const fortnightIncomplete = notarialFortnightIncomplete.total;
-
   const activeTemplates = templates.filter((t) => t.status === "active").length;
-  const draftDocuments = documents.filter((d) => d.status === "draft").length;
-  const recentDocuments = documents.slice(0, 5);
+  const draftDocuments = documents.filter((d) => d.status === "draft");
 
-  const attentionReceivables = receivables
-    .filter((r) => r.status === "overdue" || (r.due_at && daysUntil(r.due_at, now) <= 7 && r.status !== "paid"))
-    .sort((a, b) => {
-      const aDays = a.due_at ? daysUntil(a.due_at, now) : 999;
-      const bDays = b.due_at ? daysUntil(b.due_at, now) : 999;
-      return aDays - bDays;
-    })
-    .slice(0, 5);
+  // ---------------- "Necesita tu atención": una sola lista priorizada,
+  // en vez de una grilla de tiles genéricos. Combina las tres señales que
+  // realmente requieren acción hoy: cuentas vencidas/próximas, escrituras
+  // en borrador, y registros del índice incompletos.
+  const attentionItems: AttentionItem[] = [];
 
-  const overdueCount = receivables.filter((r) => r.status === "overdue").length;
+  for (const r of receivables) {
+    const isOverdue = r.status === "overdue";
+    const days = r.due_at ? daysUntil(r.due_at, now) : null;
+    const isDueSoon = days !== null && days <= 7 && r.status !== "paid";
+    if (!isOverdue && !isDueSoon) continue;
+    attentionItems.push({
+      key: `receivable-${r.id}`,
+      href: `/dashboard/receivables/${r.id}`,
+      title: r.concept,
+      meta: `${r.client_name} · ${formatMoney(r.balance_due, r.currency)}`,
+      tone: isOverdue ? "error" : "warning",
+      badgeLabel: isOverdue ? "Vencida" : days === 0 ? "Vence hoy" : `Vence en ${days} d`,
+      urgency: isOverdue ? -1 : (days ?? 999),
+    });
+  }
+
+  for (const doc of draftDocuments.slice(0, 5)) {
+    attentionItems.push({
+      key: `document-${doc.id}`,
+      href: `/dashboard/documents/${doc.id}`,
+      title: doc.title,
+      meta: doc.clients?.full_name ?? "Sin cliente",
+      tone: "warning",
+      badgeLabel: "Borrador",
+      urgency: 50,
+    });
+  }
+
+  for (const row of notarialFortnightIncomplete.rows.slice(0, 5)) {
+    attentionItems.push({
+      key: `index-${row.document_id}`,
+      href: "/dashboard/notarial-index",
+      title: row.title,
+      meta: row.client_name ?? "Índice notarial",
+      tone: "warning",
+      badgeLabel: "Índice incompleto",
+      urgency: 60,
+    });
+  }
+
+  attentionItems.sort((a, b) => a.urgency - b.urgency);
+  const topAttention = attentionItems.slice(0, 6);
+
+  const moduleStats = [
+    { label: "Clientes", value: clients.length, href: "/dashboard/clients", Icon: UsersIcon },
+    {
+      label: "Machotes activos",
+      value: activeTemplates,
+      href: "/dashboard/templates",
+      Icon: StackIcon,
+    },
+    { label: "Escrituras", value: documents.length, href: "/dashboard/documents", Icon: ScrollIcon },
+    {
+      label: "Cuentas por cobrar",
+      value: receivablesSummary.reduce((sum, t) => sum + Number(t.count), 0),
+      href: "/dashboard/receivables",
+      Icon: WalletIcon,
+    },
+  ];
 
   return (
     <PageContainer>
@@ -218,293 +249,118 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* ---------- quick actions ---------- */}
-      {visibleQuickActions.length > 0 && (
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {visibleQuickActions.map(({ label, href, Icon }, index) => (
-          <Link
-            key={href}
-            href={href}
-            style={stagger(index)}
-            className="press-feedback group flex animate-stagger-in items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-ink-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-accent-200 hover:bg-accent-50/40 hover:shadow-ink-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
-          >
-            <span className={cardIconChipClass}>
-              <Icon className="size-[18px]" />
-            </span>
-            <span className="text-sm font-medium text-slate-800 group-hover:text-slate-900">
-              {label}
-            </span>
-          </Link>
-        ))}
-      </div>
-      )}
-
-      {/* ---------- bento grid ---------- */}
-      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Cuentas por cobrar — wide tile */}
-        <Link
-          href="/dashboard/receivables"
-          aria-label={`Cuentas por cobrar${overdueCount > 0 ? `, ${overdueCount} vencida${plural(overdueCount, "", "s")}` : ""}`}
-          style={stagger(0)}
-          className={`${cardClass} animate-stagger-in lg:col-span-2`}
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className={cardIconChipClass}>
-                <WalletIcon className="size-[18px]" />
-              </span>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Cuentas por cobrar
-              </h2>
-            </div>
-            {overdueCount > 0 && (
-              <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
-                {overdueCount} {plural(overdueCount, "vencida", "vencidas")}
-              </span>
-            )}
-          </div>
-
-          {receivablesSummary.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Todavía no hay cuentas por cobrar registradas.
-            </p>
-          ) : (
-            <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
-              {receivablesSummary.map((t) => (
-                <div key={t.currency}>
-                  <p className="font-mono text-2xl font-semibold tabular-nums text-slate-900">
-                    {formatMoney(t.balance, t.currency)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    saldo pendiente · {t.count}{" "}
-                    {plural(Number(t.count), "cuenta", "cuentas")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="mt-auto flex items-center gap-1 pt-4 text-xs font-medium text-accent-700">
-            Ver cuentas por cobrar <ArrowRightIcon className="size-3.5" />
-          </p>
-        </Link>
-
-        {/* Índice notarial — quincena actual */}
-        <Link
-          href="/dashboard/notarial-index"
-          style={stagger(1)}
-          className={`${cardClass} animate-stagger-in`}
-        >
-          <span className={cardIconChipClass}>
-            <BookmarkIcon className="size-[18px]" />
-          </span>
-          <h2 className="mt-3 text-sm font-semibold text-slate-900">
-            Índice Notarial
+      {/* ---------- necesita tu atención: contenido principal ---------- */}
+      <section
+        aria-labelledby="attention-heading"
+        className="mb-6 animate-fade-in overflow-hidden rounded-xl border border-slate-200 bg-white shadow-ink-sm"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 id="attention-heading" className="text-base font-semibold text-slate-900">
+            Necesita tu atención
           </h2>
-          <p className="mt-1 text-sm text-slate-700">
-            {fortnightIncomplete > 0
-              ? `${fortnightIncomplete} ${plural(fortnightIncomplete, "registro incompleto", "registros incompletos")} en la quincena actual`
-              : "Todos los registros de la quincena están completos"}
-          </p>
-          {fortnightTotal > 0 && (
-            <p className="mt-1 text-xs text-slate-500">
-              {fortnightTotal} {plural(fortnightTotal, "registro", "registros")} en la quincena actual
+          {topAttention.length > 0 && (
+            <Badge tone="warning">
+              {topAttention.length} {plural(topAttention.length, "pendiente", "pendientes")}
+            </Badge>
+          )}
+        </div>
+
+        {topAttention.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+            <CheckCircleIcon className="size-7 text-emerald-600" />
+            <p className="text-sm font-medium text-slate-700">Todo al día.</p>
+            <p className="text-sm text-slate-500">
+              Sin cuentas vencidas, borradores pendientes ni registros de
+              índice incompletos.
             </p>
-          )}
-          <p className="mt-auto flex items-center gap-1 pt-4 text-xs font-medium text-accent-700">
-            Ver índice notarial <ArrowRightIcon className="size-3.5" />
-          </p>
-        </Link>
-
-        {/* Clientes */}
-        <Link
-          href="/dashboard/clients"
-          style={stagger(2)}
-          className={`${cardClass} animate-stagger-in`}
-        >
-          <span className={cardIconChipClass}>
-            <UsersIcon className="size-[18px]" />
-          </span>
-          <h2 className="mt-3 text-sm font-semibold text-slate-900">Clientes</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {clients.length} {plural(clients.length, "registrado", "registrados")}
-          </p>
-          <p className="mt-auto flex items-center gap-1 pt-4 text-xs font-medium text-accent-700">
-            Ver clientes <ArrowRightIcon className="size-3.5" />
-          </p>
-        </Link>
-
-        {/* Machotes */}
-        <Link
-          href="/dashboard/templates"
-          style={stagger(3)}
-          className={`${cardClass} animate-stagger-in`}
-        >
-          <span className={cardIconChipClass}>
-            <StackIcon className="size-[18px]" />
-          </span>
-          <h2 className="mt-3 text-sm font-semibold text-slate-900">Machotes</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {templates.length} total · {activeTemplates}{" "}
-            {plural(activeTemplates, "activo", "activos")}
-          </p>
-          <p className="mt-auto flex items-center gap-1 pt-4 text-xs font-medium text-accent-700">
-            Ver machotes <ArrowRightIcon className="size-3.5" />
-          </p>
-        </Link>
-
-        {/* Escrituras */}
-        <Link
-          href="/dashboard/documents"
-          style={stagger(4)}
-          className={`${cardClass} animate-stagger-in`}
-        >
-          <span className={cardIconChipClass}>
-            <ScrollIcon className="size-[18px]" />
-          </span>
-          <h2 className="mt-3 text-sm font-semibold text-slate-900">Escrituras</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {documents.length} total · {draftDocuments}{" "}
-            {plural(draftDocuments, "borrador", "borradores")}
-          </p>
-          <p className="mt-auto flex items-center gap-1 pt-4 text-xs font-medium text-accent-700">
-            Ver escrituras <ArrowRightIcon className="size-3.5" />
-          </p>
-        </Link>
-      </div>
-
-      {/* ---------- attention + recent ---------- */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Needs attention */}
-        <section
-          aria-labelledby="attention-heading"
-          className="animate-fade-in rounded-xl border border-slate-200 bg-white shadow-ink-sm lg:col-span-1"
-        >
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 id="attention-heading" className="text-sm font-semibold text-slate-900">
-              Necesita tu atención
-            </h2>
           </div>
-          {attentionReceivables.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-5 py-8 text-center">
-              <CheckCircleIcon className="size-6 text-emerald-600" />
-              <p className="text-sm text-slate-500">
-                No hay cuentas vencidas ni próximas a vencer.
-              </p>
-            </div>
-          ) : (
-            <ul role="list" className="divide-y divide-slate-100">
-              {attentionReceivables.map((r) => {
-                const days = r.due_at ? daysUntil(r.due_at, now) : null;
-                return (
-                  <li key={r.id}>
-                    <Link
-                      href={`/dashboard/receivables/${r.id}`}
-                      className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-accent-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {r.concept}
-                        </p>
-                        <p className="truncate text-xs text-slate-500">
-                          {r.client_name} ·{" "}
-                          <span className="font-mono tabular-nums">
-                            {formatMoney(r.balance_due, r.currency)}
-                          </span>
-                        </p>
-                      </div>
-                      <span
-                        className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${receivableStatusBadgeClass(r.status)}`}
-                      >
-                        {days !== null && days < 0
-                          ? receivableStatusLabel(r.status)
-                          : days === 0
-                            ? "Hoy"
-                            : days !== null
-                              ? `${days} d`
-                              : receivableStatusLabel(r.status)}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="border-t border-slate-100 px-5 py-3">
-            <Link
-              href="/dashboard/receivables"
-              className="inline-flex items-center gap-1 text-xs font-medium text-accent-700 hover:underline"
-            >
-              Ver cuentas por cobrar <ArrowRightIcon className="size-3.5" />
-            </Link>
-          </div>
-        </section>
-
-        {/* Recent escrituras */}
-        <section
-          aria-labelledby="recent-heading"
-          className="animate-fade-in rounded-xl border border-slate-200 bg-white shadow-ink-sm lg:col-span-2"
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <h2 id="recent-heading" className="text-sm font-semibold text-slate-900">
-              Escrituras recientes
-            </h2>
-            <Link
-              href="/dashboard/documents"
-              className="text-xs font-medium text-accent-700 hover:underline"
-            >
-              Ver todas
-            </Link>
-          </div>
-          {recentDocuments.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-5 py-8 text-center">
-              <SparkIcon className="size-6 text-slate-300" />
-              <p className="text-sm text-slate-500">
-                Aún no has creado ninguna escritura.
-              </p>
-              {canCreateDocuments && (
+        ) : (
+          <ul role="list" className="divide-y divide-slate-100">
+            {topAttention.map((item, index) => (
+              <li key={item.key} style={stagger(index)} className="animate-stagger-in">
                 <Link
-                  href="/dashboard/documents/new"
-                  className="text-xs font-medium text-accent-700 hover:underline"
+                  href={item.href}
+                  className="flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-accent-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500"
                 >
-                  Crear la primera →
-                </Link>
-              )}
-            </div>
-          ) : (
-            <ul role="list" className="divide-y divide-slate-100">
-              {recentDocuments.map((doc) => (
-                <li key={doc.id}>
-                  <Link
-                    href={`/dashboard/documents/${doc.id}`}
-                    className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-accent-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500"
-                  >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <AlertIcon
+                      className={`size-4 shrink-0 ${item.tone === "error" ? "text-red-500" : "text-amber-500"}`}
+                    />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-slate-900">
-                        {doc.title}
+                        {item.title}
                       </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {doc.clients?.full_name ?? "Sin cliente"} ·{" "}
-                        {doc.templates?.name ?? "Machote eliminado"}
+                      <p className="truncate text-xs text-slate-500 font-mono tabular-nums">
+                        {item.meta}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${documentStatusBadgeClass(doc.status)}`}
-                      >
-                        {documentStatusLabel(doc.status)}
-                      </span>
-                      <span className="hidden text-xs text-slate-400 sm:inline">
-                        {relativeTime(doc.updated_at, now)}
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                  </div>
+                  <Badge tone={item.tone} className="shrink-0">
+                    {item.badgeLabel}
+                  </Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* ---------- franja secundaria: acciones rápidas + conteos por módulo ---------- */}
+      <div className="mb-8 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        {visibleQuickActions.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {visibleQuickActions.map(({ label, href, Icon }, index) => (
+              <Link
+                key={href}
+                href={href}
+                style={stagger(index)}
+                className="press-feedback group flex animate-stagger-in items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-ink-sm transition-colors hover:border-accent-200 hover:bg-accent-50/40 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+              >
+                <Icon className="size-4 text-accent-600" />
+                Nueva {label}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {moduleStats.map(({ label, value, href, Icon }, index) => (
+            <Link
+              key={href}
+              href={href}
+              style={stagger(index)}
+              className="press-feedback group flex animate-stagger-in items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-ink-sm transition-colors hover:border-accent-200 hover:bg-accent-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+            >
+              <Icon className="size-4 shrink-0 text-accent-600" />
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-semibold tabular-nums text-slate-900">
+                  {value}
+                </p>
+                <p className="truncate text-[11px] text-slate-500">{label}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
+
+      {/* ---------- índice notarial: acceso directo ---------- */}
+      <Link
+        href="/dashboard/notarial-index"
+        className="press-feedback group mb-8 flex animate-fade-in items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-ink-sm transition-colors hover:border-accent-200 hover:bg-accent-50/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+            <BookmarkIcon className="size-[18px]" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Índice Notarial</p>
+            <p className="text-xs text-slate-500">
+              Revisar y confirmar los registros de la quincena actual
+            </p>
+          </div>
+        </div>
+        <ArrowRightIcon className="size-4 shrink-0 text-accent-700 transition-transform group-hover:translate-x-0.5" />
+      </Link>
     </PageContainer>
   );
 }

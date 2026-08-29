@@ -15,11 +15,11 @@
 /*
  * EXPERIMENTAL redesign — rama experiment/lexcr-visual-refresh.
  *
- * Sustituye la paleta anterior (azul-slate plano) por un par "ink" (tinta,
- * casi negro con temperatura fría) + "accent" (índigo/cobalto, un solo
- * acento decorativo en toda la app). Radios, sombras y easings quedan
- * centralizados aquí para que cada componente los consuma en vez de
- * inventar valores sueltos.
+ * "ink" (tinta, casi negro con temperatura fría) + "accent" (azul, un solo
+ * acento decorativo en toda la app — deliberadamente en la familia
+ * navy/blue, NO índigo/violeta, para conservar la identidad histórica de
+ * LexCR). Radios, sombras y easings quedan centralizados aquí para que
+ * cada componente los consuma en vez de inventar valores sueltos.
  */
 @theme {
   --color-ink-950: #070B14;
@@ -32,16 +32,16 @@
   --color-ink-200: #D7DEEA;
   --color-ink-100: #EEF1F7;
 
-  --color-accent-50: #EEF1FE;
-  --color-accent-100: #E0E5FD;
-  --color-accent-200: #C3CCFA;
-  --color-accent-300: #9DA9F4;
-  --color-accent-400: #7482E8;
-  --color-accent-500: #4F5FD6;
-  --color-accent-600: #3D4CBD;
-  --color-accent-700: #313F9E;
-  --color-accent-800: #29347F;
-  --color-accent-900: #212865;
+  --color-accent-50: #EAF1FE;
+  --color-accent-100: #D6E4FD;
+  --color-accent-200: #AFC9FB;
+  --color-accent-300: #7FA8F7;
+  --color-accent-400: #4C82EF;
+  --color-accent-500: #2563EB;
+  --color-accent-600: #1D4ED8;
+  --color-accent-700: #1E40AF;
+  --color-accent-800: #1E3A8A;
+  --color-accent-900: #172554;
 
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);

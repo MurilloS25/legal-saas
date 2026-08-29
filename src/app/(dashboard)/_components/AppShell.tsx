@@ -57,7 +57,7 @@ function setCollapsedStorage(next: boolean) {
 
 // ------------------------------------------------------------------ nav config
 
-const BASE_LINKS = [
+const WORKSPACE_LINKS = [
   { label: "Panel", href: "/dashboard", Icon: CompassIcon },
   { label: "Clientes", href: "/dashboard/clients", Icon: UsersIcon },
   { label: "Machotes", href: "/dashboard/templates", Icon: StackIcon },
@@ -78,80 +78,90 @@ function isLinkActive(pathname: string, href: string): boolean {
 
 // ------------------------------------------------------------------ SidebarNav
 
-function SidebarNav({
+type NavLink = { label: string; href: string; Icon: typeof CompassIcon };
+
+function NavGroup({
+  label,
+  links,
   pathname,
   collapsed,
-  showTeamLink,
   onNavigate,
   layoutIdPrefix,
 }: {
+  label: string;
+  links: readonly NavLink[];
   pathname: string;
   collapsed: boolean;
-  showTeamLink: boolean;
   onNavigate?: () => void;
   layoutIdPrefix: string;
 }) {
-  const links = showTeamLink
-    ? [...BASE_LINKS, TEAM_LINK, SETTINGS_LINK]
-    : [...BASE_LINKS, SETTINGS_LINK];
-
   return (
-    <>
-      {links.map(({ label, href, Icon }) => {
-        const isActive = isLinkActive(pathname, href);
+    <div>
+      {!collapsed && (
+        <p
+          aria-hidden="true"
+          className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-ink-400/70"
+        >
+          {label}
+        </p>
+      )}
+      <div className="space-y-1">
+        {links.map(({ label: linkLabel, href, Icon }) => {
+          const isActive = isLinkActive(pathname, href);
 
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={onNavigate}
-            title={collapsed ? label : undefined}
-            className={`group relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800 ${
-              collapsed ? "justify-center px-0" : "px-3"
-            } ${
-              isActive
-                ? "text-white"
-                : "text-ink-200/90 hover:bg-ink-700/70 hover:text-white"
-            }`}
-            aria-current={isActive ? "page" : undefined}
-          >
-            {isActive && (
-              <motion.span
-                layoutId={`${layoutIdPrefix}-active-pill`}
-                aria-hidden="true"
-                className="absolute inset-0 rounded-lg bg-ink-600"
-                transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
-              />
-            )}
-            <span
-              aria-hidden="true"
-              className={`absolute left-0 top-1/2 z-10 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-400 transition-opacity ${
-                isActive ? "opacity-100" : "opacity-0"
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              title={collapsed ? linkLabel : undefined}
+              className={`group relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800 ${
+                collapsed ? "justify-center px-0" : "px-3"
+              } ${
+                isActive
+                  ? "text-white"
+                  : "text-ink-200/90 hover:bg-ink-700/70 hover:text-white"
               }`}
-            />
-            <Icon
-              className={`relative z-10 size-[18px] shrink-0 ${isActive ? "text-accent-400" : "text-ink-400 group-hover:text-ink-200"}`}
-            />
-            <span
-              className={`relative z-10 whitespace-nowrap transition-all duration-150 ${
-                collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-              }`}
+              aria-current={isActive ? "page" : undefined}
             >
-              {label}
-            </span>
-
-            {collapsed && (
+              {isActive && (
+                <motion.span
+                  layoutId={`${layoutIdPrefix}-active-pill`}
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-lg bg-ink-600"
+                  transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
+                />
+              )}
               <span
-                role="tooltip"
-                className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-ink-lg ring-1 ring-white/10 group-hover:block"
+                aria-hidden="true"
+                className={`absolute left-0 top-1/2 z-10 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-400 transition-opacity ${
+                  isActive ? "opacity-100" : "opacity-0"
+                }`}
+              />
+              <Icon
+                className={`relative z-10 size-[18px] shrink-0 ${isActive ? "text-accent-400" : "text-ink-400 group-hover:text-ink-200"}`}
+              />
+              <span
+                className={`relative z-10 whitespace-nowrap transition-all duration-150 ${
+                  collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                }`}
               >
-                {label}
+                {linkLabel}
               </span>
-            )}
-          </Link>
-        );
-      })}
-    </>
+
+              {collapsed && (
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-ink-lg ring-1 ring-white/10 group-hover:block"
+                >
+                  {linkLabel}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -194,14 +204,12 @@ function SidebarInner({
           collapsed ? "justify-center px-2" : "justify-between px-5"
         }`}
       >
-        <div className={`flex min-w-0 items-center gap-2.5 select-none ${collapsed ? "justify-center" : ""}`}>
-          <span
-            aria-hidden="true"
-            className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-500 text-[13px] font-bold tracking-tight text-white ring-1 ring-white/15"
-          >
-            Lx
-          </span>
-          {!collapsed && (
+        <div className={`flex min-w-0 items-center select-none ${collapsed ? "justify-center" : ""}`}>
+          {collapsed ? (
+            <span aria-hidden="true" className="text-lg font-bold tracking-tight text-white">
+              L
+            </span>
+          ) : (
             <div className="min-w-0">
               <p className="truncate text-[15px] font-semibold tracking-tight text-white">
                 LexCR
@@ -237,13 +245,22 @@ function SidebarInner({
 
       {/* Navigation */}
       <nav
-        className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-4 ${collapsed ? "px-2.5" : "px-3"}`}
+        className={`flex-1 space-y-5 overflow-y-auto overflow-x-hidden py-4 ${collapsed ? "px-2.5" : "px-3"}`}
         aria-label="Navegación principal"
       >
-        <SidebarNav
+        <NavGroup
+          label="Espacio de trabajo"
+          links={WORKSPACE_LINKS}
           pathname={pathname}
           collapsed={collapsed}
-          showTeamLink={showTeamLink}
+          onNavigate={onNavigate}
+          layoutIdPrefix={layoutIdPrefix}
+        />
+        <NavGroup
+          label="Cuenta"
+          links={showTeamLink ? [TEAM_LINK, SETTINGS_LINK] : [SETTINGS_LINK]}
+          pathname={pathname}
+          collapsed={collapsed}
           onNavigate={onNavigate}
           layoutIdPrefix={layoutIdPrefix}
         />
