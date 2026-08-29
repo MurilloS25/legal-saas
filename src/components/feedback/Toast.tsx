@@ -14,6 +14,7 @@
  */
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
 type ToastTone = "success" | "info" | "error";
 
@@ -43,8 +44,8 @@ const AUTO_DISMISS_MS = 5000;
 // de dejar crecer la pila sin control.
 const MAX_VISIBLE_TOASTS = 3;
 
-// Colores alineados con la tabla de estados semánticos de DESIGN.md:
-// éxito = emerald, informativo neutro = slate, error = red.
+// Colores alineados con la tabla de estados semánticos del sistema de
+// diseño: éxito = emerald, informativo neutro = slate, error = red.
 const toneClass: Record<ToastTone, string> = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800",
   info: "border-slate-300 bg-slate-100 text-slate-700",
@@ -71,40 +72,47 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] flex flex-col items-center gap-2 px-4 sm:items-end sm:px-6">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            // Error es urgente (interrumpe lectura de pantalla en curso);
-            // success/info son confirmaciones que pueden esperar su turno.
-            role={toast.tone === "error" ? "alert" : "status"}
-            aria-live={toast.tone === "error" ? "assertive" : "polite"}
-            className={`pointer-events-auto flex items-start gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-lg ${toneClass[toast.tone]}`}
-          >
-            <span className="min-w-0">{toast.message}</span>
-            <button
-              type="button"
-              onClick={() => dismissToast(toast.id)}
-              aria-label="Cerrar"
-              className="-mr-1 -mt-0.5 shrink-0 rounded p-0.5 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current"
+        <AnimatePresence initial={false}>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              layout
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
+              transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
+              // Error es urgente (interrumpe lectura de pantalla en curso);
+              // success/info son confirmaciones que pueden esperar su turno.
+              role={toast.tone === "error" ? "alert" : "status"}
+              aria-live={toast.tone === "error" ? "assertive" : "polite"}
+              className={`pointer-events-auto flex items-start gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-ink-lg ${toneClass[toast.tone]}`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+              <span className="min-w-0">{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                aria-label="Cerrar"
+                className="-mr-1 -mt-0.5 shrink-0 rounded p-0.5 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current"
               >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          </div>
-        ))}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

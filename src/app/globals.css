@@ -1,52 +1,138 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  --background: #F7F8FB;
+  --foreground: #0D1420;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 /*
- * Design system de LexCR — ver DESIGN.md para la documentación completa
- * (identidad, uso por token, tipografía, espaciado, componentes).
+ * EXPERIMENTAL redesign — rama experiment/lexcr-visual-refresh.
  *
- * "ink": azul tinta desaturado, propio del sidebar. "accent": variante más
- * clara/intensa del MISMO azul — el único acento decorativo de toda la
- * aplicación (acción primaria, enlaces, hover, foco, badges informativos,
- * barra de navegación activa). Reemplaza el teal/verde brillante que usaba
- * el resto de la app antes de esta iteración. Verde, ámbar y rojo quedan
- * reservados exclusivamente para estados semánticos reales
- * (positivo/pendiente/error), nunca como decoración.
- * Contraste verificado (WCAG AA): ink-800 vs blanco ≈14.6:1; accent-400
- * vs ink-800 ≈4.4:1; accent-600 vs blanco ≈6.7:1; accent-700/800 vs
- * blanco superan 6.7:1 (más oscuros, más contraste).
+ * Sustituye la paleta anterior (azul-slate plano) por un par "ink" (tinta,
+ * casi negro con temperatura fría) + "accent" (índigo/cobalto, un solo
+ * acento decorativo en toda la app). Radios, sombras y easings quedan
+ * centralizados aquí para que cada componente los consuma en vez de
+ * inventar valores sueltos.
  */
 @theme {
-  --color-ink-900: #14202F;
-  --color-ink-800: #1B2A42;
-  --color-ink-700: #26374F;
-  --color-ink-600: #32455E;
-  --color-ink-400: #90A0BA;
-  --color-ink-200: #D7DEE9;
+  --color-ink-950: #070B14;
+  --color-ink-900: #0D1420;
+  --color-ink-800: #121C2E;
+  --color-ink-700: #1B2A42;
+  --color-ink-600: #263C5C;
+  --color-ink-500: #3A5075;
+  --color-ink-400: #7E8FAC;
+  --color-ink-200: #D7DEEA;
+  --color-ink-100: #EEF1F7;
 
-  --color-accent-50: #EEF3FC;
-  --color-accent-100: #DCE8FA;
-  --color-accent-200: #B7D0F3;
-  --color-accent-300: #8CB3E9;
-  --color-accent-400: #5D91DC;
-  --color-accent-500: #3E73C4;
-  --color-accent-600: #2F5C9E;
-  --color-accent-700: #244B87;
-  --color-accent-800: #1C3A69;
-  --color-accent-900: #142A4D;
+  --color-accent-50: #EEF1FE;
+  --color-accent-100: #E0E5FD;
+  --color-accent-200: #C3CCFA;
+  --color-accent-300: #9DA9F4;
+  --color-accent-400: #7482E8;
+  --color-accent-500: #4F5FD6;
+  --color-accent-600: #3D4CBD;
+  --color-accent-700: #313F9E;
+  --color-accent-800: #29347F;
+  --color-accent-900: #212865;
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --shadow-color: 13 20 32;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  ::selection {
+    background: var(--color-accent-200);
+    color: var(--color-ink-900);
+  }
+}
+
+@layer utilities {
+  /* Sombra tintada al hue de "ink" en vez de negro puro — ver emil-design-eng SKILL. */
+  .shadow-ink-sm {
+    box-shadow: 0 1px 2px rgb(var(--shadow-color) / 0.06), 0 1px 1px rgb(var(--shadow-color) / 0.04);
+  }
+  .shadow-ink-md {
+    box-shadow: 0 4px 12px rgb(var(--shadow-color) / 0.08), 0 2px 4px rgb(var(--shadow-color) / 0.04);
+  }
+  .shadow-ink-lg {
+    box-shadow: 0 16px 40px rgb(var(--shadow-color) / 0.14), 0 4px 12px rgb(var(--shadow-color) / 0.06);
+  }
+
+  .tabular-figures {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Feedback táctil compartido — botones, filas clicables, tiles. */
+  .press-feedback {
+    transition: transform 160ms var(--ease-out-strong);
+  }
+  .press-feedback:active {
+    transform: scale(0.97);
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(4px);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+  }
+
+  @keyframes stagger-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 180ms var(--ease-out-strong) both;
+  }
+  .animate-scale-in {
+    animation: scale-in 180ms var(--ease-out-strong) both;
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 220ms var(--ease-out-strong) both;
+  }
+  .animate-stagger-in {
+    animation: stagger-in 320ms var(--ease-out-strong) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

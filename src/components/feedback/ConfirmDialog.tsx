@@ -10,6 +10,8 @@
  */
 
 import { useEffect, useId, useRef } from "react";
+import { motion } from "motion/react";
+import { Button } from "@/components/ui/Button";
 
 export type ConfirmDialogProps = {
   title: string;
@@ -44,10 +46,13 @@ export function ConfirmDialog({
 
   return (
     <>
-      <div
+      <motion.div
         className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
         aria-hidden="true"
         onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18 }}
       />
       <div
         role="alertdialog"
@@ -79,7 +84,12 @@ export function ConfirmDialog({
           }
         }}
       >
-        <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
+        <motion.div
+          className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-ink-lg"
+          initial={{ opacity: 0, scale: 0.95, y: 4 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+        >
           <div className="px-6 pt-6 pb-4">
             <h2 id={titleId} className="text-base font-semibold text-slate-900 mb-2">
               {title}
@@ -94,28 +104,28 @@ export function ConfirmDialog({
             )}
           </div>
           <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
               disabled={pending}
-              className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+              className="flex-1"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant={tone === "danger" ? "destructive" : "accent"}
               onClick={onConfirm}
               disabled={pending}
-              className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 transition-colors ${
-                tone === "danger"
-                  ? "bg-red-700 hover:bg-red-800 focus:ring-red-500"
-                  : "bg-accent-700 hover:bg-accent-800 focus:ring-accent-500"
-              }`}
+              loading={pending}
+              loadingText="Aplicando…"
+              className="flex-1"
             >
-              {pending ? "Aplicando…" : confirmLabel}
-            </button>
+              {confirmLabel}
+            </Button>
           </div>
-        </div>
+        </motion.div>
       </div>
     </>
   );

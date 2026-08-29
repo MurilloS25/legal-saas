@@ -3,19 +3,19 @@
 /**
  * Shell del panel: barra de navegación + contenido.
  *
- * El sidebar usa un azul tinta propio (`ink-*`) distinto del blanco del
- * resto de la app, con un único acento (`accent-*`) — una variante más
- * clara del mismo azul — como hilo conductor entre el sidebar y el
- * contenido. No hay teal ni verde brillante en ningún estado decorativo;
- * verde/ámbar/rojo quedan reservados para estados semánticos reales.
- *
- * Colapsable en escritorio (icon rail, se recuerda en localStorage) y
- * deslizante en móvil.
+ * REDISEÑO EXPERIMENTAL (rama experiment/lexcr-visual-refresh). Mantiene la
+ * arquitectura y accesibilidad del shell original (colapso persistido en
+ * localStorage vía useSyncExternalStore, drawer móvil, foco visible) y
+ * renueva el tratamiento visual: paleta "ink"/"accent" más rica (ver
+ * globals.css), indicador de pestaña activa animado con un `layoutId`
+ * compartido (motion), y transiciones de entrada/salida con easing propio
+ * en vez de utilidades CSS genéricas.
  */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState, useSyncExternalStore } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { logoutAction } from "../actions";
 import { ToastProvider } from "@/components/feedback/Toast";
 import {
@@ -35,10 +35,6 @@ import {
 
 const COLLAPSE_STORAGE_KEY = "lexcr.sidebar.collapsed";
 
-// Estado colapsado leído de localStorage a través de `useSyncExternalStore`:
-// evita el patrón "leer en un efecto y hacer setState" (dispara un render en
-// cascada) y, sobre todo, evita un mismatch de hidratación — el snapshot de
-// servidor siempre es "expandido", igual que el primer render del cliente.
 const collapseListeners = new Set<() => void>();
 
 function subscribeCollapsed(callback: () => void) {
@@ -87,11 +83,13 @@ function SidebarNav({
   collapsed,
   showTeamLink,
   onNavigate,
+  layoutIdPrefix,
 }: {
   pathname: string;
   collapsed: boolean;
   showTeamLink: boolean;
   onNavigate?: () => void;
+  layoutIdPrefix: string;
 }) {
   const links = showTeamLink
     ? [...BASE_LINKS, TEAM_LINK, SETTINGS_LINK]
@@ -112,22 +110,30 @@ function SidebarNav({
               collapsed ? "justify-center px-0" : "px-3"
             } ${
               isActive
-                ? "bg-ink-600 text-white"
-                : "text-ink-200/90 hover:bg-ink-700 hover:text-white"
+                ? "text-white"
+                : "text-ink-200/90 hover:bg-ink-700/70 hover:text-white"
             }`}
             aria-current={isActive ? "page" : undefined}
           >
+            {isActive && (
+              <motion.span
+                layoutId={`${layoutIdPrefix}-active-pill`}
+                aria-hidden="true"
+                className="absolute inset-0 rounded-lg bg-ink-600"
+                transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
+              />
+            )}
             <span
               aria-hidden="true"
-              className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-400 transition-opacity ${
+              className={`absolute left-0 top-1/2 z-10 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-400 transition-opacity ${
                 isActive ? "opacity-100" : "opacity-0"
               }`}
             />
             <Icon
-              className={`size-[18px] shrink-0 ${isActive ? "text-accent-400" : "text-ink-400 group-hover:text-ink-200"}`}
+              className={`relative z-10 size-[18px] shrink-0 ${isActive ? "text-accent-400" : "text-ink-400 group-hover:text-ink-200"}`}
             />
             <span
-              className={`whitespace-nowrap transition-all duration-150 ${
+              className={`relative z-10 whitespace-nowrap transition-all duration-150 ${
                 collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
               }`}
             >
@@ -137,7 +143,7 @@ function SidebarNav({
             {collapsed && (
               <span
                 role="tooltip"
-                className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 group-hover:block"
+                className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-ink-lg ring-1 ring-white/10 group-hover:block"
               >
                 {label}
               </span>
@@ -159,6 +165,7 @@ function SidebarInner({
   showTeamLink,
   onNavigate,
   onToggleCollapsed,
+  layoutIdPrefix,
 }: {
   pathname: string;
   collapsed: boolean;
@@ -168,6 +175,7 @@ function SidebarInner({
   onNavigate?: () => void;
   /** Presente solo en el sidebar de escritorio (el móvil no colapsa). */
   onToggleCollapsed?: () => void;
+  layoutIdPrefix: string;
 }) {
   const tooltipId = useId();
   const initials = (userLabel ?? userEmail ?? "?")
@@ -182,27 +190,28 @@ function SidebarInner({
     <div className="flex h-full flex-col text-ink-200">
       {/* Brand + toggle */}
       <div
-        className={`flex shrink-0 items-center gap-2 border-b border-white/10 py-5 ${
+        className={`flex shrink-0 items-center gap-2.5 border-b border-white/10 py-5 ${
           collapsed ? "justify-center px-2" : "justify-between px-5"
         }`}
       >
-        {collapsed ? (
+        <div className={`flex min-w-0 items-center gap-2.5 select-none ${collapsed ? "justify-center" : ""}`}>
           <span
             aria-hidden="true"
-            className="select-none text-sm font-black tracking-tight text-white"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-500 text-[13px] font-bold tracking-tight text-white ring-1 ring-white/15"
           >
             Lx
           </span>
-        ) : (
-          <div className="min-w-0 select-none">
-            <p className="truncate text-[15px] font-bold tracking-tight text-white">
-              LexCR
-            </p>
-            <p className="truncate text-[11px] text-ink-400">
-              Gestión Notarial
-            </p>
-          </div>
-        )}
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold tracking-tight text-white">
+                LexCR
+              </p>
+              <p className="truncate text-[11px] text-ink-400">
+                Gestión Notarial
+              </p>
+            </div>
+          )}
+        </div>
 
         {onToggleCollapsed && (
           <button
@@ -213,12 +222,12 @@ function SidebarInner({
             className="group/toggle relative flex size-7 shrink-0 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink-700 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800"
           >
             <ChevronLeftIcon
-              className={`size-4 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}
+              className={`size-4 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${collapsed ? "rotate-180" : ""}`}
             />
             <span
               id={tooltipId}
               role="tooltip"
-              className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg ring-1 ring-white/10 transition-opacity group-hover/toggle:opacity-100 group-focus-visible/toggle:opacity-100"
+              className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-ink-lg ring-1 ring-white/10 transition-opacity group-hover/toggle:opacity-100 group-focus-visible/toggle:opacity-100"
             >
               {collapsed ? "Expandir menú" : "Contraer menú"}
             </span>
@@ -236,6 +245,7 @@ function SidebarInner({
           collapsed={collapsed}
           showTeamLink={showTeamLink}
           onNavigate={onNavigate}
+          layoutIdPrefix={layoutIdPrefix}
         />
       </nav>
 
@@ -264,7 +274,7 @@ function SidebarInner({
           {collapsed && (
             <span
               role="tooltip"
-              className="pointer-events-none absolute left-full ml-3 hidden max-w-[12rem] truncate rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 group-hover/profile:block"
+              className="pointer-events-none absolute left-full ml-3 hidden max-w-[12rem] truncate rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-ink-lg ring-1 ring-white/10 group-hover/profile:block"
             >
               {userLabel ?? userEmail ?? "Sin perfil"}
             </span>
@@ -305,6 +315,7 @@ export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props
     getCollapsedSnapshot,
     getCollapsedServerSnapshot,
   );
+  const shouldReduceMotion = useReducedMotion();
 
   function toggleCollapsed() {
     setCollapsedStorage(!collapsed);
@@ -315,7 +326,7 @@ export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props
       {/* Desktop sidebar — sticky, colapsable */}
       <aside
         style={{ width: collapsed ? 80 : 260 }}
-        className="relative hidden min-w-0 shrink-0 flex-col overflow-hidden bg-ink-800 transition-[width] duration-200 ease-in-out lg:sticky lg:top-0 lg:flex lg:h-screen"
+        className="relative hidden min-w-0 shrink-0 flex-col overflow-hidden bg-ink-800 transition-[width] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] lg:sticky lg:top-0 lg:flex lg:h-screen"
       >
         <SidebarInner
           pathname={pathname}
@@ -324,44 +335,54 @@ export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props
           userEmail={userEmail}
           showTeamLink={showTeamLink}
           onToggleCollapsed={toggleCollapsed}
+          layoutIdPrefix="desktop"
         />
       </aside>
 
-      {/* Mobile: backdrop overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-ink-900/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Mobile: slide-in sidebar */}
-      <aside
-        id="mobile-sidebar"
-        className={`fixed inset-y-0 left-0 z-30 w-72 bg-ink-800 transition-transform duration-200 ease-in-out lg:hidden ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-        aria-label="Menú de navegación"
-      >
-        <div className="absolute top-3 right-3 z-10">
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="rounded-md p-1.5 text-ink-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
-            aria-label="Cerrar menú de navegación"
-          >
-            <XIcon className="size-5" />
-          </button>
-        </div>
-        <SidebarInner
-          pathname={pathname}
-          collapsed={false}
-          userLabel={userLabel}
-          userEmail={userEmail}
-          showTeamLink={showTeamLink}
-          onNavigate={() => setSidebarOpen(false)}
-        />
-      </aside>
+      {/* Mobile: backdrop overlay + slide-in sidebar */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-20 bg-ink-900/50 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            />
+            <motion.aside
+              id="mobile-sidebar"
+              className="fixed inset-y-0 left-0 z-30 w-72 bg-ink-800 lg:hidden"
+              aria-label="Menú de navegación"
+              initial={{ x: shouldReduceMotion ? 0 : "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: shouldReduceMotion ? 0 : "-100%" }}
+              transition={{ type: "spring", duration: 0.4, bounce: 0.1 }}
+            >
+              <div className="absolute top-3 right-3 z-10">
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="rounded-md p-1.5 text-ink-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
+                  aria-label="Cerrar menú de navegación"
+                >
+                  <XIcon className="size-5" />
+                </button>
+              </div>
+              <SidebarInner
+                pathname={pathname}
+                collapsed={false}
+                userLabel={userLabel}
+                userEmail={userEmail}
+                showTeamLink={showTeamLink}
+                onNavigate={() => setSidebarOpen(false)}
+                layoutIdPrefix="mobile"
+              />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main area */}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -376,7 +397,7 @@ export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props
           >
             <MenuIcon className="size-5" />
           </button>
-          <span className="select-none text-base font-bold text-slate-900">
+          <span className="select-none text-base font-semibold text-slate-900">
             LexCR
           </span>
         </header>

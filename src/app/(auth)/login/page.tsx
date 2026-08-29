@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction, type LoginState } from "./actions";
+import { Button } from "@/components/ui/Button";
 
 const initialState: LoginState = {};
 
@@ -14,7 +15,7 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="bg-white rounded-2xl border border-slate-200 px-8 py-10 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 px-8 py-10 shadow-ink-md">
         <div className="mb-7">
           <h1 className="text-xl font-semibold text-slate-900">
             Iniciar sesión
@@ -104,13 +105,16 @@ export default function LoginPage() {
             )}
           </div>
 
-          <button
+          <Button
             type="submit"
-            disabled={pending}
-            className="w-full rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            variant="accent"
+            size="lg"
+            loading={pending}
+            loadingText="Ingresando…"
+            className="w-full"
           >
-            {pending ? "Ingresando…" : "Ingresar"}
-          </button>
+            Ingresar
+          </Button>
         </form>
       </div>
     </div>

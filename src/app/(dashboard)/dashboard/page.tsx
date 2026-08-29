@@ -83,7 +83,12 @@ const cardIconChipClass =
   "flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600";
 
 const cardClass =
-  "group flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2";
+  "press-feedback group flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-ink-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-ink-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2";
+
+/** Cascada de entrada para las cuadrículas de la portada — CSS puro (server component, sin JS de motion). */
+function stagger(index: number): React.CSSProperties {
+  return { animationDelay: `${index * 40}ms` };
+}
 
 // ------------------------------------------------------------------ quick actions
 
@@ -182,18 +187,18 @@ export default async function DashboardPage() {
   return (
     <PageContainer>
       {/* ---------- header ---------- */}
-      <div className="mb-8">
+      <div className="mb-8 animate-fade-in">
         <p className="text-xs font-semibold uppercase tracking-wider text-accent-700">
           {todayLabel(now)}
         </p>
-        <h1 className="mt-1 text-[26px] font-semibold leading-tight text-slate-900">
+        <h1 className="mt-1 text-[28px] font-semibold tracking-tight leading-tight text-slate-900">
           {greeting(now)}
           {firstName ? `, ${firstName}` : ""}.
         </h1>
       </div>
 
       {!isConfigured && canManageSettings && (
-        <div className="mb-8 rounded-xl border border-accent-200 bg-accent-50 px-6 py-5">
+        <div className="mb-8 animate-fade-in rounded-xl border border-accent-200 bg-accent-50 px-6 py-5">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent-700">
             Primer paso
           </p>
@@ -216,11 +221,12 @@ export default async function DashboardPage() {
       {/* ---------- quick actions ---------- */}
       {visibleQuickActions.length > 0 && (
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {visibleQuickActions.map(({ label, href, Icon }) => (
+        {visibleQuickActions.map(({ label, href, Icon }, index) => (
           <Link
             key={href}
             href={href}
-            className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:bg-accent-50/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+            style={stagger(index)}
+            className="press-feedback group flex animate-stagger-in items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-ink-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-accent-200 hover:bg-accent-50/40 hover:shadow-ink-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
           >
             <span className={cardIconChipClass}>
               <Icon className="size-[18px]" />
@@ -239,7 +245,8 @@ export default async function DashboardPage() {
         <Link
           href="/dashboard/receivables"
           aria-label={`Cuentas por cobrar${overdueCount > 0 ? `, ${overdueCount} vencida${plural(overdueCount, "", "s")}` : ""}`}
-          className={`${cardClass} lg:col-span-2`}
+          style={stagger(0)}
+          className={`${cardClass} animate-stagger-in lg:col-span-2`}
         >
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -265,7 +272,7 @@ export default async function DashboardPage() {
             <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
               {receivablesSummary.map((t) => (
                 <div key={t.currency}>
-                  <p className="text-2xl font-semibold tabular-nums text-slate-900">
+                  <p className="font-mono text-2xl font-semibold tabular-nums text-slate-900">
                     {formatMoney(t.balance, t.currency)}
                   </p>
                   <p className="text-xs text-slate-500">
@@ -285,7 +292,8 @@ export default async function DashboardPage() {
         {/* Índice notarial — quincena actual */}
         <Link
           href="/dashboard/notarial-index"
-          className={cardClass}
+          style={stagger(1)}
+          className={`${cardClass} animate-stagger-in`}
         >
           <span className={cardIconChipClass}>
             <BookmarkIcon className="size-[18px]" />
@@ -309,7 +317,11 @@ export default async function DashboardPage() {
         </Link>
 
         {/* Clientes */}
-        <Link href="/dashboard/clients" className={cardClass}>
+        <Link
+          href="/dashboard/clients"
+          style={stagger(2)}
+          className={`${cardClass} animate-stagger-in`}
+        >
           <span className={cardIconChipClass}>
             <UsersIcon className="size-[18px]" />
           </span>
@@ -323,7 +335,11 @@ export default async function DashboardPage() {
         </Link>
 
         {/* Machotes */}
-        <Link href="/dashboard/templates" className={cardClass}>
+        <Link
+          href="/dashboard/templates"
+          style={stagger(3)}
+          className={`${cardClass} animate-stagger-in`}
+        >
           <span className={cardIconChipClass}>
             <StackIcon className="size-[18px]" />
           </span>
@@ -338,7 +354,11 @@ export default async function DashboardPage() {
         </Link>
 
         {/* Escrituras */}
-        <Link href="/dashboard/documents" className={cardClass}>
+        <Link
+          href="/dashboard/documents"
+          style={stagger(4)}
+          className={`${cardClass} animate-stagger-in`}
+        >
           <span className={cardIconChipClass}>
             <ScrollIcon className="size-[18px]" />
           </span>
@@ -358,7 +378,7 @@ export default async function DashboardPage() {
         {/* Needs attention */}
         <section
           aria-labelledby="attention-heading"
-          className="rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-1"
+          className="animate-fade-in rounded-xl border border-slate-200 bg-white shadow-ink-sm lg:col-span-1"
         >
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 id="attention-heading" className="text-sm font-semibold text-slate-900">
@@ -387,7 +407,10 @@ export default async function DashboardPage() {
                           {r.concept}
                         </p>
                         <p className="truncate text-xs text-slate-500">
-                          {r.client_name} · {formatMoney(r.balance_due, r.currency)}
+                          {r.client_name} ·{" "}
+                          <span className="font-mono tabular-nums">
+                            {formatMoney(r.balance_due, r.currency)}
+                          </span>
                         </p>
                       </div>
                       <span
@@ -420,7 +443,7 @@ export default async function DashboardPage() {
         {/* Recent escrituras */}
         <section
           aria-labelledby="recent-heading"
-          className="rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2"
+          className="animate-fade-in rounded-xl border border-slate-200 bg-white shadow-ink-sm lg:col-span-2"
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 id="recent-heading" className="text-sm font-semibold text-slate-900">
