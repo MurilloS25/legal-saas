@@ -28,9 +28,18 @@ const requiredMark = (
 
 // ------------------------------------------------------------------ props
 
-type Props =
+type Props = (
   | { mode: "create" }
-  | { mode: "edit"; client: ClientRow; canWrite: boolean };
+  | { mode: "edit"; client: ClientRow; canWrite: boolean }
+) & {
+  /**
+   * Cuando el formulario vive dentro del panel de detalle (list+detail),
+   * "Cancelar" cierra la selección en vez de navegar — evita perder la
+   * lista visible al lado. Si no se provee, cae de vuelta al comportamiento
+   * histórico de navegar a `/dashboard/clients` (fallback sin JS/contexto).
+   */
+  onCancel?: () => void;
+};
 
 const initialState: ClientState = {};
 
@@ -319,12 +328,22 @@ export function ClientForm(props: Props) {
 
         {/* ---- Buttons ---- */}
         <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
-          <Link
-            href="/dashboard/clients"
-            className="press-feedback inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
-          >
-            Cancelar
-          </Link>
+          {props.onCancel ? (
+            <button
+              type="button"
+              onClick={props.onCancel}
+              className="press-feedback inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+            >
+              Cancelar
+            </button>
+          ) : (
+            <Link
+              href="/dashboard/clients"
+              className="press-feedback inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+            >
+              Cancelar
+            </Link>
+          )}
           {canWrite && (
             <Button
               type="submit"

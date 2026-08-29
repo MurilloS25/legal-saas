@@ -51,6 +51,8 @@ export default async function ClientsPage({ searchParams }: Props) {
         pageSize={CLIENTS_PAGE_SIZE}
         pageHref={pageHref}
         canWrite={hasPermission(role, "clients.write")}
+        role={role}
+        initialSelection={null}
       />
     </>
   );

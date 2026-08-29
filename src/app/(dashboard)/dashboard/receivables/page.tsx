@@ -5,7 +5,10 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { WalletIcon } from "@/app/(dashboard)/_components/icons";
-import { listReceivablesWorkspace } from "@/features/receivables/server";
+import {
+  getReceivablesSummary,
+  listReceivablesWorkspace,
+} from "@/features/receivables/server";
 import { listClients } from "@/features/clients/server";
 import {
   formatMoney,
@@ -49,9 +52,14 @@ export default async function ReceivablesPage({ searchParams }: Props) {
   const canWrite = hasPermission(role, "receivables.manage");
   const query = parseReceivablesQuery(await searchParams);
 
-  const [page, clients] = await Promise.all([
+  const [page, clients, overdueTotals] = await Promise.all([
     listReceivablesWorkspace(query),
     listClients(),
+    // Mismos filtros activos (cliente, moneda, fechas, búsqueda), pero
+    // forzando estado "overdue": da un conteo/saldo vencido preciso a nivel
+    // global (no solo de la página actual), independiente de la paginación,
+    // para la señal de alerta del encabezado.
+    getReceivablesSummary({ ...query, status: "overdue" }),
   ]);
 
   if (page.totalCount > 0 && query.page > page.pageCount) {
@@ -102,54 +110,80 @@ export default async function ReceivablesPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Totales por moneda (sobre todos los resultados filtrados) — el
-          saldo pendiente es la cifra jerárquicamente dominante: es la que
-          más le importa a un notario al abrir esta pantalla. */}
+      {/* Totales por moneda (sobre todos los resultados filtrados) — el saldo
+          pendiente es la cifra jerárquicamente dominante: es lo primero que
+          un notario necesita ver al abrir esta pantalla ("¿cuánto me deben,
+          en qué moneda?"). El conteo de cuentas vencidas se muestra como
+          señal de alerta real junto al saldo, no como un badge que hay que
+          leer fila por fila más abajo. */}
       {page.totals.length > 0 && (
         <section
           aria-label="Totales por moneda"
           className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
-          {page.totals.map((t) => (
-            <Card key={t.currency} padding="none" className="overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
-                    <WalletIcon className="size-4" />
+          {page.totals.map((t) => {
+            const overdue = overdueTotals.find((o) => o.currency === t.currency);
+            return (
+              <Card key={t.currency} padding="none" className="overflow-hidden">
+                <div className="flex items-center justify-between px-5 pt-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+                      <WalletIcon className="size-4" />
+                    </div>
+                    <p className="text-sm font-semibold text-ink-900">
+                      {t.currency === "CRC" ? "Colones" : "Dólares"}{" "}
+                      <span className="font-mono text-xs font-normal text-slate-400">
+                        ({t.currency})
+                      </span>
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-ink-900">
-                    {t.currency === "CRC" ? "Colones" : "Dólares"}{" "}
-                    <span className="font-mono text-xs font-normal text-slate-400">
-                      ({t.currency})
-                    </span>
-                  </p>
+                  <span className="text-xs text-slate-500">
+                    {t.count === 1 ? "1 cuenta" : `${t.count} cuentas`}
+                  </span>
                 </div>
-                <span className="text-xs text-slate-500">
-                  {t.count === 1 ? "1 cuenta" : `${t.count} cuentas`}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 px-5 py-4">
-                <div>
-                  <dt className="text-xs text-slate-500">Total</dt>
-                  <dd className="mt-0.5 font-mono text-sm tabular-nums text-slate-700">
-                    {formatMoney(t.total, t.currency)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Pagado</dt>
-                  <dd className="mt-0.5 font-mono text-sm tabular-nums text-emerald-700">
-                    {formatMoney(t.paid, t.currency)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Saldo</dt>
-                  <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums text-ink-900">
+
+                {/* Saldo pendiente: figura hero de la card. */}
+                <div className="px-5 pt-3 pb-4">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Saldo pendiente
+                  </dt>
+                  <dd className="mt-1 font-mono text-3xl font-semibold tabular-nums leading-none text-ink-900 sm:text-4xl">
                     {formatMoney(t.balance, t.currency)}
                   </dd>
+
+                  {overdue && overdue.count > 0 && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5">
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 rounded-full bg-red-500"
+                      />
+                      <span className="text-xs font-semibold text-red-700">
+                        {overdue.count === 1
+                          ? "1 cuenta vencida"
+                          : `${overdue.count} cuentas vencidas`}{" "}
+                        · {formatMoney(overdue.balance, t.currency)}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </Card>
-          ))}
+
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
+                  <div>
+                    <dt className="text-xs text-slate-500">Total</dt>
+                    <dd className="mt-0.5 font-mono text-sm tabular-nums text-slate-700">
+                      {formatMoney(t.total, t.currency)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">Pagado</dt>
+                    <dd className="mt-0.5 font-mono text-sm tabular-nums text-emerald-700">
+                      {formatMoney(t.paid, t.currency)}
+                    </dd>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </section>
       )}
 

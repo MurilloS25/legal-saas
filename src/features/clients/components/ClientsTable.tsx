@@ -7,6 +7,10 @@ import { createClientsColumns } from "./clients-columns";
 
 type Props = {
   rows: ClientRow[];
+  /** Selecciona un cliente para el panel de detalle (list+detail). */
+  onSelect?: (id: string) => void;
+  /** Id del cliente actualmente abierto en el panel, para resaltar la fila. */
+  selectedId?: string;
 };
 
 // Columna secundaria: se oculta en viewports angostos para evitar
@@ -15,10 +19,10 @@ const RESPONSIVE_HIDDEN: Record<string, string> = {
   occupation: "hidden sm:table-cell",
 };
 
-export function ClientsTable({ rows }: Props) {
+export function ClientsTable({ rows, onSelect, selectedId }: Props) {
   "use no memo";
 
-  const columns = useMemo(() => createClientsColumns(), []);
+  const columns = useMemo(() => createClientsColumns(onSelect), [onSelect]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -54,7 +58,10 @@ export function ClientsTable({ rows }: Props) {
           {table.getRowModel().rows.map((row, index) => (
             <tr
               key={row.id}
-              className="animate-stagger-in transition-colors hover:bg-accent-50/40"
+              aria-current={row.original.id === selectedId ? "true" : undefined}
+              className={`animate-stagger-in transition-colors hover:bg-accent-50/40 ${
+                row.original.id === selectedId ? "bg-accent-50/70" : ""
+              }`}
               style={{ animationDelay: `${Math.min(index, 12) * 25}ms` }}
             >
               {row.getVisibleCells().map((cell) => (

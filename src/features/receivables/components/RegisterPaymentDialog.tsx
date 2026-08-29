@@ -1,7 +1,12 @@
 "use client";
 
 /**
- * Diálogo modal para registrar un pago.
+ * Panel lateral (slide-over) para registrar un pago. Antes era un diálogo
+ * modal centrado; se convirtió en panel deslizante desde la derecha porque
+ * registrar un pago es una acción que se repite muchas veces, sobre
+ * distintas cuentas, en una misma sesión — un panel de herramienta persiste
+ * mejor que una interrupción centrada. El formulario, su validación y la
+ * llamada a la server action no cambiaron: solo el contenedor visual.
  *
  * Modo estándar (sin `embedded`): usa `registerPaymentAction`, que redirige
  * a la propia página al terminar — un envío exitoso navega de vuelta a la
@@ -29,7 +34,7 @@ import { formatMoney } from "../model/status";
 import { PAYMENT_METHODS, paymentMethodLabel } from "../model/payments";
 import { FieldError } from "@/components/forms/FieldError";
 import { Button } from "@/components/ui/Button";
-import { WalletIcon } from "@/app/(dashboard)/_components/icons";
+import { WalletIcon, XIcon } from "@/app/(dashboard)/_components/icons";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50 transition-colors";
@@ -101,24 +106,24 @@ export function RegisterPaymentDialog(props: Props) {
 
       <AnimatePresence>
         {open && (
-          <>
+          <motion.div
+            className="fixed inset-0 z-50 flex justify-end bg-ink-950/45"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) close();
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
             <motion.div
-              key="backdrop"
-              className="fixed inset-0 z-40 bg-ink-950/50 backdrop-blur-sm"
-              aria-hidden="true"
-              onClick={close}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            />
-            <div
+              key="panel"
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
               ref={dialogRef}
               tabIndex={-1}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              className="flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-ink-lg focus:outline-none"
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   close();
@@ -146,43 +151,37 @@ export function RegisterPaymentDialog(props: Props) {
                   first.focus();
                 }
               }}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24 }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 16 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
             >
-              <motion.div
-                key="panel"
-                className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-ink-lg"
-                initial={
-                  reduceMotion
-                    ? { opacity: 0 }
-                    : { opacity: 0, scale: 0.95, y: 8 }
-                }
-                animate={
-                  reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }
-                }
-                exit={
-                  reduceMotion
-                    ? { opacity: 0 }
-                    : { opacity: 0, scale: 0.97, y: 4 }
-                }
-                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-              >
-                <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-slate-100">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
-                    <WalletIcon className="size-4" />
-                  </div>
-                  <div>
-                    <h2
-                      id={titleId}
-                      className="text-base font-semibold text-ink-900"
-                    >
-                      Registrar pago
-                    </h2>
-                    <p className="font-mono text-xs tabular-nums text-slate-500 mt-0.5">
-                      Saldo pendiente: {formatMoney(balanceDue, currency)}
-                    </p>
-                  </div>
+              <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-6 py-5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+                  <WalletIcon className="size-4" />
                 </div>
+                <div className="min-w-0 flex-1">
+                  <h2
+                    id={titleId}
+                    className="text-base font-semibold text-ink-900"
+                  >
+                    Registrar pago
+                  </h2>
+                  <p className="font-mono text-xs tabular-nums text-slate-500 mt-0.5">
+                    Saldo pendiente: {formatMoney(balanceDue, currency)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={close}
+                  aria-label="Cerrar panel de pago"
+                  className="press-feedback flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+                >
+                  <XIcon className="size-4" />
+                </button>
+              </div>
 
-                <form action={formAction} noValidate className="px-6 py-4">
+              <form action={formAction} noValidate className="px-6 py-4">
                   {state.message && (
                     <div
                       role="alert"
@@ -295,9 +294,8 @@ export function RegisterPaymentDialog(props: Props) {
                     </Button>
                   </div>
                 </form>
-              </motion.div>
-            </div>
-          </>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>

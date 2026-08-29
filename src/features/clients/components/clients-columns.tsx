@@ -31,7 +31,34 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[code % AVATAR_COLORS.length];
 }
 
-export function createClientsColumns(): ColumnDef<ClientRow>[] {
+/**
+ * Intercepta un click "normal" (botón izquierdo, sin modificadores) para
+ * resolverlo como selección en el panel de detalle en vez de una navegación
+ * completa — el `href` real se conserva para abrir en pestaña nueva,
+ * clic derecho, o cuando JS no corrió la selección a tiempo.
+ */
+function handleSelectClick(
+  event: React.MouseEvent<HTMLAnchorElement>,
+  onSelect: (id: string) => void,
+  id: string,
+) {
+  if (
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+  event.preventDefault();
+  onSelect(id);
+}
+
+export function createClientsColumns(
+  onSelect: (id: string) => void = () => {},
+): ColumnDef<ClientRow>[] {
   return [
     {
       id: "full_name",
@@ -44,6 +71,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
         return (
           <Link
             href={`/dashboard/clients/${client.id}`}
+            onClick={(event) => handleSelectClick(event, onSelect, client.id)}
             className="group flex min-w-0 items-center gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <div
@@ -87,6 +115,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
           <div className="flex items-center justify-end">
             <Link
               href={`/dashboard/clients/${client.id}`}
+              onClick={(event) => handleSelectClick(event, onSelect, client.id)}
               aria-label={`Ver detalle de ${client.full_name}`}
               className="press-feedback flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-accent-50 hover:text-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >

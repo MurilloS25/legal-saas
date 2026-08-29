@@ -23,9 +23,18 @@ type Props = {
   query: Pick<NotarialQuery, "page">;
   pageCount: number;
   total: number;
+  selectedId?: string | null;
+  onSelectRow?: (row: NotarialIndexRow) => void;
 };
 
-export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
+export function NotarialIndexTable({
+  rows,
+  query,
+  pageCount,
+  total,
+  selectedId = null,
+  onSelectRow,
+}: Props) {
   "use no memo";
 
   const columns = useMemo(() => createNotarialIndexColumns(), []);
@@ -137,10 +146,29 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
             ))}
           </thead>
           <tbody className="divide-y divide-ink-100">
-            {table.getRowModel().rows.map((row) => (
+            {table.getRowModel().rows.map((row) => {
+              const isSelected = selectedId === row.original.document_id;
+              return (
               <tr
                 key={row.original.document_id}
-                className="transition-colors hover:bg-accent-50/40"
+                aria-selected={onSelectRow ? isSelected : undefined}
+                tabIndex={onSelectRow ? 0 : undefined}
+                onClick={onSelectRow ? () => onSelectRow(row.original) : undefined}
+                onKeyDown={
+                  onSelectRow
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectRow(row.original);
+                        }
+                      }
+                    : undefined
+                }
+                className={`transition-colors ${
+                  onSelectRow ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500" : ""
+                } ${
+                  isSelected ? "bg-accent-50/60 hover:bg-accent-50/60" : "hover:bg-accent-50/40"
+                }`}
               >
                 {row.getVisibleCells().map((cell) => (
                   <td
@@ -167,7 +195,8 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
                   </td>
                 ))}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

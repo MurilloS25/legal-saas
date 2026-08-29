@@ -71,7 +71,7 @@ function EmptyValue() {
 // filtro "Completitud" del toolbar es un concepto aparte (calidad del
 // dato) y sigue intacto — is_complete/has_metadata no cambian de
 // significado, solo dejan de ser lo único que se muestra por fila.
-function confirmationTone(
+export function notarialRowConfirmationTone(
   row: NotarialIndexRow,
 ): { label: string; tone: "success" | "warning" | "accent" | "neutral" } {
   const state = notarialConfirmationState(
@@ -163,7 +163,7 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
       header: NOTARIAL_COLUMN_LABELS.completeness,
       enableSorting: false,
       cell: ({ row }) => {
-        const badge = confirmationTone(row.original);
+        const badge = notarialRowConfirmationTone(row.original);
         return <Badge tone={badge.tone}>{badge.label}</Badge>;
       },
     },
@@ -175,9 +175,10 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
       cell: ({ row }) => (
         <Link
           href={`/dashboard/documents/${row.original.document_id}`}
+          onClick={(event) => event.stopPropagation()}
           className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 transition-colors hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
         >
-          Ver escritura
+          Abrir escritura
         </Link>
       ),
     },

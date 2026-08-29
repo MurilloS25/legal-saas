@@ -1,4 +1,3 @@
-import { PageContainer } from "@/components/layout/PageContainer";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -51,9 +50,24 @@ type Props = {
   documents: ClientDocumentRow[];
   receivables: ReceivableEntry[];
   role: WorkspaceRole;
+  /**
+   * Afordancia "Volver a clientes", visible solo en viewports angostos
+   * (donde lista y detalle no caben lado a lado — ver `ClientsWorkspace`).
+   * En desktop la lista ya está visible al lado, así que no hace falta.
+   */
+  onBack?: () => void;
+  /** Ver `ClientForm` — cierra la selección del panel en vez de navegar. */
+  onCancelEdit?: () => void;
 };
 
-export function ClientDetail({ client, documents, receivables, role }: Props) {
+export function ClientDetail({
+  client,
+  documents,
+  receivables,
+  role,
+  onBack,
+  onCancelEdit,
+}: Props) {
   const initials = getInitials(client.full_name);
   const avatarColor = getAvatarColor(client.full_name);
   const canWrite = hasPermission(role, "clients.write");
@@ -61,12 +75,13 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
   const canManageReceivables = hasPermission(role, "receivables.manage");
 
   return (
-    <PageContainer>
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-6">
-        <Link
-          href="/dashboard/clients"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-accent-700 focus:outline-none focus-visible:underline"
+    <div>
+      {/* Volver a la lista — solo mobile/tablet angosto, ver ClientsWorkspace */}
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-accent-700 focus:outline-none focus-visible:underline lg:hidden"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -83,8 +98,8 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Clientes
-        </Link>
-      </nav>
+        </button>
+      )}
 
       {/* Client header with avatar + quick facts */}
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4 animate-fade-in">
@@ -122,7 +137,12 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
 
       {/* Edit form (delete icon lives in the card header) — solo lectura si
           el rol no tiene clients.write (ver ClientForm) */}
-      <ClientForm mode="edit" client={client} canWrite={canWrite} />
+      <ClientForm
+        mode="edit"
+        client={client}
+        canWrite={canWrite}
+        onCancel={onCancelEdit}
+      />
 
       {/* Escrituras asociadas */}
       <section aria-labelledby="client-documents-heading" className="mt-8">
@@ -154,6 +174,6 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
           emptyText="Este cliente todavía no tiene cuentas por cobrar."
         />
       </section>
-    </PageContainer>
+    </div>
   );
 }

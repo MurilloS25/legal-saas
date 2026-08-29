@@ -3,23 +3,41 @@
 /**
  * Workspace unificado de machotes.
  *
- * Crear y editar usan exactamente esta interfaz, incluyendo el stepper: no
- * existe un flujo alternativo de una sola página para el modo creación — el
- * usuario entra al flujo guiado (Información → Documento → Variables →
- * Índice → Publicar) desde el momento en que presiona "Nuevo machote". En
- * modo create todo permanece local hasta el primer guardado (machote +
- * variables se crean en un solo submit, que redirige a la URL de edición);
- * en modo edit se muestra además el estado de cambios sin guardar. No hay
- * autoguardado.
+ * REDISEÑO ESTRUCTURAL (iteración 3): el stepper de pantalla completa
+ * desapareció. El editor de "Documento" (Tiptap + vista previa) es ahora el
+ * lienzo persistente del workspace — nunca se oculta, sin importar qué
+ * sección tenga seleccionada el usuario — y las otras cuatro secciones
+ * (Información, Variables, Índice, Publicar) son un panel lateral
+ * contextual que muestra una sola a la vez, navegable desde
+ * `TemplateSectionRail`. Crear y editar comparten exactamente este mismo
+ * workspace: no existe un flujo alternativo de una sola página para el modo
+ * creación. En modo create todo permanece local hasta el primer guardado
+ * (machote + variables se crean en un solo submit, que redirige a la URL de
+ * edición); en modo edit se muestra además el estado de cambios sin
+ * guardar. No hay autoguardado.
  *
- * Los cinco pasos permanecen siempre montados — solo se ocultan con CSS —
- * para que cambiar de paso nunca reinicie el editor Tiptap ni descarte datos
+ * `section` sigue existiendo como el mismo estado/máquina de siempre
+ * (`TEMPLATE_STEP_ORDER`, `goToSection`, sincronización de URL,
+ * `savedOnceValid`, etc. — sin cambios) porque sigue gobernando qué panel
+ * lateral se muestra y el orden de "Guardar y continuar"; lo único que
+ * cambió es que ya no controla si el editor se ve o no. Los cinco valores
+ * de sección permanecen siempre montados — solo se ocultan con CSS — para
+ * que cambiar de sección nunca reinicie el editor Tiptap ni descarte datos
  * sin guardar, tanto antes como después del primer guardado. Solo "Índice"
  * está bloqueado antes de que el machote exista (depende de `template_id`);
- * el resto de los pasos opera sobre estado local puro y es igual de
+ * el resto de las secciones opera sobre estado local puro y es igual de
  * funcional en ambos modos. La configuración del índice notarial vive en un
  * `<form>` propio, hermano del formulario de documento/variables, para
- * evitar formularios anidados.
+ * evitar formularios anidados — ver el comentario junto a ese `<div>` más
+ * abajo para cómo se posiciona visualmente en el mismo panel lateral sin
+ * anidarse.
+ *
+ * `mobileSurface` (nuevo, puramente de layout) resuelve el único problema
+ * real que introduce tener lienzo + panel simultáneos: en pantallas
+ * angostas no caben lado a lado. No es parte de la máquina de estados de
+ * `section` — solo decide cuál de los dos (lienzo o panel) ocupa el ancho
+ * completo en mobile; en `xl:` ambos se muestran siempre y esta variable no
+ * tiene efecto.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -46,6 +64,7 @@ import {
   TemplateWorkspaceHeader,
   type TemplateWorkspaceSection,
 } from "./TemplateWorkspaceHeader";
+import { TemplateSectionRail } from "./TemplateSectionRail";
 import { useTemplatePreview } from "../hooks/use-template-preview";
 import {
   TemplateIndexConfigurationSection,
@@ -148,6 +167,14 @@ export function TemplateWorkspace(props: Props) {
   );
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [aiHelpOpen, setAiHelpOpen] = useState(false);
+  // Puramente de layout mobile (ver comentario de módulo) — no participa en
+  // la máquina de estados de `section`. Arranca en "canvas" porque el
+  // editor es el lienzo central del workspace incluso en mobile; el panel
+  // lateral se vuelve la superficie activa solo cuando el usuario elige una
+  // sección del riel distinta de "Documento".
+  const [mobileSurface, setMobileSurface] = useState<"canvas" | "panel">(
+    "canvas",
+  );
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<TemplateEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -201,6 +228,21 @@ export function TemplateWorkspace(props: Props) {
       window.history.pushState(null, "", url);
     },
     [],
+  );
+
+  /**
+   * Handler del riel de navegación — envuelve `goToSection` (sin cambiarla)
+   * y además decide, solo en mobile, cuál superficie mostrar: "Documento"
+   * enfoca el lienzo; cualquier otro ítem enfoca el panel lateral con esa
+   * sección. En `xl:` `mobileSurface` no tiene efecto visual (ambas
+   * superficies ya están visibles).
+   */
+  const goToSectionFromRail = useCallback(
+    (next: TemplateWorkspaceSection) => {
+      goToSection(next);
+      setMobileSurface(next === "document" ? "canvas" : "panel");
+    },
+    [goToSection],
   );
 
   const action = isEdit
@@ -398,256 +440,387 @@ export function TemplateWorkspace(props: Props) {
       ? "Cambios sin guardar"
       : "Guardado";
 
+  // Panel lateral contextual visible en mobile solo cuando el usuario eligió
+  // una sección distinta de "Documento" desde el riel (ver `mobileSurface`
+  // en el comentario de módulo). En `xl:` siempre visible sin importar esto.
+  const panelVisibilityClass =
+    mobileSurface === "panel" ? "block" : "hidden xl:block";
+  const canvasVisibilityClass =
+    mobileSurface === "canvas" ? "block" : "hidden xl:block";
+
   return (
     <div>
       <TemplateWorkspaceHeader
         name={name}
         status={status}
-        section={section}
         statusText={saveStatusText}
-        onSectionChange={goToSection}
-        informationComplete={completedInformation}
-        documentComplete={completedDocument}
-        variablesComplete={completedVariables}
-        indexComplete={completedIndex}
-        publishComplete={completedPublish}
-        indexLocked={indexLocked}
         actions={props.mode === "edit" ? props.headerActions : undefined}
       />
 
-      <form ref={formRef} action={formAction} noValidate>
-        {/* Datos serializados que acompañan al submit. */}
-        <input
-          type="hidden"
-          name="document"
-          value={JSON.stringify(documentJson)}
-        />
-        <input type="hidden" name="variables" value={JSON.stringify(variables)} />
-        {/* Paso activo al momento de guardar — el primer guardado (modo
-            create) lo usa para redirigir a la misma pestaña en vez de
-            reiniciar en "Documento", así la transición create → edit se
-            siente como continuación del mismo stepper. */}
-        <input type="hidden" name="section" value={section} />
-        {isEdit && (
+      {/*
+        REDISEÑO ESTRUCTURAL (iteración 3): grilla de lienzo persistente +
+        panel lateral, en vez del stepper anterior. `<form>` se vuelve
+        `display: contents` (clase `contents`) para que sus hijos participen
+        directamente de esta grilla como si fueran hijos del contenedor —
+        el `<form>` en sí sigue existiendo y sigue siendo el que agrupa los
+        campos que se envían (nada de su semántica cambia), solo deja de
+        ocupar una caja de layout propia. El panel de Índice, que por diseño
+        vive en un `<form>` hermano (ver comentario más abajo), puede así
+        compartir la misma columna visual "panel" sin anidarse dentro de
+        este formulario.
+
+        En mobile (debajo de `xl:`) es una columna simple; el riel decide
+        vía `mobileSurface` si se ve el lienzo o el panel (nunca los dos a
+        la vez, no caben). Desde `xl:` en adelante se activa la grilla de
+        dos columnas y ambas superficies están siempre visibles.
+      */}
+      <div
+        className="flex flex-col gap-6 xl:grid xl:items-start xl:gap-8"
+        style={{
+          gridTemplateColumns: "minmax(0,1fr) min(400px, 34%)",
+          gridTemplateAreas: "'banner banner' 'canvas rail' 'canvas panel' 'actions actions'",
+        }}
+      >
+        <form ref={formRef} action={formAction} noValidate className="contents">
+          {/* Datos serializados que acompañan al submit. */}
           <input
-            ref={expectedUpdatedAtRef}
             type="hidden"
-            name="expected_updated_at"
-            defaultValue={
-              props.mode === "edit" ? props.template.updated_at : ""
-            }
+            name="document"
+            value={JSON.stringify(documentJson)}
           />
-        )}
+          <input type="hidden" name="variables" value={JSON.stringify(variables)} />
+          {/* Sección activa al momento de guardar — el primer guardado (modo
+              create) lo usa para redirigir manteniendo la misma sección del
+              panel lateral, así la transición create → edit se siente como
+              continuación del mismo workspace. */}
+          <input type="hidden" name="section" value={section} />
+          {isEdit && (
+            <input
+              ref={expectedUpdatedAtRef}
+              type="hidden"
+              name="expected_updated_at"
+              defaultValue={
+                props.mode === "edit" ? props.template.updated_at : ""
+              }
+            />
+          )}
 
-        {/* ---- feedback global ---- */}
-        {state.message && (
-          <div
-            role="alert"
-            className="mb-6 animate-fade-in rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
-          >
-            {state.message}
+          {/* ---- feedback global ---- */}
+          <div className="order-1 xl:order-none" style={{ gridArea: "banner" }}>
+            {state.message && (
+              <div
+                role="alert"
+                className="mb-6 animate-fade-in rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+              >
+                {state.message}
+              </div>
+            )}
+            {(state.errors?.document || state.errors?.variables) && (
+              <div
+                role="alert"
+                className="mb-6 animate-fade-in rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+              >
+                {state.errors.document ?? state.errors.variables}
+              </div>
+            )}
           </div>
-        )}
-        {(state.errors?.document || state.errors?.variables) && (
+
+          {/* ================= Documento — lienzo persistente =================
+              A diferencia de las otras cuatro secciones, este `<div>` YA NO
+              se oculta según `section` — es el cambio estructural central de
+              esta iteración. El editor y la vista previa quedan siempre en
+              pantalla sin importar qué sección tenga abierta el panel
+              lateral. Solo `mobileSurface` (puro layout, ver arriba) decide
+              si ocupa toda la pantalla en mobile. */}
           <div
-            role="alert"
-            className="mb-6 animate-fade-in rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+            id="template-panel-document"
+            className={`order-3 min-w-0 xl:order-none ${canvasVisibilityClass}`}
+            style={{ gridArea: "canvas" }}
           >
-            {state.errors.document ?? state.errors.variables}
-          </div>
-        )}
+            <TemplateMobileViewToggle value={mobileView} onChange={setMobileView} />
 
-        {/* ================= Información ================= */}
-        <div
-          id="template-panel-information"
-          role="tabpanel"
-          aria-labelledby="template-tab-information"
-          hidden={section !== "information"}
-        >
-          <TemplateMetadataForm
-            name={name}
-            description={description}
-            status={status}
-            errors={state.errors}
-            disabled={!canWrite}
-            fieldset="info"
-            onNameChange={(value) => {
-              setName(value);
-              markDirty();
-            }}
-            onDescriptionChange={(value) => {
-              setDescription(value);
-              markDirty();
-            }}
-            onStatusChange={(value) => {
-              setStatus(value);
-              markDirty();
-            }}
-          />
-        </div>
-
-        {/* ================= Documento ================= */}
-        <div
-          id="template-panel-document"
-          role="tabpanel"
-          aria-labelledby="template-tab-document"
-          hidden={section !== "document"}
-        >
-          <TemplateMobileViewToggle value={mobileView} onChange={setMobileView} />
-
-          <ResizableSplitPane
-            secondaryTitle="Vista previa"
-            onExpand={() => setPreviewExpanded(true)}
-            primaryClassName={mobileView === "preview" ? "hidden xl:block" : ""}
-            secondaryClassName={mobileView === "edit" ? "hidden xl:block" : ""}
-            primary={
-              <div className="space-y-6">
-                {/* ---- contenido ---- */}
-                <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
-                  <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-ink-100 bg-ink-100/40">
-                    <div>
-                      <h2 className="text-sm font-semibold text-ink-900">
-                        Contenido del machote
-                      </h2>
-                      <p className="text-xs text-ink-400">
-                        Redacta el documento e inserta variables donde va la
-                        información de cada escritura.
-                      </p>
+            <ResizableSplitPane
+              secondaryTitle="Vista previa"
+              onExpand={() => setPreviewExpanded(true)}
+              primaryClassName={mobileView === "preview" ? "hidden xl:block" : ""}
+              secondaryClassName={mobileView === "edit" ? "hidden xl:block" : ""}
+              primary={
+                <div className="space-y-6">
+                  {/* ---- contenido ---- */}
+                  <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+                    <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+                      <div>
+                        <h2 className="text-sm font-semibold text-ink-900">
+                          Contenido del machote
+                        </h2>
+                        <p className="text-xs text-ink-400">
+                          Redacta el documento e inserta variables donde va la
+                          información de cada escritura.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        ref={aiHelpButtonRef}
+                        onClick={() => setAiHelpOpen(true)}
+                        className="press-feedback shrink-0 rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-medium text-ink-600 hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 transition-colors"
+                      >
+                        Ayuda para crear con IA
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      ref={aiHelpButtonRef}
-                      onClick={() => setAiHelpOpen(true)}
-                      className="press-feedback shrink-0 rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-medium text-ink-600 hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 transition-colors"
-                    >
-                      Ayuda para crear con IA
-                    </button>
-                  </div>
-                  <div className="px-6 py-5">
-                    <TemplateEditor
-                      ref={editorRef}
-                      initialDocument={props.initialDocument}
-                      variables={variables}
-                      editable={canWrite}
-                      onDocumentChange={(json) => {
-                        setDocumentJson(json);
-                        markDirty();
-                      }}
-                      onCreateVariable={(variable) => {
-                        setVariables((current) => [...current, variable]);
-                        markDirty();
-                      }}
-                    />
-                  </div>
-                </section>
-              </div>
-            }
-            secondary={<TemplatePreviewPanel model={previewModel} bare />}
-          />
-        </div>
-
-        {/* ================= Variables ================= */}
-        <div
-          id="template-panel-variables"
-          role="tabpanel"
-          aria-labelledby="template-tab-variables"
-          hidden={section !== "variables"}
-        >
-          <TemplateVariablesPanel
-            variables={variables}
-            contentKeys={contentKeys}
-            onChange={handleVariablesChange}
-            onSaveVariable={isEdit ? saveVariableNow : undefined}
-            readOnly={!canWrite}
-          />
-        </div>
-
-        {/* ================= Publicar ================= */}
-        <div
-          id="template-panel-publish"
-          role="tabpanel"
-          aria-labelledby="template-tab-publish"
-          hidden={section !== "publish"}
-        >
-          <div className="space-y-6">
-            <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
-                <h2 className="text-sm font-semibold text-ink-900">
-                  Resumen antes de publicar
-                </h2>
-                <p className="text-xs text-ink-400">
-                  Publicar solo cambia el estado — no exige que las
-                  variables o el Índice Notarial estén completos.
-                </p>
-              </div>
-              <div className="px-6 py-5 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-ink-400">Nombre</span>
-                  <span className="font-medium text-ink-900">
-                    {name || "Sin nombre"}
-                  </span>
+                    <div className="px-6 py-5">
+                      <TemplateEditor
+                        ref={editorRef}
+                        initialDocument={props.initialDocument}
+                        variables={variables}
+                        editable={canWrite}
+                        onDocumentChange={(json) => {
+                          setDocumentJson(json);
+                          markDirty();
+                        }}
+                        onCreateVariable={(variable) => {
+                          setVariables((current) => [...current, variable]);
+                          markDirty();
+                        }}
+                      />
+                    </div>
+                  </section>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-ink-400">Variables configuradas</span>
-                  <span className="font-mono font-medium tabular-nums text-ink-900">
-                    {variables.length - variablesPendingCount} de {variables.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-ink-400">Índice notarial</span>
-                  <span className="font-medium text-ink-900">
-                    {isEdit
-                      ? indexComplete
-                        ? "Completo"
-                        : "Parcial u opcional"
-                      : "Disponible después de guardar"}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
-                <h2 className="text-sm font-semibold text-ink-900">Estado</h2>
-              </div>
-              <div className="px-6 py-5 max-w-xs">
-                <TemplateMetadataForm
-                  name={name}
-                  description={description}
-                  status={status}
-                  errors={state.errors}
-                  disabled={!canWrite}
-                  fieldset="publish"
-                  onNameChange={(value) => {
-                    setName(value);
-                    markDirty();
-                  }}
-                  onDescriptionChange={(value) => {
-                    setDescription(value);
-                    markDirty();
-                  }}
-                  onStatusChange={(value) => {
-                    setStatus(value);
-                    markDirty();
-                  }}
-                />
-              </div>
-            </section>
+              }
+              secondary={<TemplatePreviewPanel model={previewModel} bare />}
+            />
           </div>
-        </div>
 
-        {section !== "notarial" && (
-          <TemplateSaveControls
-            dirty={dirty}
-            pending={pending}
-            saved={!!state.success}
-            isEdit={isEdit}
-            canWrite={canWrite}
-            hasNextStep={nextTemplateSection(section) !== section}
-            onSaveClick={handleSaveAndContinueClick}
-          />
-        )}
-      </form>
+          {/* ================= Riel de navegación — persistente =================
+              A diferencia del panel de contenido, el riel se ve SIEMPRE
+              (también en mobile con el lienzo a pantalla completa): es la
+              única forma de saltar a otra sección o volver al documento en
+              pantallas angostas, así que no puede depender de
+              `mobileSurface`. */}
+          <div className="order-2 xl:order-none" style={{ gridArea: "rail" }}>
+            <TemplateSectionRail
+              section={section}
+              onSectionChange={goToSectionFromRail}
+              informationComplete={completedInformation}
+              documentComplete={completedDocument}
+              variablesComplete={completedVariables}
+              indexComplete={completedIndex}
+              publishComplete={completedPublish}
+              indexLocked={indexLocked}
+            />
+          </div>
+
+          {/* ================= Panel lateral contextual =================
+              Información / Variables / Publicar comparten esta columna
+              visual; cada una sigue usando exactamente la misma condición
+              `hidden={section !== "x"}` que antes, así que solo una es
+              visible a la vez y ninguna se desmonta al cambiar de sección
+              (mismo mecanismo que ya usaba el stepper). "Índice" comparte
+              la misma columna pero vive fuera de este `<form>` — ver más
+              abajo. */}
+          <div
+            className={`order-4 min-w-0 space-y-6 xl:order-none ${panelVisibilityClass}`}
+            style={{ gridArea: "panel" }}
+          >
+            {/* ---- Información ---- */}
+            <div
+              id="template-panel-information"
+              role="tabpanel"
+              aria-labelledby="template-tab-information"
+              hidden={section !== "information"}
+              className="animate-slide-in-right"
+            >
+              <TemplateMetadataForm
+                name={name}
+                description={description}
+                status={status}
+                errors={state.errors}
+                disabled={!canWrite}
+                fieldset="info"
+                onNameChange={(value) => {
+                  setName(value);
+                  markDirty();
+                }}
+                onDescriptionChange={(value) => {
+                  setDescription(value);
+                  markDirty();
+                }}
+                onStatusChange={(value) => {
+                  setStatus(value);
+                  markDirty();
+                }}
+              />
+            </div>
+
+            {/* ---- Variables ---- */}
+            <div
+              id="template-panel-variables"
+              role="tabpanel"
+              aria-labelledby="template-tab-variables"
+              hidden={section !== "variables"}
+              className="animate-slide-in-right"
+            >
+              <TemplateVariablesPanel
+                variables={variables}
+                contentKeys={contentKeys}
+                onChange={handleVariablesChange}
+                onSaveVariable={isEdit ? saveVariableNow : undefined}
+                readOnly={!canWrite}
+              />
+            </div>
+
+            {/* ---- Publicar ---- */}
+            <div
+              id="template-panel-publish"
+              role="tabpanel"
+              aria-labelledby="template-tab-publish"
+              hidden={section !== "publish"}
+              className="animate-slide-in-right space-y-6"
+            >
+              <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+                  <h2 className="text-sm font-semibold text-ink-900">
+                    Resumen antes de publicar
+                  </h2>
+                  <p className="text-xs text-ink-400">
+                    Publicar solo cambia el estado — no exige que las
+                    variables o el Índice Notarial estén completos.
+                  </p>
+                </div>
+                <div className="px-6 py-5 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-400">Nombre</span>
+                    <span className="font-medium text-ink-900">
+                      {name || "Sin nombre"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-400">Variables configuradas</span>
+                    <span className="font-mono font-medium tabular-nums text-ink-900">
+                      {variables.length - variablesPendingCount} de {variables.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-400">Índice notarial</span>
+                    <span className="font-medium text-ink-900">
+                      {isEdit
+                        ? indexComplete
+                          ? "Completo"
+                          : "Parcial u opcional"
+                        : "Disponible después de guardar"}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+                  <h2 className="text-sm font-semibold text-ink-900">Estado</h2>
+                </div>
+                <div className="px-6 py-5 max-w-xs">
+                  <TemplateMetadataForm
+                    name={name}
+                    description={description}
+                    status={status}
+                    errors={state.errors}
+                    disabled={!canWrite}
+                    fieldset="publish"
+                    onNameChange={(value) => {
+                      setName(value);
+                      markDirty();
+                    }}
+                    onDescriptionChange={(value) => {
+                      setDescription(value);
+                      markDirty();
+                    }}
+                    onStatusChange={(value) => {
+                      setStatus(value);
+                      markDirty();
+                    }}
+                  />
+                </div>
+              </section>
+            </div>
+
+            {/* ---- "Documento" seleccionado desde el riel: el panel queda
+                cerrado a propósito (el lienzo ya ocupa toda la pantalla en
+                mobile; en desktop simplemente no hay nada que configurar
+                aquí) — ver comentario de `TemplateSectionRail`. */}
+            {section === "document" && (
+              <div className="animate-fade-in rounded-xl border border-dashed border-ink-200 bg-ink-50/60 px-6 py-10 text-center text-sm text-ink-400">
+                Panel cerrado. Elige Información, Variables, Índice o
+                Publicar en el riel para configurar el machote.
+              </div>
+            )}
+          </div>
+
+          {/* ================= Barra de acciones — persistente =================
+              Se mantiene exactamente la misma condición que antes
+              (`section !== "notarial"`): la configuración del Índice se
+              guarda desde su propio formulario/RPC (ver más abajo), así que
+              esta barra —ligada al `<form>` principal— no debe aparecer ahí.
+              Lo único nuevo es la posición: ahora es una franja persistente
+              del workspace completo (ancho total) en vez de vivir al final
+              de cada paso individual. */}
+          {section !== "notarial" && (
+            <div className="order-5 xl:order-none" style={{ gridArea: "actions" }}>
+              <TemplateSaveControls
+                dirty={dirty}
+                pending={pending}
+                saved={!!state.success}
+                isEdit={isEdit}
+                canWrite={canWrite}
+                hasNextStep={nextTemplateSection(section) !== section}
+                onSaveClick={handleSaveAndContinueClick}
+              />
+            </div>
+          )}
+        </form>
+
+        {/* ================= Índice notarial =================
+            Hermano del <form> de arriba, no descendiente: tiene su propio
+            <form> con su propia Server Action y no puede anidarse dentro.
+            Bloqueado hasta el primer guardado — depende de template_id.
+            Comparte visualmente la columna "panel" vía `gridArea` aunque
+            esté fuera del `<form>` — el `contents` del formulario de arriba
+            deja que ambos convivan en la misma grilla del contenedor
+            padre. */}
+        <div
+          id="template-panel-notarial"
+          role="tabpanel"
+          aria-labelledby="template-tab-notarial"
+          hidden={section !== "notarial"}
+          className={`order-4 min-w-0 xl:order-none animate-slide-in-right ${panelVisibilityClass}`}
+          style={{ gridArea: "panel" }}
+        >
+          {isEdit ? (
+            <TemplateIndexConfigurationSection
+              templateId={props.template.id}
+              configuration={props.indexConfiguration}
+              readOnly={!canWrite}
+              fields={props.indexFields}
+              optionBlocks={optionBlockSummaries}
+              includeByDefault={props.template.include_in_notarial_index_by_default}
+              onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
+              onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
+                editorRef.current?.updateOptionBlockStructuredOutput(
+                  blockId,
+                  structuredOutput,
+                )
+              }
+            />
+          ) : (
+            <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+                <h2 className="text-sm font-semibold text-ink-900">Índice</h2>
+              </div>
+              <div className="px-6 py-8 text-center text-sm text-ink-400">
+                Disponible después de guardar el machote por primera vez.
+                Guarda desde cualquier otro paso para desbloquearlo.
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
 
       <ExpandableDocumentPanel
         open={previewExpanded}
@@ -658,45 +831,6 @@ export function TemplateWorkspace(props: Props) {
       </ExpandableDocumentPanel>
 
       {aiHelpOpen && <AiHelpDialog onClose={closeAiHelp} />}
-
-      {/* ================= Índice notarial =================
-          Hermano del <form> de arriba, no descendiente: tiene su propio
-          <form> con su propia Server Action y no puede anidarse dentro.
-          Bloqueado hasta el primer guardado — depende de template_id. */}
-      <div
-        id="template-panel-notarial"
-        role="tabpanel"
-        aria-labelledby="template-tab-notarial"
-        hidden={section !== "notarial"}
-      >
-        {isEdit ? (
-          <TemplateIndexConfigurationSection
-            templateId={props.template.id}
-            configuration={props.indexConfiguration}
-            readOnly={!canWrite}
-            fields={props.indexFields}
-            optionBlocks={optionBlockSummaries}
-            includeByDefault={props.template.include_in_notarial_index_by_default}
-            onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
-            onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
-              editorRef.current?.updateOptionBlockStructuredOutput(
-                blockId,
-                structuredOutput,
-              )
-            }
-          />
-        ) : (
-          <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
-              <h2 className="text-sm font-semibold text-ink-900">Índice</h2>
-            </div>
-            <div className="px-6 py-8 text-center text-sm text-ink-400">
-              Disponible después de guardar el machote por primera vez.
-              Guarda desde cualquier otro paso para desbloquearlo.
-            </div>
-          </section>
-        )}
-      </div>
     </div>
   );
 }

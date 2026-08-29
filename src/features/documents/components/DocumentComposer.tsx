@@ -3,28 +3,41 @@
 /**
  * Workspace unificado de una Escritura — creación y edición.
  *
- * El contenido se organiza en cuatro pasos navegables (Completar / Revisar
- * y finalizar / Cobro / Índice) mediante `DocumentWorkspaceHeader`,
- * visibles desde que se inicia una Escritura nueva: no existe un flujo
- * alternativo de una sola página para el modo creación. Los cuatro
- * permanecen siempre montados — solo se ocultan con CSS — así que cambiar
- * de paso nunca descarta cambios sin guardar en Completar (comparte estado
- * con "Revisar y finalizar": `values`, `clientId`, `dirty`), tanto antes
- * como después del primer guardado.
+ * Reestructurado como workspace persistente (iteración 3 del rediseño): el
+ * documento (`DocumentSheet`) es el lienzo central, siempre visible sin
+ * importar qué sección esté activa — ya no una de cuatro pantallas
+ * completas que se reemplazan entre sí. Completar / Revisar y finalizar /
+ * Cobro / Índice ahora son contenido de un panel lateral contextual que
+ * cambia junto al lienzo (ver `ResizableSplitPane`), y las acciones de
+ * lifecycle (Finalizar, Reabrir, Descargar Word) viven en una barra
+ * persistente dentro de `DocumentWorkspaceHeader`, visibles sin importar
+ * la sección activa — antes solo aparecían al llegar a "Revisar y
+ * finalizar".
  *
- * "Revisar y finalizar" fusiona lo que antes eran dos pasos separados
- * ("Revisar" y "Finalizar"): el paso de solo revisar el documento quedaba
- * vacío salvo por un botón, así que la finalización ocurre en el mismo
- * lugar donde se está viendo la escritura que se aprueba, no en una
- * pantalla aparte. La revisión (contenido + pendientes) opera sobre estado
- * local puro y es alcanzable antes de guardar; los controles de
- * finalización (`DocumentStatusControls`, descargar DOCX) requieren que la
- * Escritura ya exista.
+ * `section`, `DOCUMENT_STEP_ORDER`, `resolveSection`/`nextDocumentSection`,
+ * la sincronización con la URL y el resto de la máquina de estados NO
+ * cambiaron: solo cambió qué se muestra (panel lateral en vez de pantalla
+ * completa) y dónde (lienzo persistente + barra de acciones persistente en
+ * vez de contenido embebido en el paso "Revisar y finalizar"). Los cuatro
+ * paneles laterales permanecen siempre montados — solo se ocultan con
+ * CSS — así que cambiar de sección nunca descarta cambios sin guardar en
+ * Completar (comparte estado con "Revisar y finalizar": `values`,
+ * `clientId`, `dirty`), tanto antes como después del primer guardado.
+ *
+ * "Revisar y finalizar" ya no aloja los controles de finalización en su
+ * propio panel — esos viven ahora en la barra persistente del encabezado,
+ * disponibles sin importar la sección — pero conserva su rol de mostrar el
+ * resumen de completitud (campos pendientes) para quien quiera confirmar
+ * antes de finalizar.
  *
  * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
  * queda bloqueado hasta entonces; "Índice" además requiere que esté
- * finalizada, igual que siempre. Índice vive fuera del `<form>` principal
- * porque tiene su propio `<form>`/Server Action (no puede anidarse).
+ * finalizada, igual que siempre. Ambos viven fuera del `<form>` principal
+ * porque tienen su propio `<form>`/Server Action (no puede anidarse) — el
+ * lienzo del documento (`documentSheet`) tampoco depende del `<form>`: su
+ * edición inline actualiza estado de React directamente (`onChangeValue`),
+ * y son los `<input type="hidden">` dentro del panel lateral de Completar
+ * los que serializan esos mismos valores para el envío.
  */
 
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -53,7 +66,6 @@ import { useDocumentLayout } from "../hooks/use-document-layout";
 import { useDocumentPreview } from "../hooks/use-document-preview";
 import { DocumentContextBar } from "./DocumentContextBar";
 import { DocumentMobileViewToggle } from "./DocumentMobileViewToggle";
-import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
 import { DocumentStatusControls } from "./DocumentStatusControls";
 import { DownloadDocxButton } from "./DownloadDocxButton";
 import { PendingFieldsDialog, type PendingField } from "./PendingFieldsDialog";
@@ -475,6 +487,10 @@ export function DocumentComposer(props: Props) {
     />
   );
 
+  // Panel lateral "Completar": título, cliente/partes y progreso. El
+  // documento en sí ya no vive aquí — es el lienzo persistente que se ve
+  // sin importar la sección activa — así que este panel es puro contenido
+  // de datos, pensado para vivir angosto junto al lienzo.
   const completarPrimary = (
     <section aria-label="Datos de la Escritura" className="space-y-5">
       {!readOnly && contextBar}
@@ -538,6 +554,13 @@ export function DocumentComposer(props: Props) {
         </p>
       )}
       {!readOnly && (
+        <p className="text-xs text-ink-500">
+          Los cambios se reflejan de inmediato en el documento a la
+          izquierda. También puedes hacer clic directamente sobre una
+          variable ahí para editarla en su lugar.
+        </p>
+      )}
+      {!readOnly && (
         <div>
           <p className={`text-xs transition-colors ${dirty && !pending ? "text-amber-700 font-medium" : "text-ink-500"}`}>
             {saveStatusText}
@@ -554,26 +577,106 @@ export function DocumentComposer(props: Props) {
     </section>
   );
 
-  return (
-    <div>
-      <DocumentWorkspaceHeader
-        documentId={isEdit ? props.draft.id : undefined}
-        title={title}
-        clientName={
-          clientOptions.find((client) => client.id === clientId)?.full_name ?? null
-        }
-        status={status}
-        section={section}
-        saveStatusText={saveStatusText}
-        onSectionChange={goToSection}
-        activity={isEdit ? props.activity : undefined}
-        canDuplicate={isEdit ? props.canDuplicate : false}
-        includeInNotarialIndex={includeInNotarialIndex}
-        completarComplete={completedCompletar}
-        cobroComplete={completedCobro}
-        notarialComplete={completedNotarial}
-      />
+  // Panel lateral "Revisar y finalizar": ya no aloja los controles de
+  // finalización (Finalizar/Reabrir/Descargar Word viven en la barra
+  // persistente del encabezado, siempre visibles) — se enfoca en el
+  // resumen de completitud, para confirmar antes de finalizar sin dejar de
+  // ver el documento, que ya está a la vista de forma permanente.
+  const revisarPrimary = (
+    <section aria-label="Revisar y finalizar" className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-ink-900 mb-1.5">
+          Revisión
+        </h3>
+        <p className="text-xs text-ink-500">
+          El documento a la izquierda ya refleja el estado actual. Revísalo
+          y confirma que esté completo.
+        </p>
+      </div>
 
+      {totalCount > 0 ? (
+        <div>
+          <p role="status" className="text-xs font-medium text-ink-600 tabular-figures">
+            {completedCount} de {totalCount} campos completos
+          </p>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-100" aria-hidden="true">
+            <div
+              className="h-full rounded-full bg-accent-600 transition-all duration-300 ease-out"
+              style={{ width: `${Math.round((completedCount / totalCount) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-2">
+            <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-ink-500">Este machote no tiene variables.</p>
+      )}
+
+      {isEdit ? (
+        <p className="text-xs text-ink-600">
+          {dirty
+            ? "Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado."
+            : "Usa los controles de la barra superior para finalizar, reabrir o descargar el Word."}
+        </p>
+      ) : (
+        <p className="text-sm text-ink-500">
+          Finalizar y descargar estarán disponibles después de guardar la
+          escritura por primera vez.
+        </p>
+      )}
+    </section>
+  );
+
+  // Lienzo persistente: la escritura misma. Antes vivía duplicada entre el
+  // paso "Completar" (editable, dentro de `DocumentPreviewPanel`) y el paso
+  // "Revisar y finalizar" (solo lectura, vía `documentSheet`) — cada una
+  // visible solo en su paso. Ahora es una sola instancia, siempre visible
+  // sin importar la sección activa, editable inline salvo en modo lectura.
+  const documentCanvasPanel = (
+    <section
+      aria-labelledby="composer-document-heading"
+      className="rounded-xl border border-slate-200 bg-white shadow-ink-sm overflow-hidden"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-ink-100 bg-ink-100/40 sticky top-0 z-10">
+        <div>
+          <h2 id="composer-document-heading" className="text-sm font-semibold text-ink-900">
+            Documento
+          </h2>
+          <p className="text-xs text-ink-500">Machote: {templateName}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <span className="inline-flex animate-fade-in items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+              Cambios sin guardar
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setPreviewExpanded(true)}
+            title="Ver en pantalla completa"
+            aria-label="Ver en pantalla completa"
+            className="press-feedback rounded-md border border-ink-200 bg-white p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+          >
+            ⤢
+          </button>
+        </div>
+      </div>
+      <div className="p-4 max-h-[75vh] overflow-y-auto xl:max-h-[calc(100vh-14rem)]">
+        {documentSheet}
+      </div>
+    </section>
+  );
+
+  // Panel lateral contextual: contenido cambia según `section`, pero los
+  // cuatro permanecen siempre montados (solo `hidden`) — igual que antes,
+  // solo que ahora conviven junto al lienzo persistente en vez de ocupar
+  // la pantalla completa por turnos. "Cobro" e "Índice" quedan fuera del
+  // `<form>` porque tienen su propio `<form>`/Server Action (no puede
+  // anidarse); el `<form>` de aquí solo envuelve los campos que de verdad
+  // se serializan al guardar (valores, cliente, selección de variantes).
+  const contextualPanel = (
+    <div className="space-y-6">
       <form action={formAction} noValidate>
         {fields.map((field) => (
           <input
@@ -611,29 +714,7 @@ export function DocumentComposer(props: Props) {
           aria-labelledby="document-step-completar"
           hidden={section !== "completar"}
         >
-          <DocumentMobileViewToggle value={mobileView} onChange={setMobileView} />
-          <ResizableSplitPane
-            secondaryTitle="Datos de la Escritura"
-            onExpand={() => setPreviewExpanded(true)}
-            primaryClassName={mobileView === "data" ? "hidden xl:block" : ""}
-            secondaryClassName={mobileView === "document" ? "hidden xl:block" : ""}
-            defaultSecondaryPercent={35}
-            primary={
-              <DocumentPreviewPanel
-                dirty={dirty}
-                mobileView="document"
-                model={model}
-                templateName={templateName}
-                values={readOnly ? undefined : values}
-                editingNodeId={readOnly ? undefined : editingTarget?.nodeId}
-                onStartEdit={readOnly ? undefined : startEditingField}
-                onChangeValue={readOnly ? undefined : changeField}
-                onStopEdit={readOnly ? undefined : stopEditingField}
-                onSelectVariant={readOnly ? undefined : selectVariant}
-              />
-            }
-            secondary={completarPrimary}
-          />
+          {completarPrimary}
         </div>
 
         <div
@@ -642,85 +723,9 @@ export function DocumentComposer(props: Props) {
           aria-labelledby="document-step-revisar"
           hidden={section !== "revisar"}
         >
-          <section className="rounded-xl border border-slate-200 bg-white shadow-ink-sm overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-ink-100 bg-ink-100/40 sticky top-0 z-10">
-              <div>
-                <h2 className="text-sm font-semibold text-ink-900">Revisión del documento</h2>
-                <p className="text-xs text-ink-500">Vista de solo lectura, tal como quedará la escritura.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => goToSection("completar")}
-                  className="press-feedback rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewExpanded(true)}
-                  title="Ver en pantalla completa"
-                  aria-label="Ver en pantalla completa"
-                  className="press-feedback rounded-md border border-ink-200 bg-white p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-                >
-                  ⤢
-                </button>
-              </div>
-            </div>
-            <div className="p-4 max-h-[70vh] overflow-y-auto">{documentSheet}</div>
-
-            {/* Estado + acciones finales — franja compacta dentro de la
-                misma card, en vez de una segunda card grande separada solo
-                para dos botones. Requiere que la Escritura ya exista. */}
-            <div className="border-t border-ink-100 bg-ink-100/40 px-6 py-4">
-              {isEdit ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-ink-600">
-                    {dirty
-                      ? "Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado."
-                      : totalCount > 0
-                        ? `${completedCount} de ${totalCount} campos completos.`
-                        : "Este machote no tiene variables."}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <DownloadDocxButton
-                      documentId={props.draft.id}
-                      disabled={dirty}
-                      pendingVariableCount={persistedPendingCount}
-                      variant="compact"
-                    />
-                    <DocumentStatusControls
-                      key={status}
-                      documentId={props.draft.id}
-                      status={status}
-                      dirty={dirty}
-                      canFinalize={canFinalize}
-                      notarialDataConfirmed={!!props.notarialMetadata?.notarial_confirmed_at}
-                      includeInNotarialIndex={includeInNotarialIndex}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-ink-500">
-                  Finalizar y descargar estarán disponibles después de
-                  guardar la escritura por primera vez.
-                </p>
-              )}
-            </div>
-          </section>
-          <div className="mt-4">
-            <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
-          </div>
+          {revisarPrimary}
         </div>
       </form>
-
-      <ExpandableDocumentPanel
-        open={previewExpanded}
-        onClose={() => setPreviewExpanded(false)}
-        title={`Documento — ${title || "Escritura sin título"}`}
-      >
-        {documentSheet}
-      </ExpandableDocumentPanel>
 
       <div
         id="document-panel-cobro"
@@ -782,6 +787,73 @@ export function DocumentComposer(props: Props) {
           <LockedStepPlaceholder title="Índice" />
         )}
       </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <DocumentWorkspaceHeader
+        documentId={isEdit ? props.draft.id : undefined}
+        title={title}
+        clientName={
+          clientOptions.find((client) => client.id === clientId)?.full_name ?? null
+        }
+        status={status}
+        section={section}
+        saveStatusText={saveStatusText}
+        onSectionChange={goToSection}
+        activity={isEdit ? props.activity : undefined}
+        canDuplicate={isEdit ? props.canDuplicate : false}
+        includeInNotarialIndex={includeInNotarialIndex}
+        completarComplete={completedCompletar}
+        cobroComplete={completedCobro}
+        notarialComplete={completedNotarial}
+        // Barra de acciones de lifecycle persistente — antes vivía embebida
+        // en el contenido del paso "Revisar y finalizar" (solo alcanzable
+        // llegando a ese paso); ahora es parte fija del encabezado, visible
+        // sin importar la sección activa. Requiere que la Escritura ya
+        // exista (`documentId`).
+        actions={
+          isEdit ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <DownloadDocxButton
+                documentId={props.draft.id}
+                disabled={dirty}
+                pendingVariableCount={persistedPendingCount}
+                variant="compact"
+              />
+              <DocumentStatusControls
+                key={status}
+                documentId={props.draft.id}
+                status={status}
+                dirty={dirty}
+                canFinalize={canFinalize}
+                notarialDataConfirmed={!!props.notarialMetadata?.notarial_confirmed_at}
+                includeInNotarialIndex={includeInNotarialIndex}
+              />
+            </div>
+          ) : undefined
+        }
+      />
+
+      <DocumentMobileViewToggle value={mobileView} onChange={setMobileView} />
+      <ResizableSplitPane
+        secondaryTitle="Panel de trabajo"
+        onExpand={() => setPreviewExpanded(true)}
+        primaryClassName={mobileView === "data" ? "hidden xl:block" : ""}
+        secondaryClassName={mobileView === "document" ? "hidden xl:block" : ""}
+        defaultSecondaryPercent={35}
+        primary={documentCanvasPanel}
+        secondary={contextualPanel}
+      />
+
+      <ExpandableDocumentPanel
+        open={previewExpanded}
+        onClose={() => setPreviewExpanded(false)}
+        title={`Documento — ${title || "Escritura sin título"}`}
+      >
+        {documentSheet}
+      </ExpandableDocumentPanel>
     </div>
   );
 }

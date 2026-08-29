@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { TablePagination } from "@/components/ui/TablePagination";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScrollIcon } from "@/app/(dashboard)/_components/icons";
 import { NotarialToolbar } from "./NotarialToolbar";
-import { NotarialIndexTable } from "./NotarialIndexTable";
+import { NotarialIndexListDetail } from "./NotarialIndexListDetail";
 import { NotarialExportButton } from "./NotarialExportButton";
 import {
   NOTARIAL_PAGE_SIZE,
@@ -149,21 +147,14 @@ export function NotarialIndexWorkspace({
           }
         />
       ) : (
-        <Card padding="none" className="overflow-hidden">
-          <NotarialIndexTable
-            rows={page.rows}
-            query={query}
-            pageCount={page.pageCount}
-            total={page.total}
-          />
-
-          <TablePagination
-            page={query.page}
-            pageCount={page.pageCount}
-            countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
-            pageHref={pageHref}
-          />
-        </Card>
+        <NotarialIndexListDetail
+          rows={page.rows}
+          query={query}
+          pageCount={page.pageCount}
+          total={page.total}
+          rangeLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
+          pageHref={pageHref}
+        />
       )}
     </PageContainer>
   );

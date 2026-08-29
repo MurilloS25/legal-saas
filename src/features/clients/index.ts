@@ -8,6 +8,8 @@ export { CreateClientDialog } from "./components/CreateClientDialog";
 export { ClientSchema } from "./model/client-schema";
 export type { ClientInput } from "./model/client-schema";
 export type { CreatedClient } from "./server/actions";
+export { getClientDetailAction } from "./server/detail-action";
+export type { ClientDetailPayload } from "./server/detail-action";
 export {
   parseClientsQuery,
   clientsQueryToParams,

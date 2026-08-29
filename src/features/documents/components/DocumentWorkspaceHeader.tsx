@@ -108,6 +108,13 @@ type Props = {
    * aparece en la navegación normal del stepper (la ruta sigue siendo
    * alcanzable por enlace directo; ver NotarialMetadataSection). */
   includeInNotarialIndex?: boolean;
+  /**
+   * Barra de acciones de lifecycle (Finalizar/Reabrir/Descargar Word),
+   * persistente sin importar la sección activa — antes solo aparecía al
+   * llegar al paso "Revisar y finalizar". `undefined` en modo creación
+   * (requiere que la Escritura ya exista).
+   */
+  actions?: React.ReactNode;
 };
 
 export function DocumentWorkspaceHeader({
@@ -124,6 +131,7 @@ export function DocumentWorkspaceHeader({
   cobroComplete = false,
   notarialComplete = false,
   includeInNotarialIndex = true,
+  actions,
 }: Props) {
   const persisted = !!documentId;
   const notarialUnlocked = persisted && status === "final";
@@ -197,6 +205,11 @@ export function DocumentWorkspaceHeader({
           </div>
         )}
       </div>
+      {actions && (
+        <div className="mt-4 rounded-xl border border-ink-100 bg-ink-100/40 px-4 py-3">
+          {actions}
+        </div>
+      )}
       <div className="mt-6">
         <HorizontalStepper
           steps={steps}
