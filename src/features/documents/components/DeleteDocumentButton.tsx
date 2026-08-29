@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   deleteDocumentDraftAction,
   type DeleteDocumentState,
@@ -26,6 +27,7 @@ export function DeleteDocumentButton({ documentId, documentTitle }: Props) {
   const descriptionId = state.message
     ? "delete-document-dialog-desc delete-document-dialog-error"
     : "delete-document-dialog-desc";
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <>
@@ -33,7 +35,7 @@ export function DeleteDocumentButton({ documentId, documentTitle }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Eliminar ${documentTitle}`}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1 transition-colors"
+        className="press-feedback flex h-8 w-8 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -55,32 +57,41 @@ export function DeleteDocumentButton({ documentId, documentTitle }: Props) {
         </svg>
       </button>
 
+      <AnimatePresence>
       {showDialog && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+          <motion.div
+            className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={() => setOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
           />
 
-          <div
+          <motion.div
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-document-dialog-title"
             aria-describedby={descriptionId}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-ink-lg">
               <div className="px-6 pt-6 pb-4 text-center">
                 <h2
                   id="delete-document-dialog-title"
-                  className="text-base font-semibold text-slate-900 mb-2"
+                  className="text-base font-semibold text-ink-900 mb-2"
                 >
                   ¿Eliminar el borrador {documentTitle}?
                 </h2>
                 <p
                   id="delete-document-dialog-desc"
-                  className="text-sm text-slate-600 leading-relaxed"
+                  className="text-sm text-ink-600 leading-relaxed"
                 >
                   El borrador se eliminará de forma permanente. Esta acción es
                   irreversible.
@@ -96,12 +107,12 @@ export function DeleteDocumentButton({ documentId, documentTitle }: Props) {
                 )}
               </div>
 
-              <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <div className="flex gap-3 border-t border-ink-100 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   disabled={pending}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Cancelar
                 </button>
@@ -109,16 +120,17 @@ export function DeleteDocumentButton({ documentId, documentTitle }: Props) {
                   <button
                     type="submit"
                     disabled={pending}
-                    className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                    className="press-feedback w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {pending ? "Eliminando..." : "Eliminar"}
                   </button>
                 </form>
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </>
   );
 }

@@ -13,6 +13,7 @@
  */
 
 import { useId, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/forms/FieldError";
 import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 import { FIELD_KEY_PATTERN } from "../model/template-fields";
@@ -24,7 +25,7 @@ import {
 } from "../model/variable-autofill";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
+  "w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
 
 export type LegacyVariableSelection = {
   included: boolean;
@@ -123,7 +124,7 @@ export function LegacyVariablesReviewDialog({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
         aria-hidden="true"
       />
       <div
@@ -135,12 +136,12 @@ export function LegacyVariablesReviewDialog({
           if (event.key === "Escape") onCancel();
         }}
       >
-        <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-xl">
-          <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-            <h2 id={titleId} className="text-base font-semibold text-slate-900">
+        <div className="w-full max-w-lg rounded-2xl border border-ink-100 bg-white shadow-ink-lg animate-scale-in">
+          <div className="px-6 pt-5 pb-4 border-b border-ink-100">
+            <h2 id={titleId} className="text-base font-semibold text-ink-900">
               {title}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-ink-400 mt-0.5">
               {description ?? (
                 <>
                   Se detectaron {matches.length} posibles{" "}
@@ -163,7 +164,7 @@ export function LegacyVariablesReviewDialog({
               return (
                 <div
                   key={match.raw}
-                  className="rounded-lg border border-slate-200 px-3 py-3"
+                  className="rounded-lg border border-ink-100 px-3 py-3"
                 >
                   <div className="flex items-start gap-2.5">
                     <input
@@ -172,11 +173,11 @@ export function LegacyVariablesReviewDialog({
                       onChange={(event) =>
                         update(match.raw, { included: event.target.checked })
                       }
-                      className="mt-1 h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
+                      className="mt-1 h-4 w-4 rounded border-ink-200 text-accent-700 focus:ring-accent-500"
                       aria-label={`Incluir variable ${match.raw}`}
                     />
                     <div className="min-w-0 flex-1 space-y-2">
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-ink-400">
                         Detectado: <code className="font-mono">{`{{${match.raw}}}`}</code>
                         {alreadyConfigured && (
                           <span className="ml-2 text-amber-700">
@@ -186,7 +187,7 @@ export function LegacyVariablesReviewDialog({
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-ink-700 mb-1">
                             Etiqueta
                           </label>
                           <input
@@ -200,7 +201,7 @@ export function LegacyVariablesReviewDialog({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-ink-700 mb-1">
                             Clave
                           </label>
                           <input
@@ -223,18 +224,18 @@ export function LegacyVariablesReviewDialog({
                           onChange={(event) =>
                             update(match.raw, { required: event.target.checked })
                           }
-                          className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
+                          className="h-4 w-4 rounded border-ink-200 text-accent-700 focus:ring-accent-500"
                           aria-label={`Variable obligatoria ${match.raw}`}
                         />
                         <label
                           htmlFor={`${match.raw}-required`}
-                          className="text-sm text-slate-700"
+                          className="text-sm text-ink-700"
                         >
                           Variable obligatoria
                         </label>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-ink-700 mb-1">
                           Transformación de salida
                         </label>
                         <select
@@ -264,26 +265,22 @@ export function LegacyVariablesReviewDialog({
             <FieldError id={`${titleId}-error`} message={error} />
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-6 py-4">
-            <p className="text-xs text-slate-500">
+          <div className="flex items-center justify-between gap-3 border-t border-ink-100 px-6 py-4">
+            <p className="text-xs text-ink-400">
               {includedCount} de {matches.length} seleccionadas
             </p>
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-              >
+              <Button type="button" variant="secondary" onClick={onCancel}>
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="accent"
                 onClick={handleConvert}
                 disabled={includedCount === 0}
-                className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors disabled:opacity-40"
               >
                 Convertir
-              </button>
+              </Button>
             </div>
           </div>
         </div>

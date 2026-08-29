@@ -443,7 +443,7 @@ export function TemplateWorkspace(props: Props) {
         {state.message && (
           <div
             role="alert"
-            className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+            className="mb-6 animate-fade-in rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
           >
             {state.message}
           </div>
@@ -451,7 +451,7 @@ export function TemplateWorkspace(props: Props) {
         {(state.errors?.document || state.errors?.variables) && (
           <div
             role="alert"
-            className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+            className="mb-6 animate-fade-in rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
           >
             {state.errors.document ?? state.errors.variables}
           </div>
@@ -503,13 +503,13 @@ export function TemplateWorkspace(props: Props) {
             primary={
               <div className="space-y-6">
                 {/* ---- contenido ---- */}
-                <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                  <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+                  <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-ink-100 bg-ink-100/40">
                     <div>
-                      <h2 className="text-sm font-semibold text-slate-900">
+                      <h2 className="text-sm font-semibold text-ink-900">
                         Contenido del machote
                       </h2>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-ink-400">
                         Redacta el documento e inserta variables donde va la
                         información de cada escritura.
                       </p>
@@ -518,7 +518,7 @@ export function TemplateWorkspace(props: Props) {
                       type="button"
                       ref={aiHelpButtonRef}
                       onClick={() => setAiHelpOpen(true)}
-                      className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+                      className="press-feedback shrink-0 rounded-lg border border-ink-200 bg-white px-2.5 py-1.5 text-xs font-medium text-ink-600 hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 transition-colors"
                     >
                       Ayuda para crear con IA
                     </button>
@@ -570,32 +570,32 @@ export function TemplateWorkspace(props: Props) {
           hidden={section !== "publish"}
         >
           <div className="space-y-6">
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                <h2 className="text-sm font-semibold text-slate-900">
+            <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+                <h2 className="text-sm font-semibold text-ink-900">
                   Resumen antes de publicar
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-ink-400">
                   Publicar solo cambia el estado — no exige que las
                   variables o el Índice Notarial estén completos.
                 </p>
               </div>
               <div className="px-6 py-5 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Nombre</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-ink-400">Nombre</span>
+                  <span className="font-medium text-ink-900">
                     {name || "Sin nombre"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Variables configuradas</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-ink-400">Variables configuradas</span>
+                  <span className="font-mono font-medium tabular-nums text-ink-900">
                     {variables.length - variablesPendingCount} de {variables.length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Índice notarial</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-ink-400">Índice notarial</span>
+                  <span className="font-medium text-ink-900">
                     {isEdit
                       ? indexComplete
                         ? "Completo"
@@ -606,9 +606,9 @@ export function TemplateWorkspace(props: Props) {
               </div>
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                <h2 className="text-sm font-semibold text-slate-900">Estado</h2>
+            <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+                <h2 className="text-sm font-semibold text-ink-900">Estado</h2>
               </div>
               <div className="px-6 py-5 max-w-xs">
                 <TemplateMetadataForm
@@ -686,11 +686,11 @@ export function TemplateWorkspace(props: Props) {
             }
           />
         ) : (
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-              <h2 className="text-sm font-semibold text-slate-900">Índice</h2>
+          <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+              <h2 className="text-sm font-semibold text-ink-900">Índice</h2>
             </div>
-            <div className="px-6 py-8 text-center text-sm text-slate-500">
+            <div className="px-6 py-8 text-center text-sm text-ink-400">
               Disponible después de guardar el machote por primera vez.
               Guarda desde cualquier otro paso para desbloquearlo.
             </div>

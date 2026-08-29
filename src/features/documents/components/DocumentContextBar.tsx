@@ -22,7 +22,7 @@ import type { DocumentClientOption, RoleVariableGroup } from "../model/role-auto
 import { RoleAutofillFields, roleLabel } from "./RoleAutofillPanel";
 
 const chipClass =
-  "inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-60";
 
 function ChevronIcon() {
   return (
@@ -86,8 +86,8 @@ export function DocumentContextBar({
       >
         {() => (
           <div>
-            <label htmlFor="context-bar-client" className="mb-1 block text-xs font-medium text-slate-700">
-              Cliente principal <span className="font-normal text-slate-400">(opcional)</span>
+            <label htmlFor="context-bar-client" className="mb-1 block text-xs font-medium text-ink-700">
+              Cliente principal <span className="font-normal text-ink-400">(opcional)</span>
             </label>
             <select
               id="context-bar-client"
@@ -95,7 +95,7 @@ export function DocumentContextBar({
               aria-label="Cliente principal"
               disabled={readOnly}
               onChange={(event) => onClientChange(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-ink-900 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
             >
               <option value="">Sin cliente</option>
               {clients.map((client) => (

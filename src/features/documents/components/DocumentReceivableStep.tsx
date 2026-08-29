@@ -96,8 +96,8 @@ export function DocumentReceivableStep({
   return (
     <section aria-label="Cuentas por cobrar de la escritura">
       {receivables.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
-          <p className="text-sm text-slate-500 mb-4">
+        <div className="rounded-xl border border-dashed border-ink-200 bg-white px-6 py-8 text-center animate-fade-in">
+          <p className="text-sm text-ink-500 mb-4">
             Esta escritura todavía no tiene cuentas por cobrar.
           </p>
           {canManage && (
@@ -127,7 +127,7 @@ export function DocumentReceivableStep({
         <button
           type="button"
           onClick={onContinue}
-          className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+          className="press-feedback rounded-lg bg-accent-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
         >
           {includeInNotarialIndex
             ? receivables.length === 0
@@ -155,13 +155,13 @@ function ReceivableSummaryCard({
     receivable.status === "paid" || Number(receivable.balance_due) <= 0;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm px-5 py-4">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-ink-sm px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-ink-900">
             {receivable.client_name}
           </p>
-          <p className="text-xs text-slate-500">{receivable.concept}</p>
+          <p className="text-xs text-ink-500">{receivable.concept}</p>
         </div>
         <span
           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${receivableStatusBadgeClass(receivable.status)}`}
@@ -172,24 +172,24 @@ function ReceivableSummaryCard({
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <div>
-          <dt className="text-xs text-slate-500">Monto</dt>
-          <dd className="font-medium text-slate-900">
+          <dt className="text-xs text-ink-500">Monto</dt>
+          <dd className="font-medium text-ink-900 tabular-figures">
             {formatMoney(receivable.amount_total, receivable.currency)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">Moneda</dt>
-          <dd className="font-medium text-slate-900">{receivable.currency}</dd>
+          <dt className="text-xs text-ink-500">Moneda</dt>
+          <dd className="font-medium text-ink-900">{receivable.currency}</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">Pagado</dt>
-          <dd className="font-medium text-slate-900">
+          <dt className="text-xs text-ink-500">Pagado</dt>
+          <dd className="font-medium text-ink-900 tabular-figures">
             {formatMoney(receivable.paid_amount, receivable.currency)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">Saldo</dt>
-          <dd className="font-medium text-slate-900">
+          <dt className="text-xs text-ink-500">Saldo</dt>
+          <dd className="font-medium text-ink-900 tabular-figures">
             {formatMoney(receivable.balance_due, receivable.currency)}
           </dd>
         </div>

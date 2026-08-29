@@ -33,22 +33,22 @@ export function DocumentPreviewPanel({
   return (
     <section
       aria-labelledby="composer-document-heading"
-      className={`rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden ${
+      className={`rounded-xl border border-slate-200 bg-white shadow-ink-sm overflow-hidden ${
         mobileView === "data" ? "hidden xl:block" : ""
       }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-ink-100 bg-ink-100/40">
         <div>
           <h2
             id="composer-document-heading"
-            className="text-sm font-semibold text-slate-900"
+            className="text-sm font-semibold text-ink-900"
           >
             Documento
           </h2>
-          <p className="text-xs text-slate-500">Machote: {templateName}</p>
+          <p className="text-xs text-ink-500">Machote: {templateName}</p>
         </div>
         {dirty && (
-          <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+          <span className="inline-flex animate-fade-in items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
             Cambios sin guardar
           </span>
         )}

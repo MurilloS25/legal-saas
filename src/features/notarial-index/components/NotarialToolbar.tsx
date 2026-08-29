@@ -7,6 +7,8 @@ import {
   applyNotarialNavigationChanges,
   type NotarialNavigationChanges,
 } from "../model/navigation";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 type Props = {
   initial: {
@@ -20,7 +22,8 @@ type Props = {
 };
 
 const controlClass =
-  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
+  "rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors";
+const labelClass = "mb-1 block text-xs font-medium text-ink-500";
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -68,7 +71,8 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
   }, [initial.search, navigate, search]);
 
   return (
-    <div
+    <Card
+      padding="sm"
       role="group"
       aria-label="Filtros del índice notarial"
       className="mb-6 space-y-3"
@@ -76,7 +80,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
     >
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label htmlFor="ni-year" className="mb-1 block text-xs font-medium text-slate-600">
+          <label htmlFor="ni-year" className={labelClass}>
             Año
           </label>
           <input
@@ -91,11 +95,11 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
                 navigate({ selection: { ...initial.selection, year } });
               }
             }}
-            className={`${controlClass} w-full`}
+            className={`${controlClass} w-full font-mono tabular-figures`}
           />
         </div>
         <div>
-          <label htmlFor="ni-month" className="mb-1 block text-xs font-medium text-slate-600">
+          <label htmlFor="ni-month" className={labelClass}>
             Mes
           </label>
           <select
@@ -119,7 +123,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
           </select>
         </div>
         <div>
-          <label htmlFor="ni-half" className="mb-1 block text-xs font-medium text-slate-600">
+          <label htmlFor="ni-half" className={labelClass}>
             Quincena
           </label>
           <select
@@ -153,7 +157,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
             navigate({ search }, true);
           }}
         >
-          <label htmlFor="ni-search" className="mb-1 block text-xs font-medium text-slate-600">
+          <label htmlFor="ni-search" className={labelClass}>
             Buscar
           </label>
           <div className="relative">
@@ -174,7 +178,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
                   setSearch("");
                   navigate({ search: "" }, true);
                 }}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-lg text-slate-500 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500"
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-lg text-ink-500 hover:text-ink-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 rounded-r-lg"
               >
                 <span aria-hidden="true">×</span>
               </button>
@@ -183,7 +187,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
         </form>
 
         <div>
-          <label htmlFor="ni-completeness" className="mb-1 block text-xs font-medium text-slate-600">
+          <label htmlFor="ni-completeness" className={labelClass}>
             Completitud
           </label>
           <select
@@ -202,7 +206,7 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
         </div>
 
         <div>
-          <label htmlFor="ni-act" className="mb-1 block text-xs font-medium text-slate-600">
+          <label htmlFor="ni-act" className={labelClass}>
             Acto o contrato
           </label>
           <select
@@ -221,25 +225,27 @@ export function NotarialToolbar({ initial, actTypes, hasActiveFilters }: Props) 
         </div>
 
         {hasActiveFilters && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
+            className="h-9"
             onClick={() => {
               setSearch("");
               navigate({ search: "", completeness: null, actType: null });
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           >
             Limpiar filtros
-          </button>
+          </Button>
         )}
         <span
           role="status"
           aria-live="polite"
-          className={`pb-2 text-xs text-slate-500 ${isPending ? "visible" : "invisible"}`}
+          className={`pb-2 text-xs text-ink-500 ${isPending ? "visible" : "invisible"}`}
         >
           Actualizando resultados…
         </span>
       </div>
-    </div>
+    </Card>
   );
 }

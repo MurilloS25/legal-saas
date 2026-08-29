@@ -48,7 +48,7 @@ export function LoadMoreActivity({
   return (
     <>
       {items.length > 0 && (
-        <ol role="list" className="divide-y divide-slate-100 border-t border-slate-100">
+        <ol role="list" className="animate-stagger-in divide-y divide-ink-100 border-t border-ink-100">
           {items.map((item) => (
             <ActivityRow key={item.id} item={item} />
           ))}
@@ -56,7 +56,7 @@ export function LoadMoreActivity({
       )}
 
       {(hasMore || error) && (
-        <div className="border-t border-slate-100 px-6 py-4">
+        <div className="border-t border-ink-100 px-6 py-4">
           {error && (
             <p role="alert" className="mb-2 text-xs text-red-700">
               No fue posible cargar más actividad.
@@ -67,7 +67,7 @@ export function LoadMoreActivity({
               type="button"
               onClick={loadMore}
               disabled={loading}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="press-feedback rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Cargando…" : "Cargar más"}
             </button>

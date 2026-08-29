@@ -32,13 +32,13 @@ export function TemplatePreviewPanel({ model, bare = false }: Props) {
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+      className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden"
     >
-      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <h2 id={headingId} className="text-sm font-semibold text-slate-900">
+      <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+        <h2 id={headingId} className="text-sm font-semibold text-ink-900">
           Vista previa
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-400">
           Así se verá el documento; las variables aparecen resaltadas.
         </p>
       </div>

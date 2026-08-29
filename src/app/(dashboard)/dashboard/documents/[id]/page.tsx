@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Badge } from "@/components/ui/Badge";
 import {
   getDocumentById,
   listDocumentActivity,
@@ -348,12 +349,15 @@ function NoTemplateFallback({
     <div>
       <Link
         href="/dashboard/documents"
-        className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
+        className="mb-4 inline-flex text-sm font-medium text-ink-600 transition-colors hover:text-ink-900 focus:outline-none focus-visible:underline"
       >
         ‹ Volver a Escrituras
       </Link>
-      <h1 className="text-2xl font-semibold text-slate-900">{document.title}</h1>
-      <nav aria-label="Secciones de la escritura" className="mt-6 mb-6 border-b border-slate-200">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">{document.title}</h1>
+        <Badge tone="warning">Sin machote</Badge>
+      </div>
+      <nav aria-label="Secciones de la escritura" className="mt-6 mb-6 border-b border-ink-100">
         <div className="flex gap-1 overflow-x-auto">
           {(
             [
@@ -366,10 +370,10 @@ function NoTemplateFallback({
               key={tab.id}
               href={tab.id === "document" ? base : `${base}?section=${tab.id}`}
               aria-current={section === tab.id ? "page" : undefined}
-              className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
+              className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500 ${
                 section === tab.id
-                  ? "border-accent-700 text-accent-800"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "border-accent-600 text-accent-800"
+                  : "border-transparent text-ink-600 hover:text-ink-900"
               }`}
             >
               {tab.label}
@@ -379,15 +383,15 @@ function NoTemplateFallback({
       </nav>
 
       {section === "document" && (
-        <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-6 py-8">
-          <p className="text-sm text-slate-700 mb-2 font-medium">
+        <div className="bg-white rounded-xl border border-amber-200 shadow-ink-sm px-6 py-8">
+          <p className="text-sm text-ink-700 mb-2 font-medium">
             El machote de esta escritura ya no está disponible.
           </p>
-          <p className="text-sm text-slate-600 mb-4">
+          <p className="text-sm text-ink-600 mb-4">
             Se conserva la última vista previa guardada, pero el borrador no
             puede editarse sin su machote.
           </p>
-          <pre className="mx-auto max-w-prose rounded-lg border border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
+          <pre className="mx-auto max-w-prose rounded-lg border border-ink-100 bg-ink-100/40 px-6 py-5 text-sm text-ink-900 whitespace-pre-wrap break-words font-sans leading-relaxed">
             {document.rendered_content}
           </pre>
         </div>

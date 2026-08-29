@@ -28,6 +28,10 @@ import type {
   TemplateTimeStructuredVariant,
 } from "@/lib/editor/types";
 import type { OptionBlockSummary } from "@/lib/editor/option-blocks";
+import { Button } from "@/components/ui/Button";
+
+const selectClass =
+  "w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500";
 
 type FieldLabel = { fieldKey: string; label: string };
 
@@ -115,12 +119,12 @@ export function OptionBlockTimeMappingEditor({
   return (
     <fieldset
       aria-labelledby={legendId}
-      className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-3"
+      className="mt-3 rounded-xl border border-ink-200 bg-ink-100/30 p-3 space-y-3"
     >
-      <legend id={legendId} className="px-1 text-xs font-medium text-slate-700">
+      <legend id={legendId} className="px-1 text-xs font-medium text-ink-700">
         Hora de otorgamiento — {block.name}
       </legend>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-ink-500">
         Para cada variante, indica cuál variable representa la hora y cuál
         los minutos.
       </p>
@@ -134,13 +138,13 @@ export function OptionBlockTimeMappingEditor({
         return (
           <div
             key={variant.id}
-            className="rounded-md border border-slate-200 bg-white p-3"
+            className="rounded-lg border border-ink-200 bg-white p-3"
           >
-            <p className="mb-2 text-xs font-medium text-slate-600">
+            <p className="mb-2 text-xs font-medium text-ink-600">
               {variant.label}
             </p>
             {options.length === 0 ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-500">
                 Esta variante no tiene variables — agrega una en el paso
                 Documento para poder mapearla aquí.
               </p>
@@ -149,7 +153,7 @@ export function OptionBlockTimeMappingEditor({
                 <div>
                   <label
                     htmlFor={`${variant.id}-time-hour`}
-                    className="mb-1 block text-xs text-slate-700"
+                    className="mb-1 block text-xs text-ink-700"
                   >
                     Hora
                   </label>
@@ -160,7 +164,7 @@ export function OptionBlockTimeMappingEditor({
                     onChange={(event) =>
                       updateVariant(variant.id, { hourFieldKey: event.target.value })
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600"
+                    className={selectClass}
                   >
                     <option value="">Seleccionar variable</option>
                     {options.map((option) => (
@@ -173,7 +177,7 @@ export function OptionBlockTimeMappingEditor({
                 <div>
                   <label
                     htmlFor={`${variant.id}-time-minute`}
-                    className="mb-1 block text-xs text-slate-700"
+                    className="mb-1 block text-xs text-ink-700"
                   >
                     Minutos
                   </label>
@@ -187,7 +191,7 @@ export function OptionBlockTimeMappingEditor({
                           .value as VariantDraft["minuteFieldKey"],
                       })
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600"
+                    className={selectClass}
                   >
                     <option value="__zero__">00 (hora en punto)</option>
                     {options.map((option) => (
@@ -211,13 +215,9 @@ export function OptionBlockTimeMappingEditor({
 
       {!readOnly && (
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={save}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={save}>
             Aplicar mapeo de hora
-          </button>
+          </Button>
           {saved && (
             <p role="status" className="text-xs text-accent-700">
               Aplicado al machote — guarda los cambios (aquí o en el paso

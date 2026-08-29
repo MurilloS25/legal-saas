@@ -33,16 +33,13 @@ export function ClientsTable({ rows }: Props) {
         <caption className="sr-only">Directorio de clientes</caption>
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr
-              key={headerGroup.id}
-              className="border-b border-slate-100 bg-slate-50 text-left"
-            >
+            <tr key={headerGroup.id} className="border-b border-slate-200 bg-ink-100/60 text-left">
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
                   scope="col"
-                  className={`px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 ${
-                    header.column.id === "actions" ? "text-right w-16" : ""
+                  className={`px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500 ${
+                    header.column.id === "actions" ? "w-16 text-right" : ""
                   } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder
@@ -54,8 +51,12 @@ export function ClientsTable({ rows }: Props) {
           ))}
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="transition-colors hover:bg-slate-50">
+          {table.getRowModel().rows.map((row, index) => (
+            <tr
+              key={row.id}
+              className="animate-stagger-in transition-colors hover:bg-accent-50/40"
+              style={{ animationDelay: `${Math.min(index, 12) * 25}ms` }}
+            >
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}

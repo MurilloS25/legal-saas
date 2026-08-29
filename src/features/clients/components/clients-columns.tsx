@@ -44,15 +44,15 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
         return (
           <Link
             href={`/dashboard/clients/${client.id}`}
-            className="flex min-w-0 items-center gap-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 rounded"
+            className="group flex min-w-0 items-center gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <div
-              className={`${avatarColor} flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white select-none`}
+              className={`${avatarColor} flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white select-none shadow-ink-sm transition-transform duration-150 ease-out group-hover:scale-105`}
               aria-hidden="true"
             >
               {initials}
             </div>
-            <span className="min-w-0 truncate text-sm font-medium text-slate-900 hover:text-accent-700 transition-colors">
+            <span className="min-w-0 truncate text-sm font-medium text-ink-900 transition-colors group-hover:text-accent-700">
               {client.full_name}
             </span>
           </Link>
@@ -64,7 +64,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
       header: CLIENTS_COLUMN_LABELS.identification_number,
       accessorFn: (row) => row.identification_number,
       cell: ({ row }) => (
-        <span className="text-sm text-slate-600">
+        <span className="font-mono text-sm tabular-nums text-slate-600">
           {row.original.identification_number}
         </span>
       ),
@@ -74,7 +74,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
       header: CLIENTS_COLUMN_LABELS.occupation,
       accessorFn: (row) => row.occupation,
       cell: ({ row }) => (
-        <span className="text-sm text-slate-600">{row.original.occupation}</span>
+        <span className="truncate text-sm text-slate-600">{row.original.occupation}</span>
       ),
     },
     {
@@ -88,16 +88,16 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
             <Link
               href={`/dashboard/clients/${client.id}`}
               aria-label={`Ver detalle de ${client.full_name}`}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 transition-colors"
+              className="press-feedback flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-accent-50 hover:text-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.75"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"

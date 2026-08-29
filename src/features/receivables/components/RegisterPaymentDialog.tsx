@@ -19,6 +19,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useActionState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   registerPaymentAction,
   registerPaymentForDialogAction,
@@ -27,9 +28,11 @@ import {
 import { formatMoney } from "../model/status";
 import { PAYMENT_METHODS, paymentMethodLabel } from "../model/payments";
 import { FieldError } from "@/components/forms/FieldError";
+import { Button } from "@/components/ui/Button";
+import { WalletIcon } from "@/app/(dashboard)/_components/icons";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50 transition-colors";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
 type Props = {
@@ -57,6 +60,7 @@ export function RegisterPaymentDialog(props: Props) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const reduceMotion = useReducedMotion();
 
   const bound = props.embedded
     ? registerPaymentForDialogAction.bind(null, receivableId, props.documentId)
@@ -86,185 +90,216 @@ export function RegisterPaymentDialog(props: Props) {
 
   return (
     <>
-      <button
+      <Button
         ref={triggerRef}
         type="button"
+        variant="accent"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
       >
         Registrar pago
-      </button>
+      </Button>
 
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
-            aria-hidden="true"
-            onClick={close}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            ref={dialogRef}
-            tabIndex={-1}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                close();
-                return;
-              }
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              key="backdrop"
+              className="fixed inset-0 z-40 bg-ink-950/50 backdrop-blur-sm"
+              aria-hidden="true"
+              onClick={close}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              ref={dialogRef}
+              tabIndex={-1}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  close();
+                  return;
+                }
 
-              if (event.key !== "Tab") return;
+                if (event.key !== "Tab") return;
 
-              const focusable = Array.from(
-                dialogRef.current?.querySelectorAll<HTMLElement>(
-                  'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-                ) ?? [],
-              );
-              if (focusable.length === 0) return;
+                const focusable = Array.from(
+                  dialogRef.current?.querySelectorAll<HTMLElement>(
+                    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+                  ) ?? [],
+                );
+                if (focusable.length === 0) return;
 
-              const first = focusable[0];
-              const last = focusable[focusable.length - 1];
-              if (!last) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (!last) return;
 
-              if (event.shiftKey && document.activeElement === first) {
-                event.preventDefault();
-                last.focus();
-              } else if (!event.shiftKey && document.activeElement === last) {
-                event.preventDefault();
-                first.focus();
-              }
-            }}
-          >
-            <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl">
-              <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-                <h2
-                  id={titleId}
-                  className="text-base font-semibold text-slate-900"
-                >
-                  Registrar pago
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Saldo pendiente: {formatMoney(balanceDue, currency)}
-                </p>
-              </div>
-
-              <form action={formAction} noValidate className="px-6 py-4">
-                {state.message && (
-                  <div
-                    role="alert"
-                    className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
-                  >
-                    {state.message}
-                  </div>
-                )}
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="amount" className={labelClass}>
-                      Monto del pago ({currency})
-                      <span aria-hidden="true" className="text-red-500 ml-0.5">
-                        *
-                      </span>
-                    </label>
-                    <input
-                      id="amount"
-                      name="amount"
-                      type="text"
-                      inputMode="decimal"
-                      required
-                      autoFocus
-                      className={inputClass}
-                      placeholder="50000.00"
-                      aria-invalid={!!state.errors?.amount}
-                      aria-describedby={
-                        state.errors?.amount ? "amount-error" : undefined
-                      }
-                    />
-                    <FieldError id="amount-error" message={state.errors?.amount} />
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first.focus();
+                }
+              }}
+            >
+              <motion.div
+                key="panel"
+                className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-ink-lg"
+                initial={
+                  reduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, scale: 0.95, y: 8 }
+                }
+                animate={
+                  reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }
+                }
+                exit={
+                  reduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, scale: 0.97, y: 4 }
+                }
+                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              >
+                <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-slate-100">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+                    <WalletIcon className="size-4" />
                   </div>
                   <div>
-                    <label htmlFor="method" className={labelClass}>
-                      Método
-                      <span aria-hidden="true" className="text-red-500 ml-0.5">
-                        *
-                      </span>
-                    </label>
-                    <select
-                      id="method"
-                      name="method"
-                      required
-                      defaultValue="cash"
-                      className={inputClass}
-                      aria-invalid={!!state.errors?.method}
+                    <h2
+                      id={titleId}
+                      className="text-base font-semibold text-ink-900"
                     >
-                      {PAYMENT_METHODS.map((m) => (
-                        <option key={m} value={m}>
-                          {paymentMethodLabel(m)}
-                        </option>
-                      ))}
-                    </select>
-                    <FieldError id="method-error" message={state.errors?.method} />
-                  </div>
-                  <div>
-                    <label htmlFor="paid_at" className={labelClass}>
-                      Fecha del pago
-                    </label>
-                    <input
-                      id="paid_at"
-                      name="paid_at"
-                      type="date"
-                      defaultValue={today()}
-                      className={inputClass}
-                      aria-invalid={!!state.errors?.paid_at}
-                    />
-                    <FieldError id="paid_at-error" message={state.errors?.paid_at} />
-                  </div>
-                  <div>
-                    <label htmlFor="reference" className={labelClass}>
-                      Referencia{" "}
-                      <span className="text-xs font-normal text-slate-400">
-                        (opcional)
-                      </span>
-                    </label>
-                    <input
-                      id="reference"
-                      name="reference"
-                      type="text"
-                      maxLength={200}
-                      className={inputClass}
-                      placeholder="N.º de comprobante"
-                      aria-invalid={!!state.errors?.reference}
-                    />
-                    <FieldError
-                      id="reference-error"
-                      message={state.errors?.reference}
-                    />
+                      Registrar pago
+                    </h2>
+                    <p className="font-mono text-xs tabular-nums text-slate-500 mt-0.5">
+                      Saldo pendiente: {formatMoney(balanceDue, currency)}
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={close}
-                    disabled={pending}
-                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {pending ? "Registrando…" : "Registrar pago"}
-                  </button>
-                </div>
-              </form>
+                <form action={formAction} noValidate className="px-6 py-4">
+                  {state.message && (
+                    <div
+                      role="alert"
+                      className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+                    >
+                      {state.message}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="amount" className={labelClass}>
+                        Monto del pago ({currency})
+                        <span aria-hidden="true" className="text-red-500 ml-0.5">
+                          *
+                        </span>
+                      </label>
+                      <input
+                        id="amount"
+                        name="amount"
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        autoFocus
+                        className={`${inputClass} font-mono tabular-nums`}
+                        placeholder="50000.00"
+                        aria-invalid={!!state.errors?.amount}
+                        aria-describedby={
+                          state.errors?.amount ? "amount-error" : undefined
+                        }
+                      />
+                      <FieldError id="amount-error" message={state.errors?.amount} />
+                    </div>
+                    <div>
+                      <label htmlFor="method" className={labelClass}>
+                        Método
+                        <span aria-hidden="true" className="text-red-500 ml-0.5">
+                          *
+                        </span>
+                      </label>
+                      <select
+                        id="method"
+                        name="method"
+                        required
+                        defaultValue="cash"
+                        className={inputClass}
+                        aria-invalid={!!state.errors?.method}
+                      >
+                        {PAYMENT_METHODS.map((m) => (
+                          <option key={m} value={m}>
+                            {paymentMethodLabel(m)}
+                          </option>
+                        ))}
+                      </select>
+                      <FieldError id="method-error" message={state.errors?.method} />
+                    </div>
+                    <div>
+                      <label htmlFor="paid_at" className={labelClass}>
+                        Fecha del pago
+                      </label>
+                      <input
+                        id="paid_at"
+                        name="paid_at"
+                        type="date"
+                        defaultValue={today()}
+                        className={inputClass}
+                        aria-invalid={!!state.errors?.paid_at}
+                      />
+                      <FieldError id="paid_at-error" message={state.errors?.paid_at} />
+                    </div>
+                    <div>
+                      <label htmlFor="reference" className={labelClass}>
+                        Referencia{" "}
+                        <span className="text-xs font-normal text-slate-400">
+                          (opcional)
+                        </span>
+                      </label>
+                      <input
+                        id="reference"
+                        name="reference"
+                        type="text"
+                        maxLength={200}
+                        className={inputClass}
+                        placeholder="N.º de comprobante"
+                        aria-invalid={!!state.errors?.reference}
+                      />
+                      <FieldError
+                        id="reference-error"
+                        message={state.errors?.reference}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={close}
+                      disabled={pending}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="accent"
+                      disabled={pending}
+                      loading={pending}
+                      loadingText="Registrando…"
+                    >
+                      Registrar pago
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }

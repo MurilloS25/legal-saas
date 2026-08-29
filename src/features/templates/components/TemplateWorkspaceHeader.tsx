@@ -22,7 +22,8 @@
 
 import Link from "next/link";
 import { HorizontalStepper, type StepStatus } from "@/components/document/HorizontalStepper";
-import { templateStatusBadgeClass, templateStatusLabel } from "../model/templates";
+import { Badge } from "@/components/ui/Badge";
+import { templateStatusBadgeTone, templateStatusLabel } from "../model/templates";
 
 export type TemplateWorkspaceSection =
   | "information"
@@ -138,21 +139,19 @@ export function TemplateWorkspaceHeader({
     <header className="mb-6">
       <Link
         href="/dashboard/templates"
-        className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
+        className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-500 hover:text-ink-900 focus:outline-none focus-visible:underline"
       >
-        ‹ Machotes
+        <span aria-hidden="true">‹</span> Machotes
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-slate-900 truncate">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900 truncate">
             {name || "Machote sin nombre"}
           </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-            <span
-              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${templateStatusBadgeClass(status)}`}
-            >
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-400">
+            <Badge tone={templateStatusBadgeTone(status)}>
               {templateStatusLabel(status)}
-            </span>
+            </Badge>
             <span aria-hidden="true">·</span>
             <span>{statusText}</span>
           </div>

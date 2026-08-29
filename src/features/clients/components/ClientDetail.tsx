@@ -1,4 +1,7 @@
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import { ClientDocumentsTable } from "@/features/documents";
 import type { ClientDocumentRow } from "@/features/documents/server";
@@ -9,6 +12,7 @@ import {
 import type { ClientRow } from "../model/types";
 import { ClientForm } from "./ClientForm";
 import { hasPermission, type WorkspaceRole } from "@/lib/server/permissions";
+import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 
 // ------------------------------------------------------------------ avatar helpers
 
@@ -36,6 +40,10 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[code % AVATAR_COLORS.length];
 }
 
+function maritalStatusLabel(value: string): string {
+  return MARITAL_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? value;
+}
+
 // ------------------------------------------------------------------ page
 
 type Props = {
@@ -58,7 +66,7 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
           href="/dashboard/clients"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-accent-700 focus:outline-none focus-visible:underline"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -67,7 +75,7 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2.5"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -78,29 +86,34 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
         </Link>
       </nav>
 
-      {/* Client header with avatar */}
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+      {/* Client header with avatar + quick facts */}
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4 animate-fade-in">
         <div className="flex items-center gap-4">
           <div
-            className={`${avatarColor} flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white select-none`}
+            className={`${avatarColor} flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white shadow-ink-sm select-none`}
             aria-hidden="true"
           >
             {initials}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
               {client.full_name}
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="mt-0.5 font-mono text-sm tabular-nums text-slate-500">
               {client.identification_number}
             </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge tone="neutral">{maritalStatusLabel(client.marital_status)}</Badge>
+              <Badge tone="neutral">{client.nationality}</Badge>
+              <Badge tone="accent">{client.occupation}</Badge>
+            </div>
           </div>
         </div>
 
         {canCreateDocuments && (
           <Link
             href={`/dashboard/documents/new?client=${client.id}`}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
+            className="press-feedback inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 text-sm font-medium text-white transition-colors duration-150 ease-out hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
           >
             Nueva escritura
           </Link>
@@ -115,21 +128,17 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
       <section aria-labelledby="client-documents-heading" className="mt-8">
         <h2
           id="client-documents-heading"
-          className="text-sm font-semibold text-slate-900 mb-3"
+          className="mb-3 text-sm font-semibold text-ink-900"
         >
           Escrituras
         </h2>
 
         {documents.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
-            <p className="text-sm text-slate-500">
-              Este cliente todavía no tiene escrituras asociadas.
-            </p>
-          </div>
+          <EmptyState title="Este cliente todavía no tiene escrituras asociadas." />
         ) : (
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <Card padding="none" className="overflow-hidden">
             <ClientDocumentsTable rows={documents} />
-          </div>
+          </Card>
         )}
       </section>
 

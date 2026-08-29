@@ -157,15 +157,15 @@ export function DocumentSheet({
             style={{ width: `${inputWidthCh(rawValue)}ch` }}
             data-variable-key={run.key}
             aria-label={run.label?.trim() || run.key}
-            className="inline-block rounded border-b-2 border-accent-500 bg-accent-50 px-1 py-0.5 font-sans text-[0.85em] text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="inline-block rounded border-b-2 border-accent-500 bg-accent-50 px-1 py-0.5 font-sans text-[0.85em] text-ink-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
           />
         );
       }
 
       const displayText = runText(run, pendingVariableDisplay);
       const editableClass = run.resolved
-        ? "cursor-text rounded-sm border-b border-dotted border-slate-400 hover:border-accent-500 hover:bg-accent-50/60"
-        : "cursor-text rounded-sm border-b-2 border-dashed border-accent-400 px-0.5 font-sans text-[0.85em] italic text-accent-700 hover:bg-accent-50";
+        ? "cursor-text rounded-sm border-b border-dotted border-ink-400 transition-colors duration-150 hover:border-accent-500 hover:bg-accent-50/60"
+        : "cursor-text rounded-sm border-b-2 border-dashed border-accent-400 px-0.5 font-sans text-[0.85em] italic text-accent-700 transition-colors duration-150 hover:bg-accent-50";
       return (
         <button
           key={key}
@@ -264,27 +264,40 @@ export function DocumentSheet({
 
   return (
     <div
-      className="rounded-xl bg-slate-100 p-4 sm:p-6 lg:p-8 overflow-y-auto"
+      className="rounded-xl bg-ink-100/70 p-4 sm:p-6 lg:p-8 overflow-y-auto"
       role="group"
       aria-labelledby={ariaLabelledBy}
     >
-      <div className="mx-auto w-full max-w-[42rem] min-h-[24rem] rounded-sm bg-white shadow-md ring-1 ring-slate-200 px-8 py-10 sm:px-12 sm:py-14">
-        {isModelEmpty(model) ? (
-          <p className="font-serif text-sm text-slate-400 italic">{emptyMessage}</p>
-        ) : (
-          <div className="font-serif text-[0.95rem] leading-7 text-slate-900">
-            {model.map((paragraph, paragraphIndex) => (
-              <p
-                key={paragraphIndex}
-                className="mb-4 last:mb-0 min-h-[1.75rem] whitespace-pre-wrap break-words"
-              >
-                {paragraph.runs.map((run, runIndex) =>
-                  renderRun(run, String(runIndex)),
-                )}
-              </p>
-            ))}
-          </div>
-        )}
+      <div className="relative mx-auto w-full max-w-[42rem]">
+        {/* Hojas apiladas detrás de la principal — puramente decorativo
+            (aria-hidden, no participa en el layout de contenido), refuerza
+            la idea de "hoja de papel" sin tocar el contenedor real debajo. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-3 -bottom-1.5 top-1.5 rounded-[2px] bg-white shadow-ink-sm ring-1 ring-ink-100"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-1.5 -bottom-0.5 top-0.5 rounded-[2px] bg-white shadow-ink-sm ring-1 ring-ink-100"
+        />
+        <div className="relative min-h-[24rem] rounded-[2px] bg-white shadow-ink-lg ring-1 ring-ink-100 px-8 py-10 sm:px-12 sm:py-14">
+          {isModelEmpty(model) ? (
+            <p className="font-serif text-sm text-ink-400 italic">{emptyMessage}</p>
+          ) : (
+            <div className="font-serif text-[0.95rem] leading-7 text-ink-900">
+              {model.map((paragraph, paragraphIndex) => (
+                <p
+                  key={paragraphIndex}
+                  className="mb-4 last:mb-0 min-h-[1.75rem] whitespace-pre-wrap break-words"
+                >
+                  {paragraph.runs.map((run, runIndex) =>
+                    renderRun(run, String(runIndex)),
+                  )}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -17,9 +17,10 @@ import { RECEIVABLE_CURRENCIES } from "../model/status";
 import { CLIENT_MODES, type ClientMode } from "../model/receivables";
 import { FieldError } from "@/components/forms/FieldError";
 import { CreateClientDialog, type CreatedClient } from "@/features/clients";
+import { Button } from "@/components/ui/Button";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50 transition-colors";
 
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
 
@@ -198,7 +199,7 @@ export function ReceivableForm(props: Props) {
                     checked={clientMode === mode}
                     onChange={() => setClientMode(mode)}
                     disabled={financialFieldsLocked}
-                    className="h-4 w-4 border-slate-300 text-accent-700 focus:ring-accent-500 disabled:opacity-50"
+                    className="h-4 w-4 border-slate-300 text-accent-600 focus:ring-accent-500 disabled:opacity-50"
                   />
                   {mode === "registered" ? "Cliente registrado" : "Escribir nombre"}
                 </label>
@@ -396,8 +397,8 @@ export function ReceivableForm(props: Props) {
                 defaultValue={receivable?.amount_total ?? ""}
                 className={
                   financialFieldsLocked
-                    ? `${inputClass} cursor-not-allowed bg-slate-50`
-                    : inputClass
+                    ? `${inputClass} cursor-not-allowed bg-slate-50 font-mono tabular-nums`
+                    : `${inputClass} font-mono tabular-nums`
                 }
                 placeholder="150000.00"
                 aria-describedby={
@@ -494,34 +495,32 @@ export function ReceivableForm(props: Props) {
 
         <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
           {isDialog && props.mode === "dialog" ? (
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={props.onCancel}
               disabled={pending}
-              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Cancelar
-            </button>
+            </Button>
           ) : (
             <Link
               href={returnTo ?? "/dashboard/receivables"}
-              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+              className="press-feedback inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 transition-colors"
             >
               Cancelar
             </Link>
           )}
           {canWrite && (
-            <button
+            <Button
               type="submit"
+              variant="accent"
               disabled={pending}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              loading={pending}
+              loadingText="Guardando…"
             >
-              {pending
-                ? "Guardando…"
-                : isEdit
-                  ? "Guardar cambios"
-                  : "Crear cuenta"}
-            </button>
+              {isEdit ? "Guardar cambios" : "Crear cuenta"}
+            </Button>
           )}
         </div>
       </form>
@@ -531,9 +530,9 @@ export function ReceivableForm(props: Props) {
   if (isDialog) return form;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-ink-sm overflow-hidden">
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 shrink-0">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 shrink-0 text-accent-600">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -541,10 +540,9 @@ export function ReceivableForm(props: Props) {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.75"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="text-accent-700"
             aria-hidden="true"
           >
             <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -552,7 +550,7 @@ export function ReceivableForm(props: Props) {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-ink-900">
             Datos de la cuenta
           </p>
           {requiredHint}

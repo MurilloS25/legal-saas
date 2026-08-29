@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertIcon } from "@/app/(dashboard)/_components/icons";
 
 export default function ReceivablesError({
   error,
@@ -15,8 +16,11 @@ export default function ReceivablesError({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <div className="rounded-xl border border-red-200 bg-white px-6 py-10 text-center shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">
+      <div className="animate-fade-in rounded-xl border border-red-200 bg-white px-6 py-10 text-center shadow-ink-sm">
+        <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+          <AlertIcon className="size-5" />
+        </div>
+        <h1 className="text-lg font-semibold text-ink-900">
           No fue posible cargar las cuentas por cobrar
         </h1>
         <p className="mt-2 text-sm text-slate-600">
@@ -25,7 +29,7 @@ export default function ReceivablesError({
         <button
           type="button"
           onClick={reset}
-          className="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2"
+          className="press-feedback mt-6 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white hover:bg-ink-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2 transition-colors"
         >
           Reintentar
         </button>

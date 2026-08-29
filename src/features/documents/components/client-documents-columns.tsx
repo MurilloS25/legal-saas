@@ -1,7 +1,14 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ClientDocumentRow } from "../server/detail-queries";
-import { documentStatusBadgeClass, documentStatusLabel } from "../model/status";
+import { documentStatusLabel } from "../model/status";
+import { Badge } from "@/components/ui/Badge";
+
+const STATUS_TONE: Record<string, "neutral" | "warning" | "success"> = {
+  draft: "neutral",
+  ready: "warning",
+  final: "success",
+};
 
 export const CLIENT_DOCUMENTS_COLUMN_LABELS = {
   title: "Escritura",
@@ -28,8 +35,8 @@ export function createClientDocumentsColumns(): ColumnDef<ClientDocumentRow>[] {
         const doc = row.original;
         return (
           <div>
-            <p className="text-sm font-medium text-slate-900">{doc.title}</p>
-            <p className="text-xs text-slate-500">{doc.templates?.name ?? "—"}</p>
+            <p className="text-sm font-medium text-ink-900">{doc.title}</p>
+            <p className="text-xs text-ink-500">{doc.templates?.name ?? "—"}</p>
           </div>
         );
       },
@@ -39,11 +46,9 @@ export function createClientDocumentsColumns(): ColumnDef<ClientDocumentRow>[] {
       header: CLIENT_DOCUMENTS_COLUMN_LABELS.status,
       accessorFn: (row) => row.status,
       cell: ({ row }) => (
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(row.original.status)}`}
-        >
+        <Badge tone={STATUS_TONE[row.original.status] ?? "neutral"}>
           {documentStatusLabel(row.original.status)}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -62,7 +67,7 @@ export function createClientDocumentsColumns(): ColumnDef<ClientDocumentRow>[] {
           <div className="flex items-center justify-end">
             <Link
               href={`/dashboard/documents/${doc.id}`}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 transition-colors hover:bg-accent-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >
               {doc.status === "final" ? "Ver" : "Continuar"}
             </Link>

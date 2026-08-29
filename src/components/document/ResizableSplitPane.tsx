@@ -129,7 +129,7 @@ export function ResizableSplitPane({
               }}
               className="hidden cursor-col-resize items-stretch justify-center focus:outline-none xl:group xl:flex"
             >
-              <span className="w-0.5 rounded-full bg-slate-200 group-hover:bg-accent-400 group-focus-visible:bg-accent-500" />
+              <span className="w-0.5 rounded-full bg-ink-200 group-hover:bg-accent-400 group-focus-visible:bg-accent-500" />
             </div>
             <div className={`sticky top-5 min-w-0 ${secondaryClassName}`}>
               {/* Ocultar/Expandir son un concepto de la vista dividida de
@@ -137,7 +137,7 @@ export function ResizableSplitPane({
                   "Ocultar" ahí dejaría la pantalla en blanco (`secondary`
                   desmontado) sin forma de recuperarlo fuera de `xl:`. */}
               <div className="mb-2 hidden items-center justify-between gap-2 xl:flex">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-400">
                   {secondaryTitle}
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -147,7 +147,7 @@ export function ResizableSplitPane({
                       onClick={onExpand}
                       title={`Ver ${secondaryTitleLower} en pantalla completa`}
                       aria-label={`Ver ${secondaryTitleLower} en pantalla completa`}
-                      className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                      className="press-feedback rounded-md border border-ink-200 bg-white p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                     >
                       <ExpandIcon />
                     </button>
@@ -155,7 +155,7 @@ export function ResizableSplitPane({
                   <button
                     type="button"
                     onClick={() => setHidden(true)}
-                    className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                    className="press-feedback rounded-md border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-600 transition-colors hover:bg-ink-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                   >
                     Ocultar
                   </button>
@@ -171,7 +171,7 @@ export function ResizableSplitPane({
           <button
             type="button"
             onClick={() => setHidden(false)}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="press-feedback rounded-md border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-600 transition-colors hover:bg-ink-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             Mostrar {secondaryTitleLower}
           </button>

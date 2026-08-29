@@ -1,13 +1,17 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { WorkspaceDocumentRow } from "../server/workspace-queries";
-import {
-  documentStatusBadgeClass,
-  documentStatusLabel,
-} from "../model/status";
+import { documentStatusLabel } from "../model/status";
+import { Badge } from "@/components/ui/Badge";
 import { DownloadDocxButton } from "./DownloadDocxButton";
 import { DeleteDocumentButton } from "./DeleteDocumentButton";
 import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
+
+const STATUS_TONE: Record<string, "neutral" | "warning" | "success"> = {
+  draft: "neutral",
+  ready: "warning",
+  final: "success",
+};
 
 export const DOCUMENTS_COLUMN_IDS = [
   "title",
@@ -47,7 +51,7 @@ export function createDocumentsColumns(
       header: DOCUMENTS_COLUMN_LABELS.title,
       accessorFn: (row) => row.title,
       cell: ({ row }) => (
-        <p className="text-sm font-medium text-slate-900">
+        <p className="text-sm font-medium text-ink-900">
           {row.original.title}
         </p>
       ),
@@ -58,7 +62,7 @@ export function createDocumentsColumns(
       accessorFn: (row) => row.clients?.full_name ?? "",
       cell: ({ row }) =>
         row.original.clients?.full_name ?? (
-          <span className="text-slate-400">Sin cliente</span>
+          <span className="text-ink-400">Sin cliente</span>
         ),
     },
     {
@@ -72,11 +76,9 @@ export function createDocumentsColumns(
       header: DOCUMENTS_COLUMN_LABELS.status,
       accessorFn: (row) => row.status,
       cell: ({ row }) => (
-        <span
-          className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${documentStatusBadgeClass(row.original.status)}`}
-        >
+        <Badge tone={STATUS_TONE[row.original.status] ?? "neutral"} className="w-fit">
           {documentStatusLabel(row.original.status)}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -95,7 +97,7 @@ export function createDocumentsColumns(
           <div className="flex items-center justify-end gap-1">
             <Link
               href={`/dashboard/documents/${doc.id}`}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 transition-colors hover:bg-accent-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >
               {doc.status === "final" ? "Ver" : "Continuar"}
             </Link>

@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 type Props = {
   triggerLabel: React.ReactNode;
@@ -39,6 +40,7 @@ export function Popover({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const wasOpenRef = useRef(false);
   const panelId = useId();
+  const prefersReducedMotion = useReducedMotion();
 
   // Todo el acceso a refs vive en este efecto, nunca en `close` (que se pasa
   // a `children` y se invoca durante el render de ese contenido) — así el
@@ -89,17 +91,22 @@ export function Popover({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((value) => !value)}
-        className={triggerClassName}
+        className={`press-feedback ${triggerClassName ?? ""}`}
       >
         {triggerLabel}
       </button>
+      <AnimatePresence>
       {open && (
-        <div
+        <motion.div
           id={panelId}
           ref={panelRef}
           role="dialog"
           aria-label={panelLabel}
           tabIndex={-1}
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -2 }}
+          transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
@@ -127,13 +134,14 @@ export function Popover({
               first.focus();
             }
           }}
-          className={`absolute z-40 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-3 shadow-lg focus:outline-none ${
+          className={`absolute z-40 mt-2 w-72 rounded-lg border border-ink-200 bg-white p-3 shadow-ink-md focus:outline-none ${
             align === "end" ? "right-0" : "left-0"
           }`}
         >
           {children(close)}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -2,6 +2,9 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TablePagination } from "@/components/ui/TablePagination";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { WalletIcon } from "@/app/(dashboard)/_components/icons";
 import { listReceivablesWorkspace } from "@/features/receivables/server";
 import { listClients } from "@/features/clients/server";
 import {
@@ -37,9 +40,6 @@ const SORT_OPTIONS = RECEIVABLE_SORT_OPTIONS.map((o) => ({
   label: o.label,
 }));
 
-const newButtonClass =
-  "inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4";
-
 type Props = {
   searchParams: Promise<RawReceivablesQuery>;
 };
@@ -70,7 +70,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
     <PageContainer>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-semibold text-ink-900">
             Cuentas por cobrar
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -78,7 +78,10 @@ export default async function ReceivablesPage({ searchParams }: Props) {
           </p>
         </div>
         {canWrite && (
-          <Link href="/dashboard/receivables/new" className={newButtonClass}>
+          <Link
+            href="/dashboard/receivables/new"
+            className="press-feedback ml-4 inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 text-sm font-medium text-white transition-colors duration-150 ease-out hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -99,46 +102,53 @@ export default async function ReceivablesPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Totales por moneda (sobre todos los resultados filtrados) */}
+      {/* Totales por moneda (sobre todos los resultados filtrados) — el
+          saldo pendiente es la cifra jerárquicamente dominante: es la que
+          más le importa a un notario al abrir esta pantalla. */}
       {page.totals.length > 0 && (
         <section
           aria-label="Totales por moneda"
-          className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2"
+          className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
           {page.totals.map((t) => (
-            <div
-              key={t.currency}
-              className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">
-                  {t.currency === "CRC" ? "Colones" : "Dólares"} ({t.currency})
-                </p>
+            <Card key={t.currency} padding="none" className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+                    <WalletIcon className="size-4" />
+                  </div>
+                  <p className="text-sm font-semibold text-ink-900">
+                    {t.currency === "CRC" ? "Colones" : "Dólares"}{" "}
+                    <span className="font-mono text-xs font-normal text-slate-400">
+                      ({t.currency})
+                    </span>
+                  </p>
+                </div>
                 <span className="text-xs text-slate-500">
                   {t.count === 1 ? "1 cuenta" : `${t.count} cuentas`}
                 </span>
               </div>
-              <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+              <div className="grid grid-cols-3 gap-2 px-5 py-4">
                 <div>
                   <dt className="text-xs text-slate-500">Total</dt>
-                  <dd className="font-medium text-slate-900">
+                  <dd className="mt-0.5 font-mono text-sm tabular-nums text-slate-700">
                     {formatMoney(t.total, t.currency)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Pagado</dt>
-                  <dd className="font-medium text-slate-900">
+                  <dd className="mt-0.5 font-mono text-sm tabular-nums text-emerald-700">
                     {formatMoney(t.paid, t.currency)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Saldo</dt>
-                  <dd className="font-semibold text-accent-700">
+                  <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums text-ink-900">
                     {formatMoney(t.balance, t.currency)}
                   </dd>
                 </div>
-              </dl>
-            </div>
+              </div>
+            </Card>
           ))}
         </section>
       )}
@@ -164,28 +174,32 @@ export default async function ReceivablesPage({ searchParams }: Props) {
       />
 
       {page.rows.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          <p className="text-sm font-medium text-slate-900 mb-1">
-            {query.hasActiveFilters
+        <EmptyState
+          icon={<WalletIcon className="size-5" />}
+          title={
+            query.hasActiveFilters
               ? "Ninguna cuenta coincide con los filtros"
-              : "Aún no hay cuentas por cobrar"}
-          </p>
-          <p className="text-xs text-slate-500 mb-6">
-            {query.hasActiveFilters
+              : "Aún no hay cuentas por cobrar"
+          }
+          description={
+            query.hasActiveFilters
               ? "Ajusta o limpia los filtros para ver más resultados."
-              : "Registra un cobro pendiente asociado a un cliente."}
-          </p>
-          {!query.hasActiveFilters && canWrite && (
-            <Link
-              href="/dashboard/receivables/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-            >
-              Agregar cuenta
-            </Link>
-          )}
-        </div>
+              : "Registra un cobro pendiente asociado a un cliente."
+          }
+          className="py-16"
+          action={
+            !query.hasActiveFilters && canWrite ? (
+              <Link
+                href="/dashboard/receivables/new"
+                className="press-feedback inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 text-sm font-medium text-white transition-colors duration-150 ease-out hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+              >
+                Agregar cuenta
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <ReceivablesTable rows={page.rows} />
 
           <TablePagination
@@ -196,7 +210,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
             }
             pageHref={pageHref}
           />
-        </div>
+        </Card>
       )}
     </PageContainer>
   );

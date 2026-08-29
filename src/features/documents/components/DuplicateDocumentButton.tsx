@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   duplicateDocumentAction,
   type DuplicateDocumentState,
@@ -24,11 +25,12 @@ export function DuplicateDocumentButton({
     DuplicateDocumentState,
     FormData
   >(boundDuplicate, {});
+  const prefersReducedMotion = useReducedMotion();
 
   const triggerClass =
     variant === "compact"
-      ? "flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-accent-50 hover:text-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-1 transition-colors"
-      : "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0";
+      ? "press-feedback flex h-8 w-8 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-accent-50 hover:text-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1"
+      : "press-feedback inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 shrink-0";
 
   return (
     <>
@@ -58,32 +60,41 @@ export function DuplicateDocumentButton({
         {variant === "full" && "Duplicar"}
       </button>
 
+      <AnimatePresence>
       {open && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+          <motion.div
+            className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={() => setOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
           />
 
-          <div
+          <motion.div
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="duplicate-document-dialog-title"
             aria-describedby="duplicate-document-dialog-desc"
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-ink-lg">
               <div className="px-6 pt-6 pb-4 text-center">
                 <h2
                   id="duplicate-document-dialog-title"
-                  className="text-base font-semibold text-slate-900 mb-2"
+                  className="text-base font-semibold text-ink-900 mb-2"
                 >
                   ¿Duplicar {documentTitle}?
                 </h2>
                 <p
                   id="duplicate-document-dialog-desc"
-                  className="text-sm text-slate-600 leading-relaxed"
+                  className="text-sm text-ink-600 leading-relaxed"
                 >
                   Se creará un borrador nuevo con el mismo contenido y
                   valores. El original no se modifica.
@@ -98,12 +109,12 @@ export function DuplicateDocumentButton({
                 )}
               </div>
 
-              <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <div className="flex gap-3 border-t border-ink-100 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   disabled={pending}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Cancelar
                 </button>
@@ -111,16 +122,17 @@ export function DuplicateDocumentButton({
                   <button
                     type="submit"
                     disabled={pending}
-                    className="w-full rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                    className="press-feedback w-full rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {pending ? "Duplicando..." : "Duplicar"}
                   </button>
                 </form>
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </>
   );
 }

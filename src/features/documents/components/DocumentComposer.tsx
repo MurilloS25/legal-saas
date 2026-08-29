@@ -73,8 +73,8 @@ import type { ReceivableEntry } from "@/features/receivables";
 import { DocumentReceivableStep } from "./DocumentReceivableStep";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-ink-400 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
+const labelClass = "block text-sm font-medium text-ink-700 mb-1.5";
 
 // Orden fijo del flujo guiado — usado para saber a qué paso avanza
 // "Guardar y continuar" (Completar → Revisar y finalizar) en modo edición.
@@ -497,13 +497,13 @@ export function DocumentComposer(props: Props) {
 
       {totalCount > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-1.5">Progreso</h3>
-          <p role="status" className="text-xs font-medium text-slate-600">
+          <h3 className="text-sm font-semibold text-ink-900 mb-1.5">Progreso</h3>
+          <p role="status" className="text-xs font-medium text-ink-600 tabular-figures">
             {completedCount} de {totalCount} campos completos
           </p>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-100" aria-hidden="true">
             <div
-              className="h-full rounded-full bg-accent-600 transition-all"
+              className="h-full rounded-full bg-accent-600 transition-all duration-300 ease-out"
               style={{ width: `${Math.round((completedCount / totalCount) * 100)}%` }}
             />
           </div>
@@ -515,7 +515,7 @@ export function DocumentComposer(props: Props) {
               type="button"
               onClick={goToNextPending}
               disabled={pendingFields.length === 0}
-              className="mt-2 w-full rounded-lg border border-accent-300 bg-accent-50 px-3.5 py-2.5 text-sm font-medium text-accent-800 transition-colors hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="press-feedback mt-2 w-full rounded-lg border border-accent-200 bg-accent-50 px-3.5 py-2.5 text-sm font-medium text-accent-800 transition-colors hover:bg-accent-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Siguiente pendiente →
             </button>
@@ -524,14 +524,14 @@ export function DocumentComposer(props: Props) {
       )}
 
       {totalCount === 0 && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Este machote no tiene variables: el documento es texto fijo y solo
           necesita un título.
         </p>
       )}
 
       {readOnly && (
-        <p role="status" className="text-xs text-slate-500">
+        <p role="status" className="text-xs text-ink-500">
           {isEdit && canEdit
             ? "Esta escritura está finalizada (solo lectura). Reábrela para editarla de nuevo."
             : "Tu rol no permite editar escrituras. La ves en modo lectura."}
@@ -539,13 +539,13 @@ export function DocumentComposer(props: Props) {
       )}
       {!readOnly && (
         <div>
-          <p className={`text-xs ${dirty && !pending ? "text-amber-700 font-medium" : "text-slate-500"}`}>
+          <p className={`text-xs transition-colors ${dirty && !pending ? "text-amber-700 font-medium" : "text-ink-500"}`}>
             {saveStatusText}
           </p>
           <button
             type="submit"
             disabled={pending}
-            className="mt-2 w-full rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="press-feedback mt-2 w-full rounded-lg bg-accent-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {pending ? "Guardando…" : "Guardar y continuar"}
           </button>
@@ -591,12 +591,12 @@ export function DocumentComposer(props: Props) {
         <input type="hidden" name="section" value={section} />
 
         {state.message && (
-          <div role="alert" className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="mb-6 animate-scale-in rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {state.message}
           </div>
         )}
         {state.errors && Object.keys(state.errors).length > 0 && (
-          <div role="alert" className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="mb-6 animate-scale-in rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <ul className="list-disc space-y-0.5 pl-5">
               {Object.entries(state.errors).map(([key, message]) => (
                 <li key={key}>{message}</li>
@@ -642,17 +642,17 @@ export function DocumentComposer(props: Props) {
           aria-labelledby="document-step-revisar"
           hidden={section !== "revisar"}
         >
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50/60 sticky top-0 z-10">
+          <section className="rounded-xl border border-slate-200 bg-white shadow-ink-sm overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-ink-100 bg-ink-100/40 sticky top-0 z-10">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">Revisión del documento</h2>
-                <p className="text-xs text-slate-500">Vista de solo lectura, tal como quedará la escritura.</p>
+                <h2 className="text-sm font-semibold text-ink-900">Revisión del documento</h2>
+                <p className="text-xs text-ink-500">Vista de solo lectura, tal como quedará la escritura.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => goToSection("completar")}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                  className="press-feedback rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                 >
                   Editar
                 </button>
@@ -661,7 +661,7 @@ export function DocumentComposer(props: Props) {
                   onClick={() => setPreviewExpanded(true)}
                   title="Ver en pantalla completa"
                   aria-label="Ver en pantalla completa"
-                  className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                  className="press-feedback rounded-md border border-ink-200 bg-white p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                 >
                   ⤢
                 </button>
@@ -672,10 +672,10 @@ export function DocumentComposer(props: Props) {
             {/* Estado + acciones finales — franja compacta dentro de la
                 misma card, en vez de una segunda card grande separada solo
                 para dos botones. Requiere que la Escritura ya exista. */}
-            <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+            <div className="border-t border-ink-100 bg-ink-100/40 px-6 py-4">
               {isEdit ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-ink-600">
                     {dirty
                       ? "Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado."
                       : totalCount > 0
@@ -701,7 +701,7 @@ export function DocumentComposer(props: Props) {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-ink-500">
                   Finalizar y descargar estarán disponibles después de
                   guardar la escritura por primera vez.
                 </p>
@@ -791,11 +791,11 @@ export function DocumentComposer(props: Props) {
 /** Placeholder para un paso que depende de que la Escritura ya exista. */
 function LockedStepPlaceholder({ title }: { title: string }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+    <section className="rounded-xl border border-dashed border-ink-200 bg-white overflow-hidden animate-fade-in">
+      <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+        <h2 className="text-sm font-semibold text-ink-900">{title}</h2>
       </div>
-      <div className="px-6 py-8 text-center text-sm text-slate-500">
+      <div className="px-6 py-8 text-center text-sm text-ink-500">
         Disponible después de guardar la escritura por primera vez. Guarda
         desde Completar para desbloquearlo.
       </div>

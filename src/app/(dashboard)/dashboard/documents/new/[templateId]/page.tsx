@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
@@ -41,26 +42,23 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
         <nav aria-label="Breadcrumb" className="mb-6">
           <Link
             href="/dashboard/documents/new"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+            className="inline-flex items-center gap-1.5 text-xs text-ink-500 transition-colors hover:text-ink-700 focus:outline-none focus-visible:underline"
           >
             Nueva escritura
           </Link>
         </nav>
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          <p className="text-sm font-medium text-slate-900 mb-1">
-            Este machote no está activo
-          </p>
-          <p className="text-xs text-slate-500 mb-6">
-            Su estado actual es &ldquo;{templateStatusLabel(template.status)}&rdquo;. Solo
-            se pueden crear escrituras a partir de machotes activos.
-          </p>
-          <Link
-            href="/dashboard/documents/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-          >
-            Elegir otro machote
-          </Link>
-        </div>
+        <EmptyState
+          title="Este machote no está activo"
+          description={`Su estado actual es "${templateStatusLabel(template.status)}". Solo se pueden crear escrituras a partir de machotes activos.`}
+          action={
+            <Link
+              href="/dashboard/documents/new"
+              className="press-feedback inline-flex items-center gap-2 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+            >
+              Elegir otro machote
+            </Link>
+          }
+        />
       </PageContainer>
     );
   }
@@ -102,7 +100,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
           href="/dashboard/documents/new"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+          className="inline-flex items-center gap-1.5 text-xs text-ink-500 transition-colors hover:text-ink-700 focus:outline-none focus-visible:underline"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -123,17 +121,17 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
       </nav>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
           Crear escritura
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-ink-500">
           Completa los datos en el panel; el documento se actualiza al
           instante.
         </p>
       </div>
 
       {fields.some((field) => field.derived) && (
-        <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div className="mb-6 rounded-lg border border-ink-200 bg-ink-100/40 px-4 py-3 text-sm text-ink-600">
           Algunas variables del machote no tienen un campo configurado y se
           muestran con su clave. Puedes llenarlas igual, o{" "}
           <Link

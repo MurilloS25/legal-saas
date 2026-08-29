@@ -43,13 +43,13 @@ export function PaymentsTable({ receivableId, rows, canVoid }: Props) {
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
               key={headerGroup.id}
-              className="border-b border-slate-100 bg-slate-50 text-left"
+              className="border-b border-slate-200 bg-slate-50/60 text-left"
             >
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
                   scope="col"
-                  className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${
+                  className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-400 whitespace-nowrap ${
                     header.column.id === "actions" ? "text-right" : ""
                   } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
@@ -63,7 +63,7 @@ export function PaymentsTable({ receivableId, rows, canVoid }: Props) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="transition-colors hover:bg-slate-50">
+            <tr key={row.id} className="transition-colors hover:bg-accent-50/40">
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}

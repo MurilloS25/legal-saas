@@ -21,7 +21,7 @@ export default async function NewClientPage() {
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
           href="/dashboard/clients"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-accent-700 focus:outline-none focus-visible:underline"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -30,7 +30,7 @@ export default async function NewClientPage() {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2.5"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -41,8 +41,8 @@ export default async function NewClientPage() {
         </Link>
       </nav>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Nuevo cliente</h1>
+      <div className="mb-6 animate-fade-in">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Nuevo cliente</h1>
         <p className="mt-1 text-sm text-slate-500">
           Registra los datos de la persona física.
         </p>

@@ -13,6 +13,7 @@
 
 import Link from "next/link";
 import { ContextBackLink } from "@/components/navigation/ContextBackLink";
+import { ChevronLeftIcon } from "@/app/(dashboard)/_components/icons";
 
 export type ReceivableWorkspaceSection = "account" | "payments";
 
@@ -56,29 +57,16 @@ export function ReceivableWorkspaceHeader({
       )}
       <Link
         href="/dashboard/receivables"
-        className="mb-4 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+        className="mb-4 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent-700 focus:outline-none focus:underline transition-colors"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
+        <ChevronLeftIcon className="size-3" />
         Cuentas por cobrar
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-semibold text-slate-900 truncate">
+            <h1 className="text-2xl font-semibold text-ink-900 truncate">
               {concept}
             </h1>
             {statusBadge}
@@ -141,10 +129,10 @@ export function ReceivableWorkspaceHeader({
                   onSectionChange(next.id);
                   document.getElementById(`receivable-tab-${next.id}`)?.focus();
                 }}
-                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
+                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 ${
                   active
-                    ? "border-accent-700 text-accent-800"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
+                    ? "border-accent-600 text-accent-700"
+                    : "border-transparent text-slate-600 hover:text-ink-900"
                 }`}
               >
                 {tab.label}

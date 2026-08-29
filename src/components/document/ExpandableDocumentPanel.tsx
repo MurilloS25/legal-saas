@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useId, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 type Props = {
   open: boolean;
@@ -29,6 +30,7 @@ export function ExpandableDocumentPanel({ open, onClose, title, children }: Prop
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (open) {
@@ -42,21 +44,29 @@ export function ExpandableDocumentPanel({ open, onClose, title, children }: Prop
     window.requestAnimationFrame(() => previousFocusRef.current?.focus());
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) close();
-      }}
-    >
-      <div
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) close();
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+      <motion.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
@@ -84,10 +94,10 @@ export function ExpandableDocumentPanel({ open, onClose, title, children }: Prop
             first.focus();
           }
         }}
-        className="flex h-[92vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl focus:outline-none"
+        className="flex h-[92vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-2xl bg-white shadow-ink-lg focus:outline-none"
       >
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50/80 px-5 py-3.5">
-          <h2 id={titleId} className="text-sm font-semibold text-slate-900">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-ink-100 bg-ink-100/40 px-5 py-3.5">
+          <h2 id={titleId} className="text-sm font-semibold text-ink-900">
             {title}
           </h2>
           <button
@@ -95,14 +105,16 @@ export function ExpandableDocumentPanel({ open, onClose, title, children }: Prop
             onClick={close}
             aria-label="Cerrar"
             title="Cerrar"
-            className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="press-feedback rounded-full bg-ink-100 p-1.5 text-ink-500 transition-colors hover:bg-ink-200 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <CloseIcon />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-      </div>
-    </div>
+      </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

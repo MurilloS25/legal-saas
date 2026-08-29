@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TablePagination } from "@/components/ui/TablePagination";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ScrollIcon } from "@/app/(dashboard)/_components/icons";
 import Link from "next/link";
 import { listTemplatesPage } from "@/features/templates/server";
 import {
@@ -45,17 +47,17 @@ export default async function TemplatesPage({ searchParams }: Props) {
   return (
     <PageContainer>
       {/* ---- header ---- */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Machotes</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Machotes</h1>
+          <p className="mt-1 text-sm text-ink-400">
             Administra y organiza tus plantillas legales reutilizables.
           </p>
         </div>
         {canWrite && (
           <Link
             href="/dashboard/templates/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
+            className="press-feedback ml-4 inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 text-sm font-medium text-white transition-colors duration-150 ease-out hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -79,45 +81,24 @@ export default async function TemplatesPage({ searchParams }: Props) {
 
       {/* ---- empty state ---- */}
       {page.total === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-slate-400"
-              aria-hidden="true"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
-          </div>
-          <p className="text-sm font-medium text-slate-900 mb-1">
-            Aún no tienes machotes registrados
-          </p>
-          <p className="text-xs text-slate-500 mb-6">
-            Crea tu primer machote para empezar a gestionar tus plantillas legales.
-          </p>
-          {canWrite && (
-            <Link
-              href="/dashboard/templates/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-            >
-              Crear machote
-            </Link>
-          )}
-        </div>
+        <EmptyState
+          icon={<ScrollIcon className="size-6" />}
+          title="Aún no tienes machotes registrados"
+          description="Crea tu primer machote para empezar a gestionar tus plantillas legales."
+          action={
+            canWrite ? (
+              <Link
+                href="/dashboard/templates/new"
+                className="press-feedback inline-flex h-9 items-center justify-center rounded-lg bg-accent-600 px-4 text-sm font-medium text-white transition-colors duration-150 ease-out hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+              >
+                Crear machote
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
         /* ---- templates table ---- */
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="animate-fade-in rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
           <TemplatesTable rows={page.rows} />
 
           <TablePagination

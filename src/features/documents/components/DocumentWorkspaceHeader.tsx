@@ -29,10 +29,17 @@
 
 import Link from "next/link";
 import { HorizontalStepper, type StepStatus } from "@/components/document/HorizontalStepper";
-import { documentStatusBadgeClass, documentStatusLabel } from "../model/status";
+import { Badge } from "@/components/ui/Badge";
+import { documentStatusLabel } from "../model/status";
 import type { DocumentActivityPage } from "../server/activity-queries";
 import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
 import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
+
+const STATUS_TONE: Record<string, "neutral" | "warning" | "success"> = {
+  draft: "neutral",
+  ready: "warning",
+  final: "success",
+};
 
 export type DocumentWorkspaceSection =
   | "completar"
@@ -156,23 +163,21 @@ export function DocumentWorkspaceHeader({
     <header className="mb-6">
       <Link
         href="/dashboard/documents"
-        className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
+        className="mb-4 inline-flex text-sm font-medium text-ink-600 transition-colors hover:text-ink-900 focus:outline-none focus-visible:underline"
       >
         ‹ Volver a Escrituras
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-slate-900 truncate">{title}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-            <span
-              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusBadgeClass(status)}`}
-            >
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900 truncate">{title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-500">
+            <Badge tone={STATUS_TONE[status] ?? "neutral"}>
               {documentStatusLabel(status)}
-            </span>
+            </Badge>
             <span aria-hidden="true">·</span>
-            <span>{saveStatusText}</span>
+            <span className="tabular-figures">{saveStatusText}</span>
           </div>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-ink-500">
             Cliente: {clientName ?? "Sin cliente"}
           </p>
         </div>

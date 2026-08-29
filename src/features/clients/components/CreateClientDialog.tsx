@@ -20,6 +20,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useActionState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   createClientForDialogAction,
   type ClientDialogState,
@@ -27,6 +28,7 @@ import {
 } from "../server/actions";
 import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 import { FieldError } from "@/components/forms/FieldError";
+import { Button } from "@/components/ui/Button";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
@@ -75,13 +77,15 @@ export function CreateClientDialog({ onCreated }: Props) {
     window.requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
+  const reducedMotion = useReducedMotion();
+
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
+        className="text-sm font-medium text-accent-700 transition-colors hover:text-accent-800 focus:outline-none focus-visible:underline"
       >
         + Crear nuevo cliente
       </button>
@@ -94,10 +98,13 @@ export function CreateClientDialog({ onCreated }: Props) {
               — z-index una capa por encima del estándar del repo (z-40/z-50)
               para taparlo por completo en vez de competir visualmente con
               él, incluso si ambos comparten el mismo `document.body`. */}
-          <div
-            className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm"
+          <motion.div
+            className="fixed inset-0 z-[60] bg-ink-950/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={close}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
           />
           <div
             role="dialog"
@@ -143,9 +150,14 @@ export function CreateClientDialog({ onCreated }: Props) {
               }
             }}
           >
-            <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-xl">
+            <motion.div
+              className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-ink-lg"
+              initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 4 }}
+              animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            >
               <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-                <h2 id={titleId} className="text-base font-semibold text-slate-900">
+                <h2 id={titleId} className="text-base font-semibold text-ink-900">
                   Crear nuevo cliente
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -366,24 +378,20 @@ export function CreateClientDialog({ onCreated }: Props) {
                 </div>
 
                 <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={close}
-                    disabled={pending}
-                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
+                  <Button type="button" variant="secondary" onClick={close} disabled={pending}>
                     Cancelar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={pending}
-                    className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    variant="accent"
+                    loading={pending}
+                    loadingText="Creando…"
                   >
-                    {pending ? "Creando…" : "Crear cliente"}
-                  </button>
+                    Crear cliente
+                  </Button>
                 </div>
               </form>
-            </div>
+            </motion.div>
           </div>
           </>,
           document.body,

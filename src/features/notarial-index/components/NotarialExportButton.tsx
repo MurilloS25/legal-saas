@@ -11,7 +11,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useToast } from "@/components/feedback/Toast";
+import { Button } from "@/components/ui/Button";
 
 type Props = {
   href: string;
@@ -46,6 +48,7 @@ export function NotarialExportButton({ href }: Props) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
   const descId = useId();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!open) return;
@@ -114,89 +117,107 @@ export function NotarialExportButton({ href }: Props) {
 
   return (
     <>
-      <button
+      <Button
         ref={triggerRef}
         type="button"
+        variant="secondary"
         onClick={() => setOpen(true)}
         data-export-href={href}
-        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
+        className="shrink-0"
       >
         Exportar Word
-      </button>
+      </Button>
 
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
-            aria-hidden="true"
-            onClick={pending ? undefined : closeDialog}
-          />
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descId}
-            ref={dialogRef}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                if (!pending) closeDialog();
-                return;
-              }
-              if (event.key !== "Tab") return;
-              const focusable = Array.from(
-                dialogRef.current?.querySelectorAll<HTMLElement>(
-                  "button:not([disabled])",
-                ) ?? [],
-              );
-              if (focusable.length === 0) return;
-              const first = focusable[0];
-              const last = focusable[focusable.length - 1];
-              if (event.shiftKey && document.activeElement === first) {
-                event.preventDefault();
-                last.focus();
-              } else if (!event.shiftKey && document.activeElement === last) {
-                event.preventDefault();
-                first.focus();
-              }
-            }}
-          >
-            <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
-              <div className="px-6 pt-6 pb-4">
-                <h2
-                  id={titleId}
-                  className="text-base font-semibold text-slate-900 mb-2"
-                >
-                  ¿Exportar Índice Notarial a Word?
-                </h2>
-                <p id={descId} className="text-sm text-slate-600 leading-relaxed">
-                  El archivo se generará con la información actualmente
-                  configurada. Las escrituras con datos incompletos pueden
-                  aparecer con campos faltantes en el documento exportado.
-                </p>
-              </div>
-              <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
-                <button
-                  type="button"
-                  onClick={closeDialog}
-                  disabled={pending}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleConfirm()}
-                  disabled={pending}
-                  className="flex-1 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
-                >
-                  {pending ? "Exportando…" : "Exportar Word"}
-                </button>
-              </div>
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0.001 : 0.15 }}
+              className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
+              aria-hidden="true"
+              onClick={pending ? undefined : closeDialog}
+            />
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              aria-describedby={descId}
+              ref={dialogRef}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  if (!pending) closeDialog();
+                  return;
+                }
+                if (event.key !== "Tab") return;
+                const focusable = Array.from(
+                  dialogRef.current?.querySelectorAll<HTMLElement>(
+                    "button:not([disabled])",
+                  ) ?? [],
+                );
+                if (focusable.length === 0) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first.focus();
+                }
+              }}
+            >
+              <motion.div
+                key="panel"
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: 4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 4 }}
+                transition={{ duration: reduceMotion ? 0.001 : 0.18, ease: [0.23, 1, 0.32, 1] }}
+                className="w-full max-w-sm rounded-2xl border border-ink-200 bg-white shadow-ink-lg"
+              >
+                <div className="px-6 pt-6 pb-4">
+                  <h2
+                    id={titleId}
+                    className="text-base font-semibold text-ink-900 mb-2"
+                  >
+                    ¿Exportar Índice Notarial a Word?
+                  </h2>
+                  <p id={descId} className="text-sm text-ink-600 leading-relaxed">
+                    El archivo se generará con la información actualmente
+                    configurada. Las escrituras con datos incompletos pueden
+                    aparecer con campos faltantes en el documento exportado.
+                  </p>
+                </div>
+                <div className="flex gap-3 border-t border-ink-100 px-6 py-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={closeDialog}
+                    disabled={pending}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="accent"
+                    onClick={() => void handleConfirm()}
+                    loading={pending}
+                    loadingText="Exportando…"
+                    className="flex-1"
+                  >
+                    Exportar Word
+                  </Button>
+                </div>
+              </motion.div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }

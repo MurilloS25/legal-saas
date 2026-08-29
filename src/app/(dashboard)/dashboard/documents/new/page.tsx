@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ArrowRightIcon, StackIcon } from "@/app/(dashboard)/_components/icons";
 import { listTemplateOptions } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
 import { requireWorkspace } from "@/lib/server/auth";
@@ -64,7 +68,7 @@ export default async function NewDocumentTemplatePickerPage({
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
           href="/dashboard/documents"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
+          className="inline-flex items-center gap-1.5 text-xs text-ink-500 transition-colors hover:text-ink-700 focus:outline-none focus-visible:underline"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -86,16 +90,16 @@ export default async function NewDocumentTemplatePickerPage({
 
       {/* ---- header ---- */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-slate-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
           Nueva escritura
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-ink-500">
           Selecciona el machote que servirá de base para la escritura.
         </p>
       </div>
 
       {selectedClient && (
-        <div className="mb-6 rounded-lg border border-accent-200 bg-accent-50/60 px-4 py-3 text-sm text-accent-800">
+        <div className="mb-6 rounded-lg border border-accent-200 bg-accent-50/60 px-4 py-3 text-sm text-accent-800 animate-fade-in">
           Cliente principal:{" "}
           <span className="font-semibold">{selectedClient.full_name}</span>. Se
           asociará a la escritura; podrás cambiarlo antes de guardar.
@@ -104,59 +108,62 @@ export default async function NewDocumentTemplatePickerPage({
 
       {/* ---- empty state ---- */}
       {templates.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          <p className="text-sm font-medium text-slate-900 mb-1">
-            {hasAnyTemplates
+        <EmptyState
+          icon={<StackIcon className="size-5" />}
+          title={
+            hasAnyTemplates
               ? "No tienes machotes activos"
-              : "Aún no tienes machotes disponibles"}
-          </p>
-          <p className="text-xs text-slate-500 mb-6">
-            {hasAnyTemplates
+              : "Aún no tienes machotes disponibles"
+          }
+          description={
+            hasAnyTemplates
               ? "Solo se pueden crear escrituras a partir de machotes activos. Activa un machote desde su edición para poder usarlo."
-              : "Para crear una escritura primero necesitas un machote con sus campos configurados."}
-          </p>
-          <Link
-            href={hasAnyTemplates ? "/dashboard/templates" : "/dashboard/templates/new"}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-          >
-            {hasAnyTemplates ? "Ver machotes" : "Crear machote"}
-          </Link>
-        </div>
+              : "Para crear una escritura primero necesitas un machote con sus campos configurados."
+          }
+          action={
+            <Link
+              href={hasAnyTemplates ? "/dashboard/templates" : "/dashboard/templates/new"}
+              className="press-feedback inline-flex items-center gap-2 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+            >
+              {hasAnyTemplates ? "Ver machotes" : "Crear machote"}
+            </Link>
+          }
+        />
       ) : (
         /* ---- available templates ---- */
-        <ul role="list" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul role="list" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 animate-stagger-in">
           {templates.map((template) => (
-            <li
-              key={template.id}
-              className="flex flex-col rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3 mb-1.5">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  {template.name}
-                </h2>
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 shrink-0">
-                  {STATUS_LABEL[template.status] ?? template.status}
-                </span>
-              </div>
+            <li key={template.id}>
+              <Card interactive={false} className="flex h-full flex-col">
+                <div className="flex items-start justify-between gap-3 mb-1.5">
+                  <h2 className="text-sm font-semibold text-ink-900">
+                    {template.name}
+                  </h2>
+                  <Badge tone="neutral" className="shrink-0">
+                    {STATUS_LABEL[template.status] ?? template.status}
+                  </Badge>
+                </div>
 
-              {template.description && (
-                <p className="text-xs text-slate-500 leading-relaxed mb-2">
-                  {template.description}
+                {template.description && (
+                  <p className="text-xs text-ink-500 leading-relaxed mb-2">
+                    {template.description}
+                  </p>
+                )}
+
+                <p className="text-xs text-ink-400 mb-4">
+                  Actualizado el {formatDate(template.updated_at)}
                 </p>
-              )}
 
-              <p className="text-xs text-slate-400 mb-4">
-                Actualizado el {formatDate(template.updated_at)}
-              </p>
-
-              <div className="mt-auto">
-                <Link
-                  href={templateHref(template.id)}
-                  className="inline-flex items-center rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-                >
-                  Usar este machote
-                </Link>
-              </div>
+                <div className="mt-auto">
+                  <Link
+                    href={templateHref(template.id)}
+                    className="press-feedback group inline-flex items-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+                  >
+                    Usar este machote
+                    <ArrowRightIcon className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+                  </Link>
+                </div>
+              </Card>
             </li>
           ))}
         </ul>

@@ -18,6 +18,7 @@ import type { OptionBlockSummary } from "@/lib/editor/option-blocks";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
 import { OptionBlockTimeMappingEditor } from "./OptionBlockTimeMappingEditor";
+import { Button } from "@/components/ui/Button";
 
 export type IndexConfigurationField = {
   id: string;
@@ -79,7 +80,7 @@ const INVALID_LABELS: Record<InvalidIndexMapping, string> = {
 
 const initialState: TemplateIndexConfigurationState = {};
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600";
+  "w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500";
 
 function initialSimpleFieldValue(
   key: SimpleIndexMappingKey,
@@ -360,26 +361,26 @@ export function TemplateIndexConfigurationSection({
   return (
     <section
       aria-label="Configuración del índice notarial"
-      className="rounded-xl border border-slate-200 bg-white shadow-sm"
+      className="rounded-xl border border-ink-100 bg-white shadow-ink-sm"
     >
-      <div className="px-6 py-4 text-sm font-semibold text-slate-900 border-b border-slate-200">
+      <div className="px-6 py-4 text-sm font-semibold text-ink-900 border-b border-ink-100">
         Configuración del índice notarial
       </div>
 
-      <div className="flex items-start gap-2 border-b border-slate-100 px-6 py-4">
+      <div className="flex items-start gap-2 border-b border-ink-100 px-6 py-4">
         <input
           id="template-notarial-inclusion-toggle"
           type="checkbox"
           checked={inclusion}
           disabled={readOnly || inclusionPending}
           onChange={(event) => handleInclusionChange(event.target.checked)}
-          className="mt-0.5 size-4 accent-accent-700"
+          className="mt-0.5 size-4 rounded accent-accent-600"
         />
         <label
           htmlFor="template-notarial-inclusion-toggle"
-          className="text-sm text-slate-700"
+          className="text-sm text-ink-700"
         >
-          <span className="font-medium text-slate-900">
+          <span className="font-medium text-ink-900">
             Incluir en Índice Notarial
           </span>
           <br />
@@ -389,12 +390,12 @@ export function TemplateIndexConfigurationSection({
         </label>
       </div>
       {inclusionError && (
-        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
+        <p role="alert" className="border-b border-ink-100 px-6 py-2 text-xs text-red-700">
           {inclusionError}
         </p>
       )}
       {!inclusion && (
-        <p className="border-b border-slate-100 px-6 py-4 text-sm text-slate-500">
+        <p className="border-b border-ink-100 px-6 py-4 text-sm text-ink-500">
           Este Machote no utilizará configuración del Índice.
         </p>
       )}
@@ -407,7 +408,7 @@ export function TemplateIndexConfigurationSection({
         {readOnly && (
           <div
             role="status"
-            className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+            className="mb-4 rounded-lg bg-ink-100/60 border border-ink-200 px-4 py-3 text-sm text-ink-600"
           >
             Tu rol no permite editar la configuración del índice. La ves en
             modo lectura.
@@ -441,7 +442,7 @@ export function TemplateIndexConfigurationSection({
           />
         ))}
 
-        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+        <div className="divide-y divide-ink-100 rounded-xl border border-ink-200 overflow-hidden">
           {SIMPLE_FIELDS.map(({ key, label }) => (
             <CollapsibleFieldRow
               key={key}
@@ -458,7 +459,7 @@ export function TemplateIndexConfigurationSection({
                   colapsada al momento del submit. */}
               <label
                 htmlFor={`${key}_field_id`}
-                className="mb-1 block text-xs font-medium text-slate-700"
+                className="mb-1 block text-xs font-medium text-ink-700"
               >
                 Variable sugerida
               </label>
@@ -555,7 +556,7 @@ export function TemplateIndexConfigurationSection({
             open={openRowId === "parties"}
             onToggle={() => toggleRow("parties")}
           >
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-500">
               Selecciona las variables que representan a las personas o
               entidades que deben aparecer en la columna &ldquo;Partes&rdquo;
               del índice.
@@ -586,10 +587,10 @@ export function TemplateIndexConfigurationSection({
               id={partiesListboxId}
               role="listbox"
               aria-label="Variables disponibles para Partes"
-              className="mt-3 max-h-72 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200"
+              className="mt-3 max-h-72 overflow-y-auto divide-y divide-ink-100 rounded-lg border border-ink-200"
             >
               {visibleFields.length === 0 && (
-                <p className="px-3 py-4 text-sm text-slate-500">
+                <p className="px-3 py-4 text-sm text-ink-500">
                   Ninguna variable coincide con la búsqueda.
                 </p>
               )}
@@ -604,7 +605,7 @@ export function TemplateIndexConfigurationSection({
                     role="option"
                     aria-selected={selected}
                     onMouseEnter={() => setPartiesActiveIndex(index)}
-                    className={`flex min-h-12 items-center gap-3 px-3 py-2 ${
+                    className={`flex min-h-12 items-center gap-3 px-3 py-2 transition-colors ${
                       active ? "bg-accent-50" : ""
                     }`}
                   >
@@ -614,14 +615,14 @@ export function TemplateIndexConfigurationSection({
                       checked={selected}
                       onChange={(event) => toggleField(field.id, event.target.checked)}
                       disabled={readOnly}
-                      className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-600"
+                      className="h-4 w-4 rounded border-ink-200 text-accent-600 focus:ring-accent-500"
                     />
                     <label
                       htmlFor={`index-party-${field.id}`}
-                      className="min-w-0 flex-1 text-sm text-slate-800"
+                      className="min-w-0 flex-1 text-sm text-ink-800"
                     >
                       <span className="font-medium">{field.label}</span>
-                      <span className="ml-2 text-xs text-slate-500">{field.fieldKey}</span>
+                      <span className="ml-2 text-xs text-ink-500">{field.fieldKey}</span>
                     </label>
                     {selected && (
                       <div className="flex gap-1">
@@ -630,7 +631,7 @@ export function TemplateIndexConfigurationSection({
                           aria-label={`Subir ${field.label}`}
                           disabled={readOnly || selectedIndex === 0}
                           onClick={() => moveField(field.id, -1)}
-                          className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
+                          className="h-8 w-8 rounded-md border border-ink-200 hover:bg-ink-100/60 disabled:opacity-40 transition-colors"
                         >
                           ↑
                         </button>
@@ -639,7 +640,7 @@ export function TemplateIndexConfigurationSection({
                           aria-label={`Bajar ${field.label}`}
                           disabled={readOnly || selectedIndex === selectedIds.length - 1}
                           onClick={() => moveField(field.id, 1)}
-                          className="h-8 w-8 rounded-md border border-slate-200 disabled:opacity-40"
+                          className="h-8 w-8 rounded-md border border-ink-200 hover:bg-ink-100/60 disabled:opacity-40 transition-colors"
                         >
                           ↓
                         </button>
@@ -652,7 +653,7 @@ export function TemplateIndexConfigurationSection({
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="party_separator" className="mb-1 block text-xs font-medium text-slate-700">
+                <label htmlFor="party_separator" className="mb-1 block text-xs font-medium text-ink-700">
                   Separador
                 </label>
                 <input
@@ -670,7 +671,7 @@ export function TemplateIndexConfigurationSection({
                 )}
               </div>
               <div>
-                <label htmlFor="fixed_suffix" className="mb-1 block text-xs font-medium text-slate-700">
+                <label htmlFor="fixed_suffix" className="mb-1 block text-xs font-medium text-ink-700">
                   Texto fijo (opcional)
                 </label>
                 <input
@@ -691,20 +692,20 @@ export function TemplateIndexConfigurationSection({
 
             {selectedIds.length === 0 && (
               <div className="mt-4">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-ink-600">
                   Este Machote no necesita generar automáticamente el campo
                   &ldquo;Partes&rdquo; del índice.
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-ink-500">
                   Podrás completarlo manualmente en cada Escritura.
                 </p>
-                <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
+                <label className="mt-2 flex items-start gap-2 text-sm text-ink-700">
                   <input
                     type="checkbox"
                     checked={allowEmpty}
                     onChange={(event) => setAllowEmpty(event.target.checked)}
                     disabled={readOnly}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-200"
                   />
                   Confirmo que este machote no requiere Partes para el índice.
                 </label>
@@ -717,13 +718,13 @@ export function TemplateIndexConfigurationSection({
               </p>
             )}
 
-            <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3">
-              <p className="text-xs font-medium uppercase text-slate-500">Vista previa</p>
+            <div className="mt-4 rounded-lg bg-ink-100/50 px-4 py-3">
+              <p className="text-xs font-medium uppercase text-ink-500">Vista previa</p>
               <p
                 className={`mt-1 text-sm ${
                   selectedIds.length === 0 || previewIncomplete
-                    ? "text-slate-500"
-                    : "text-slate-900"
+                    ? "text-ink-500"
+                    : "text-ink-900"
                 }`}
               >
                 {previewMessage}
@@ -753,13 +754,9 @@ export function TemplateIndexConfigurationSection({
 
         {!readOnly && (
           <div className="mt-5 flex justify-end">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2 disabled:opacity-50"
-            >
-              {pending ? "Guardando…" : "Guardar configuración"}
-            </button>
+            <Button type="submit" variant="primary" loading={pending}>
+              Guardar configuración
+            </Button>
           </div>
         )}
       </form>

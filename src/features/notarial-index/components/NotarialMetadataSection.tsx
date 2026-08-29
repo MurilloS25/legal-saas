@@ -52,10 +52,12 @@ import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
 import { useToast } from "@/components/feedback/Toast";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+  "w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
+const labelClass = "block text-sm font-medium text-ink-700 mb-1.5";
 
 const initialState: NotarialMetadataState = {};
 
@@ -420,33 +422,34 @@ export function NotarialMetadataSection({
     return (
       <section
         aria-labelledby={headingId}
-        className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+        className="mt-8 rounded-xl border border-slate-200 bg-white shadow-ink-sm overflow-hidden"
       >
-        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-          <h2 id={headingId} className="text-sm font-semibold text-slate-900">
+        <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+          <h2 id={headingId} className="text-sm font-semibold text-ink-900">
             Datos para índice
           </h2>
         </div>
         <div className="px-6 py-8 text-center">
-          <p className="text-sm font-medium text-slate-900">
+          <p className="text-sm font-medium text-ink-900">
             No pertenece al Índice Notarial
           </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-ink-500">
             Esta Escritura no está incluida en el Índice Notarial.
           </p>
           {canChangeInclusion && (
-            <button
+            <Button
               type="button"
+              variant="accent"
               disabled={inclusionPending}
               onClick={() => setInclusionDialog("include")}
-              className="mt-4 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+              className="mt-4"
             >
               Incluir en el Índice
-            </button>
+            </Button>
           )}
         </div>
         {inclusionError && (
-          <p role="alert" className="border-t border-slate-100 px-6 py-2 text-xs text-red-700">
+          <p role="alert" className="border-t border-ink-100 px-6 py-2 text-xs text-red-700">
             {inclusionError}
           </p>
         )}
@@ -467,20 +470,20 @@ export function NotarialMetadataSection({
   return (
     <section
       aria-labelledby={headingId}
-      className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+      className="mt-8 rounded-xl border border-slate-200 bg-white shadow-ink-sm overflow-hidden"
     >
-      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <h2 id={headingId} className="text-sm font-semibold text-slate-900">
+      <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+        <h2 id={headingId} className="text-sm font-semibold text-ink-900">
           Datos para índice
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-500">
           Metadata interna para organizar el índice notarial. «Completo»
           significa completo según los campos del sistema, no una validación
           legal.
         </p>
       </div>
 
-      <div className="flex items-start gap-2 border-b border-slate-100 px-6 py-4">
+      <div className="flex items-start gap-2 border-b border-ink-100 px-6 py-4">
         <input
           id="notarial-inclusion-toggle"
           type="checkbox"
@@ -489,10 +492,10 @@ export function NotarialMetadataSection({
           onChange={(event) =>
             setInclusionDialog(event.target.checked ? "include" : "exclude")
           }
-          className="mt-0.5 size-4 accent-accent-700"
+          className="mt-0.5 size-4 rounded accent-accent-600"
         />
-        <label htmlFor="notarial-inclusion-toggle" className="text-sm text-slate-700">
-          <span className="font-medium text-slate-900">
+        <label htmlFor="notarial-inclusion-toggle" className="text-sm text-ink-700">
+          <span className="font-medium text-ink-900">
             Incluir en el Índice Notarial
           </span>
           <br />
@@ -502,14 +505,14 @@ export function NotarialMetadataSection({
         </label>
       </div>
       {inclusionError && (
-        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
+        <p role="alert" className="border-b border-ink-100 px-6 py-2 text-xs text-red-700">
           {inclusionError}
         </p>
       )}
 
       {/* ------------------------------------------------- estado de confirmación */}
       <div
-        className={`flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4 ${
+        className={`flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-6 py-4 ${
           isConfirmed
             ? "bg-emerald-50/60"
             : confirmationState === "review_required"
@@ -517,50 +520,65 @@ export function NotarialMetadataSection({
               : ""
         }`}
       >
-        <div>
-          <p className="text-sm font-medium text-slate-900">
-            {isConfirmed
-              ? "Datos del Índice confirmados"
-              : `Estado de los datos del Índice: ${NOTARIAL_CONFIRMATION_STATE_LABEL[confirmationState]}`}
-          </p>
-          {isConfirmed && (
-            <p className="mt-0.5 text-xs text-slate-600">
-              {confirmedByName ? `Confirmado por ${confirmedByName}` : "Confirmado"}
-              {confirmedAt && ` · ${formatDateTimeMeta(confirmedAt)}`}
+        <div className="flex items-center gap-2.5">
+          <Badge
+            tone={
+              isConfirmed
+                ? "success"
+                : confirmationState === "review_required"
+                  ? "warning"
+                  : confirmationState === "ready_to_confirm"
+                    ? "accent"
+                    : "neutral"
+            }
+          >
+            {NOTARIAL_CONFIRMATION_STATE_LABEL[confirmationState]}
+          </Badge>
+          <div>
+            <p className="text-sm font-medium text-ink-900">
+              {isConfirmed
+                ? "Datos del Índice confirmados"
+                : "Estado de los datos del Índice"}
             </p>
-          )}
-          {confirmationState === "review_required" && (
-            <p className="mt-0.5 text-xs text-amber-800">
-              Estos datos estuvieron confirmados; revísalos y confírmalos de
-              nuevo.
-            </p>
-          )}
+            {isConfirmed && (
+              <p className="mt-0.5 text-xs text-ink-600">
+                {confirmedByName ? `Confirmado por ${confirmedByName}` : "Confirmado"}
+                {confirmedAt && ` · ${formatDateTimeMeta(confirmedAt)}`}
+              </p>
+            )}
+            {confirmationState === "review_required" && (
+              <p className="mt-0.5 text-xs text-amber-800">
+                Estos datos estuvieron confirmados; revísalos y confírmalos de
+                nuevo.
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {canConfirmNow && (
-            <button
+            <Button
               type="button"
+              variant="accent"
               disabled={confirmationBusy}
               onClick={() => setConfirmationDialog("confirm")}
-              className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
             >
               Confirmar datos del Índice
-            </button>
+            </Button>
           )}
           {canCorrectNow && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
               disabled={confirmationBusy}
               onClick={() => setConfirmationDialog("correct")}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
             >
               Corregir datos
-            </button>
+            </Button>
           )}
         </div>
       </div>
       {confirmationError && (
-        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
+        <p role="alert" className="border-b border-ink-100 px-6 py-2 text-xs text-red-700">
           {confirmationError}
         </p>
       )}
@@ -577,14 +595,14 @@ export function NotarialMetadataSection({
         {!canEdit && (
           <div
             role="status"
-            className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+            className="mb-6 rounded-lg bg-ink-100/60 border border-ink-200 px-4 py-3 text-sm text-ink-600"
           >
             Tu rol no permite editar los datos del índice. Los ves en modo
             lectura.
           </div>
         )}
         {canEdit && isConfirmed && (
-          <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
+          <div className="mb-6 rounded-lg bg-ink-100/60 border border-ink-200 px-4 py-3 text-sm text-ink-600">
             Estos datos están confirmados y de solo lectura.
             {canConfirmNow || canCorrectNow
               ? " Usa “Corregir datos” para editarlos."
@@ -592,7 +610,7 @@ export function NotarialMetadataSection({
           </div>
         )}
         {canEdit && !isConfirmed && readOnly && (
-          <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
+          <div className="mb-6 rounded-lg bg-ink-100/60 border border-ink-200 px-4 py-3 text-sm text-ink-600">
             La escritura está finalizada. Puedes corregir estos datos del
             índice sin modificar el contenido de la escritura.
           </div>
@@ -674,7 +692,7 @@ export function NotarialMetadataSection({
           value={prefill.finalFolio.derivedNow ?? ""}
         />
 
-        <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+        <div className="mt-4 divide-y divide-ink-100 rounded-xl border border-ink-200 overflow-hidden">
           <CollapsibleFieldRow
             id="notarial-instrument"
             name="Número de instrumento"
@@ -694,7 +712,7 @@ export function NotarialMetadataSection({
               disabled={fieldsDisabled}
               value={instrument}
               onChange={(e) => setInstrument(e.target.value)}
-              className={inputClass}
+              className={`${inputClass} font-mono tabular-figures`}
               aria-invalid={!!state.errors?.instrument_number}
               aria-describedby={
                 state.errors?.instrument_number
@@ -744,7 +762,7 @@ export function NotarialMetadataSection({
                   disabled={fieldsDisabled}
                   value={authorizedDate}
                   onChange={(e) => setAuthorizedDate(e.target.value)}
-                  className={inputClass}
+                  className={`${inputClass} font-mono tabular-figures`}
                   aria-invalid={!!state.errors?.authorized_at}
                 />
                 <PrefillHelp field={prefill.authorizedAt.date} />
@@ -759,7 +777,7 @@ export function NotarialMetadataSection({
                   disabled={fieldsDisabled}
                   value={authorizedTime}
                   onChange={(e) => setAuthorizedTime(e.target.value)}
-                  className={inputClass}
+                  className={`${inputClass} font-mono tabular-figures`}
                   aria-invalid={!!state.errors?.authorized_at}
                   aria-describedby={
                     state.errors?.authorized_at ? "authorized_at-error" : undefined
@@ -776,7 +794,7 @@ export function NotarialMetadataSection({
               id="authorized_at-error"
               message={state.errors?.authorized_at}
             />
-            <p className="mt-1 text-xs text-slate-400">Hora de Costa Rica.</p>
+            <p className="mt-1 text-xs text-ink-400">Hora de Costa Rica.</p>
           </CollapsibleFieldRow>
 
           <CollapsibleFieldRow
@@ -810,7 +828,7 @@ export function NotarialMetadataSection({
               message={state.errors?.act_name_override}
             />
             <PrefillHelp field={prefill.actName} />
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-ink-400">
               Si queda vacío, se usa el nombre guardado del machote.
             </p>
           </CollapsibleFieldRow>
@@ -832,7 +850,7 @@ export function NotarialMetadataSection({
               disabled={fieldsDisabled}
               value={protocolBook}
               onChange={(event) => setProtocolBook(event.target.value)}
-              className={inputClass}
+              className={`${inputClass} font-mono tabular-figures`}
               aria-invalid={!!state.errors?.protocol_book}
               aria-describedby={
                 state.errors?.protocol_book ? "protocol_book-error" : undefined
@@ -877,7 +895,7 @@ export function NotarialMetadataSection({
                     }
                     setInitialFolio(next);
                   }}
-                  className={inputClass}
+                  className={`${inputClass} font-mono tabular-figures`}
                   aria-invalid={!!state.errors?.initial_folio}
                   aria-describedby={
                     state.errors?.initial_folio ? "initial_folio-error" : undefined
@@ -902,7 +920,7 @@ export function NotarialMetadataSection({
                   disabled={fieldsDisabled}
                   value={finalFolio}
                   onChange={(event) => setFinalFolio(event.target.value)}
-                  className={inputClass}
+                  className={`${inputClass} font-mono tabular-figures`}
                   aria-invalid={!!state.errors?.final_folio}
                   aria-describedby={
                     state.errors?.final_folio ? "final_folio-error" : undefined
@@ -959,12 +977,13 @@ export function NotarialMetadataSection({
               message={state.errors?.parties_override}
             />
             <PrefillHelp field={prefill.parties} />
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-ink-400">
               Una corrección manual tiene prioridad sobre el valor generado.
             </p>
             {canEdit && !isConfirmed && canResetParties && metadata && (
-              <button
+              <Button
                 type="submit"
+                variant="secondary"
                 name="intent"
                 value="reset-parties"
                 disabled={pending}
@@ -978,10 +997,10 @@ export function NotarialMetadataSection({
                     event.preventDefault();
                   }
                 }}
-                className="mt-3 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+                className="mt-3"
               >
                 Restablecer desde el machote
-              </button>
+              </Button>
             )}
           </CollapsibleFieldRow>
 
@@ -995,7 +1014,7 @@ export function NotarialMetadataSection({
           >
             <label htmlFor="notes" className={labelClass}>
               Notas internas{" "}
-              <span className="text-slate-400 font-normal">(opcional)</span>
+              <span className="text-ink-400 font-normal">(opcional)</span>
             </label>
             <textarea
               id="notes"
@@ -1005,7 +1024,7 @@ export function NotarialMetadataSection({
               onChange={(event) => setNotes(event.target.value)}
               className={inputClass + " resize-y"}
             />
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-ink-400">
               Uso interno; no se incluyen en la exportación del índice.
             </p>
           </CollapsibleFieldRow>
@@ -1013,15 +1032,15 @@ export function NotarialMetadataSection({
 
         {canEdit && !isConfirmed && (
           <div className="mt-5 flex justify-end">
-            <button
+            <Button
               type="submit"
+              variant="accent"
               name="intent"
               value="save"
-              disabled={pending}
-              className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              loading={pending}
             >
-              {pending ? "Guardando…" : "Guardar datos del índice"}
-            </button>
+              Guardar datos del índice
+            </Button>
           </div>
         )}
       </form>
@@ -1108,7 +1127,7 @@ function PrefillHelp({
   if (!field.rawValue) {
     if (field.source === "suggestion" && field.value) {
       return (
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-ink-500">
           Sugerencia: {field.value}.{" "}
           {onUseSuggestion ? (
             <button
@@ -1128,7 +1147,7 @@ function PrefillHelp({
     if (field.source === "saved") return sourceChangedNotice;
     if (field.source !== "template") return null;
     return (
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-ink-500">
         El valor fue precargado desde el machote. Revísalo antes de preparar el
         índice.
       </p>
@@ -1148,7 +1167,7 @@ function PrefillHelp({
   }
 
   return (
-    <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+    <div className="mt-2 rounded-lg bg-ink-100/50 px-3 py-2 text-xs text-ink-600">
       {sourceChangedNotice}
       <p>Original: “{field.rawValue}”</p>
       <p>Interpretado: {field.value}</p>
@@ -1171,7 +1190,7 @@ function AuthorizedAtPrefillHelp({
     <div
       className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
         time.compatible
-          ? "border-slate-200 bg-slate-50 text-slate-600"
+          ? "border-ink-200 bg-ink-100/50 text-ink-600"
           : "border-amber-200 bg-amber-50 text-amber-900"
       }`}
     >

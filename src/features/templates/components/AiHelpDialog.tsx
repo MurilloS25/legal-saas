@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { MACHOTE_AI_HELP_PROMPT } from "../model/ai-help-prompt";
 
 type Props = {
@@ -45,7 +46,7 @@ export function AiHelpDialog({ onClose }: Props) {
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
         aria-hidden="true"
         onClick={onClose}
       />
@@ -84,12 +85,12 @@ export function AiHelpDialog({ onClose }: Props) {
           }
         }}
       >
-        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-          <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-            <h2 id={titleId} className="text-base font-semibold text-slate-900">
+        <div className="w-full max-w-md rounded-2xl border border-ink-100 bg-white shadow-ink-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+          <div className="px-6 pt-5 pb-4 border-b border-ink-100">
+            <h2 id={titleId} className="text-base font-semibold text-ink-900">
               Crea tu machote con ayuda de IA
             </h2>
-            <p className="text-xs text-slate-500 mt-1.5">
+            <p className="text-xs text-ink-400 mt-1.5">
               LexCR todavía no genera machotes automáticamente con
               inteligencia artificial. Mientras tanto, puedes utilizar
               ChatGPT, Claude, Gemini u otra herramienta para preparar una
@@ -103,16 +104,12 @@ export function AiHelpDialog({ onClose }: Props) {
                 1
               </span>
               <div className="flex-1 space-y-2">
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-ink-900">
                   Copia este prompt
                 </p>
-                <button
-                  type="button"
-                  onClick={copyPrompt}
-                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-                >
+                <Button type="button" variant="secondary" size="sm" onClick={copyPrompt}>
                   Copiar prompt
-                </button>
+                </Button>
                 <p role="status" className="text-xs text-accent-700 min-h-4">
                   {copyStatus === "copied" && "Prompt copiado"}
                   {copyStatus === "error" &&
@@ -126,10 +123,10 @@ export function AiHelpDialog({ onClose }: Props) {
                 2
               </span>
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-ink-900">
                   Ábrelo en tu IA favorita
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-ink-400 mt-0.5">
                   Pega el contenido de una escritura existente, o adjunta el
                   documento directamente si la herramienta lo permite.
                 </p>
@@ -141,17 +138,17 @@ export function AiHelpDialog({ onClose }: Props) {
                 3
               </span>
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-ink-900">
                   Trae el resultado a LexCR
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-ink-400 mt-0.5">
                   Pega el machote generado en el editor y revisa las
                   variables detectadas antes de guardar.
                 </p>
               </div>
             </div>
 
-            <p className="border-t border-slate-100 pt-3 text-xs text-slate-400">
+            <p className="border-t border-ink-100 pt-3 text-xs text-ink-400">
               Evita compartir información personal, confidencial o sensible
               con servicios externos si no estás autorizado para hacerlo.
               LexCR no envía documentos ni datos a servicios de inteligencia
@@ -159,14 +156,10 @@ export function AiHelpDialog({ onClose }: Props) {
             </p>
           </div>
 
-          <div className="flex justify-end border-t border-slate-100 px-6 py-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-            >
+          <div className="flex justify-end border-t border-ink-100 px-6 py-4">
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cerrar
-            </button>
+            </Button>
           </div>
         </div>
       </div>

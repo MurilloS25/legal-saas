@@ -147,7 +147,7 @@ export function ClientCombobox({
 
   return (
     <div ref={containerRef} className="relative">
-      <label htmlFor={inputId} className="mt-1.5 block text-xs text-slate-600">
+      <label htmlFor={inputId} className="mt-1.5 block text-xs text-ink-600">
         {label}
       </label>
       <div className="relative mt-1">
@@ -172,14 +172,14 @@ export function ClientCombobox({
           }}
           onFocus={openList}
           onKeyDown={onKeyDown}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-8 text-sm text-ink-900 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50"
         />
         {selectedClient && !open && query === "" && (
           <button
             type="button"
             onClick={clearSelection}
             aria-label="Limpiar selección"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-ink-400 transition-colors hover:text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <XIcon />
           </button>
@@ -191,14 +191,14 @@ export function ClientCombobox({
           id={listboxId}
           role="listbox"
           ref={listRef}
-          className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-md"
+          className="absolute z-10 mt-1 max-h-56 w-full animate-scale-in overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-ink-md"
         >
           {clients.length === 0 ? (
-            <li className="px-3.5 py-2 text-sm text-slate-500">
+            <li className="px-3.5 py-2 text-sm text-ink-500">
               No tienes clientes registrados todavía.
             </li>
           ) : filtered.length === 0 ? (
-            <li className="px-3.5 py-2 text-sm text-slate-500">
+            <li className="px-3.5 py-2 text-sm text-ink-500">
               No hay clientes que coincidan.
             </li>
           ) : (
@@ -213,14 +213,14 @@ export function ClientCombobox({
                   selectClient(client);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
-                className={`cursor-pointer px-3.5 py-2 text-sm ${
+                className={`cursor-pointer px-3.5 py-2 text-sm transition-colors ${
                   index === activeIndex
                     ? "bg-accent-50 text-accent-900"
-                    : "text-slate-700"
+                    : "text-ink-700"
                 }`}
               >
                 <p className="font-medium">{client.full_name}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-ink-500">
                   Cédula: {client.identification_number}
                 </p>
               </li>

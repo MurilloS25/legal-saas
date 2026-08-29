@@ -21,11 +21,8 @@ import type {
   ReceivablePayment,
   ReceivableRow,
 } from "../model/types";
-import {
-  formatMoney,
-  receivableStatusBadgeClass,
-  receivableStatusLabel,
-} from "../model/status";
+import { formatMoney, receivableStatusLabel } from "../model/status";
+import { receivableStatusTone } from "./receivables-columns";
 import { DeleteReceivableButton } from "./DeleteReceivableButton";
 import { PaymentsSection } from "./PaymentsSection";
 import { ReceivableForm } from "./ReceivableForm";
@@ -34,6 +31,8 @@ import {
   ReceivableWorkspaceHeader,
   type ReceivableWorkspaceSection,
 } from "./ReceivableWorkspaceHeader";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/feedback/Toast";
 import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 
@@ -152,11 +151,9 @@ export function ReceivableWorkspace({
         returnTo={returnTo}
         concept={entry.concept}
         statusBadge={
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${receivableStatusBadgeClass(entry.status)}`}
-          >
+          <Badge tone={receivableStatusTone(entry.status)}>
             {receivableStatusLabel(entry.status)}
-          </span>
+          </Badge>
         }
         clientName={entry.client_name}
         clientId={entry.client_id}
@@ -177,26 +174,27 @@ export function ReceivableWorkspace({
         }
       />
 
-      {/* Resumen de montos — siempre visible, fuera de las pestañas. */}
+      {/* Resumen de montos — siempre visible, fuera de las pestañas. El
+          saldo pendiente domina visualmente: es la cifra que importa. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-8">
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <Card padding="sm">
           <p className="text-xs font-medium text-slate-500">Monto total</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
+          <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-slate-700">
             {formatMoney(entry.amount_total, entry.currency)}
           </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        </Card>
+        <Card padding="sm">
           <p className="text-xs font-medium text-slate-500">Pagado</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
+          <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-emerald-700">
             {formatMoney(entry.paid_amount, entry.currency)}
           </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <p className="text-xs font-medium text-slate-500">Saldo pendiente</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
+        </Card>
+        <Card padding="sm" className="border-accent-200 bg-accent-50/40">
+          <p className="text-xs font-medium text-accent-700">Saldo pendiente</p>
+          <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-ink-900">
             {formatMoney(entry.balance_due, entry.currency)}
           </p>
-        </div>
+        </Card>
       </div>
 
       {/* ================= Datos de la cuenta ================= */}

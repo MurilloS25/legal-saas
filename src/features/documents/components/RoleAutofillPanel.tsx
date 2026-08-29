@@ -21,6 +21,7 @@
  */
 
 import { useId, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { CreateClientDialog, type CreatedClient } from "@/features/clients";
 import type {
   DocumentClientOption,
@@ -63,6 +64,7 @@ export function RoleAutofillFields({
   );
   const [incomplete, setIncomplete] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   function handleSelect(client: DocumentClientOption) {
     const result = mapClientToRoleVariables(client, group.variables);
@@ -99,7 +101,7 @@ export function RoleAutofillFields({
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-slate-900">
+      <h3 className="text-sm font-semibold text-ink-900">
         {roleLabel(group.role)}
       </h3>
 
@@ -119,7 +121,7 @@ export function RoleAutofillFields({
       )}
 
       {referenceClient && (
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-ink-500">
           Datos copiados desde Cliente: {referenceClient.full_name}
         </p>
       )}
@@ -130,57 +132,67 @@ export function RoleAutofillFields({
         </p>
       )}
 
+      <AnimatePresence>
       {confirmation && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+          <motion.div
+            className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={cancelOverwrite}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
           />
-          <div
+          <motion.div
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={dialogTitleId}
             aria-describedby={dialogDescId}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-ink-lg">
               <div className="px-6 pt-6 pb-4 text-center">
                 <h2
                   id={dialogTitleId}
-                  className="text-base font-semibold text-slate-900 mb-2"
+                  className="text-base font-semibold text-ink-900 mb-2"
                 >
                   Este rol ya contiene información
                 </h2>
                 <p
                   id={dialogDescId}
-                  className="text-sm text-slate-600 leading-relaxed"
+                  className="text-sm text-ink-600 leading-relaxed"
                 >
                   Al continuar se reemplazarán únicamente los campos que
                   puedan completarse con el Cliente seleccionado:{" "}
                   {confirmation.overwriteFields.join(", ")}.
                 </p>
               </div>
-              <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <div className="flex gap-3 border-t border-ink-100 px-6 py-4">
                 <button
                   type="button"
                   onClick={cancelOverwrite}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={confirmOverwrite}
-                  className="flex-1 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback flex-1 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Reemplazar campos
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </div>
   );
 }

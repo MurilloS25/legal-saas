@@ -22,6 +22,8 @@
  */
 
 import { useId, useState } from "react";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import {
   VARIABLE_AUTOFILL_SOURCE_LABELS,
@@ -54,17 +56,17 @@ const OUTPUT_TRANSFORM_EXAMPLES: Partial<Record<VariableOutputTransform, string>
 
 const STATUS_UI: Record<
   VariableRowStatus,
-  { label: string; className: string }
+  { label: string; tone: "success" | "warning" }
 > = {
   configured: {
     // Estado positivo real (la variable está lista) → verde semántico,
     // no el acento decorativo.
     label: "Configurada",
-    className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    tone: "success",
   },
   pending: {
     label: "Pendiente de configurar",
-    className: "bg-amber-50 text-amber-800 border border-amber-300",
+    tone: "warning",
   },
 };
 
@@ -140,11 +142,11 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3 space-y-3">
+    <div className="mt-3 animate-scale-in rounded-lg border border-ink-100 bg-ink-100/30 px-3 py-3 space-y-3">
       <div>
         <label
           htmlFor={labelId}
-          className="block text-xs font-medium text-slate-700 mb-1"
+          className="block text-xs font-medium text-ink-700 mb-1"
         >
           Etiqueta
         </label>
@@ -153,7 +155,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
           type="text"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+          className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           placeholder="Ej: Nombre del comprador"
           aria-describedby={error ? errorId : undefined}
           aria-invalid={!!error}
@@ -172,9 +174,9 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
           type="checkbox"
           checked={required}
           onChange={(event) => setRequired(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
+          className="h-4 w-4 rounded border-ink-300 text-accent-600 focus:ring-accent-500"
         />
-        <label htmlFor={requiredId} className="text-sm text-slate-700">
+        <label htmlFor={requiredId} className="text-sm text-ink-700">
           Variable obligatoria
         </label>
       </div>
@@ -182,7 +184,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
       <div>
         <label
           htmlFor={transformId}
-          className="block text-xs font-medium text-slate-700 mb-1"
+          className="block text-xs font-medium text-ink-700 mb-1"
         >
           Transformación de salida
         </label>
@@ -192,7 +194,7 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
           onChange={(event) =>
             setOutputTransform(event.target.value as VariableOutputTransform)
           }
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+          className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
         >
           {VARIABLE_OUTPUT_TRANSFORMS.map((transform) => (
             <option key={transform} value={transform}>
@@ -201,27 +203,19 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
           ))}
         </select>
         {OUTPUT_TRANSFORM_EXAMPLES[outputTransform] && (
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-ink-400">
             {OUTPUT_TRANSFORM_EXAMPLES[outputTransform]}
           </p>
         )}
       </div>
 
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
           Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={save}
-          className="rounded-lg bg-accent-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
-        >
+        </Button>
+        <Button type="button" variant="accent" size="sm" onClick={save}>
           Guardar variable
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -292,25 +286,25 @@ export function TemplateVariablesPanel({
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+      className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden"
     >
-      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <h2 id={headingId} className="text-sm font-semibold text-slate-900">
+      <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+        <h2 id={headingId} className="text-sm font-semibold text-ink-900">
           Variables del machote
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-400">
           Datos que se solicitarán al preparar una escritura. Las variables
           del contenido sin configurar aparecen como pendientes.
         </p>
       </div>
 
       {rows.length === 0 ? (
-        <p className="px-6 py-6 text-sm text-slate-500">
+        <p className="px-6 py-6 text-sm text-ink-400">
           Aún no hay variables. Usa «Insertar variable» en el editor para
           agregar la primera.
         </p>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-ink-100">
           {rows.map((row) => {
             const statusUi = STATUS_UI[row.status];
             const isEditing = editingKey === row.field_key;
@@ -320,41 +314,37 @@ export function TemplateVariablesPanel({
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <div className="min-w-0 flex-1">
                     {row.label ? (
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-ink-900">
                         {row.label}
                       </p>
                     ) : (
-                      <p className="text-sm font-medium text-slate-500 italic">
+                      <p className="text-sm font-medium text-ink-400 italic">
                         Sin etiqueta
                       </p>
                     )}
                     <p className="mt-0.5 flex flex-wrap items-center gap-2">
-                      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700">
+                      <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs text-ink-700">
                         {`{{${row.field_key}}}`}
                       </code>
                       {row.status !== "pending" && (
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-ink-400">
                           {row.required ? "Obligatoria" : "Opcional"}
                         </span>
                       )}
                       {row.autofill_source !== "none" && (
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-ink-400">
                           · Autollenado: {VARIABLE_AUTOFILL_SOURCE_LABELS[row.autofill_source]}
                         </span>
                       )}
                       {row.output_transform !== "none" && (
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-ink-400">
                           · {VARIABLE_OUTPUT_TRANSFORM_LABELS[row.output_transform]}
                         </span>
                       )}
                     </p>
                   </div>
 
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusUi.className}`}
-                  >
-                    {statusUi.label}
-                  </span>
+                  <Badge tone={statusUi.tone}>{statusUi.label}</Badge>
 
                   {!readOnly && (
                     <button
@@ -362,7 +352,7 @@ export function TemplateVariablesPanel({
                       onClick={() => setEditingKey(isEditing ? null : row.field_key)}
                       aria-expanded={isEditing}
                       aria-label={`${row.status === "pending" ? "Configurar" : "Editar"} variable ${row.field_key}`}
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+                      className="press-feedback rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 transition-colors"
                     >
                       {row.status === "pending" ? "Configurar" : "Editar"}
                     </button>
@@ -373,7 +363,7 @@ export function TemplateVariablesPanel({
                       type="button"
                       onClick={() => removeVariable(row.field_key)}
                       aria-label={`Quitar configuración de ${row.field_key}`}
-                      className="rounded-lg px-2 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors"
+                      className="press-feedback rounded-lg px-2 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 transition-colors"
                     >
                       Quitar
                     </button>

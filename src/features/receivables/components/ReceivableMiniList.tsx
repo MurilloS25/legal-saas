@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { ReceivableEntry } from "../model/types";
 import { ReceivableMiniTable } from "./ReceivableMiniTable";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { WalletIcon } from "@/app/(dashboard)/_components/icons";
 
 /**
  * Listado compacto de cuentas por cobrar para incrustar en el detalle de un
@@ -28,7 +31,7 @@ export function ReceivableMiniList({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-900">
+        <h2 className="text-sm font-semibold text-ink-900">
           Cuentas por cobrar
         </h2>
         {newHref && (
@@ -42,13 +45,11 @@ export function ReceivableMiniList({
       </div>
 
       {receivables.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
-          <p className="text-sm text-slate-500">{emptyText}</p>
-        </div>
+        <EmptyState icon={<WalletIcon className="size-5" />} title={emptyText} />
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <ReceivableMiniTable rows={receivables} returnTo={returnTo} />
-        </div>
+        </Card>
       )}
     </div>
   );

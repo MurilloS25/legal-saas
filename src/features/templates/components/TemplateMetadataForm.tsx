@@ -5,9 +5,9 @@ import { FieldError } from "@/components/forms/FieldError";
 import type { TemplateWorkspaceState } from "../server/template-actions";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
+  "w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder-ink-400 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
 
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+const labelClass = "block text-sm font-medium text-ink-700 mb-1.5";
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Borrador" },
@@ -109,7 +109,7 @@ export function TemplateMetadataForm({
     <div>
       <label htmlFor={descriptionId} className={labelClass}>
         Descripción{" "}
-        <span className="text-slate-400 font-normal">(opcional)</span>
+        <span className="text-ink-400 font-normal">(opcional)</span>
       </label>
       <input
         id={descriptionId}
@@ -138,12 +138,12 @@ export function TemplateMetadataForm({
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-        <h2 className="text-sm font-semibold text-slate-900">
+    <section className="rounded-xl border border-ink-100 bg-white shadow-ink-sm overflow-hidden">
+      <div className="px-6 py-5 border-b border-ink-100 bg-ink-100/40">
+        <h2 className="text-sm font-semibold text-ink-900">
           Información básica
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-400">
           Los campos marcados con{" "}
           <span aria-hidden="true" className="text-red-500 font-semibold">
             *

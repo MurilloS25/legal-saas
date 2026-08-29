@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 export type PendingField = { key: string; label: string };
 
@@ -30,6 +31,7 @@ export function PendingFieldsDialog({ pendingFields, onGoToField }: Props) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (open) dialogRef.current?.focus();
@@ -50,7 +52,7 @@ export function PendingFieldsDialog({ pendingFields, onGoToField }: Props) {
 
   if (pendingFields.length <= COMPACT_THRESHOLD) {
     return (
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-ink-600">
         Pendientes:{" "}
         {pendingFields.map((field, index) => (
           <span key={field.key}>
@@ -70,13 +72,13 @@ export function PendingFieldsDialog({ pendingFields, onGoToField }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-ink-600">
         {pendingFields.length} campos pendientes
       </p>
       <button
         type="button"
         onClick={() => onGoToField(pendingFields[0]!.key)}
-        className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
+        className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus-visible:underline"
       >
         Ir al primer pendiente →
       </button>
@@ -84,24 +86,33 @@ export function PendingFieldsDialog({ pendingFields, onGoToField }: Props) {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
+        className="text-sm font-medium text-ink-600 hover:text-ink-900 focus:outline-none focus-visible:underline"
       >
         Ver campos pendientes
       </button>
 
+      <AnimatePresence>
       {open && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+          <motion.div
+            className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={close}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
           />
-          <div
+          <motion.div
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
             ref={dialogRef}
             tabIndex={-1}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
@@ -127,12 +138,12 @@ export function PendingFieldsDialog({ pendingFields, onGoToField }: Props) {
               }
             }}
           >
-            <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
-              <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-                <h2 id={titleId} className="text-base font-semibold text-slate-900">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-ink-lg">
+              <div className="px-6 pt-5 pb-4 border-b border-ink-100">
+                <h2 id={titleId} className="text-base font-semibold text-ink-900">
                   Campos pendientes
                 </h2>
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="mt-0.5 text-xs text-ink-500">
                   En el orden en que aparecen en el documento.
                 </p>
               </div>
@@ -145,26 +156,27 @@ export function PendingFieldsDialog({ pendingFields, onGoToField }: Props) {
                         close();
                         onGoToField(field.key);
                       }}
-                      className="block w-full rounded-lg px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50"
+                      className="block w-full rounded-lg px-4 py-2.5 text-left text-sm text-ink-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50"
                     >
                       {field.label}
                     </button>
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-end border-t border-slate-100 px-6 py-3">
+              <div className="flex justify-end border-t border-ink-100 px-6 py-3">
                 <button
                   type="button"
                   onClick={close}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Cerrar
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </div>
   );
 }

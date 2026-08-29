@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useId } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 type Props = {
   documentId: string;
@@ -63,6 +64,7 @@ export function DownloadDocxButton({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
   const descId = useId();
+  const prefersReducedMotion = useReducedMotion();
 
   // Devuelve el foco al botón al cerrar la confirmación.
   useEffect(() => {
@@ -127,8 +129,8 @@ export function DownloadDocxButton({
   const preparing = status === "preparing";
 
   const buttonClass = compact
-    ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-    : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+    ? "press-feedback rounded-md px-3 py-1.5 text-sm font-medium text-ink-600 transition-colors hover:bg-slate-100 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed"
+    : "press-feedback w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
     <div className={compact ? "inline-block" : undefined}>
@@ -152,11 +154,11 @@ export function DownloadDocxButton({
 
       {!compact &&
         (disabled ? (
-          <p id={`${titleId}-hint`} className="mt-1.5 text-xs text-slate-500">
+          <p id={`${titleId}-hint`} className="mt-1.5 text-xs text-ink-500">
             Guarda los cambios antes de descargar el Word.
           </p>
         ) : (
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-ink-500">
             El archivo se genera con la última versión guardada.
           </p>
         ))}
@@ -180,19 +182,28 @@ export function DownloadDocxButton({
         </p>
       )}
 
+      <AnimatePresence>
       {confirmOpen && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+          <motion.div
+            className="fixed inset-0 z-40 bg-ink-900/50 backdrop-blur-sm"
             aria-hidden="true"
             onClick={closeConfirm}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
           />
-          <div
+          <motion.div
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
             aria-describedby={descId}
             ref={dialogRef}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
@@ -218,15 +229,15 @@ export function DownloadDocxButton({
               }
             }}
           >
-            <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-ink-lg">
               <div className="px-6 pt-6 pb-4">
                 <h2
                   id={titleId}
-                  className="text-base font-semibold text-slate-900 mb-2"
+                  className="text-base font-semibold text-ink-900 mb-2"
                 >
                   Hay variables sin completar
                 </h2>
-                <p id={descId} className="text-sm text-slate-600 leading-relaxed">
+                <p id={descId} className="text-sm text-ink-600 leading-relaxed">
                   El borrador guardado tiene{" "}
                   <strong>
                     {pendingVariableCount}{" "}
@@ -241,26 +252,27 @@ export function DownloadDocxButton({
                   sin reemplazar. ¿Descargar de todas formas?
                 </p>
               </div>
-              <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <div className="flex gap-3 border-t border-ink-100 px-6 py-4">
                 <button
                   type="button"
                   onClick={closeConfirm}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={() => void startDownload()}
-                  className="flex-1 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                  className="press-feedback flex-1 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
                 >
                   Descargar de todas formas
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </div>
   );
 }

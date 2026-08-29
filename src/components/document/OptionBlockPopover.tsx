@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useId, useRef } from "react";
+import { motion, useReducedMotion } from "motion/react";
 
 type Props = {
   blockName: string;
@@ -28,6 +29,7 @@ export function OptionBlockPopover({
   // hidratación y desplaza el DOM real, haciendo el popover no interactivo).
   const popoverRef = useRef<HTMLSpanElement | null>(null);
   const groupName = useId();
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {
@@ -43,7 +45,7 @@ export function OptionBlockPopover({
   }, [onClose]);
 
   return (
-    <span
+    <motion.span
       ref={popoverRef}
       role="radiogroup"
       aria-label={`Variantes de ${blockName}`}
@@ -53,7 +55,10 @@ export function OptionBlockPopover({
           onClose();
         }
       }}
-      className="absolute left-0 top-full z-20 mt-1 block w-64 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+      className="absolute left-0 top-full z-20 mt-1 block w-64 rounded-lg border border-ink-200 bg-white p-1.5 shadow-ink-md"
     >
       {variants.map((variant) => {
         const inputId = `${groupName}-${variant.id}`;
@@ -61,7 +66,7 @@ export function OptionBlockPopover({
           <label
             key={variant.id}
             htmlFor={inputId}
-            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink-700 transition-colors hover:bg-ink-100/60"
           >
             <input
               id={inputId}
@@ -69,13 +74,13 @@ export function OptionBlockPopover({
               name={groupName}
               checked={variant.id === selectedVariantId}
               onChange={() => onSelect(variant.id)}
-              className="h-4 w-4 border-slate-300 text-accent-700 focus:ring-accent-500"
+              className="h-4 w-4 border-ink-300 text-accent-600 focus:ring-accent-500"
               autoFocus={variant.id === selectedVariantId}
             />
             {variant.label}
           </label>
         );
       })}
-    </span>
+    </motion.span>
   );
 }

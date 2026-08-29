@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { TemplateListRow } from "../server/workspace-queries";
-import { templateStatusBadgeClass, templateStatusLabel } from "../model/templates";
+import { Badge } from "@/components/ui/Badge";
+import { templateStatusBadgeTone, templateStatusLabel } from "../model/templates";
 
 export const TEMPLATES_COLUMN_LABELS = {
   name: "Machote",
@@ -12,11 +13,7 @@ export const TEMPLATES_COLUMN_LABELS = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${templateStatusBadgeClass(status)}`}
-    >
-      {templateStatusLabel(status)}
-    </span>
+    <Badge tone={templateStatusBadgeTone(status)}>{templateStatusLabel(status)}</Badge>
   );
 }
 
@@ -39,13 +36,13 @@ export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
         return (
           <Link
             href={`/dashboard/templates/${template.id}`}
-            className="flex min-w-0 flex-col focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 rounded"
+            className="flex min-w-0 flex-col rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500"
           >
-            <span className="text-sm font-medium text-slate-900 truncate hover:text-accent-700 transition-colors">
+            <span className="text-sm font-medium text-ink-900 truncate transition-colors hover:text-accent-700">
               {template.name}
             </span>
             {template.description && (
-              <span className="text-xs text-slate-500 truncate">
+              <span className="text-xs text-ink-400 truncate">
                 {template.description}
               </span>
             )}
@@ -64,7 +61,7 @@ export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
       header: TEMPLATES_COLUMN_LABELS.updated_at,
       accessorFn: (row) => row.updated_at,
       cell: ({ row }) => (
-        <span className="text-sm text-slate-500">
+        <span className="font-mono text-sm tabular-nums text-ink-400">
           {formatTemplateDate(row.original.updated_at)}
         </span>
       ),
@@ -80,7 +77,7 @@ export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
             <Link
               href={`/dashboard/templates/${template.id}`}
               aria-label={`Abrir machote ${template.name}`}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 transition-colors"
+              className="press-feedback flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

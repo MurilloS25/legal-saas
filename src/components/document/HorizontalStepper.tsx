@@ -18,6 +18,7 @@
  * selectores de pruebas existentes.
  */
 
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { hasNavigableStep, nextNavigableStepId } from "./stepper-navigation";
 
 export type StepStatus = "complete" | "current" | "upcoming" | "locked";
@@ -55,6 +56,7 @@ export function HorizontalStepper<Id extends string>({
 }: Props<Id>) {
   const currentIndex = stepIndex(steps, currentId);
   const currentStep = steps[currentIndex];
+  const prefersReducedMotion = useReducedMotion();
 
   function focusStep(id: Id) {
     document.getElementById(`${idPrefix}-step-${id}`)?.focus();
@@ -77,10 +79,10 @@ export function HorizontalStepper<Id extends string>({
                 {index > 0 && (
                   <div
                     aria-hidden="true"
-                    className={`mx-1.5 h-0.5 w-6 shrink-0 rounded-full sm:w-8 ${
+                    className={`mx-1 h-px w-5 shrink-0 sm:w-7 ${
                       steps[index - 1]?.status === "complete"
-                        ? "bg-emerald-200"
-                        : "bg-slate-200"
+                        ? "bg-emerald-300"
+                        : "bg-ink-200"
                     }`}
                   />
                 )}
@@ -105,40 +107,63 @@ export function HorizontalStepper<Id extends string>({
                     event.preventDefault();
                     moveFocus(step.id, event.key === "ArrowRight" ? 1 : -1);
                   }}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 ${
+                  className={`relative flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${
                     locked
-                      ? "cursor-not-allowed text-slate-300"
+                      ? "cursor-not-allowed text-ink-400/70"
                       : active
-                        ? "text-slate-900"
-                        : "text-slate-500 hover:text-slate-900"
+                        ? "text-ink-900"
+                        : "text-ink-400 hover:text-ink-700"
                   }`}
                 >
+                  {active && (
+                    <motion.span
+                      layoutId={`${idPrefix}-stepper-active-pill`}
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-full bg-accent-50"
+                      transition={
+                        prefersReducedMotion
+                          ? { duration: 0 }
+                          : { type: "spring", duration: 0.4, bounce: 0.15 }
+                      }
+                    />
+                  )}
                   <span
                     aria-hidden="true"
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
+                    className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
                       step.status === "complete"
                         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                         : active
                           ? "border-accent-600 bg-accent-600 text-white"
                           : locked
-                            ? "border-slate-200 bg-slate-50 text-slate-300"
-                            : "border-slate-300 bg-white text-slate-500"
+                            ? "border-ink-200 bg-ink-100 text-ink-400/70"
+                            : "border-ink-200 bg-white text-ink-400"
                     }`}
                   >
                     {step.status === "complete" ? "✓" : index + 1}
                   </span>
-                  <span className="whitespace-nowrap">{step.label}</span>
+                  <span className="relative whitespace-nowrap">{step.label}</span>
                 </button>
               </div>
             );
           })}
         </div>
       </nav>
-      {currentStep?.description && (
-        <p className="mt-2 border-b border-slate-200 pb-3 text-sm text-slate-500">
-          {currentStep.description}
-        </p>
-      )}
+      <div className="mt-2 min-h-[2.25rem] border-b border-ink-100 pb-3">
+        <AnimatePresence mode="wait" initial={false}>
+          {currentStep?.description && (
+            <motion.p
+              key={currentStep.id}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, y: 4 }}
+              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              className="text-sm text-ink-500"
+            >
+              {currentStep.description}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
       <StepperMobileFallback
         steps={steps}
         currentId={currentId}
@@ -169,15 +194,15 @@ function StepperMobileFallback<Id extends string>({
 
   return (
     <div className="sm:hidden">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">
         Paso {currentIndex + 1} de {total}
       </p>
-      <p className="mt-1 text-base font-semibold text-slate-900">
+      <p className="mt-1 text-base font-semibold text-ink-900">
         {currentStep.label}
       </p>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
         <div
-          className="h-full rounded-full bg-accent-600 transition-all"
+          className="h-full rounded-full bg-accent-600 transition-all duration-300 ease-out"
           style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
         />
       </div>
@@ -186,7 +211,7 @@ function StepperMobileFallback<Id extends string>({
           type="button"
           onClick={() => goRelative(-1)}
           disabled={!canGoPrev}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
+          className="press-feedback rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 disabled:opacity-50 hover:bg-ink-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           ← Anterior
         </button>
@@ -194,7 +219,7 @@ function StepperMobileFallback<Id extends string>({
           type="button"
           onClick={() => goRelative(1)}
           disabled={!canGoNext}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
+          className="press-feedback rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 disabled:opacity-50 hover:bg-ink-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           Siguiente →
         </button>

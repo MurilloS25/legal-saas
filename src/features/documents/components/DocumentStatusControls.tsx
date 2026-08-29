@@ -41,10 +41,10 @@ type Props = {
 type DialogKind = "final" | "reopen" | "draft" | null;
 
 const secondaryButtonClass =
-  "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  "press-feedback rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 const primaryButtonClass =
-  "rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  "press-feedback rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function DocumentStatusControls({
   documentId,
@@ -147,7 +147,7 @@ export function DocumentStatusControls({
 
       {status === "final" && (
         <>
-          <p className="w-full text-right text-xs text-slate-500">
+          <p className="w-full text-right text-xs text-ink-500">
             Finalizada es de solo lectura. No significa firmada, presentada ni
             enviada oficialmente.
           </p>
@@ -164,7 +164,7 @@ export function DocumentStatusControls({
           )}
           <Link
             href={`/dashboard/documents/${documentId}?section=notarial`}
-            className="inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+            className="press-feedback inline-flex rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
           >
             {includeInNotarialIndex ? "Completar datos del índice" : "Ver Índice Notarial"}
           </Link>

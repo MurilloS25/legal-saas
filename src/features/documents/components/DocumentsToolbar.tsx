@@ -30,7 +30,7 @@ type Props = {
 };
 
 const controlClass =
-  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
+  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-ink-900 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
 
 const DEFAULT_SORT = "recent";
 
@@ -84,7 +84,7 @@ export function DocumentsToolbar({
       >
         <label
           htmlFor="documents-search"
-          className="block text-xs font-medium text-slate-600 mb-1"
+          className="block text-xs font-medium text-ink-600 mb-1"
         >
           Buscar
         </label>
@@ -99,7 +99,7 @@ export function DocumentsToolbar({
           />
           <button
             type="submit"
-            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+            className="press-feedback rounded-lg bg-ink-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-ink-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
           >
             Buscar
           </button>
@@ -110,7 +110,7 @@ export function DocumentsToolbar({
       <div>
         <label
           htmlFor="documents-status"
-          className="block text-xs font-medium text-slate-600 mb-1"
+          className="block text-xs font-medium text-ink-600 mb-1"
         >
           Estado
         </label>
@@ -135,7 +135,7 @@ export function DocumentsToolbar({
       <div>
         <label
           htmlFor="documents-client"
-          className="block text-xs font-medium text-slate-600 mb-1"
+          className="block text-xs font-medium text-ink-600 mb-1"
         >
           Cliente
         </label>
@@ -160,7 +160,7 @@ export function DocumentsToolbar({
       <div>
         <label
           htmlFor="documents-template"
-          className="block text-xs font-medium text-slate-600 mb-1"
+          className="block text-xs font-medium text-ink-600 mb-1"
         >
           Machote
         </label>
@@ -185,7 +185,7 @@ export function DocumentsToolbar({
       <div>
         <label
           htmlFor="documents-sort"
-          className="block text-xs font-medium text-slate-600 mb-1"
+          className="block text-xs font-medium text-ink-600 mb-1"
         >
           Orden
         </label>
@@ -210,7 +210,7 @@ export function DocumentsToolbar({
             setSearch("");
             router.push("/dashboard/documents");
           }}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+          className="press-feedback rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
         >
           Limpiar filtros
         </button>

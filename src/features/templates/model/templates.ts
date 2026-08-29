@@ -20,24 +20,28 @@ export const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = {
   archived: "Archivado",
 };
 
-// "Activo" es un estado positivo real (el machote está listo para
-// usarse) → verde semántico, no el acento decorativo. "Archivado" es
-// neutro/inactivo (como "Borrador"), no una advertencia → gris, no
-// ámbar (DESIGN.md reserva ámbar para pendiente/advertencia real).
-const TEMPLATE_STATUS_BADGE_CLASS: Record<TemplateStatus, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  active: "bg-emerald-50 text-emerald-700",
-  archived: "bg-slate-200 text-slate-700",
-};
-
 export function templateStatusLabel(status: string): string {
   return TEMPLATE_STATUS_LABEL[status as TemplateStatus] ?? status;
 }
 
-export function templateStatusBadgeClass(status: string): string {
+// Mapeo al set de tonos del `Badge` compartido (ver src/components/ui/Badge.tsx).
+// "Activo" es un estado positivo real (el machote está listo para usarse) →
+// verde semántico, no el acento decorativo. "Archivado" es neutro/inactivo
+// (como "Borrador"), no una advertencia → gris, no ámbar (DESIGN.md reserva
+// ámbar para pendiente/advertencia real).
+const TEMPLATE_STATUS_BADGE_TONE: Record<
+  TemplateStatus,
+  "success" | "neutral"
+> = {
+  draft: "neutral",
+  active: "success",
+  archived: "neutral",
+};
+
+export function templateStatusBadgeTone(status: string): "success" | "neutral" {
   return (
-    TEMPLATE_STATUS_BADGE_CLASS[status as TemplateStatus] ??
-    TEMPLATE_STATUS_BADGE_CLASS.draft
+    TEMPLATE_STATUS_BADGE_TONE[status as TemplateStatus] ??
+    TEMPLATE_STATUS_BADGE_TONE.draft
   );
 }
 

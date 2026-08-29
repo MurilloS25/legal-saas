@@ -95,13 +95,13 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           !canCreateDocuments ? undefined : template.status === "active" ? (
             <Link
               href={`/dashboard/documents/new/${template.id}`}
-              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
+              className="press-feedback inline-flex items-center rounded-lg border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 transition-colors shrink-0"
             >
               Crear escritura
             </Link>
           ) : (
             <span
-              className="text-xs text-slate-500 shrink-0 max-w-[220px] text-right"
+              className="text-xs text-ink-400 shrink-0 max-w-[220px] text-right"
               title="Activa este machote para poder crear escrituras a partir de él."
             >
               Activa este machote para crear escrituras

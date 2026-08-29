@@ -3,6 +3,7 @@ import type { ReceivablePayment } from "../model/types";
 import { formatMoney } from "../model/status";
 import { paymentMethodLabel } from "../model/payments";
 import { VoidPaymentButton } from "./VoidPaymentButton";
+import { Badge } from "@/components/ui/Badge";
 
 export const PAYMENTS_COLUMN_LABELS = {
   paid_at: "Fecha",
@@ -32,7 +33,7 @@ export function createPaymentsColumns(
       header: PAYMENTS_COLUMN_LABELS.paid_at,
       accessorFn: (row) => row.paid_at,
       cell: ({ row }) => (
-        <span className="text-sm text-slate-500">
+        <span className="font-mono text-sm tabular-nums text-slate-500">
           {formatPaymentDate(row.original.paid_at)}
         </span>
       ),
@@ -45,7 +46,7 @@ export function createPaymentsColumns(
         const voided = row.original.status === "voided";
         return (
           <span
-            className={`text-sm font-medium ${voided ? "text-slate-400 line-through" : "text-slate-900"}`}
+            className={`font-mono text-sm font-medium tabular-nums ${voided ? "text-slate-400 line-through" : "text-ink-900"}`}
           >
             {formatMoney(row.original.amount, row.original.currency)}
           </span>
@@ -88,9 +89,7 @@ export function createPaymentsColumns(
         }
         return (
           <div>
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
-              Anulado
-            </span>
+            <Badge tone="neutral">Anulado</Badge>
             {p.void_reason && (
               <p className="mt-1 text-xs text-red-600">Anulado: {p.void_reason}</p>
             )}

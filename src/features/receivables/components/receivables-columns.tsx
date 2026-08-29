@@ -1,11 +1,26 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReceivableEntry } from "../model/types";
-import {
-  formatMoney,
-  receivableStatusBadgeClass,
-  receivableStatusLabel,
-} from "../model/status";
+import { formatMoney, receivableStatusLabel } from "../model/status";
+import { Badge } from "@/components/ui/Badge";
+
+/** Mapea el estado derivado de la cuenta al tono semántico del Badge
+ * compartido. Vive aquí (capa de UI) porque `model/status.ts` solo expone
+ * clases de color crudas pensadas para el sistema visual anterior. */
+export function receivableStatusTone(
+  status: string,
+): "success" | "warning" | "error" | "neutral" {
+  switch (status) {
+    case "paid":
+      return "success";
+    case "overdue":
+      return "error";
+    case "partial":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
 
 export const RECEIVABLES_COLUMN_LABELS = {
   concept: "Concepto",
@@ -35,7 +50,7 @@ export function createReceivablesColumns(): ColumnDef<ReceivableEntry>[] {
       cell: ({ row }) => (
         <Link
           href={`/dashboard/receivables/${row.original.id}`}
-          className="text-sm font-medium text-slate-900 hover:text-accent-700 focus:outline-none focus:underline transition-colors"
+          className="text-sm font-medium text-ink-900 hover:text-accent-700 focus:outline-none focus:underline transition-colors"
         >
           {row.original.concept}
         </Link>
@@ -61,7 +76,7 @@ export function createReceivablesColumns(): ColumnDef<ReceivableEntry>[] {
       header: RECEIVABLES_COLUMN_LABELS.amount_total,
       accessorFn: (row) => Number(row.amount_total),
       cell: ({ row }) => (
-        <span className="text-sm text-slate-700">
+        <span className="font-mono text-sm tabular-nums text-slate-700">
           {formatMoney(row.original.amount_total, row.original.currency)}
         </span>
       ),
@@ -71,7 +86,7 @@ export function createReceivablesColumns(): ColumnDef<ReceivableEntry>[] {
       header: RECEIVABLES_COLUMN_LABELS.balance_due,
       accessorFn: (row) => Number(row.balance_due),
       cell: ({ row }) => (
-        <span className="text-sm font-semibold text-slate-900">
+        <span className="font-mono text-sm font-semibold tabular-nums text-ink-900">
           {formatMoney(row.original.balance_due, row.original.currency)}
         </span>
       ),
@@ -81,11 +96,9 @@ export function createReceivablesColumns(): ColumnDef<ReceivableEntry>[] {
       header: RECEIVABLES_COLUMN_LABELS.status,
       accessorFn: (row) => row.status,
       cell: ({ row }) => (
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${receivableStatusBadgeClass(row.original.status)}`}
-        >
+        <Badge tone={receivableStatusTone(row.original.status)}>
           {receivableStatusLabel(row.original.status)}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -94,7 +107,7 @@ export function createReceivablesColumns(): ColumnDef<ReceivableEntry>[] {
       accessorFn: (row) => row.due_at ?? "",
       cell: ({ row }) =>
         row.original.due_at ? (
-          <span className="text-sm text-slate-500">
+          <span className="font-mono text-sm tabular-nums text-slate-500">
             {formatReceivableDate(row.original.due_at)}
           </span>
         ) : (
@@ -109,7 +122,7 @@ export function createReceivablesColumns(): ColumnDef<ReceivableEntry>[] {
         <div className="flex items-center justify-end">
           <Link
             href={`/dashboard/receivables/${row.original.id}`}
-            className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
           >
             Ver
           </Link>

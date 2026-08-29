@@ -31,9 +31,9 @@ import {
 // ------------------------------------------------------------------ styles
 
 const toolbarButtonClass =
-  "flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-sm " +
-  "text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none " +
-  "focus:ring-2 focus:ring-accent-500 disabled:opacity-40 " +
+  "press-feedback flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5 text-sm " +
+  "text-ink-500 hover:bg-ink-100 hover:text-ink-900 focus:outline-none " +
+  "focus-visible:ring-2 focus-visible:ring-accent-500 disabled:opacity-40 " +
   "disabled:hover:bg-transparent transition-colors " +
   "aria-pressed:bg-accent-50 aria-pressed:text-accent-800";
 
@@ -170,7 +170,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
         "aria-label": ariaLabel,
         class:
           "tiptap-editor min-h-[20rem] px-4 py-3 text-sm leading-relaxed " +
-          "text-slate-900 focus:outline-none whitespace-pre-wrap",
+          "text-ink-900 focus:outline-none whitespace-pre-wrap",
       },
       // No intercepta el pegado: lo deja seguir su curso normal (el texto
       // se pega tal cual, no hay regla de pegado que convierta nada en
@@ -453,11 +453,11 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
   );
 
   return (
-    <div className="rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-accent-500 focus-within:border-accent-500 overflow-hidden">
+    <div className="rounded-lg border border-ink-200 bg-white focus-within:ring-2 focus-within:ring-accent-500 focus-within:border-accent-500 overflow-hidden">
       {!editable && (
         <div
           role="status"
-          className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600"
+          className="border-b border-ink-100 bg-ink-100/50 px-4 py-2 text-xs text-ink-600"
         >
           Tu rol no permite editar este machote. Lo ves en modo lectura.
         </div>
@@ -465,7 +465,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
       <div
         role="toolbar"
         aria-label="Formato del contenido"
-        className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50/80 px-2 py-1.5 overflow-x-auto"
+        className="flex flex-wrap items-center gap-1 border-b border-ink-100 bg-ink-100/40 px-2 py-1.5 overflow-x-auto"
       >
         <button
           type="button"
@@ -501,7 +501,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           <UnderlineIcon />
         </button>
 
-        <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+        <span className="mx-1 h-5 w-px bg-ink-200" aria-hidden="true" />
 
         <button
           type="button"
@@ -524,7 +524,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           <RedoIcon />
         </button>
 
-        <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+        <span className="mx-1 h-5 w-px bg-ink-200" aria-hidden="true" />
 
         <button
           type="button"

@@ -14,13 +14,13 @@ export function ActivityRow({ item }: { item: ActivityListItem }) {
   const formatted = formatActivityEvent(item);
   return (
     <li className="px-6 py-4">
-      <h3 className="text-sm font-medium text-slate-900">{formatted.title}</h3>
+      <h3 className="text-sm font-medium text-ink-900">{formatted.title}</h3>
       {formatted.lines.map((line, index) => (
-        <p key={index} className="text-sm text-slate-500">
+        <p key={index} className="text-sm text-ink-500">
           {line}
         </p>
       ))}
-      <p className="mt-1 text-xs text-slate-400">
+      <p className="mt-1 text-xs text-ink-400 tabular-figures">
         <time dateTime={item.created_at}>
           {formatActivityTimestamp(item.created_at)}
         </time>

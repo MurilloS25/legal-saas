@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TablePagination } from "@/components/ui/TablePagination";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ScrollIcon } from "@/app/(dashboard)/_components/icons";
 import { NotarialToolbar } from "./NotarialToolbar";
 import { NotarialIndexTable } from "./NotarialIndexTable";
 import { NotarialExportButton } from "./NotarialExportButton";
@@ -54,14 +58,14 @@ export function NotarialIndexWorkspace({
     <PageContainer>
       <div className="mb-2 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
             Índice notarial
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-ink-500">
             Escrituras finalizadas y sus datos para el índice.
           </p>
           {lastExportAt && (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 font-mono text-xs tabular-figures text-ink-400">
               Última exportación: {formatCostaRicaDate(lastExportAt)}
             </p>
           )}
@@ -72,7 +76,7 @@ export function NotarialIndexWorkspace({
       {!canGenerate && (
         <div
           role="status"
-          className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600"
+          className="mb-4 rounded-lg bg-ink-100/60 border border-ink-200 px-4 py-3 text-sm text-ink-600"
         >
           Tu rol no permite generar el índice notarial. Solo el propietario o
           un administrador puede exportarlo.
@@ -81,7 +85,7 @@ export function NotarialIndexWorkspace({
 
       <div
         role="note"
-        className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600"
+        className="mb-6 rounded-lg border border-ink-200 bg-ink-100/40 px-4 py-3 text-xs text-ink-600"
       >
         Vista interna para organización y revisión. No sustituye el índice
         oficial ni su presentación ante autoridades.
@@ -102,42 +106,50 @@ export function NotarialIndexWorkspace({
       {warnings.incompleteCount > 0 && (
         <div
           role="alert"
-          className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          className="mb-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
         >
-          <p className="font-semibold">
-            {warnings.incompleteCount} registro
-            {warnings.incompleteCount === 1 ? " incompleto" : "s incompletos"}
-          </p>
-          <p className="mt-1">
-            Faltan: {warnings.missingFields.join(", ")}. El Word se puede
-            generar, pero puede requerir edición posterior.
-          </p>
+          <Badge tone="warning" className="mt-0.5 shrink-0">
+            {warnings.incompleteCount}
+          </Badge>
+          <div>
+            <p className="font-semibold">
+              registro{warnings.incompleteCount === 1 ? "" : "s"} incompleto
+              {warnings.incompleteCount === 1 ? "" : "s"}
+            </p>
+            <p className="mt-1">
+              Faltan: {warnings.missingFields.join(", ")}. El Word se puede
+              generar, pero puede requerir edición posterior.
+            </p>
+          </div>
         </div>
       )}
 
       {page.total === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-          {query.hasActiveFilters ? (
-            <>
-              <p className="text-sm font-medium text-slate-900 mb-1">
-                No hay escrituras finalizadas con esos filtros
-              </p>
+        <EmptyState
+          icon={<ScrollIcon className="size-6" />}
+          title={
+            query.hasActiveFilters
+              ? "No hay escrituras finalizadas con esos filtros"
+              : "Todavía no hay escrituras finalizadas"
+          }
+          description={
+            query.hasActiveFilters
+              ? undefined
+              : "Finaliza una escritura para que aparezca en el índice."
+          }
+          action={
+            query.hasActiveFilters ? (
               <Link
                 href={`/dashboard/notarial-index?${periodQs}`}
-                className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+                className="inline-flex items-center rounded-lg border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-100/60 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
               >
                 Limpiar filtros
               </Link>
-            </>
-          ) : (
-            <p className="text-sm text-slate-500">
-              Todavía no hay escrituras finalizadas. Finaliza una escritura para
-              que aparezca en el índice.
-            </p>
-          )}
-        </div>
+            ) : undefined
+          }
+        />
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <NotarialIndexTable
             rows={page.rows}
             query={query}
@@ -151,7 +163,7 @@ export function NotarialIndexWorkspace({
             countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
             pageHref={pageHref}
           />
-        </div>
+        </Card>
       )}
     </PageContainer>
   );
