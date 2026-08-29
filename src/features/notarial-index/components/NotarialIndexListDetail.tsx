@@ -21,15 +21,14 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { NotarialIndexTable } from "./NotarialIndexTable";
 import { NotarialRecordDetailPanel } from "./NotarialRecordDetailPanel";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
-import type { NotarialQuery } from "../model/query";
+import { notarialQueryToParams, type NotarialQuery } from "../model/query";
 
 type Props = {
   rows: NotarialIndexRow[];
-  query: Pick<NotarialQuery, "page">;
+  query: NotarialQuery;
   pageCount: number;
   total: number;
   rangeLabel: string;
-  pageHref: (targetPage: number) => string;
 };
 
 export function NotarialIndexListDetail({
@@ -38,8 +37,16 @@ export function NotarialIndexListDetail({
   pageCount,
   total,
   rangeLabel,
-  pageHref,
 }: Props) {
+  // Función pura, definida y usada enteramente en el cliente — recibir
+  // `pageHref` como prop desde el Server Component padre sería ilegal
+  // (las funciones no son serializables a través del límite
+  // servidor/cliente, y este componente es "use client").
+  function pageHref(targetPage: number): string {
+    const params = notarialQueryToParams({ ...query, page: targetPage });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index";
+  }
   const [selected, setSelected] = useState<NotarialIndexRow | null>(null);
 
   // Si la fila seleccionada desaparece de la página actual (cambio de

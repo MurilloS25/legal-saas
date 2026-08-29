@@ -27,6 +27,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { WorkspaceRole } from "@/lib/server/permissions";
 import { getClientDetailAction, type ClientDetailPayload } from "../server/detail-action";
+import { clientsQueryToParams } from "../model/workspace-query";
 import type { ClientRow } from "../model/types";
 import { ClientsTable } from "./ClientsTable";
 import { ClientDetail } from "./ClientDetail";
@@ -49,7 +50,6 @@ type Props = {
   pageCount: number;
   total: number;
   pageSize: number;
-  pageHref: (page: number) => string;
   canWrite: boolean;
   role: WorkspaceRole;
   initialSelection: ClientsWorkspaceInitialSelection;
@@ -109,7 +109,6 @@ export function ClientsWorkspace({
   pageCount,
   total,
   pageSize,
-  pageHref,
   canWrite,
   role,
   initialSelection,
@@ -117,6 +116,16 @@ export function ClientsWorkspace({
   const [selection, setSelection] = useState<Selection>(initialSelection);
   const requestRef = useRef(0);
   const reducedMotion = useReducedMotion();
+
+  // Función pura, definida y usada enteramente en el cliente — a diferencia
+  // de una prop `pageHref: (page: number) => string` recibida desde un
+  // Server Component (ilegal: las funciones no son serializables a través
+  // del límite servidor/cliente, y este componente es "use client").
+  function pageHref(targetPage: number): string {
+    const params = clientsQueryToParams({ page: targetPage });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/clients?${qs}` : "/dashboard/clients";
+  }
 
   async function loadDetail(id: string) {
     const requestId = ++requestRef.current;

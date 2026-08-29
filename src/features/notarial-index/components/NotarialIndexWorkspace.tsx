@@ -43,12 +43,6 @@ export function NotarialIndexWorkspace({
     ? `/api/notarial-index/export?${exportQs}`
     : "/api/notarial-index/export";
 
-  const pageHref = (targetPage: number) => {
-    const params = notarialQueryToParams({ ...query, page: targetPage });
-    const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index";
-  };
-
   const rangeStart = page.total === 0 ? 0 : (query.page - 1) * NOTARIAL_PAGE_SIZE + 1;
   const rangeEnd = Math.min(query.page * NOTARIAL_PAGE_SIZE, page.total);
 
@@ -153,7 +147,6 @@ export function NotarialIndexWorkspace({
           pageCount={page.pageCount}
           total={page.total}
           rangeLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
-          pageHref={pageHref}
         />
       )}
     </PageContainer>

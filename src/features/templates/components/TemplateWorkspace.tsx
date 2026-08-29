@@ -534,7 +534,7 @@ export function TemplateWorkspace(props: Props) {
               si ocupa toda la pantalla en mobile. */}
           <div
             id="template-panel-document"
-            className={`order-3 min-w-0 xl:order-none ${canvasVisibilityClass}`}
+            className={`order-3 min-w-0 xl:order-none xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto xl:pr-1 ${canvasVisibilityClass}`}
             style={{ gridArea: "canvas" }}
           >
             <TemplateMobileViewToggle value={mobileView} onChange={setMobileView} />
@@ -596,7 +596,10 @@ export function TemplateWorkspace(props: Props) {
               única forma de saltar a otra sección o volver al documento en
               pantallas angostas, así que no puede depender de
               `mobileSurface`. */}
-          <div className="order-2 xl:order-none" style={{ gridArea: "rail" }}>
+          <div
+            className="order-2 xl:order-none xl:sticky xl:top-4 xl:self-start"
+            style={{ gridArea: "rail" }}
+          >
             <TemplateSectionRail
               section={section}
               onSectionChange={goToSectionFromRail}
@@ -618,7 +621,7 @@ export function TemplateWorkspace(props: Props) {
               la misma columna pero vive fuera de este `<form>` — ver más
               abajo. */}
           <div
-            className={`order-4 min-w-0 space-y-6 xl:order-none ${panelVisibilityClass}`}
+            className={`order-4 min-w-0 space-y-6 xl:order-none xl:sticky xl:top-4 xl:max-h-[calc(100vh-7rem)] xl:self-start xl:overflow-y-auto ${panelVisibilityClass}`}
             style={{ gridArea: "panel" }}
           >
             {/* ---- Información ---- */}
@@ -789,7 +792,7 @@ export function TemplateWorkspace(props: Props) {
           role="tabpanel"
           aria-labelledby="template-tab-notarial"
           hidden={section !== "notarial"}
-          className={`order-4 min-w-0 xl:order-none animate-slide-in-right ${panelVisibilityClass}`}
+          className={`order-4 min-w-0 xl:order-none animate-slide-in-right xl:sticky xl:top-4 xl:max-h-[calc(100vh-7rem)] xl:self-start xl:overflow-y-auto ${panelVisibilityClass}`}
           style={{ gridArea: "panel" }}
         >
           {isEdit ? (

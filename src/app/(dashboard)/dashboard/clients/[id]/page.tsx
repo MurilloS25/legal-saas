@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import {
   ClientsWorkspace,
   parseClientsQuery,
-  clientsQueryToParams,
   CLIENTS_PAGE_SIZE,
 } from "@/features/clients";
 import { getClientById, listClientsPage } from "@/features/clients/server";
@@ -38,12 +37,6 @@ export default async function ClientDetailPage({ params }: Props) {
     listReceivablesByClient(client.id),
   ]);
 
-  const pageHref = (targetPage: number) => {
-    const params = clientsQueryToParams({ page: targetPage });
-    const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/clients?${qs}` : "/dashboard/clients";
-  };
-
   return (
     <ClientsWorkspace
       clients={listPage.rows}
@@ -51,7 +44,6 @@ export default async function ClientDetailPage({ params }: Props) {
       pageCount={listPage.pageCount}
       total={listPage.total}
       pageSize={CLIENTS_PAGE_SIZE}
-      pageHref={pageHref}
       canWrite={hasPermission(role, "clients.write")}
       role={role}
       initialSelection={{ kind: "detail", data: { client, documents, receivables } }}
