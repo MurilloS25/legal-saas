@@ -71,7 +71,8 @@ test.describe("auth security hardening", () => {
       await page.goto("/login");
       await loginAndExpectDashboard(page, email, PASSWORD);
 
-      await page.getByRole("button", { name: "Cerrar sesión" }).click();
+      await page.getByRole("button", { name: "Menú de usuario" }).click();
+      await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
       await expect(page).toHaveURL(/\/login/);
 
       await page.goto("/dashboard");
@@ -164,7 +165,8 @@ test.describe("auth security hardening", () => {
       await page.getByRole("button", { name: "Guardar contraseña" }).click();
       await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
 
-      await page.getByRole("button", { name: "Cerrar sesión" }).click();
+      await page.getByRole("button", { name: "Menú de usuario" }).click();
+      await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
       await expect(page).toHaveURL(/\/login/);
 
       // La contraseña anterior ya no funciona.

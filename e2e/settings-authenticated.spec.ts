@@ -25,9 +25,10 @@ test.describe("authenticated flows", () => {
     page,
   }) => {
     await page.goto("/dashboard");
-    // Configuración is intentionally sidebar-only, not a dashboard module
-    // card — its only appearance in main is the first-time "Configurar
-    // ahora →" onboarding banner, which disappears once the profile is set.
+    // Configuración es solo alcanzable desde el menú de usuario, no una
+    // tarjeta de módulo del dashboard — su única aparición en main es el
+    // banner de onboarding "Configurar ahora →", que desaparece una vez que
+    // el perfil está configurado.
     const modules = [
       ["Clientes", "/dashboard/clients"],
       ["Machotes", "/dashboard/templates"],
@@ -58,52 +59,47 @@ test.describe("authenticated flows", () => {
     await expect(page).toHaveURL(/\/dashboard\/receivables$/);
   });
 
-  test("C: authenticated user reaches /dashboard/settings", async ({
+  test("C: authenticated user reaches /dashboard/settings, defaulting to the Perfil tab", async ({
     page,
   }) => {
     await page.goto("/dashboard/settings");
 
     await expect(page).not.toHaveURL(/\/login/);
-    // exact: true distinguishes the h1 "Configuración" from the h2 "Configuración de documentos".
+    // exact: true distinguishes the h1 "Cuenta y configuración" from the
+    // sidebar tab label "Configuración".
     await expect(
-      page.getByRole("heading", { name: "Configuración", exact: true }),
+      page.getByRole("heading", { name: "Cuenta y configuración", exact: true }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cuenta" })).toBeVisible();
   });
 
-  test("C2: both sections render on a single page with no tabs and a single save action", async ({
+  test("C2: Perfil/Configuración/Despacho are separate tabs, each with its own save action", async ({
     page,
   }) => {
     await page.goto("/dashboard/settings");
 
-    // Both sections are visible at once — no tab navigation hides either.
+    // Perfil (default tab): no editable fields, just the account email and
+    // a password-reset action — no "Guardar" button here.
     await expect(
-      page.getByRole("heading", { name: "Perfil profesional" }),
+      page.getByRole("button", { name: /Enviar enlace de restablecimiento/ }),
     ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Guardar cambios" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Configuración" }).click();
     await expect(
       page.getByRole("heading", { name: "Configuración de documentos" }),
-    ).toBeVisible();
-    await expect(page.getByRole("tab")).toHaveCount(0);
-    await expect(page.getByRole("tablist")).toHaveCount(0);
+    ).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Formato de texto" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Márgenes (cm)" })).toBeVisible();
 
-    // The old per-section buttons are gone; a single unified action remains.
-    await expect(
-      page.getByRole("button", { name: "Guardar perfil" }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "Guardar configuración" }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "Guardar cambios" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Descartar" }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Despacho" }).click();
+    await expect(page.getByRole("heading", { name: "Perfil profesional" })).toBeVisible();
   });
 
   test("C3: save and discard are disabled until a change is made", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=workspace");
 
     const saveButton = page.getByRole("button", { name: "Guardar cambios" });
     const discardButton = page.getByRole("button", { name: "Descartar" });
@@ -124,7 +120,7 @@ test.describe("authenticated flows", () => {
   test("C4: discarding restores the last saved values and disables the actions again", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=workspace");
 
     const original = await page.getByLabel("Teléfono").inputValue();
     await page.getByLabel("Teléfono").fill("9999-9999");
@@ -135,10 +131,10 @@ test.describe("authenticated flows", () => {
     await expect(page.getByRole("button", { name: "Descartar" })).toBeDisabled();
   });
 
-  test("D: user can save the lawyer profile through the unified action", async ({
+  test("D: user can save the lawyer profile (Despacho) independently", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=workspace");
 
     const name = `E2E Lawyer ${Date.now()}`;
 
@@ -149,19 +145,19 @@ test.describe("authenticated flows", () => {
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
-      page.getByRole("status").getByText("Cambios guardados correctamente."),
+      page.getByRole("status").getByText("Despacho actualizado."),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
   });
 
-  test("E: user can save document settings through the unified action", async ({
+  test("E: user can save document settings independently", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=document");
 
-    // exact: true distinguishes "Fuente" from "Tamaño de fuente (pt)".
+    // exact: true distinguishes "Fuente" from "Tamaño (pt)".
     await page.getByLabel("Fuente", { exact: true }).selectOption("Arial");
-    await page.getByLabel("Tamaño de fuente (pt)").fill("11");
+    await page.getByLabel("Tamaño (pt)").fill("11");
 
     // Margin inputs are inside a fieldset — locate by their visible labels.
     await page.getByLabel("Superior").fill("3.0");
@@ -173,70 +169,71 @@ test.describe("authenticated flows", () => {
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
-      page.getByRole("status").getByText("Cambios guardados correctamente."),
+      page.getByRole("status").getByText("Configuración de documento guardada."),
     ).toBeVisible({ timeout: 15_000 });
   });
 
   test("F: saved profile and document settings persist after page reload", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=workspace");
 
     const name = `E2E Persist ${Date.now()}`;
     await page.getByLabel("Nombre completo").fill(name);
-    await page.getByLabel("Superior").fill("4.0");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
-      page.getByRole("status").getByText("Cambios guardados correctamente."),
+      page.getByRole("status").getByText("Despacho actualizado."),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
     await expect(page.getByLabel("Nombre completo")).toHaveValue(name);
+
+    await page.goto("/dashboard/settings?tab=document");
+    await page.getByLabel("Superior").fill("4.0");
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(
+      page.getByRole("status").getByText("Configuración de documento guardada."),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
     await expect(page.getByLabel("Superior")).toHaveValue("4");
   });
 
-  test("G: an invalid field blocks the whole save and keeps every edited value", async ({
+  test("G: an invalid field blocks the save for that section and keeps every edited value", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=workspace");
 
     const name = `E2E Invalid ${Date.now()}`;
     await page.getByLabel("Nombre completo").fill(name);
     await page.getByLabel("Correo de contacto").fill("not-an-email");
-    await page.getByLabel("Superior").fill("2.0");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    // Validation fails before any write happens — no success banner, no
-    // partial-success claim, and the values the user typed are preserved.
+    // Validation fails before any write happens — no success banner, and
+    // the values the user typed are preserved.
     await expect(page.getByRole("alert").first()).toBeVisible({
       timeout: 15_000,
     });
     await expect(
-      page.getByRole("status").getByText("Cambios guardados correctamente."),
+      page.getByRole("status").getByText("Despacho actualizado."),
     ).toHaveCount(0);
     await expect(page.getByLabel("Nombre completo")).toHaveValue(name);
     await expect(page.getByLabel("Correo de contacto")).toHaveValue(
       "not-an-email",
     );
-    // No reload happened, so the field keeps exactly what was typed
-    // (unlike test F, which re-fetches the DB-normalized value).
-    await expect(page.getByLabel("Superior")).toHaveValue("2.0");
   });
 
-  test("H: the settings workspace is usable on a mobile viewport", async ({
+  test("H: the settings tabs are usable on a mobile viewport", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/dashboard/settings");
+    await page.goto("/dashboard/settings?tab=workspace");
 
     await expect(
-      page.getByRole("heading", { name: "Configuración", exact: true }),
+      page.getByRole("heading", { name: "Cuenta y configuración", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Perfil profesional" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Configuración de documentos" }),
     ).toBeVisible();
 
     const hasHorizontalScroll = await page.evaluate(
@@ -250,8 +247,8 @@ test.describe("authenticated flows", () => {
     ).toBeEnabled();
   });
 
-  test("I: the form is keyboard-navigable end to end", async ({ page }) => {
-    await page.goto("/dashboard/settings");
+  test("I: the Despacho form is keyboard-navigable end to end", async ({ page }) => {
+    await page.goto("/dashboard/settings?tab=workspace");
 
     await page.getByLabel("Nombre completo").focus();
     await expect(page.getByLabel("Nombre completo")).toBeFocused();
@@ -260,7 +257,7 @@ test.describe("authenticated flows", () => {
     await expect(page.getByLabel("Código profesional")).toBeFocused();
 
     // Reach the primary action via keyboard and confirm it activates.
-    await page.getByLabel("Interlineado").fill("1.5");
+    await page.getByLabel("Teléfono").fill("8888-7777");
     await page.getByRole("button", { name: "Guardar cambios" }).focus();
     await expect(
       page.getByRole("button", { name: "Guardar cambios" }),
@@ -268,15 +265,66 @@ test.describe("authenticated flows", () => {
     await page.keyboard.press("Enter");
 
     await expect(
-      page.getByRole("status").getByText("Cambios guardados correctamente."),
+      page.getByRole("status").getByText("Despacho actualizado."),
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("J: user can log out and is redirected to /login", async ({ page }) => {
+  test("J1: the mobile navigation drawer opens via the hamburger, lists every module, and Escape closes it", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/dashboard");
 
-    // "Cerrar sesión" is the logout button in the sidebar.
-    await page.getByRole("button", { name: "Cerrar sesión" }).click();
+    const openButton = page.getByRole("button", { name: "Abrir navegación" });
+    await expect(openButton).toBeVisible();
+    await openButton.click();
+
+    const drawer = page.getByRole("dialog", { name: "Menú de navegación" });
+    await expect(drawer).toBeVisible();
+    for (const label of [
+      "Panel",
+      "Clientes",
+      "Machotes",
+      "Escrituras",
+      "Índice Notarial",
+      "Cuentas por cobrar",
+    ]) {
+      await expect(drawer.getByRole("link", { name: label, exact: true })).toBeVisible();
+    }
+    await expect(drawer.getByRole("link", { name: "Despacho" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(drawer).not.toBeVisible();
+  });
+
+  test("J2: the desktop user menu opens with Perfil/Configuración/Despacho/Cerrar sesión and Escape closes it", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+
+    const trigger = page.getByRole("button", { name: "Menú de usuario" });
+    await trigger.click();
+
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Perfil" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Configuración" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Despacho" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Cerrar sesión" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(menu).not.toBeVisible();
+  });
+
+  test("J: user can log out from the user menu and is redirected to /login", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+
+    // "Cerrar sesión" now lives inside the user menu dropdown, not a
+    // standalone sidebar button — open it first.
+    await page.getByRole("button", { name: "Menú de usuario" }).click();
+    await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
 
     await expect(page).toHaveURL(/\/login/);
     await expect(

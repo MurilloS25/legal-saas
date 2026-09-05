@@ -64,13 +64,28 @@ export function formatWorkspaceActivityEvent(event: WorkspaceActivityEvent): str
   }
 }
 
-/** Fecha y hora legible en español de Costa Rica. */
+const MONTHS_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+] as const;
+
+/**
+ * Fecha y hora legible en español de Costa Rica, formateada a mano en vez
+ * de con `Intl.toLocaleString("es-CR", ...)`: el separador que usa esa API
+ * para `es-CR` difiere entre el ICU de Node (SSR) y el de Chromium
+ * (hidratación) — "…, 04:21 p. m." vs "…a las 04:21 p. m." — lo que
+ * provocaba un mismatch de hidratación real en cuanto este componente pasó
+ * a hidratarse (antes se renderizaba solo en servidor). Un formateo
+ * determinista evita depender de esa diferencia de versión de ICU.
+ */
 export function formatWorkspaceActivityTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString("es-CR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const date = new Date(iso);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = MONTHS_ES[date.getMonth()];
+  const year = date.getFullYear();
+  const hours24 = date.getHours();
+  const period = hours24 < 12 ? "a. m." : "p. m.";
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${day} de ${month} de ${year}, ${hours12}:${minutes} ${period}`;
 }
