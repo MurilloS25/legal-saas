@@ -57,6 +57,15 @@ describe("parseDocumentsQuery", () => {
     expect(parseDocumentsQuery({ page: "-5" }).page).toBe(1);
     expect(parseDocumentsQuery({ page: "abc" }).page).toBe(1);
   });
+
+  it("accepts only whitelisted page sizes, defaulting otherwise", () => {
+    expect(parseDocumentsQuery({}).pageSize).toBe(DOCUMENTS_PAGE_SIZE);
+    expect(parseDocumentsQuery({ pageSize: "25" }).pageSize).toBe(25);
+    expect(parseDocumentsQuery({ pageSize: "5" }).pageSize).toBe(5);
+    expect(parseDocumentsQuery({ pageSize: "50" }).pageSize).toBe(50);
+    expect(parseDocumentsQuery({ pageSize: "100" }).pageSize).toBe(DOCUMENTS_PAGE_SIZE);
+    expect(parseDocumentsQuery({ pageSize: "abc" }).pageSize).toBe(DOCUMENTS_PAGE_SIZE);
+  });
 });
 
 describe("sortColumnFor", () => {
@@ -99,6 +108,17 @@ describe("documentsQueryToParams", () => {
       client: UUID,
       sort: "title_az",
       page: "2",
+    });
+  });
+
+  it("serializes pageSize only when it differs from the default", () => {
+    expect(documentsQueryToParams({ page: 1, pageSize: DOCUMENTS_PAGE_SIZE })).toEqual({});
+    expect(documentsQueryToParams({ page: 1, pageSize: 25 })).toEqual({ pageSize: "25" });
+    // Changing pageSize resets to page 1, but a non-default pageSize is kept
+    // even when page also changes (both travel independently in the URL).
+    expect(documentsQueryToParams({ page: 3, pageSize: 50 })).toEqual({
+      pageSize: "50",
+      page: "3",
     });
   });
 });

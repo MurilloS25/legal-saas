@@ -4,13 +4,10 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { NotarialToolbar } from "./NotarialToolbar";
 import { NotarialIndexTable } from "./NotarialIndexTable";
 import { NotarialExportButton } from "./NotarialExportButton";
-import {
-  NOTARIAL_PAGE_SIZE,
-  notarialQueryToParams,
-  type NotarialQuery,
-} from "../model/query";
+import { notarialQueryToParams, type NotarialQuery } from "../model/query";
 import { formatCostaRicaDate } from "../model/datetime";
 import type { NotarialIndexPage } from "../server/workspace-queries";
+import { buildPageSizeOptions, type PageSizeOption } from "@/lib/pagination";
 
 type Props = {
   query: NotarialQuery;
@@ -47,8 +44,14 @@ export function NotarialIndexWorkspace({
     return qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index";
   };
 
-  const rangeStart = page.total === 0 ? 0 : (query.page - 1) * NOTARIAL_PAGE_SIZE + 1;
-  const rangeEnd = Math.min(query.page * NOTARIAL_PAGE_SIZE, page.total);
+  const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
+    const params = notarialQueryToParams({ ...query, page: 1, pageSize });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index";
+  });
+
+  const rangeStart = page.total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
+  const rangeEnd = Math.min(query.page * query.pageSize, page.total);
 
   return (
     <PageContainer>
@@ -143,6 +146,7 @@ export function NotarialIndexWorkspace({
             query={query}
             pageCount={page.pageCount}
             total={page.total}
+            canManage={canGenerate}
           />
 
           <TablePagination
@@ -150,6 +154,8 @@ export function NotarialIndexWorkspace({
             pageCount={page.pageCount}
             countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
             pageHref={pageHref}
+            pageSize={query.pageSize}
+            pageSizeOptions={pageSizeOptions}
           />
         </div>
       )}

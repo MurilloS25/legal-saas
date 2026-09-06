@@ -98,6 +98,7 @@ export async function saveNotarialMetadataAction(
       };
     }
     revalidatePath(`/dashboard/documents/${documentId}`);
+    revalidatePath("/dashboard/notarial-index");
     return {
       success: true,
       successMessage: "Partes restablecidas desde el machote.",
@@ -171,6 +172,7 @@ export async function saveNotarialMetadataAction(
   }
 
   revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath("/dashboard/notarial-index");
 
   // El mismo guardado nunca debe leerse como "la Escritura ya quedó
   // agregada al Índice" si todavía faltan campos — el Índice se deriva de

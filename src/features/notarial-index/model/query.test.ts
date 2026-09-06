@@ -49,6 +49,13 @@ describe("parseNotarialQuery", () => {
     expect(parseNotarialQuery({ page: "-2" }, now).page).toBe(1);
     expect(parseNotarialQuery({ page: "3" }, now).page).toBe(3);
   });
+
+  it("accepts only whitelisted page sizes, defaulting otherwise", () => {
+    expect(parseNotarialQuery({}, now).pageSize).toBe(NOTARIAL_PAGE_SIZE);
+    expect(parseNotarialQuery({ pageSize: "5" }, now).pageSize).toBe(5);
+    expect(parseNotarialQuery({ pageSize: "25" }, now).pageSize).toBe(25);
+    expect(parseNotarialQuery({ pageSize: "999" }, now).pageSize).toBe(NOTARIAL_PAGE_SIZE);
+  });
 });
 
 describe("notarialDateRangeIso", () => {
@@ -101,5 +108,10 @@ describe("helpers", () => {
   it("uses a reasonable page size", () => {
     expect(NOTARIAL_PAGE_SIZE).toBeGreaterThan(0);
     expect(NOTARIAL_PAGE_SIZE).toBeLessThanOrEqual(50);
+  });
+
+  it("serializes pageSize only when it differs from the default", () => {
+    expect(notarialQueryToParams({ page: 1, pageSize: NOTARIAL_PAGE_SIZE })).toEqual({});
+    expect(notarialQueryToParams({ page: 1, pageSize: 25 })).toEqual({ pageSize: "25" });
   });
 });

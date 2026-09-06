@@ -588,6 +588,30 @@ export default defineConfig({
       testMatch: /settings-authenticated\.spec\.ts/,
       dependencies: ["chromium-dashboard"],
     },
+
+    // Shared server-side pagination (Clientes/Machotes/Escrituras/Cuentas
+    // por cobrar/Índice Notarial) — Iteración 2. Uses the shared session
+    // like the modules it covers.
+    {
+      name: "chromium-table-pagination",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /table-pagination-authenticated\.spec\.ts/,
+      dependencies: ["chromium-authenticated"],
+    },
+
+    // Notarial index inline row expansion (Iteración 2, parte B).
+    // Autocontenido (propietario/asistente desechables, como
+    // notary-identity-actor-audit) — solo encadenado para evitar contención
+    // con el resto de la suite en el mismo dev server, no por storageState.
+    {
+      name: "chromium-notarial-inline-review",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /notarial-inline-review-authenticated\.spec\.ts/,
+      dependencies: ["chromium-table-pagination"],
+    },
   ],
   webServer: {
     command: "pnpm dev",

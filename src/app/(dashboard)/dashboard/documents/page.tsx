@@ -10,13 +10,13 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
 import {
   DOCUMENT_SORT_OPTIONS,
-  DOCUMENTS_PAGE_SIZE,
   documentsQueryToParams,
   parseDocumentsQuery,
   type RawDocumentsQuery,
   DocumentsTable,
   DocumentsToolbar,
 } from "@/features/documents";
+import { buildPageSizeOptions, type PageSizeOption } from "@/lib/pagination";
 
 export const metadata = {
   title: "Escrituras — LexCR",
@@ -62,13 +62,19 @@ export default async function DocumentsPage({ searchParams }: Props) {
     return qs ? `/dashboard/documents?${qs}` : "/dashboard/documents";
   };
 
+  const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
+    const params = documentsQueryToParams({ ...query, page: 1, pageSize });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/documents?${qs}` : "/dashboard/documents";
+  });
+
   if (page.total > 0 && query.page > page.pageCount) {
     redirect(pageHref(page.pageCount));
   }
 
   const rangeStart =
-    page.total === 0 ? 0 : (query.page - 1) * DOCUMENTS_PAGE_SIZE + 1;
-  const rangeEnd = Math.min(query.page * DOCUMENTS_PAGE_SIZE, page.total);
+    page.total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
+  const rangeEnd = Math.min(query.page * query.pageSize, page.total);
 
   return (
     <PageContainer>
@@ -96,6 +102,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
           clientId: query.clientId,
           templateId: query.templateId,
           sort: query.sort,
+          pageSize: query.pageSize,
         }}
         clients={clientOptions}
         templates={templateOptions}
@@ -146,6 +153,8 @@ export default async function DocumentsPage({ searchParams }: Props) {
             pageCount={page.pageCount}
             countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
             pageHref={pageHref}
+            pageSize={query.pageSize}
+            pageSizeOptions={pageSizeOptions}
           />
         </div>
       )}

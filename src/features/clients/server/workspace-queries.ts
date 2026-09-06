@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
-import { CLIENTS_PAGE_SIZE, type ClientsQuery } from "../model/workspace-query";
+import type { ClientsQuery } from "../model/workspace-query";
 import type { ClientRow } from "../model/types";
 
 const CLIENT_COLUMNS =
@@ -30,13 +30,13 @@ export type ClientsPage = {
 /** Página del directorio de clientes para el listado principal (server-paginado). */
 export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage> {
   const { supabase, workspaceId } = await requireWorkspace();
-  const from = (query.page - 1) * CLIENTS_PAGE_SIZE;
+  const from = (query.page - 1) * query.pageSize;
   const { data, count, error } = await supabase
     .from("clients")
     .select(CLIENT_COLUMNS, { count: "exact" })
     .eq("workspace_id", workspaceId)
     .order("full_name", { ascending: true })
-    .range(from, from + CLIENTS_PAGE_SIZE - 1);
+    .range(from, from + query.pageSize - 1);
 
   if (error && !isRangeNotSatisfiable(error)) {
     throwDataAccessError("list clients page", error);
@@ -52,7 +52,7 @@ export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage>
       .eq("workspace_id", workspaceId);
     if (countError) throwDataAccessError("count clients page", countError);
     const total = totalOnly ?? 0;
-    return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE)) };
+    return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / query.pageSize)) };
   }
 
   const total = count ?? 0;
@@ -60,6 +60,6 @@ export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage>
   return {
     rows: data ?? [],
     total,
-    pageCount: Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE)),
+    pageCount: Math.max(1, Math.ceil(total / query.pageSize)),
   };
 }

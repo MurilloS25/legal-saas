@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -17,15 +17,19 @@ import {
   notarialTableState,
   type NotarialColumnId,
 } from "./notarial-index-columns";
+import { NotarialInlineReview } from "./NotarialInlineReview";
 
 type Props = {
   rows: NotarialIndexRow[];
-  query: Pick<NotarialQuery, "page">;
+  query: NotarialQuery;
   pageCount: number;
   total: number;
+  /** notarial_index.generate — gobierna guardar/confirmar/corregir en la
+   * revisión inline, igual que ya gobierna exportar el índice. */
+  canManage: boolean;
 };
 
-export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
+export function NotarialIndexTable({ rows, query, pageCount, total, canManage }: Props) {
   "use no memo";
 
   const columns = useMemo(() => createNotarialIndexColumns(), []);
@@ -38,7 +42,33 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     DEFAULT_NOTARIAL_COLUMN_VISIBILITY,
   );
-  const { pagination, sorting } = notarialTableState(query.page);
+  const { pagination, sorting } = notarialTableState(query.page, query.pageSize);
+
+  // Una sola fila expandida a la vez (menos ruido). Se cierra cuando cambia
+  // la población (página o cualquier filtro) o cuando la fila abierta ya no
+  // está en el resultado actual (p. ej. un filtro de completitud la excluyó
+  // tras guardar) — nunca queda apuntando a un registro fuera de la página.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const populationKey = JSON.stringify({
+    page: query.page,
+    pageSize: query.pageSize,
+    search: query.search,
+    completeness: query.completeness,
+    actType: query.actType,
+    selection: query.selection,
+  });
+  const previousPopulationKey = useRef(populationKey);
+  useEffect(() => {
+    if (previousPopulationKey.current !== populationKey) {
+      previousPopulationKey.current = populationKey;
+      setExpandedId(null);
+    }
+  }, [populationKey]);
+  useEffect(() => {
+    if (expandedId && !rows.some((row) => row.document_id === expandedId)) {
+      setExpandedId(null);
+    }
+  }, [rows, expandedId]);
 
   // TanStack Table intentionally exposes mutable-style callbacks that React
   // Compiler cannot safely memoize; this component is opted out above.
@@ -114,6 +144,9 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
                 key={headerGroup.id}
                 className="border-b border-slate-100 bg-slate-50 text-left"
               >
+                <th scope="col" className="w-10 px-2 py-3">
+                  <span className="sr-only">Expandir</span>
+                </th>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
@@ -137,37 +170,82 @@ export function NotarialIndexTable({ rows, query, pageCount, total }: Props) {
             ))}
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.original.document_id}
-                className="transition-colors hover:bg-slate-50"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className={`px-4 py-3 ${
-                      cell.column.id === "instrument_number"
-                        ? "text-slate-900"
-                        : "text-slate-600"
-                    } ${
-                      cell.column.id === "instrument_number" ||
-                      cell.column.id === "authorized_at" ||
-                      cell.column.id === "actions"
-                        ? "whitespace-nowrap"
-                        : ""
-                    } ${
-                      cell.column.id === "actions" ? "text-right" : ""
-                    } ${
-                      cell.column.id === "parties"
-                        ? "max-w-[16rem] truncate"
-                        : ""
-                    }`}
+            {table.getRowModel().rows.map((row) => {
+              const documentId = row.original.document_id;
+              const isExpanded = expandedId === documentId;
+              const detailId = `notarial-row-detail-${documentId}`;
+              return (
+                <Fragment key={documentId}>
+                  <tr
+                    className={`transition-colors hover:bg-slate-50 ${isExpanded ? "bg-slate-50" : ""}`}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
+                    <td className="px-2 py-3 align-top">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-controls={detailId}
+                        aria-label={
+                          isExpanded
+                            ? "Cerrar revisión rápida"
+                            : "Abrir revisión rápida"
+                        }
+                        onClick={() =>
+                          setExpandedId((current) =>
+                            current === documentId ? null : documentId,
+                          )
+                        }
+                        className="flex size-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                          className={`size-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                        >
+                          <polyline points="9 6 15 12 9 18" />
+                        </svg>
+                      </button>
+                    </td>
+                    {row.getVisibleCells().map((cell) => (
+                      <td
+                        key={cell.id}
+                        className={`px-4 py-3 ${
+                          cell.column.id === "instrument_number"
+                            ? "text-slate-900"
+                            : "text-slate-600"
+                        } ${
+                          cell.column.id === "instrument_number" ||
+                          cell.column.id === "authorized_at" ||
+                          cell.column.id === "actions"
+                            ? "whitespace-nowrap"
+                            : ""
+                        } ${
+                          cell.column.id === "actions" ? "text-right" : ""
+                        } ${
+                          cell.column.id === "parties"
+                            ? "max-w-[16rem] truncate"
+                            : ""
+                        }`}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                  {isExpanded && (
+                    <tr id={detailId}>
+                      <td colSpan={row.getVisibleCells().length + 1} className="p-0">
+                        <NotarialInlineReview row={row.original} canManage={canManage} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

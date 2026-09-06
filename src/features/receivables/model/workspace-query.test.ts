@@ -4,6 +4,7 @@ import {
   receivablesQueryToParams,
   searchHasNoSafeTerm,
   sanitizeSearchTermForPostgrest,
+  RECEIVABLES_PAGE_SIZE,
 } from "./workspace-query";
 
 describe("parseReceivablesQuery", () => {
@@ -58,6 +59,13 @@ describe("parseReceivablesQuery", () => {
     expect(parseReceivablesQuery({ page: "0" }).page).toBe(1);
     expect(parseReceivablesQuery({ page: "-5" }).page).toBe(1);
     expect(parseReceivablesQuery({ page: "abc" }).page).toBe(1);
+  });
+
+  it("accepts only whitelisted page sizes, defaulting otherwise", () => {
+    expect(parseReceivablesQuery({}).pageSize).toBe(RECEIVABLES_PAGE_SIZE);
+    expect(parseReceivablesQuery({ pageSize: "5" }).pageSize).toBe(5);
+    expect(parseReceivablesQuery({ pageSize: "50" }).pageSize).toBe(50);
+    expect(parseReceivablesQuery({ pageSize: "0" }).pageSize).toBe(RECEIVABLES_PAGE_SIZE);
   });
 });
 

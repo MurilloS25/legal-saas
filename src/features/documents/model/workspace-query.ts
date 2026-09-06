@@ -8,12 +8,13 @@
  */
 
 import { DOCUMENT_STATUS_LABEL } from "./status";
+import { normalizePage, normalizePageSize, type PageSizeOption } from "@/lib/pagination";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const MAX_SEARCH_LENGTH = 100;
-export const DOCUMENTS_PAGE_SIZE = 10;
+export const DOCUMENTS_PAGE_SIZE: PageSizeOption = 10;
 
 export const DOCUMENT_SORT_OPTIONS = [
   { value: "recent", label: "Más recientes", column: "updated_at", ascending: false },
@@ -33,6 +34,7 @@ export type RawDocumentsQuery = {
   template?: string;
   sort?: string;
   page?: string;
+  pageSize?: string;
 };
 
 export type DocumentsQuery = {
@@ -42,6 +44,7 @@ export type DocumentsQuery = {
   templateId: string | null;
   sort: DocumentSortValue;
   page: number;
+  pageSize: PageSizeOption;
   /** true si algún filtro/búsqueda está activo (para distinguir vacío vs. sin resultados). */
   hasActiveFilters: boolean;
 };
@@ -63,12 +66,6 @@ function normalizeSort(value: string | undefined): DocumentSortValue {
   return match ? match.value : DEFAULT_SORT;
 }
 
-function normalizePage(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return 1;
-  return Math.min(parsed, 100_000);
-}
-
 export function parseDocumentsQuery(raw: RawDocumentsQuery): DocumentsQuery {
   const search = (raw.search ?? "").trim().slice(0, MAX_SEARCH_LENGTH);
   const status = normalizeStatus(raw.status);
@@ -82,6 +79,7 @@ export function parseDocumentsQuery(raw: RawDocumentsQuery): DocumentsQuery {
     templateId,
     sort: normalizeSort(raw.sort),
     page: normalizePage(raw.page),
+    pageSize: normalizePageSize(raw.pageSize, DOCUMENTS_PAGE_SIZE),
     hasActiveFilters:
       search !== "" || status !== null || clientId !== null || templateId !== null,
   };
@@ -124,6 +122,9 @@ export function documentsQueryToParams(
   if (query.clientId) params.client = query.clientId;
   if (query.templateId) params.template = query.templateId;
   if (query.sort && query.sort !== DEFAULT_SORT) params.sort = query.sort;
+  if (query.pageSize && query.pageSize !== DOCUMENTS_PAGE_SIZE) {
+    params.pageSize = String(query.pageSize);
+  }
   if (query.page && query.page > 1) params.page = String(query.page);
   return params;
 }

@@ -4,9 +4,10 @@ import {
   parseFortnightSelection,
   type FortnightSelection,
 } from "./fortnight";
+import { normalizePage, normalizePageSize, type PageSizeOption } from "@/lib/pagination";
 
 export const MAX_SEARCH_LENGTH = 100;
-export const NOTARIAL_PAGE_SIZE = 10;
+export const NOTARIAL_PAGE_SIZE: PageSizeOption = 10;
 
 export const NOTARIAL_COMPLETENESS_FILTERS = [
   "complete",
@@ -24,6 +25,7 @@ export type RawNotarialQuery = {
   month?: string;
   half?: string;
   page?: string;
+  pageSize?: string;
 };
 
 export type NotarialQuery = {
@@ -32,6 +34,7 @@ export type NotarialQuery = {
   actType: string | null;
   selection: FortnightSelection;
   page: number;
+  pageSize: PageSizeOption;
   hasActiveFilters: boolean;
 };
 
@@ -55,11 +58,8 @@ export function parseNotarialQuery(
   const actType = (raw.act_type ?? "").trim().slice(0, 200) || null;
   const selection =
     parseFortnightSelection(raw) ?? currentCostaRicaFortnight(now);
-  const pageNum = Number.parseInt(raw.page ?? "", 10);
-  const page =
-    Number.isFinite(pageNum) && pageNum >= 1
-      ? Math.min(pageNum, 100_000)
-      : 1;
+  const page = normalizePage(raw.page);
+  const pageSize = normalizePageSize(raw.pageSize, NOTARIAL_PAGE_SIZE);
 
   return {
     search,
@@ -67,6 +67,7 @@ export function parseNotarialQuery(
     actType,
     selection,
     page,
+    pageSize,
     hasActiveFilters:
       search !== "" || completeness !== null || actType !== null,
   };
@@ -115,6 +116,9 @@ export function notarialQueryToParams(
   if (query.search) params.search = query.search;
   if (query.completeness) params.completeness = query.completeness;
   if (query.actType) params.act_type = query.actType;
+  if (query.pageSize && query.pageSize !== NOTARIAL_PAGE_SIZE) {
+    params.pageSize = String(query.pageSize);
+  }
   if (query.page && query.page > 1) params.page = String(query.page);
   return params;
 }

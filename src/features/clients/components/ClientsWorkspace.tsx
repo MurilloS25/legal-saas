@@ -1,6 +1,7 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TablePagination } from "@/components/ui/TablePagination";
 import Link from "next/link";
+import type { PageSizeOption } from "@/lib/pagination";
 import type { ClientRow } from "../model/types";
 import { ClientsTable } from "./ClientsTable";
 
@@ -11,8 +12,9 @@ type Props = {
   page: number;
   pageCount: number;
   total: number;
-  pageSize: number;
+  pageSize: PageSizeOption;
   pageHref: (page: number) => string;
+  pageSizeOptions: { value: PageSizeOption; href: string }[];
   canWrite: boolean;
 };
 
@@ -23,6 +25,7 @@ export function ClientsWorkspace({
   total,
   pageSize,
   pageHref,
+  pageSizeOptions,
   canWrite,
 }: Props) {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -114,6 +117,8 @@ export function ClientsWorkspace({
             pageCount={pageCount}
             countLabel={`${rangeStart}–${rangeEnd} de ${total}`}
             pageHref={pageHref}
+            pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
           />
         </div>
       )}
