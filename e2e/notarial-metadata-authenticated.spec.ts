@@ -241,7 +241,7 @@ test.describe("notarial index metadata", () => {
       .locator('input[data-variable-key="parte.nombre"]');
     await inlineInput.fill("Persona Uno Actualizada");
     await inlineInput.blur();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     // El guardado ya avanza a "Revisar y finalizar" — este clic queda como
     // no-op idempotente, explícito para no depender de a dónde nos dejó el

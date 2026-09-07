@@ -86,7 +86,7 @@ test.describe("template milestone feedback (toast replacement)", () => {
 
     await page.getByRole("tab", { name: "Información", exact: true }).click();
     await page.getByLabel("Descripción (opcional)").fill("Descripción editada");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),

@@ -362,11 +362,10 @@ test.describe("templates module", () => {
     await expect(
       page.getByRole("status").filter({ hasText: "Cambios sin guardar" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
-    // Guardar exitoso avanza automáticamente al siguiente paso del stepper
-    // (Documento → Variables); la confirmación ahora es un toast transitorio,
-    // no un banner permanente.
+    // Guardar único: no navega de paso — la confirmación es un toast
+    // transitorio, no un banner permanente.
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });

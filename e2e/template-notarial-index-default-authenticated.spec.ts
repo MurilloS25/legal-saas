@@ -102,7 +102,7 @@ async function createDocumentFromTemplate(
 
   await page.getByLabel("Título de la escritura").fill(title);
   await fillFieldLive(page, fieldKey, partyName);
-  await page.getByRole("button", { name: "Guardar y continuar" }).click();
+  await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
     timeout: 30_000,
   });

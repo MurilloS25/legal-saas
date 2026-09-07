@@ -152,7 +152,7 @@ test.describe("template option blocks", () => {
       variablesRegion(page).getByText("vehiculo.chasis"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -183,7 +183,7 @@ test.describe("template option blocks", () => {
       contentEditor(page).getByText("Bloque: Chasis VIN Serie"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -225,7 +225,7 @@ test.describe("template option blocks", () => {
       previewRegion(page).getByText("CHASIS número"),
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -261,7 +261,7 @@ test.describe("template option blocks", () => {
     await newVariableDialog.getByRole("button", { name: "Convertir" }).click();
     await expect(newVariableDialog).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -321,40 +321,34 @@ test.describe("template option blocks", () => {
       mappingEditor.getByText(/Aplicado al machote/),
     ).toBeVisible();
 
-    // El RPC de guardado del Índice exige que el bloque YA tenga
-    // `structuredOutput.type: "time"` persistido en `content_json` antes de
-    // poder seleccionarlo como fuente (ver
-    // `save_template_index_mapping_with_block_source` — `option_block_not_found`
-    // si no) — el orden real es: aplicar el mapeo, guardar el MACHOTE
-    // primero, y solo entonces guardar la configuración del Índice.
-    await page.getByRole("tab", { name: "Documento", exact: true }).click();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-    await expect(
-      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
-
-    await page.getByRole("tab", { name: "Índice", exact: true }).click();
-    await expect(configSection).toBeVisible();
-    await page.locator("#idx-authorized_time-trigger").click();
-    await expect(
-      configSection.getByText(/todavía no tiene mapeo de hora guardado/),
-    ).toHaveCount(0);
-
     // El formulario de configuración del Índice es uno solo para todos sus
     // campos: "Partes" sin resolver (ni variables ni confirmación vacía)
-    // bloquea el guardado completo, sin relación con lo que esta prueba
-    // cubre — se confirma vacío para poder aislar la parte que sí importa.
+    // bloquea el guardado completo del Índice, sin relación con lo que esta
+    // prueba cubre — se confirma vacío para poder guardar todo junto en un
+    // solo "Guardar" (guardado único: aplicar el mapeo ya marcó dirty el
+    // Índice, así que el machote y el Índice se coordinan en el mismo
+    // click — el RPC del Índice de todas formas exige que el bloque ya
+    // tenga `structuredOutput.type: "time"` persistido, y el guardado
+    // único ya garantiza ese orden internamente: primero el machote, luego
+    // el Índice).
     await page.locator("#idx-parties-trigger").click();
     await configSection
       .getByLabel("Confirmo que este machote no requiere Partes para el índice.")
       .check();
 
-    await configSection
-      .getByRole("button", { name: "Guardar configuración" })
-      .click();
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Configuración guardada.")).toBeVisible({
       timeout: 15_000,
     });
+
+    await expect(configSection).toBeVisible();
+    await page.locator("#idx-authorized_time-trigger").click();
+    await expect(
+      configSection.getByText(/todavía no tiene mapeo de hora guardado/),
+    ).toHaveCount(0);
 
     await page.reload();
     await page.getByRole("tab", { name: "Índice", exact: true }).click();
@@ -430,7 +424,7 @@ test.describe("template option blocks", () => {
     await expect(cityRow.getByText("Configurada")).toBeVisible();
 
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -524,7 +518,7 @@ test.describe("template option blocks", () => {
       page.getByRole("dialog", { name: "Configurar variables nuevas del bloque" }),
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -575,7 +569,7 @@ test.describe("template option blocks", () => {
     await expect(secondsRow.getByText("Dígitos en palabras")).toBeVisible();
 
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
