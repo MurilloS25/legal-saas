@@ -116,8 +116,12 @@ export async function saveNotarialMetadataAction(
   }
 
   const { version, ...values } = parsed.data;
-  const actNameSnapshot =
-    existing?.act_name_snapshot ?? document.templates?.name ?? null;
+  // Siempre el nombre ACTUAL del machote, nunca el que había la primera vez
+  // que se guardó — si no, "Acto o contrato" queda congelado igual que el
+  // resto de campos derivados antes de esta corrección (ver
+  // `resolveDerivedPrecedence`; `act_name_override` sigue siendo la única
+  // forma de fijar un valor distinto a mano).
+  const actNameSnapshot = document.templates?.name ?? null;
   const generatedParties =
     generated.status === "ready"
       ? generated.value

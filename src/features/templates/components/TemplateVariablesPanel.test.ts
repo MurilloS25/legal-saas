@@ -42,18 +42,17 @@ describe("buildVariableRows", () => {
     expect(rows[0].autofill_source).toBe("client_full_name");
   });
 
-  it("marks configured variables missing from the content as unused", () => {
+  it("omits a configured variable entirely once its last reference is gone from the content", () => {
     const rows = buildVariableRows([variable("a")], []);
-    expect(rows[0].status).toBe("unused");
+    expect(rows).toEqual([]);
   });
 
-  it("keeps configured order first and appends pending in content order", () => {
+  it("keeps configured order first and appends pending in content order, dropping orphaned configured keys", () => {
     const rows = buildVariableRows(
       [variable("b"), variable("a")],
       ["c", "a", "d"],
     );
     expect(rows.map((row) => `${row.field_key}:${row.status}`)).toEqual([
-      "b:unused",
       "a:configured",
       "c:pending",
       "d:pending",

@@ -7,7 +7,6 @@ import type { TemplateWorkspaceSection } from "@/features/templates";
 import { getTemplateIndexConfiguration } from "@/features/notarial-index/server";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
-import { extractStructuredOutputOptionBlocks } from "@/lib/editor/option-blocks";
 import {
   toVariableAutofillSource,
   toVariableOutputTransform,
@@ -91,7 +90,6 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
           fieldKey: field.field_key,
           label: field.label,
         }))}
-        indexOptionBlocks={extractStructuredOutputOptionBlocks(labeledDocument)}
         canWrite={canWrite}
         headerActions={
           !canCreateDocuments ? undefined : template.status === "active" ? (

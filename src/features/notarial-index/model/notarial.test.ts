@@ -25,6 +25,12 @@ const full: NotarialMetadata = {
   notarial_confirmed_at: null,
   notarial_confirmed_by: null,
   notarial_review_required: false,
+  instrument_number_derived_snapshot: null,
+  authorized_date_derived_snapshot: null,
+  authorized_time_derived_snapshot: null,
+  protocol_book_derived_snapshot: null,
+  initial_folio_derived_snapshot: null,
+  final_folio_derived_snapshot: null,
 };
 
 describe("isNotarialComplete", () => {

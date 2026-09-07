@@ -79,12 +79,13 @@ test.describe("document milestone feedback (toast replacement)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("B: finalizing shows a toast and lands on Cobro (not the old banner), and reopening still shows its own toast", async ({
+  test("B: finalizing a document included in the Índice (Machote default=true) shows a toast mentioning it, lands on Cobro (not the old banner), and reopening still shows its own toast", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
       name: uniqueName("document-milestone", "machote-b"),
       content: "ESCRITURA de prueba sin variables.",
+      includeInNotarialIndexByDefault: true,
     });
     const title = uniqueName("document-milestone", "escritura-b");
     const doc = await createTestDocument(registry, template.id, {
@@ -159,5 +160,55 @@ test.describe("document milestone feedback (toast replacement)", () => {
         .getByText("Escritura reabierta como borrador.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(page).not.toHaveURL(/lifecycle=/);
+  });
+
+  // Hotfix: el toast de finalizar mencionaba el Índice Notarial
+  // incondicionalmente, incluso para una Escritura cuyo Machote tiene el
+  // default en false (nace excluida, snapshot al crear — ver
+  // 20260819210000_template_notarial_index_default.sql). El copy ahora
+  // depende del valor real de documents.include_in_notarial_index en vez de
+  // un mensaje genérico fijo.
+  test("C: finalizing a document excluded from the Índice (Machote default=false) shows a bare finalization toast, with no mention of the Índice at all, and the step stays absent", async ({
+    page,
+  }) => {
+    const template = await createTestTemplate(registry, {
+      name: uniqueName("document-milestone", "machote-c"),
+      content: "CONSTANCIA de prueba sin variables.",
+      includeInNotarialIndexByDefault: false,
+    });
+    const title = uniqueName("document-milestone", "escritura-c");
+    const doc = await createTestDocument(registry, template.id, {
+      title,
+      rendered_content: "CONSTANCIA de prueba sin variables.",
+    });
+
+    await page.goto(`/dashboard/documents/${doc.id}`);
+    await expect(contentEditor(page)).toBeVisible();
+    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    await page.getByRole("button", { name: "Finalizar escritura" }).click();
+    const dialog = page.getByRole("alertdialog", {
+      name: "Finalizar escritura",
+    });
+    await dialog.getByRole("button", { name: "Finalizar escritura" }).click();
+
+    // Toast exacto: solo confirma la finalización, sin ninguna mención al
+    // Índice — ni "aparecer", ni "continuar", ni "completar/revisar datos".
+    const toast = page.getByRole("status").getByText("Escritura finalizada.", {
+      exact: true,
+    });
+    await expect(toast).toBeVisible({ timeout: 15_000 });
+    await expect(page).not.toHaveURL(/lifecycle=/);
+    await expect(
+      page.getByRole("status").getByText(/Índice/i),
+    ).toHaveCount(0);
+
+    // El paso Índice sigue ausente del stepper para una Escritura excluida
+    // (comportamiento existente, no parte de este hotfix — solo confirma
+    // que el toast quedó coherente con él).
+    await expect(
+      page
+        .getByRole("navigation", { name: "Pasos de la escritura" })
+        .getByRole("tab", { name: "Índice", exact: true }),
+    ).toHaveCount(0);
   });
 });

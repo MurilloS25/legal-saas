@@ -108,7 +108,17 @@ type SharedProps = {
 
 type Props = SharedProps &
   (
-    | { mode: "create"; templateId: string; defaultTitle: string }
+    | {
+        mode: "create";
+        templateId: string;
+        defaultTitle: string;
+        /** templates.include_in_notarial_index_by_default del Machote de
+         * origen — antes de guardar, no existe fila de `documents` cuyo
+         * `include_in_notarial_index` leer, así que el stepper debe
+         * reflejar el valor que la Escritura heredará al crearse (el mismo
+         * snapshot que ya garantiza el trigger de DB), no un `true` fijo. */
+        templateIncludeInNotarialIndexByDefault: boolean;
+      }
     | {
         mode: "edit";
         draft: DocumentRow;
@@ -166,7 +176,9 @@ export function DocumentComposer(props: Props) {
   // Controla si el paso aparece en la fila normal del stepper — distinto de
   // `notarialUnlocked`: una Escritura excluida no muestra el paso en la
   // navegación normal, aunque la ruta siga siendo válida.
-  const includeInNotarialIndex = isEdit ? props.draft.include_in_notarial_index : true;
+  const includeInNotarialIndex = isEdit
+    ? props.draft.include_in_notarial_index
+    : props.templateIncludeInNotarialIndexByDefault;
 
   const action = isEdit
     ? updateDocumentDraftAction.bind(null, props.draft.id)

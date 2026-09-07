@@ -12,9 +12,9 @@
  */
 
 import {
+  InputRule,
   Node,
   mergeAttributes,
-  nodeInputRule,
   type Extensions,
 } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -154,12 +154,26 @@ export const TemplateVariableNode = Node.create({
   // mayúscula/minúscula, pasa siempre por el diálogo "Revisar variables
   // detectadas" antes de convertirse — así el usuario confirma clave,
   // etiqueta, obligatoriedad y transformación en un solo paso.
+  //
+  // Un `InputRule` a mano en vez del helper `nodeInputRule` de Tiptap: ese
+  // helper asume que `match[1]` debe sobrevivir como texto alrededor del
+  // nodo (pensado para sintaxis tipo markdown con delimitadores que se
+  // conservan) — para `{{clave}}` queremos consumir AMBOS delimitadores
+  // completos, no solo la clave. `range.to` (posición del cursor antes de
+  // insertar el carácter que disparó la regla) ya cubre exactamente
+  // "{{clave" — todo menos el "}" final, que Tiptap intercepta y nunca
+  // llega a insertarse por separado si esta regla despacha su propia
+  // transacción. Reemplazar [range.from, range.to] entero por el nodo deja
+  // cero caracteres residuales, sin necesidad de reinsertar nada.
   addInputRules() {
     return [
-      nodeInputRule({
+      new InputRule({
         find: VARIABLE_INPUT_RULE_PATTERN,
-        type: this.type,
-        getAttributes: (match) => ({ key: match[1] }),
+        handler: ({ state, range, match }) => {
+          const key = match[1];
+          if (!key) return;
+          state.tr.replaceWith(range.from, range.to, this.type.create({ key }));
+        },
       }),
     ];
   },

@@ -138,9 +138,8 @@ test.describe("notarial index metadata", () => {
       .getByLabel("Número de instrumento", { exact: true })
       .fill(String(instrumentNumber));
     await openIndexRow(page, "Fecha y hora de autorización");
-    await section
-      .getByLabel("Fecha y hora de autorización", { exact: true })
-      .fill("2026-07-13T10:35");
+    await section.getByLabel("Fecha de autorización", { exact: true }).fill("2026-07-13");
+    await section.getByLabel("Hora de autorización", { exact: true }).fill("10:35");
     await openIndexRow(page, "Acto o contrato");
     await section
       .getByLabel("Acto o contrato", { exact: true })
@@ -190,8 +189,11 @@ test.describe("notarial index metadata", () => {
     ).toHaveValue("Compraventa");
     await openIndexRow(page, "Fecha y hora de autorización");
     await expect(
-      section.getByLabel("Fecha y hora de autorización", { exact: true }),
-    ).toHaveValue("2026-07-13T10:35");
+      section.getByLabel("Fecha de autorización", { exact: true }),
+    ).toHaveValue("2026-07-13");
+    await expect(
+      section.getByLabel("Hora de autorización", { exact: true }),
+    ).toHaveValue("10:35");
   });
 
   test("D: the activity timeline shows the notarial events", async ({

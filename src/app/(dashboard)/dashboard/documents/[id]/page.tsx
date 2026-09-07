@@ -148,7 +148,10 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
 
   return (
     <PageContainer>
-      <DocumentLifecycleToast lifecycle={lifecycleEvent} />
+      <DocumentLifecycleToast
+        lifecycle={lifecycleEvent}
+        includeInNotarialIndex={document.include_in_notarial_index}
+      />
 
       {!template ? (
         // Caso raro: el machote de la Escritura ya no existe. Se conserva
