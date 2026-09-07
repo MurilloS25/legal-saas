@@ -17,9 +17,14 @@
  * sin guardar, tanto antes como después del primer guardado. Solo "Índice"
  * está bloqueado antes de que el machote exista (depende de `template_id`);
  * el resto de los pasos opera sobre estado local puro y es igual de
- * funcional en ambos modos. La configuración del índice notarial vive en un
- * `<form>` propio, hermano del formulario de documento/variables, para
- * evitar formularios anidados.
+ * funcional en ambos modos. Los cinco pasos, incluido Índice, viven dentro
+ * del mismo `<form>` — Índice ya no tiene su propio `<form>`/Server Action
+ * (su guardado corre por `TemplateIndexConfigurationHandle`, invocado
+ * directamente), así que no hay riesgo de formularios anidados. Esto
+ * también es lo que permite que la barra de Guardar sticky se ancle al
+ * fondo del contenido de CADA paso (incluida Índice) en vez de quedar fuera
+ * del `<form>`, donde "flotaría" cerca del principio de la página mientras
+ * los demás pasos están ocultos.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -420,7 +425,8 @@ export function TemplateWorkspace(props: Props) {
   // Recargar/cerrar la pestaña con cambios sin guardar: el navegador exige
   // su propio diálogo nativo aquí (ninguna UI personalizada puede
   // interceptar `beforeunload`) — es la única protección real para este
-  // caso específico, distinta de la confirmación propia para "‹ Machotes".
+  // caso específico, distinta de la confirmación propia de abajo (que cubre
+  // salir DENTRO de la misma pestaña, p. ej. a otro módulo).
   useEffect(() => {
     if (!globalDirty) return;
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -429,6 +435,54 @@ export function TemplateWorkspace(props: Props) {
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [globalDirty]);
+
+  // Salir de VERDAD del workspace (breadcrumb "‹ Machotes", navbar/drawer
+  // superior a otro módulo, el logo — cualquier <a> real que navegue a otra
+  // ruta) con cambios sin guardar pide confirmación en vez de perderlos.
+  // Deliberadamente NO intercepta navegación interna del stepper (botones,
+  // no <a>, y de todos modos misma ruta vía `history.pushState`) ni clics
+  // dentro de esta misma página — solo un <a> cuyo destino es una ruta
+  // distinta. Interceptar a nivel de `document` (captura, no en el enlace
+  // del breadcrumb en particular) es lo que cubre también la navbar
+  // superior compartida (`AppShell`) sin tener que tocar ese componente
+  // compartido: el listener vive y se limpia enteramente en este workspace.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  useEffect(() => {
+    if (!globalDirty) return;
+    function handleDocumentClick(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      const anchor = (event.target as HTMLElement | null)?.closest?.(
+        "a[href]",
+      ) as HTMLAnchorElement | null;
+      if (!anchor || (anchor.target && anchor.target !== "_self")) return;
+      let url: URL;
+      try {
+        url = new URL(anchor.href, window.location.origin);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname) return;
+      event.preventDefault();
+      setPendingHref(url.pathname + url.search);
+      setLeaveConfirmOpen(true);
+    }
+    // `window.document`, no `document`: ese identificador ya está tomado
+    // por el documento TIPTAP desestructurado de `useTemplatePreview` más
+    // arriba, no por el DOM global.
+    window.document.addEventListener("click", handleDocumentClick, true);
+    return () =>
+      window.document.removeEventListener("click", handleDocumentClick, true);
   }, [globalDirty]);
 
   const saveStatusText =
@@ -455,11 +509,6 @@ export function TemplateWorkspace(props: Props) {
         publishComplete={completedPublish}
         indexLocked={indexLocked}
         actions={props.mode === "edit" ? props.headerActions : undefined}
-        onBackClick={(event) => {
-          if (!globalDirty) return;
-          event.preventDefault();
-          setLeaveConfirmOpen(true);
-        }}
       />
 
       <form ref={formRef} action={formAction} noValidate>
@@ -685,10 +734,62 @@ export function TemplateWorkspace(props: Props) {
           </div>
         </div>
 
-        {/* Visible desde cualquier sección — incluida Índice, que ya no
-            tiene su propio botón de guardado — porque vive fuera de los
-            paneles ocultos por sección, como única zona estable de
-            guardado del machote completo. */}
+        {/* ================= Índice notarial =================
+            Ahora dentro del mismo <form> que los demás pasos: ya no tiene
+            su propio elemento <form> (el guardado único invoca su handle
+            imperativo directamente, ver arriba), así que anidarlo aquí no
+            es un <form> dentro de otro — solo un panel más ocultado por
+            CSS igual que el resto. Moverlo adentro es lo que permite que
+            la barra de Guardar (sticky, más abajo) se anote al final del
+            contenido REAL de cada paso, incluida Índice — si quedara fuera
+            del <form>, la barra "flotaría" pegada al principio de la
+            página al ver Índice, porque el <form> (con todos los demás
+            pasos ocultos) colapsaría a una altura mínima. Bloqueado hasta
+            el primer guardado — depende de template_id. */}
+        <div
+          id="template-panel-notarial"
+          role="tabpanel"
+          aria-labelledby="template-tab-notarial"
+          hidden={section !== "notarial"}
+        >
+          {isEdit ? (
+            <TemplateIndexConfigurationSection
+              ref={indexRef}
+              templateId={props.template.id}
+              configuration={props.indexConfiguration}
+              readOnly={!canWrite}
+              fields={indexFieldCandidates}
+              optionBlocks={optionBlockSummaries}
+              includeByDefault={props.template.include_in_notarial_index_by_default}
+              onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
+              onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
+                editorRef.current?.updateOptionBlockStructuredOutput(
+                  blockId,
+                  structuredOutput,
+                )
+              }
+              onDirtyChange={setIndexDirty}
+            />
+          ) : (
+            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+                <h2 className="text-sm font-semibold text-slate-900">Índice</h2>
+              </div>
+              <div className="px-6 py-8 text-center text-sm text-slate-500">
+                Disponible después de guardar el machote por primera vez.
+                Guarda desde cualquier otro paso para desbloquearlo.
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Barra de guardado sticky: única zona estable de guardado del
+            machote completo, visible desde cualquier paso — incluida
+            Índice, que ya no tiene su propio botón. `sticky bottom-0`
+            (dentro de `TemplateSaveControls`) se pega al fondo del
+            viewport mientras el paso activo tiene contenido debajo, sin
+            un `position: fixed` que tape el layout ni ancho propio: sigue
+            el ancho normal de este <form>. */}
         <TemplateSaveControls
           dirty={globalDirty}
           pending={pending || indexSavePending}
@@ -710,55 +811,17 @@ export function TemplateWorkspace(props: Props) {
 
       {aiHelpOpen && <AiHelpDialog onClose={closeAiHelp} />}
 
-      {/* ================= Índice notarial =================
-          Hermano del <form> de arriba, no descendiente: tiene su propio
-          <form> con su propia Server Action y no puede anidarse dentro.
-          Bloqueado hasta el primer guardado — depende de template_id. */}
-      <div
-        id="template-panel-notarial"
-        role="tabpanel"
-        aria-labelledby="template-tab-notarial"
-        hidden={section !== "notarial"}
-      >
-        {isEdit ? (
-          <TemplateIndexConfigurationSection
-            ref={indexRef}
-            templateId={props.template.id}
-            configuration={props.indexConfiguration}
-            readOnly={!canWrite}
-            fields={indexFieldCandidates}
-            optionBlocks={optionBlockSummaries}
-            includeByDefault={props.template.include_in_notarial_index_by_default}
-            onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
-            onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
-              editorRef.current?.updateOptionBlockStructuredOutput(
-                blockId,
-                structuredOutput,
-              )
-            }
-            onDirtyChange={setIndexDirty}
-          />
-        ) : (
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-              <h2 className="text-sm font-semibold text-slate-900">Índice</h2>
-            </div>
-            <div className="px-6 py-8 text-center text-sm text-slate-500">
-              Disponible después de guardar el machote por primera vez.
-              Guarda desde cualquier otro paso para desbloquearlo.
-            </div>
-          </section>
-        )}
-      </div>
-
       {leaveConfirmOpen && (
         <ConfirmDialog
           title="¿Salir sin guardar?"
           description="Tienes cambios sin guardar en este machote. Si sales ahora, se perderán."
           confirmLabel="Salir sin guardar"
           tone="danger"
-          onConfirm={() => router.push("/dashboard/templates")}
-          onClose={() => setLeaveConfirmOpen(false)}
+          onConfirm={() => router.push(pendingHref ?? "/dashboard/templates")}
+          onClose={() => {
+            setLeaveConfirmOpen(false);
+            setPendingHref(null);
+          }}
         />
       )}
     </div>

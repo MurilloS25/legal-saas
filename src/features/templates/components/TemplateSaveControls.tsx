@@ -36,7 +36,7 @@ export function TemplateSaveControls({
   const label = pending ? "Guardando…" : !isEdit ? "Crear machote" : "Guardar";
 
   return (
-    <div className="mt-8 flex flex-wrap items-center justify-end gap-4 border-t border-slate-200 pt-6">
+    <div className="sticky bottom-0 z-20 -mx-4 mt-8 flex flex-wrap items-center justify-end gap-4 border-t border-slate-200 bg-white/95 px-4 py-4 shadow-[0_-2px_8px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
       <div className="text-right">
         <p
           role="status"
