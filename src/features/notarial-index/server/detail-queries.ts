@@ -12,7 +12,7 @@ import { costaRicaDayEndIso, costaRicaDayStartIso } from "../model/datetime";
 import { requiresNotarialReview } from "../model/review-state";
 
 const SELECT =
-  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version, updated_at, notarial_confirmed_at, notarial_confirmed_by, notarial_review_required";
+  "instrument_number, authorized_at, protocol_book, initial_folio, final_folio, act_name_snapshot, act_name_override, generated_parties, parties_override, notes, version, updated_at, notarial_confirmed_at, notarial_confirmed_by, notarial_review_required, instrument_number_derived_snapshot, authorized_date_derived_snapshot, authorized_time_derived_snapshot, protocol_book_derived_snapshot, initial_folio_derived_snapshot, final_folio_derived_snapshot";
 
 /** Metadata notarial de una Escritura propia (o null si no existe). */
 export async function getNotarialMetadata(

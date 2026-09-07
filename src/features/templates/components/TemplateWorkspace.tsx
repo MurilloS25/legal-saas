@@ -22,7 +22,7 @@
  * evitar formularios anidados.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import { flushSync } from "react-dom";
 import {
@@ -32,6 +32,7 @@ import {
 } from "../server/template-actions";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import type { TemplateDocument } from "@/lib/editor/types";
+import { extractOptionBlockSummaries } from "@/lib/editor/option-blocks";
 import { TemplateEditor, type TemplateEditorHandle } from "./TemplateEditor";
 import { TemplateMetadataForm } from "./TemplateMetadataForm";
 import {
@@ -49,7 +50,6 @@ import { useTemplatePreview } from "../hooks/use-template-preview";
 import {
   TemplateIndexConfigurationSection,
   type IndexConfigurationField,
-  type IndexConfigurationOptionBlock,
   type TemplateIndexConfiguration,
 } from "@/features/notarial-index";
 import { useToast } from "@/components/feedback/Toast";
@@ -98,7 +98,6 @@ type EditModeProps = {
   initialSection?: TemplateWorkspaceSection;
   indexConfiguration: TemplateIndexConfiguration | null;
   indexFields: IndexConfigurationField[];
-  indexOptionBlocks: IndexConfigurationOptionBlock[];
   headerActions?: React.ReactNode;
   /** templates.write — la página ya bloquea /new sin este permiso, así que
    * en modo "create" siempre es true (ver el mismo patrón en
@@ -210,8 +209,33 @@ export function TemplateWorkspace(props: Props) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const { showToast } = useToast();
 
-  const { contentKeys, model: previewModel } =
+  const { contentKeys, document, model: previewModel } =
     useTemplatePreview(documentJson);
+
+  // Todos los Bloques de opciones del documento EN VIVO (no una foto server
+  // del último guardado) — así el mapeo Hora/Minutos del Índice ve de
+  // inmediato un bloque recién insertado, o una variante recién agregada,
+  // sin necesidad de guardar primero.
+  const optionBlockSummaries = useMemo(
+    () => (document ? extractOptionBlockSummaries(document) : []),
+    [document],
+  );
+
+  // El contenido es la única fuente de verdad de qué variables existen (ver
+  // comentario de módulo de `TemplateVariablesPanel`): cuando una clave
+  // configurada pierde su última referencia en el contenido, se poda de
+  // `variables` aquí mismo — no solo se oculta en el panel — para que lo que
+  // se guarda (`<input type="hidden" name="variables">` más abajo) nunca
+  // conserve configuración huérfana. Ajustado durante el render, mismo
+  // patrón que el resto de este archivo (evita un efecto/render en cascada
+  // para una sincronización que ya se puede resolver comparando contra el
+  // último valor calculado).
+  const contentKeySet = useMemo(() => new Set(contentKeys), [contentKeys]);
+  if (variables.some((variable) => !contentKeySet.has(variable.field_key))) {
+    setVariables((current) =>
+      current.filter((variable) => contentKeySet.has(variable.field_key)),
+    );
+  }
 
   // Señales de completitud reales para el stepper — no hay ningún paso
   // "bloqueado" en Machotes (todo es libremente navegable), pero sí
@@ -651,9 +675,15 @@ export function TemplateWorkspace(props: Props) {
             configuration={props.indexConfiguration}
             readOnly={!canWrite}
             fields={props.indexFields}
-            optionBlocks={props.indexOptionBlocks}
+            optionBlocks={optionBlockSummaries}
             includeByDefault={props.template.include_in_notarial_index_by_default}
             onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
+            onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
+              editorRef.current?.updateOptionBlockStructuredOutput(
+                blockId,
+                structuredOutput,
+              )
+            }
           />
         ) : (
           <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">

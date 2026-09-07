@@ -68,6 +68,33 @@ type RowId =
   | "parties_override"
   | "notes";
 
+/**
+ * Mismo riesgo de estado local obsoleto que `inclusion`/`confirmedAt` (ver
+ * comentarios en el cuerpo del componente): `NotarialMetadataSection` no se
+ * desmonta al reabrir + corregir una fuente + volver a finalizar dentro de
+ * la misma sesión, así que el `prefill` recalculado en el servidor llega
+ * como prop actualizada sin que el `useState` de cada campo lo capture solo
+ * — el input editable se queda mostrando el valor derivado de ANTES de la
+ * corrección hasta un refresh completo de la página. Se resincroniza cada
+ * campo cuando su valor de prefill cambia, pero solo si el valor local
+ * seguía siendo exactamente el último sincronizado, para nunca pisar una
+ * edición manual en curso que el usuario todavía no ha guardado.
+ */
+function useSyncedPrefillField(
+  serverValue: string,
+  value: string,
+  setValue: (next: string) => void,
+) {
+  const lastSynced = useRef(serverValue);
+  useEffect(() => {
+    if (lastSynced.current === serverValue) return;
+    const untouched = value === lastSynced.current;
+    lastSynced.current = serverValue;
+    if (untouched) setValue(serverValue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverValue]);
+}
+
 type Props = {
   documentId: string;
   metadata: NotarialMetadata | null;
@@ -263,7 +290,20 @@ export function NotarialMetadataSection({
   const [instrument, setInstrument] = useState(
     startingValue(prefill.instrumentNumber),
   );
-  const [authorizedAt, setAuthorizedAt] = useState(prefill.authorizedAt.value);
+  const [authorizedDate, setAuthorizedDate] = useState(
+    startingValue(prefill.authorizedAt.date),
+  );
+  const [authorizedTime, setAuthorizedTime] = useState(
+    startingValue(prefill.authorizedAt.time),
+  );
+  // Fecha y Hora se derivan (y pueden quedar pendientes) de forma
+  // independiente — ver `prefill.ts` — pero `authorized_at` sigue siendo
+  // una sola columna `timestamptz`: solo existe como valor completo cuando
+  // AMBAS partes están presentes, nunca con una mitad inventada.
+  const authorizedAt =
+    authorizedDate && authorizedTime
+      ? `${authorizedDate}T${authorizedTime}`
+      : "";
   const [protocolBook, setProtocolBook] = useState(
     startingValue(prefill.protocolBook),
   );
@@ -274,6 +314,38 @@ export function NotarialMetadataSection({
   const [actName, setActName] = useState(prefill.actName.value);
   const [parties, setParties] = useState(metadata?.parties_override ?? "");
   const [notes, setNotes] = useState(metadata?.notes ?? "");
+
+  useSyncedPrefillField(
+    startingValue(prefill.instrumentNumber),
+    instrument,
+    setInstrument,
+  );
+  useSyncedPrefillField(
+    startingValue(prefill.authorizedAt.date),
+    authorizedDate,
+    setAuthorizedDate,
+  );
+  useSyncedPrefillField(
+    startingValue(prefill.authorizedAt.time),
+    authorizedTime,
+    setAuthorizedTime,
+  );
+  useSyncedPrefillField(
+    startingValue(prefill.protocolBook),
+    protocolBook,
+    setProtocolBook,
+  );
+  useSyncedPrefillField(
+    startingValue(prefill.initialFolio),
+    initialFolio,
+    setInitialFolio,
+  );
+  useSyncedPrefillField(
+    startingValue(prefill.finalFolio),
+    finalFolio,
+    setFinalFolio,
+  );
+  useSyncedPrefillField(prefill.actName.value, actName, setActName);
   const [openRowId, setOpenRowId] = useState<RowId | null>(null);
   const [previousActionState, setPreviousActionState] = useState(state);
   if (state !== previousActionState) {
@@ -565,6 +637,42 @@ export function NotarialMetadataSection({
         <input type="hidden" name="final_folio" value={finalFolio} />
         <input type="hidden" name="parties_override" value={parties} />
         <input type="hidden" name="notes" value={notes} />
+        {/* La derivación en vivo ya se calculó server-side una sola vez
+            (`resolveNotarialMetadataPrefill`, misma fuente confiable que el
+            resto del formulario) — viaja de vuelta como snapshot para que
+            `saveNotarialMetadataAction` no tenga que recalcularla, y quede
+            registrada para la próxima comparación (ver
+            `derived-precedence.ts`). */}
+        <input
+          type="hidden"
+          name="instrument_number_derived_snapshot"
+          value={prefill.instrumentNumber.derivedNow ?? ""}
+        />
+        <input
+          type="hidden"
+          name="authorized_date_derived_snapshot"
+          value={prefill.authorizedAt.date.derivedNow ?? ""}
+        />
+        <input
+          type="hidden"
+          name="authorized_time_derived_snapshot"
+          value={prefill.authorizedAt.time.derivedNow ?? ""}
+        />
+        <input
+          type="hidden"
+          name="protocol_book_derived_snapshot"
+          value={prefill.protocolBook.derivedNow ?? ""}
+        />
+        <input
+          type="hidden"
+          name="initial_folio_derived_snapshot"
+          value={prefill.initialFolio.derivedNow ?? ""}
+        />
+        <input
+          type="hidden"
+          name="final_folio_derived_snapshot"
+          value={prefill.finalFolio.derivedNow ?? ""}
+        />
 
         <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
           <CollapsibleFieldRow
@@ -610,32 +718,64 @@ export function NotarialMetadataSection({
             meta={
               authorizedAt
                 ? formatDateTimeMeta(authorizedAt)
-                : "Fecha de autorización pendiente"
+                : authorizedDate
+                  ? `${authorizedDate} · hora pendiente`
+                  : authorizedTime
+                    ? `${authorizedTime} · fecha pendiente`
+                    : "Fecha de autorización pendiente"
             }
             status={authorizedAtConfigured ? "configured" : "pending"}
             open={openRowId === "authorized_at"}
             onToggle={() => toggleRow("authorized_at")}
           >
-            <label htmlFor="authorized_at" className={labelClass}>
-              Fecha y hora de autorización
-            </label>
-            <input
-              id="authorized_at"
-              type="datetime-local"
-              disabled={fieldsDisabled}
-              value={authorizedAt}
-              onChange={(e) => setAuthorizedAt(e.target.value)}
-              className={inputClass}
-              aria-invalid={!!state.errors?.authorized_at}
-              aria-describedby={
-                state.errors?.authorized_at ? "authorized_at-error" : undefined
-              }
-            />
+            {/* Fecha y Hora se derivan (o quedan pendientes) de forma
+                independiente — ver `prefill.ts` — así que son dos inputs
+                separados en vez de uno solo `datetime-local`. Solo se
+                combinan en `authorized_at` (arriba) cuando ambos están
+                presentes; nunca se inventa la mitad que falta. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="authorized_date" className={labelClass}>
+                  Fecha de autorización
+                </label>
+                <input
+                  id="authorized_date"
+                  type="date"
+                  disabled={fieldsDisabled}
+                  value={authorizedDate}
+                  onChange={(e) => setAuthorizedDate(e.target.value)}
+                  className={inputClass}
+                  aria-invalid={!!state.errors?.authorized_at}
+                />
+                <PrefillHelp field={prefill.authorizedAt.date} />
+              </div>
+              <div>
+                <label htmlFor="authorized_time" className={labelClass}>
+                  Hora de autorización
+                </label>
+                <input
+                  id="authorized_time"
+                  type="time"
+                  disabled={fieldsDisabled}
+                  value={authorizedTime}
+                  onChange={(e) => setAuthorizedTime(e.target.value)}
+                  className={inputClass}
+                  aria-invalid={!!state.errors?.authorized_at}
+                  aria-describedby={
+                    state.errors?.authorized_at ? "authorized_at-error" : undefined
+                  }
+                />
+                {prefill.authorizedAt.optionBlockName ? (
+                  <AuthorizedAtPrefillHelp field={prefill.authorizedAt} />
+                ) : (
+                  <PrefillHelp field={prefill.authorizedAt.time} />
+                )}
+              </div>
+            </div>
             <FieldError
               id="authorized_at-error"
               message={state.errors?.authorized_at}
             />
-            <AuthorizedAtPrefillHelp field={prefill.authorizedAt} />
             <p className="mt-1 text-xs text-slate-400">Hora de Costa Rica.</p>
           </CollapsibleFieldRow>
 
@@ -955,6 +1095,16 @@ function PrefillHelp({
   /** Presente solo para campos con sugerencia (número/tomo/folios). */
   onUseSuggestion?: (value: string) => void;
 }) {
+  // Corrección manual preservada, pero la fuente ya no coincide con la
+  // derivación que había cuando se hizo esa corrección — sugiere revisión
+  // sin tocar el valor guardado (ver `resolveDerivedPrecedence`).
+  const sourceChangedNotice = field.sourceChanged ? (
+    <p className="mt-1 text-xs text-amber-700">
+      La fuente cambió desde la última corrección manual — revisa si este
+      valor sigue siendo correcto.
+    </p>
+  ) : null;
+
   if (!field.rawValue) {
     if (field.source === "suggestion" && field.value) {
       return (
@@ -975,6 +1125,7 @@ function PrefillHelp({
         </p>
       );
     }
+    if (field.source === "saved") return sourceChangedNotice;
     if (field.source !== "template") return null;
     return (
       <p className="mt-1 text-xs text-slate-500">
@@ -998,6 +1149,7 @@ function PrefillHelp({
 
   return (
     <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+      {sourceChangedNotice}
       <p>Original: “{field.rawValue}”</p>
       <p>Interpretado: {field.value}</p>
       <p>
@@ -1007,39 +1159,37 @@ function PrefillHelp({
   );
 }
 
+/** Solo se usa para la parte de Hora cuando la fuente es un Bloque de
+ * opciones — Fecha nunca viene de un Bloque de opciones. */
 function AuthorizedAtPrefillHelp({
   field,
 }: {
   field: NotarialAuthorizedAtPrefill;
 }) {
-  const rawValue = [field.rawDate, field.rawTime].filter(Boolean).join(" / ");
-  if (field.optionBlockName) {
-    return (
-      <div
-        className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
-          field.compatible
-            ? "border-slate-200 bg-slate-50 text-slate-600"
-            : "border-amber-200 bg-amber-50 text-amber-900"
-        }`}
-      >
-        <p>Fuente: Bloque de opciones · {field.optionBlockName}</p>
-        {field.optionVariantLabel && (
-          <p>Variante: {field.optionVariantLabel}</p>
-        )}
-        {rawValue && <p>Original: “{rawValue}”</p>}
-        {field.compatible ? (
-          <>
-            <p>Interpretado: {field.value}</p>
-            <p>
-              Estado: Listo
-              {field.source === "saved" ? " · corrección guardada" : ""}
-            </p>
-          </>
-        ) : (
-          <p>Estado: Requiere revisión y corrección manual.</p>
-        )}
-      </div>
-    );
-  }
-  return <PrefillHelp field={{ ...field, rawValue: rawValue || undefined }} />;
+  const { time, optionBlockName, optionVariantLabel } = field;
+  return (
+    <div
+      className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
+        time.compatible
+          ? "border-slate-200 bg-slate-50 text-slate-600"
+          : "border-amber-200 bg-amber-50 text-amber-900"
+      }`}
+    >
+      <p>Fuente: Bloque de opciones · {optionBlockName}</p>
+      {optionVariantLabel && <p>Variante: {optionVariantLabel}</p>}
+      {time.rawValue && <p>Original: “{time.rawValue}”</p>}
+      {time.compatible ? (
+        <>
+          <p>Interpretado: {time.value}</p>
+          <p>
+            Estado: Listo
+            {time.source === "saved" ? " · corrección guardada" : ""}
+            {time.sourceChanged ? " · la fuente cambió, revisa el valor" : ""}
+          </p>
+        </>
+      ) : (
+        <p>Estado: Requiere revisión y corrección manual.</p>
+      )}
+    </div>
+  );
 }

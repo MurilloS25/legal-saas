@@ -13,6 +13,12 @@ describe("NotarialMetadataSchema", () => {
       notes: "",
       version: "1",
       authorized_at: "2026-07-13T10:35",
+      instrument_number_derived_snapshot: "",
+      authorized_date_derived_snapshot: "",
+      authorized_time_derived_snapshot: "",
+      protocol_book_derived_snapshot: "",
+      initial_folio_derived_snapshot: "",
+      final_folio_derived_snapshot: "",
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -33,6 +39,12 @@ describe("NotarialMetadataSchema", () => {
       notes: "",
       version: "1",
       authorized_at: "",
+      instrument_number_derived_snapshot: "",
+      authorized_date_derived_snapshot: "",
+      authorized_time_derived_snapshot: "",
+      protocol_book_derived_snapshot: "",
+      initial_folio_derived_snapshot: "",
+      final_folio_derived_snapshot: "",
     });
     expect(result.success).toBe(true);
     if (result.success) {

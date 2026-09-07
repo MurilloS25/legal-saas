@@ -6,7 +6,6 @@
  */
 
 import { lineToInlineNodes, serializeSimpleNode } from "./convert";
-import { FIELD_KEY_PATTERN } from "./variable-key";
 import { TEMPLATE_DOC_LIMITS } from "./types";
 import type {
   TemplateOptionBlockAttrs,
@@ -16,23 +15,58 @@ import type {
   TemplateVariantContentNode,
 } from "./types";
 
-export type StructuredOutputOptionBlock = {
-  blockId: string;
-  name: string;
-  type: "time";
+export type OptionBlockVariantSummary = {
+  id: string;
+  label: string;
+  /** Claves de variable presentes en el contenido de esta variante — las
+   * únicas candidatas válidas para mapear Hora/Minutos desde el Índice
+   * Notarial (ver `TemplateIndexConfigurationSection`). */
+  variableKeys: string[];
 };
 
-export function extractStructuredOutputOptionBlocks(
+/**
+ * Vista de un Bloque de opciones para consumidores fuera del editor del
+ * Machote — hoy solo el mapeo Hora/Minutos del Índice Notarial. Incluye
+ * TODOS los bloques (no solo los que ya tienen `structuredOutput`), porque
+ * el Índice es ahora quien decide y configura cuál bloque cumple ese rol —
+ * el diálogo "Insertar/Editar bloque de opciones" ya no pregunta por esto
+ * (ver `OptionBlockDialog.tsx`).
+ */
+export type OptionBlockSummary = {
+  blockId: string;
+  name: string;
+  variants: OptionBlockVariantSummary[];
+  /** Mapeo vigente, si el Índice Notarial ya configuró este bloque como
+   * fuente de "Hora de autorización". */
+  structuredOutput: TemplateOptionBlockAttrs["structuredOutput"];
+};
+
+function variantVariableKeys(variant: TemplateOptionVariant): string[] {
+  return [
+    ...new Set(
+      variant.content.flatMap((node) =>
+        node.type === "templateVariable" ? [node.attrs.key] : [],
+      ),
+    ),
+  ];
+}
+
+export function extractOptionBlockSummaries(
   document: TemplateDocument,
-): StructuredOutputOptionBlock[] {
+): OptionBlockSummary[] {
   return document.content.flatMap((paragraph) =>
     (paragraph.content ?? []).flatMap((node) =>
-      node.type === "optionBlock" && node.attrs.structuredOutput?.type === "time"
+      node.type === "optionBlock"
         ? [
             {
               blockId: node.attrs.blockId,
               name: node.attrs.name,
-              type: "time" as const,
+              variants: node.attrs.variants.map((variant) => ({
+                id: variant.id,
+                label: variant.label,
+                variableKeys: variantVariableKeys(variant),
+              })),
+              structuredOutput: node.attrs.structuredOutput ?? null,
             },
           ]
         : [],
@@ -45,20 +79,19 @@ export type OptionVariantDraft = {
   id: string;
   label: string;
   contentText: string;
-  timeOutput?: {
-    hourFieldKey: string;
-    /** null representa minutos fijos en 00. */
-    minuteFieldKey: string | null;
-  };
 };
 
-/** Borrador del bloque completo tal como lo edita el diálogo. */
+/**
+ * Borrador del bloque completo tal como lo edita el diálogo — nombre,
+ * variantes y contenido. El mapeo Hora/Minutos (`structuredOutput`) ya no
+ * se edita aquí: el diálogo lo conserva sin tocarlo (ver
+ * `buildOptionBlockAttrs`) y solo se configura desde el Índice Notarial.
+ */
 export type OptionBlockDraft = {
   blockId: string;
   name: string;
   variants: OptionVariantDraft[];
   defaultVariantId: string;
-  structuredOutputType?: "none" | "time";
 };
 
 /**
@@ -90,13 +123,52 @@ export type BuildOptionBlockResult =
   | { ok: false; error: string };
 
 /**
+ * Poda el mapeo Hora/Minutos vigente (si existe) contra las variantes que
+ * el diálogo acaba de guardar — el diálogo ya no lo edita, pero sí puede
+ * invalidarlo indirectamente: renombrar el contenido de una variante puede
+ * hacer que la clave de hora/minutos elegida desde el Índice Notarial ya no
+ * exista ahí. Nunca descarta el bloque completo por esto — solo la entrada
+ * afectada (o solo sus minutos, si es lo único que dejó de existir), para
+ * no borrar silenciosamente la configuración de las demás variantes.
+ */
+function pruneStructuredOutput(
+  structuredOutput: TemplateOptionBlockAttrs["structuredOutput"],
+  variants: TemplateOptionVariant[],
+): TemplateOptionBlockAttrs["structuredOutput"] {
+  if (!structuredOutput) return null;
+  const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
+
+  const pruned: TemplateTimeStructuredVariant[] = [];
+  for (const entry of structuredOutput.variants) {
+    const variant = variantsById.get(entry.variantId);
+    if (!variant) continue;
+    const keys = new Set(variantVariableKeys(variant));
+    if (!keys.has(entry.hourFieldKey)) continue;
+    pruned.push({
+      ...entry,
+      minuteFieldKey:
+        entry.minuteFieldKey !== null && keys.has(entry.minuteFieldKey)
+          ? entry.minuteFieldKey
+          : null,
+    });
+  }
+  return pruned.length > 0 ? { type: "time", variants: pruned } : null;
+}
+
+/**
  * Valida un borrador del diálogo y lo convierte a los attrs estructurados
  * del nodo `optionBlock`. Reglas: nombre no vacío; entre 1 y el máximo de
  * variantes permitido; cada variante con etiqueta y contenido no vacíos;
  * exactamente una variante marcada como predeterminada.
+ *
+ * `existingStructuredOutput` es el mapeo Hora/Minutos vigente del bloque
+ * (si edita uno existente) — el diálogo ya no lo edita (ver
+ * `OptionBlockDialog.tsx`; se configura desde el Índice Notarial), así que
+ * se conserva tal cual, podado contra las variantes resultantes.
  */
 export function buildOptionBlockAttrs(
   draft: OptionBlockDraft,
+  existingStructuredOutput: TemplateOptionBlockAttrs["structuredOutput"] = null,
 ): BuildOptionBlockResult {
   const name = draft.name.trim();
   if (name === "") {
@@ -132,46 +204,6 @@ export function buildOptionBlockAttrs(
     variants.push({ id: variantDraft.id, label, content });
   }
 
-  const structuredOutputType = draft.structuredOutputType ?? "none";
-  const structuredVariants: TemplateTimeStructuredVariant[] = [];
-  if (structuredOutputType === "time") {
-    for (const variant of variants) {
-      const draftVariant = draft.variants.find((item) => item.id === variant.id);
-      const output = draftVariant?.timeOutput;
-      if (!output || !FIELD_KEY_PATTERN.test(output.hourFieldKey)) {
-        return { ok: false, error: "Selecciona la variable de Hora en cada variante." };
-      }
-      if (
-        output.minuteFieldKey !== null &&
-        !FIELD_KEY_PATTERN.test(output.minuteFieldKey)
-      ) {
-        return {
-          ok: false,
-          error: "Selecciona una variable válida para los minutos.",
-        };
-      }
-      const keys = new Set(
-        variant.content.flatMap((node) =>
-          node.type === "templateVariable" ? [node.attrs.key] : [],
-        ),
-      );
-      if (
-        !keys.has(output.hourFieldKey) ||
-        (output.minuteFieldKey !== null && !keys.has(output.minuteFieldKey))
-      ) {
-        return {
-          ok: false,
-          error: "La salida estructurada solo puede usar variables de su variante.",
-        };
-      }
-      structuredVariants.push({
-        variantId: variant.id,
-        hourFieldKey: output.hourFieldKey,
-        minuteFieldKey: output.minuteFieldKey,
-      });
-    }
-  }
-
   if (!draft.variants.some((v) => v.id === draft.defaultVariantId)) {
     return {
       ok: false,
@@ -186,39 +218,26 @@ export function buildOptionBlockAttrs(
       name,
       variants,
       defaultVariantId: draft.defaultVariantId,
-      structuredOutput:
-        structuredOutputType === "time"
-          ? { type: "time", variants: structuredVariants }
-          : null,
+      structuredOutput: pruneStructuredOutput(existingStructuredOutput, variants),
     },
   };
 }
 
-/** Convierte los attrs persistidos de vuelta a un borrador editable. */
+/**
+ * Convierte los attrs persistidos de vuelta a un borrador editable. No
+ * incluye `structuredOutput` — el diálogo ya no lo edita, así que su
+ * pass-through vive en `buildOptionBlockAttrs` (recibe el valor vigente por
+ * separado, directo de `initialAttrs`, no a través de este borrador).
+ */
 export function attrsToDraft(attrs: TemplateOptionBlockAttrs): OptionBlockDraft {
   return {
     blockId: attrs.blockId,
     name: attrs.name,
     defaultVariantId: attrs.defaultVariantId,
-    structuredOutputType: attrs.structuredOutput?.type ?? "none",
     variants: attrs.variants.map((variant) => ({
       id: variant.id,
       label: variant.label,
       contentText: serializeVariantContentToText(variant.content),
-      timeOutput:
-        attrs.structuredOutput?.type === "time"
-          ? (() => {
-              const configured = attrs.structuredOutput.variants.find(
-                (item) => item.variantId === variant.id,
-              );
-              return configured
-                ? {
-                    hourFieldKey: configured.hourFieldKey,
-                    minuteFieldKey: configured.minuteFieldKey,
-                  }
-                : undefined;
-            })()
-          : undefined,
     })),
   };
 }

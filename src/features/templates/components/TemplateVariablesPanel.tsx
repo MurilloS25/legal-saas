@@ -9,11 +9,16 @@
  *
  * - Configurada:            tiene configuración y aparece en el contenido.
  * - Pendiente de configurar: aparece en el contenido sin configuración.
- * - No utilizada:            tiene configuración pero no está en el contenido.
  *
- * Todos los cambios son locales; se persisten con el guardado del
- * workspace. Quitar una variable del texto nunca elimina su configuración:
- * eliminarla es siempre una decisión explícita del usuario.
+ * El contenido del Machote es la única fuente de verdad de qué variables
+ * existen: una variable configurada cuya última referencia se borró del
+ * documento deja de aparecer aquí (y de enviarse al guardar) — no hay
+ * estado "No utilizada" que la mantenga huérfana. Si el usuario la necesita
+ * de nuevo, la vuelve a escribir/insertar como si fuera nueva; preferible a
+ * acumular configuración vieja que puede chocar con una recreación futura.
+ * Ver `TemplateWorkspace.tsx` (poda de `variables` en cada cambio de
+ * contenido) — este archivo solo construye la fila a partir de lo que ya
+ * llega filtrado.
  */
 
 import { useId, useState } from "react";
@@ -27,7 +32,7 @@ import {
   type VariableOutputTransform,
 } from "../model/variable-autofill";
 
-export type VariableRowStatus = "configured" | "pending" | "unused";
+export type VariableRowStatus = "configured" | "pending";
 
 export type VariableRow = {
   field_key: string;
@@ -36,6 +41,15 @@ export type VariableRow = {
   status: VariableRowStatus;
   autofill_source: VariableAutofillSource;
   output_transform: VariableOutputTransform;
+};
+
+// Ejemplo corto para que "Dígitos en palabras" y "Número completo en
+// palabras" no se confundan entre sí — mismo valor de entrada (125), salida
+// real de `applyVariableTransform` (ver src/lib/editor/text-transforms.ts),
+// no un ejemplo inventado.
+const OUTPUT_TRANSFORM_EXAMPLES: Partial<Record<VariableOutputTransform, string>> = {
+  digits_to_words: "Ejemplo: 125 → UNO DOS CINCO",
+  number_to_words: "Ejemplo: 125 → CIENTO VEINTICINCO",
 };
 
 const STATUS_UI: Record<
@@ -52,13 +66,15 @@ const STATUS_UI: Record<
     label: "Pendiente de configurar",
     className: "bg-amber-50 text-amber-800 border border-amber-300",
   },
-  unused: {
-    label: "No utilizada",
-    className: "bg-slate-100 text-slate-500 border border-slate-200",
-  },
 };
 
-/** Une la configuración local con las variables presentes en el contenido. */
+/**
+ * Une la configuración local con las variables presentes en el contenido.
+ * Una variable configurada cuya clave ya no está en `contentKeys` se omite
+ * por completo (ver comentario de módulo) — el llamador (`TemplateWorkspace`)
+ * es responsable de podar `configured` del mismo modo antes de guardar, para
+ * que lo mostrado y lo persistido nunca diverjan.
+ */
 export function buildVariableRows(
   configured: TemplateWorkspaceVariable[],
   contentKeys: string[],
@@ -66,14 +82,16 @@ export function buildVariableRows(
   const contentKeySet = new Set(contentKeys);
   const configuredKeys = new Set(configured.map((v) => v.field_key));
 
-  const rows: VariableRow[] = configured.map((variable) => ({
-    field_key: variable.field_key,
-    label: variable.label,
-    required: variable.required,
-    status: contentKeySet.has(variable.field_key) ? "configured" : "unused",
-    autofill_source: variable.autofill_source,
-    output_transform: variable.output_transform,
-  }));
+  const rows: VariableRow[] = configured
+    .filter((variable) => contentKeySet.has(variable.field_key))
+    .map((variable) => ({
+      field_key: variable.field_key,
+      label: variable.label,
+      required: variable.required,
+      status: "configured" as const,
+      autofill_source: variable.autofill_source,
+      output_transform: variable.output_transform,
+    }));
 
   for (const key of contentKeys) {
     if (!configuredKeys.has(key)) {
@@ -182,6 +200,11 @@ function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
             </option>
           ))}
         </select>
+        {OUTPUT_TRANSFORM_EXAMPLES[outputTransform] && (
+          <p className="mt-1 text-xs text-slate-500">
+            {OUTPUT_TRANSFORM_EXAMPLES[outputTransform]}
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end gap-2">

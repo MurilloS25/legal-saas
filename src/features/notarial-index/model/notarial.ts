@@ -26,6 +26,16 @@ export type NotarialMetadata = {
   /** true = estuvo confirmado y una acción posterior lo invalidó (reabrir,
    * o "Corregir datos" explícito). Los valores existentes se conservan. */
   notarial_review_required: boolean;
+  /** Último valor que la derivación automática produjo para cada campo al
+   * momento de guardar — nunca se muestran, solo alimentan
+   * `resolveDerivedPrecedence` para distinguir "todavía sin tocar" de
+   * "corregido a mano" (ver migración 20260827120000 y `prefill.ts`). */
+  instrument_number_derived_snapshot: number | null;
+  authorized_date_derived_snapshot: string | null;
+  authorized_time_derived_snapshot: string | null;
+  protocol_book_derived_snapshot: string | null;
+  initial_folio_derived_snapshot: string | null;
+  final_folio_derived_snapshot: string | null;
 };
 
 export type NotarialMetadataSuggestions = {
