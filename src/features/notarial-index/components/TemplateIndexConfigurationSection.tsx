@@ -1,6 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useToast } from "@/components/feedback/Toast";
 import { generateIndexParties } from "../model/parties";
 import type {
@@ -40,7 +48,9 @@ type Props = {
   readOnly?: boolean;
   /** Valor que heredarán las nuevas Escrituras creadas desde este Machote
    * (documents.include_in_notarial_index al crear — snapshot, no vínculo
-   * permanente). */
+   * permanente). El toggle sigue guardándose al instante (checkbox de
+   * preferencia simple, sin riesgo de pérdida) — no participa del guardado
+   * único coordinado. */
   includeByDefault: boolean;
   /** Notifica el `updated_at` fresco del Machote tras guardar el toggle —
    * quien lo reciba debe resincronizar su propio `expected_updated_at` para
@@ -53,6 +63,24 @@ type Props = {
     blockId: string,
     structuredOutput: TemplateOptionBlockAttrs["structuredOutput"],
   ) => void;
+  /** Notifica cada vez que cambia si hay mapeos (Partes/campos simples) sin
+   * guardar — el guardado único (`TemplateWorkspace`) lo suma a su dirty
+   * global; no hay botón de guardado propio en esta sección. */
+  onDirtyChange?: (dirty: boolean) => void;
+};
+
+export type TemplateIndexConfigurationHandle = {
+  isDirty: () => boolean;
+  /**
+   * Guarda los mapeos actuales. `freshFields` reemplaza `fields` justo
+   * antes de guardar — el guardado único llama esto después de guardar el
+   * machote y de pedir una lista fresca de `template_fields`, para que una
+   * variable recién creada en la misma sesión ya tenga el `id` real que
+   * este guardado necesita referenciar (ver `getTemplateIndexFieldOptionsAction`).
+   */
+  save: (
+    freshFields: IndexConfigurationField[],
+  ) => Promise<{ success: boolean; message?: string }>;
 };
 
 const SIMPLE_FIELDS: Array<{
@@ -96,17 +124,35 @@ function initialSimpleFieldValue(
   return configuration?.simpleFields[key] ?? "";
 }
 
-export function TemplateIndexConfigurationSection({
-  templateId,
-  fields,
-  optionBlocks,
-  configuration,
-  readOnly = false,
-  includeByDefault,
-  onIncludeByDefaultSaved,
-  onSaveOptionBlockTimeMapping,
-}: Props) {
+export const TemplateIndexConfigurationSection = forwardRef<
+  TemplateIndexConfigurationHandle,
+  Props
+>(function TemplateIndexConfigurationSection(
+  {
+    templateId,
+    fields: fieldsProp,
+    optionBlocks,
+    configuration,
+    readOnly = false,
+    includeByDefault,
+    onIncludeByDefaultSaved,
+    onSaveOptionBlockTimeMapping,
+    onDirtyChange,
+  }: Props,
+  ref,
+) {
   const { showToast } = useToast();
+  // Reemplazable por una lista fresca justo antes de guardar (ver
+  // `TemplateIndexConfigurationHandle.save`) sin depender de que el padre
+  // vuelva a renderizar esta sección primero.
+  const [fields, setFields] = useState(fieldsProp);
+  const lastSyncedFieldsProp = useRef(fieldsProp);
+  useEffect(() => {
+    if (lastSyncedFieldsProp.current !== fieldsProp) {
+      lastSyncedFieldsProp.current = fieldsProp;
+      setFields(fieldsProp);
+    }
+  }, [fieldsProp]);
   const [inclusion, setInclusion] = useState(includeByDefault);
   const [inclusionPending, setInclusionPending] = useState(false);
   const [inclusionError, setInclusionError] = useState<string | null>(null);
@@ -186,33 +232,171 @@ export function TemplateIndexConfigurationSection({
     return initial;
   });
 
-  const action = saveTemplateIndexConfigurationAction.bind(null, templateId);
-  const [state, formAction, pending] = useActionState(action, initialState);
-  const lastSuccessState = useRef<TemplateIndexConfigurationState | null>(null);
+  // Sin `useActionState`/`<form action>`: el guardado único (`TemplateWorkspace`)
+  // dispara esta sección a través de `TemplateIndexConfigurationHandle.save`
+  // (ver más abajo), no de un submit nativo — así puede esperar el guardado
+  // del machote y pedir una lista fresca de `template_fields` ANTES de que
+  // esta pantalla guarde, sin que el usuario tenga que hacerlo en dos pasos
+  // manuales. El RPC (`saveTemplateIndexConfigurationAction`) sigue siendo
+  // exactamente el mismo; solo cambia quién lo invoca y cuándo.
+  const [state, setState] = useState<TemplateIndexConfigurationState>(initialState);
+  const [pending, setPending] = useState(false);
+
+  // Línea base contra la que se compara para decidir si hay mapeos sin
+  // guardar — no un `JSON.stringify` de todo el estado (frágil ante orden),
+  // solo los campos que de verdad importan, comparados por valor.
+  const snapshotRef = useRef({
+    selectedIds,
+    separator,
+    fixedSuffix,
+    allowEmpty,
+    simpleFieldValues,
+  });
+  const isDirty = useMemo(() => {
+    const snap = snapshotRef.current;
+    if (separator !== snap.separator) return true;
+    if (fixedSuffix !== snap.fixedSuffix) return true;
+    if (allowEmpty !== snap.allowEmpty) return true;
+    if (selectedIds.length !== snap.selectedIds.length) return true;
+    if (selectedIds.some((id, index) => id !== snap.selectedIds[index])) return true;
+    return SIMPLE_FIELDS.some(
+      ({ key }) => simpleFieldValues[key] !== snap.simpleFieldValues[key],
+    );
+  }, [selectedIds, separator, fixedSuffix, allowEmpty, simpleFieldValues]);
   useEffect(() => {
-    if (state.success && lastSuccessState.current !== state) {
-      lastSuccessState.current = state;
-      showToast("Configuración guardada.");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
-  // Los errores de `party_separator`/`fixed_suffix`/`template_field_ids`
-  // solo se muestran dentro de la fila "Partes" — si esa fila estaba
-  // colapsada al enviar el formulario, el error de guardado quedaría
-  // invisible sin este auto-expand. Se ajusta durante el render (patrón
-  // recomendado por React para reaccionar a un cambio de state ya
-  // calculado) en vez de en un efecto, para evitar un render en cascada.
-  const [lastHandledState, setLastHandledState] = useState(state);
-  if (state !== lastHandledState) {
-    setLastHandledState(state);
-    if (
-      state.errors?.template_field_ids ||
-      state.errors?.party_separator ||
-      state.errors?.fixed_suffix
-    ) {
-      setOpenRowId("parties");
-    }
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // Una variable configurada en la misma sesión (todavía sin guardar cuando
+  // se cargó esta pantalla) llega en `fields` con un id sintético
+  // `local:<clave>` (ver `TemplateWorkspace`) — se puede elegir para
+  // Partes/campos simples igual que cualquier otra, pero el RPC necesita el
+  // `id` real de `template_fields`. `resolveFieldId` lo traduce contra la
+  // lista fresca que trae `freshFields`, pedida justo después de guardar el
+  // machote — para entonces esa variable ya tiene un id real.
+  function resolveFieldId(
+    candidateId: string,
+    freshFieldsByKey: Map<string, string>,
+  ): string | null {
+    if (!candidateId.startsWith("local:")) return candidateId;
+    return freshFieldsByKey.get(candidateId.slice("local:".length)) ?? null;
   }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      isDirty: () => isDirty,
+      async save(freshFields) {
+        setFields(freshFields);
+        const freshFieldsByKey = new Map(
+          freshFields.map((field) => [field.fieldKey, field.id]),
+        );
+
+        const resolvedSelectedIds: string[] = [];
+        for (const id of selectedIds) {
+          const resolved = resolveFieldId(id, freshFieldsByKey);
+          if (!resolved) {
+            const message =
+              "Una de las variables seleccionadas para Partes todavía no " +
+              "terminó de guardarse. Vuelve a intentar.";
+            setState({ message });
+            return { success: false, message };
+          }
+          resolvedSelectedIds.push(resolved);
+        }
+
+        const resolvedSimpleFieldValues: Record<SimpleIndexMappingKey, string> =
+          { ...simpleFieldValues };
+        for (const { key } of SIMPLE_FIELDS) {
+          const raw = simpleFieldValues[key];
+          if (key === "authorized_time") {
+            if (raw.startsWith("field:")) {
+              const resolved = resolveFieldId(
+                raw.slice("field:".length),
+                freshFieldsByKey,
+              );
+              if (!resolved) {
+                const message =
+                  "La variable elegida para Hora de autorización todavía " +
+                  "no terminó de guardarse. Vuelve a intentar.";
+                setState({ message });
+                return { success: false, message };
+              }
+              resolvedSimpleFieldValues[key] = `field:${resolved}`;
+            }
+            continue;
+          }
+          if (!raw) continue;
+          const resolved = resolveFieldId(raw, freshFieldsByKey);
+          if (!resolved) {
+            const message =
+              "Una de las variables mapeadas todavía no terminó de " +
+              "guardarse. Vuelve a intentar.";
+            setState({ message });
+            return { success: false, message };
+          }
+          resolvedSimpleFieldValues[key] = resolved;
+        }
+
+        setPending(true);
+        const formData = new FormData();
+        formData.set("party_separator", separator);
+        formData.set("fixed_suffix", fixedSuffix);
+        if (allowEmpty) formData.set("allow_empty", "on");
+        for (const id of resolvedSelectedIds) {
+          formData.append("selected_field", id);
+        }
+        for (const { key } of SIMPLE_FIELDS) {
+          const name =
+            key === "authorized_time" ? "authorized_time_source" : `${key}_field_id`;
+          formData.set(name, resolvedSimpleFieldValues[key]);
+        }
+
+        const result = await saveTemplateIndexConfigurationAction(
+          templateId,
+          initialState,
+          formData,
+        );
+        setPending(false);
+        setState(result);
+
+        if (result.success) {
+          // Reemplaza cualquier id sintético `local:<clave>` por el id real
+          // recién resuelto — si no, en el siguiente render `fieldsById` (ya
+          // construido sobre `freshFields`, con ids reales) no encontraría
+          // esas claves, y la selección se vería "configurada" en el
+          // resumen pero vacía en la vista previa.
+          setSelectedIds(resolvedSelectedIds);
+          setSimpleFieldValues(resolvedSimpleFieldValues);
+          snapshotRef.current = {
+            selectedIds: resolvedSelectedIds,
+            separator,
+            fixedSuffix,
+            allowEmpty,
+            simpleFieldValues: resolvedSimpleFieldValues,
+          };
+          showToast("Configuración guardada.");
+          return { success: true };
+        }
+        if (
+          result.errors?.template_field_ids ||
+          result.errors?.party_separator ||
+          result.errors?.fixed_suffix
+        ) {
+          setOpenRowId("parties");
+        }
+        return {
+          success: false,
+          message:
+            result.message ??
+            "No fue posible guardar la configuración del Índice.",
+        };
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedIds, separator, fixedSuffix, allowEmpty, simpleFieldValues, isDirty, templateId],
+  );
+
   const fieldsById = useMemo(
     () => new Map(fields.map((field) => [field.id, field])),
     [fields],
@@ -399,11 +583,10 @@ export function TemplateIndexConfigurationSection({
         </p>
       )}
 
-      <form
-        action={formAction}
-        className="px-6 py-5"
-        hidden={!inclusion}
-      >
+      {/* Ya no es un `<form>` con Server Action propia — el guardado único
+          (`TemplateWorkspace`) invoca `TemplateIndexConfigurationHandle.save`
+          directamente; este contenedor solo agrupa visualmente. */}
+      <div className="px-6 py-5" hidden={!inclusion}>
         {readOnly && (
           <div
             role="status"
@@ -732,37 +915,13 @@ export function TemplateIndexConfigurationSection({
           </CollapsibleFieldRow>
         </div>
 
-        {/* Fuera de la fila colapsable a propósito: si vivieran dentro de
-            `CollapsibleFieldRow`, dejarían de enviarse en el submit en
-            cuanto la fila estuviera cerrada (su contenido no se monta
-            mientras está colapsada). Los inputs visibles equivalentes
-            dentro de la fila (separador, texto fijo, checkbox) ya no
-            llevan `name` — solo editan este mismo estado; estos son la
-            única fuente real de esos tres campos en el FormData. Para
-            `allow_empty` se replica el comportamiento nativo de un
-            checkbox no marcado (ausente del FormData), no un string
-            "false". */}
-        {selectedIds.map((id) => (
-          <input key={id} type="hidden" name="selected_field" value={id} />
-        ))}
-        <input type="hidden" name="party_separator" value={separator} />
-        <input type="hidden" name="fixed_suffix" value={fixedSuffix} />
-        {allowEmpty && <input type="hidden" name="allow_empty" value="on" />}
-
         {state.message && <p role="alert" className="mt-4 text-sm text-red-700">{state.message}</p>}
-
-        {!readOnly && (
-          <div className="mt-5 flex justify-end">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-600 focus:ring-offset-2 disabled:opacity-50"
-            >
-              {pending ? "Guardando…" : "Guardar configuración"}
-            </button>
-          </div>
+        {pending && (
+          <p role="status" className="mt-4 text-sm text-slate-500">
+            Guardando…
+          </p>
         )}
-      </form>
+      </div>
     </section>
   );
-}
+});
