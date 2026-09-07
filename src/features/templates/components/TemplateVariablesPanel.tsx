@@ -25,12 +25,15 @@ import { useId, useState } from "react";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import {
   VARIABLE_AUTOFILL_SOURCE_LABELS,
-  VARIABLE_OUTPUT_TRANSFORMS,
   VARIABLE_OUTPUT_TRANSFORM_LABELS,
   suggestAutofillSource,
   type VariableAutofillSource,
   type VariableOutputTransform,
 } from "../model/variable-autofill";
+import {
+  VariableConfigFields,
+  type VariableConfigValue,
+} from "./VariableConfigFields";
 
 export type VariableRowStatus = "configured" | "pending";
 
@@ -43,14 +46,6 @@ export type VariableRow = {
   output_transform: VariableOutputTransform;
 };
 
-// Ejemplo corto para que "Dígitos en palabras" y "Número completo en
-// palabras" no se confundan entre sí — mismo valor de entrada (125), salida
-// real de `applyVariableTransform` (ver src/lib/editor/text-transforms.ts),
-// no un ejemplo inventado.
-const OUTPUT_TRANSFORM_EXAMPLES: Partial<Record<VariableOutputTransform, string>> = {
-  digits_to_words: "Ejemplo: 125 → UNO DOS CINCO",
-  number_to_words: "Ejemplo: 125 → CIENTO VEINTICINCO",
-};
 
 const STATUS_UI: Record<
   VariableRowStatus,
@@ -121,91 +116,32 @@ type RowEditorProps = {
 };
 
 function RowEditor({ row, onSave, onCancel }: RowEditorProps) {
-  const labelId = useId();
-  const requiredId = useId();
-  const errorId = useId();
-  const transformId = useId();
-  const [label, setLabel] = useState(row.label ?? "");
-  const [required, setRequired] = useState(row.required);
-  const [outputTransform, setOutputTransform] = useState(row.output_transform);
+  const idPrefix = useId();
+  const [value, setValue] = useState<VariableConfigValue>({
+    label: row.label ?? "",
+    required: row.required,
+    output_transform: row.output_transform,
+  });
   const [error, setError] = useState<string | undefined>();
 
   function save() {
-    const trimmed = label.trim();
+    const trimmed = value.label.trim();
     if (trimmed === "") {
       setError("La etiqueta de la variable es requerida.");
       return;
     }
-    onSave(trimmed, required, outputTransform);
+    onSave(trimmed, value.required, value.output_transform);
   }
 
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3 space-y-3">
-      <div>
-        <label
-          htmlFor={labelId}
-          className="block text-xs font-medium text-slate-700 mb-1"
-        >
-          Etiqueta
-        </label>
-        <input
-          id={labelId}
-          type="text"
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-          placeholder="Ej: Nombre del comprador"
-          aria-describedby={error ? errorId : undefined}
-          aria-invalid={!!error}
-          autoFocus
-        />
-        {error && (
-          <p id={errorId} role="alert" className="mt-1 text-xs text-red-700">
-            {error}
-          </p>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          id={requiredId}
-          type="checkbox"
-          checked={required}
-          onChange={(event) => setRequired(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent-700 focus:ring-accent-500"
-        />
-        <label htmlFor={requiredId} className="text-sm text-slate-700">
-          Variable obligatoria
-        </label>
-      </div>
-
-      <div>
-        <label
-          htmlFor={transformId}
-          className="block text-xs font-medium text-slate-700 mb-1"
-        >
-          Transformación de salida
-        </label>
-        <select
-          id={transformId}
-          value={outputTransform}
-          onChange={(event) =>
-            setOutputTransform(event.target.value as VariableOutputTransform)
-          }
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-        >
-          {VARIABLE_OUTPUT_TRANSFORMS.map((transform) => (
-            <option key={transform} value={transform}>
-              {VARIABLE_OUTPUT_TRANSFORM_LABELS[transform]}
-            </option>
-          ))}
-        </select>
-        {OUTPUT_TRANSFORM_EXAMPLES[outputTransform] && (
-          <p className="mt-1 text-xs text-slate-500">
-            {OUTPUT_TRANSFORM_EXAMPLES[outputTransform]}
-          </p>
-        )}
-      </div>
+      <VariableConfigFields
+        idPrefix={idPrefix}
+        value={value}
+        onChange={setValue}
+        labelError={error}
+        autoFocusLabel
+      />
 
       <div className="flex justify-end gap-2">
         <button
