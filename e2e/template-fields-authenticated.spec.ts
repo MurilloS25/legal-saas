@@ -149,71 +149,107 @@ test.describe("template variables workspace", () => {
     await dialog.getByRole("button", { name: "Cancelar" }).click();
   });
 
-  test("D: removing a variable from the content keeps its configuration", async ({
+  // El contenido es la única fuente de verdad de qué variables existen
+  // (ver TemplateWorkspace.tsx): a diferencia del estado "No utilizada" que
+  // existía antes, quitar la ÚLTIMA referencia de una variable poda su
+  // configuración por completo — no se conserva huérfana — y recrear la
+  // misma clave más tarde se comporta como una variable nueva, sin
+  // resucitar la etiqueta ni la configuración previas.
+  test("D: removing a variable's last reference prunes its configuration, and recreating the same key later starts fresh", async ({
     page,
   }) => {
     await openWorkspace(page);
 
-    // Reemplaza todo el contenido por texto sin la variable configurada.
+    // Reemplaza todo el contenido por texto sin ninguna variable.
     await contentEditor(page).click();
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type(
       "COMPRAVENTA ACTUALIZADA sin variables en el texto.",
     );
 
-    // La configuración no se borra: la variable pasa a "No utilizada".
     await goToVariablesTab(page);
-    await expect(
-      variableRow(page, configuredKey).getByText("No utilizada"),
-    ).toBeVisible();
-    await expect(
-      variableRow(page, pendingKey).getByText("No utilizada"),
-    ).toBeVisible();
+    await expect(variableRow(page, configuredKey)).not.toBeVisible();
+    await expect(variableRow(page, pendingKey)).not.toBeVisible();
 
     await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Guardar desde "Variables" avanza automáticamente a "Índice"; hay que
-    // volver explícitamente a "Variables" antes de revisar su contenido.
+    // La poda persiste — no es solo un efecto visual local.
     await page.reload();
     await goToVariablesTab(page);
+    await expect(variableRow(page, configuredKey)).not.toBeVisible();
+
+    // Recrear la misma clave más tarde: aparece como pendiente, sin la
+    // etiqueta ni la configuración que tenía antes de podarse.
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type(`Referencia otra vez a {{${configuredKey}}}.`);
+
+    await goToVariablesTab(page);
+    const recreatedRow = variableRow(page, configuredKey);
     await expect(
-      variableRow(page, configuredKey).getByText("No utilizada"),
+      recreatedRow.getByText("Pendiente de configurar"),
     ).toBeVisible();
+    await expect(recreatedRow.getByText(configuredLabel)).toHaveCount(0);
+
+    // Deja este estado guardado — E parte de aquí (todavía referenciada,
+    // todavía sin configurar).
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
-      variableRow(page, configuredKey).getByText(configuredLabel),
-    ).toBeVisible();
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("E: the user can explicitly remove a variable configuration", async ({
+  // "Quitar configuración" es distinto de quitar la última referencia: la
+  // variable sigue en el contenido, así que vuelve a "Pendiente de
+  // configurar" en vez de desaparecer.
+  test("E: the user can explicitly remove a variable's configuration while it's still referenced, and it becomes pending again", async ({
     page,
   }) => {
     await openWorkspace(page);
-    await goToVariablesTab(page);
 
-    await variableRow(page, pendingKey)
-      .getByRole("button", {
-        name: `Quitar configuración de ${pendingKey}`,
-      })
+    // D dejó `configuredKey` referenciado en el contenido pero sin
+    // configuración (podada y recreada) — la configura de nuevo para tener
+    // algo "Configurada" que remover explícitamente.
+    await goToVariablesTab(page);
+    await variableRow(page, configuredKey)
+      .getByRole("button", { name: `Configurar variable ${configuredKey}` })
+      .click();
+    await variableRow(page, configuredKey)
+      .getByLabel("Etiqueta")
+      .fill(configuredLabel);
+    await variableRow(page, configuredKey)
+      .getByRole("button", { name: "Guardar variable" })
+      .click();
+    await expect(
+      variableRow(page, configuredKey).getByText("Configurada"),
+    ).toBeVisible();
+    // Espera a que ese envío inmediato termine antes de disparar otro.
+    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
+      timeout: 15_000,
+    });
+
+    await variableRow(page, configuredKey)
+      .getByRole("button", { name: `Quitar configuración de ${configuredKey}` })
       .click();
 
-    await expect(variableRow(page, pendingKey)).not.toBeVisible();
+    await expect(
+      variableRow(page, configuredKey).getByText("Pendiente de configurar"),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Guardar y continuar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Guardar desde "Variables" avanza automáticamente a "Índice"; hay que
-    // volver explícitamente a "Variables" antes de revisar su contenido.
     await page.reload();
     await goToVariablesTab(page);
-    await expect(variableRow(page, pendingKey)).not.toBeVisible();
-    // La otra configuración sigue intacta.
     await expect(
-      variableRow(page, configuredKey).getByText(configuredLabel),
+      variableRow(page, configuredKey).getByText("Pendiente de configurar"),
     ).toBeVisible();
   });
 
@@ -270,5 +306,45 @@ test.describe("template variables workspace", () => {
       row.getByText("Autollenado: Identificación del Cliente"),
     ).toBeVisible();
     await expect(row.getByText("Dígitos en palabras")).toBeVisible();
+  });
+
+  // "Insertar variable" pide obligatoriedad y transformación de salida
+  // directamente al crear — ya no hace falta el ida y vuelta de crearla,
+  // ir al paso Variables, buscarla y editarla para configurar lo mismo que
+  // el resto de los flujos (pegado, Bloques de opciones) ya piden de una.
+  test("G: 'Insertar variable' configures required and output transform at creation time, with no separate edit step needed", async ({
+    page,
+  }) => {
+    const newKey = "vendedor.identificacion";
+    const newLabel = "Vendedor - Identificación";
+
+    await openWorkspace(page);
+    await page.getByRole("button", { name: "Insertar variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await dialog.getByLabel("Clave").fill(newKey);
+    await dialog.getByLabel("Etiqueta").fill(newLabel);
+    await dialog.getByLabel("Variable obligatoria").check();
+    await dialog
+      .getByLabel("Transformación de salida")
+      .selectOption("digits_to_words");
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    await goToVariablesTab(page);
+    const row = variableRow(page, newKey);
+    await expect(row.getByText("Configurada")).toBeVisible();
+    await expect(row.getByText("Obligatoria")).toBeVisible();
+    await expect(row.getByText("Dígitos en palabras")).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await goToVariablesTab(page);
+    const reloadedRow = variableRow(page, newKey);
+    await expect(reloadedRow.getByText("Obligatoria")).toBeVisible();
+    await expect(reloadedRow.getByText("Dígitos en palabras")).toBeVisible();
   });
 });

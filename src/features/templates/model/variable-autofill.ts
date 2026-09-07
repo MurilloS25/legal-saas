@@ -17,6 +17,20 @@ export {
   toVariableOutputTransform,
   type VariableOutputTransform,
 } from "@/lib/editor/text-transforms";
+import type { VariableOutputTransform } from "@/lib/editor/text-transforms";
+
+// Ejemplo corto para que "Dígitos en palabras" y "Número completo en
+// palabras" no se confundan entre sí — mismo valor de entrada (125), salida
+// real de `applyVariableTransform` (ver src/lib/editor/text-transforms.ts),
+// no un ejemplo inventado. Vive aquí (no en cada formulario) para que
+// cualquier punto donde se elija una transformación —Insertar variable,
+// Bloques de opciones, panel de Variables— muestre el mismo ejemplo.
+export const VARIABLE_OUTPUT_TRANSFORM_EXAMPLES: Partial<
+  Record<VariableOutputTransform, string>
+> = {
+  digits_to_words: "Ejemplo: 125 → UNO DOS CINCO",
+  number_to_words: "Ejemplo: 125 → CIENTO VEINTICINCO",
+};
 
 export const VARIABLE_AUTOFILL_SOURCES = [
   "none",

@@ -20,6 +20,9 @@ import {
   type OptionVariantDraft,
 } from "@/lib/editor/option-blocks";
 import type { TemplateOptionBlockAttrs } from "@/lib/editor/types";
+import type { TemplateWorkspaceVariable } from "../model/template-workspace";
+import { suggestAutofillSource } from "../model/variable-autofill";
+import { InsertVariableDialog } from "./InsertVariableDialog";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
@@ -41,10 +44,29 @@ function emptyDraft(): OptionBlockDraft {
 type Props = {
   /** Presente en modo edición; ausente al insertar un bloque nuevo. */
   initialAttrs?: TemplateOptionBlockAttrs;
-  onSave: (attrs: TemplateOptionBlockAttrs) => void;
+  /**
+   * `newVariables`: variables recién creadas desde "Insertar variable"
+   * dentro de una variante (botón por variante, no el diálogo de revisión
+   * post-guardado) — con su configuración completa (etiqueta, obligatoria,
+   * transformación), lista para registrar. Se pasan por separado en vez de
+   * llamar `onCreateVariable` de inmediato al crearlas: el contenido de la
+   * variante donde se insertan todavía es un borrador local en este
+   * diálogo, no el documento real, así que registrarlas antes de que
+   * `onSave` actualice el documento dispararía la poda de variables sin
+   * referencia (`TemplateWorkspace.tsx`) sobre una clave que, en ese
+   * instante, el documento real todavía no contiene.
+   */
+  onSave: (
+    attrs: TemplateOptionBlockAttrs,
+    newVariables: TemplateWorkspaceVariable[],
+  ) => void;
   /** Solo disponible en modo edición. */
   onDelete?: () => void;
   onClose: () => void;
+  /** Variables configuradas del machote — para "Insertar variable" dentro
+   * de una variante (elegir una existente o crear una nueva) sin salir del
+   * diálogo del bloque. */
+  variables: TemplateWorkspaceVariable[];
 };
 
 export function OptionBlockDialog({
@@ -52,6 +74,7 @@ export function OptionBlockDialog({
   onSave,
   onDelete,
   onClose,
+  variables,
 }: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -63,6 +86,20 @@ export function OptionBlockDialog({
   );
   const [error, setError] = useState<string | undefined>();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Variante en la que insertar la próxima variable elegida/creada en el
+  // diálogo "Insertar variable" — el contenido de cada variante es un
+  // `<input>` de texto plano, así que insertar es literalmente escribir
+  // `{{clave}}` en la posición del cursor (última conocida, capturada en
+  // `variantCursorRef` en cada cambio de selección).
+  const [insertingVariableForVariant, setInsertingVariableForVariant] =
+    useState<string | null>(null);
+  // Variables nuevas creadas desde ese botón, con su configuración
+  // completa, en espera de registrarse recién cuando se guarde el bloque —
+  // ver el comentario de `onSave` en `Props`.
+  const [pendingNewVariables, setPendingNewVariables] = useState<
+    TemplateWorkspaceVariable[]
+  >([]);
+  const variantCursorRef = useRef<Record<string, number>>({});
 
   function updateVariant(id: string, patch: Partial<OptionVariantDraft>) {
     setDraft((current) => ({
@@ -70,6 +107,28 @@ export function OptionBlockDialog({
       variants: current.variants.map((v) =>
         v.id === id ? { ...v, ...patch } : v,
       ),
+    }));
+  }
+
+  function trackVariantCursor(
+    id: string,
+    event: { currentTarget: HTMLInputElement },
+  ) {
+    variantCursorRef.current[id] =
+      event.currentTarget.selectionStart ?? event.currentTarget.value.length;
+  }
+
+  function insertTokenIntoVariant(id: string, token: string) {
+    const pos = variantCursorRef.current[id];
+    setDraft((current) => ({
+      ...current,
+      variants: current.variants.map((v) => {
+        if (v.id !== id) return v;
+        const at = pos ?? v.contentText.length;
+        const nextText = v.contentText.slice(0, at) + token + v.contentText.slice(at);
+        variantCursorRef.current[id] = at + token.length;
+        return { ...v, contentText: nextText };
+      }),
     }));
   }
 
@@ -100,7 +159,7 @@ export function OptionBlockDialog({
       setError(result.error);
       return;
     }
-    onSave(result.attrs);
+    onSave(result.attrs, pendingNewVariables);
   }
 
   return (
@@ -217,9 +276,22 @@ export function OptionBlockDialog({
                       </div>
 
                       <div>
-                        <label htmlFor={contentId} className="block text-xs font-medium text-slate-700 mb-1">
-                          Contenido de variante
-                        </label>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <label htmlFor={contentId} className="block text-xs font-medium text-slate-700">
+                            Contenido de variante
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setInsertingVariableForVariant(variant.id)}
+                            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                              <line x1="12" y1="5" x2="12" y2="19" />
+                              <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            Insertar variable
+                          </button>
+                        </div>
                         <input
                           id={contentId}
                           type="text"
@@ -227,6 +299,9 @@ export function OptionBlockDialog({
                           onChange={(event) =>
                             updateVariant(variant.id, { contentText: event.target.value })
                           }
+                          onSelect={(event) => trackVariantCursor(variant.id, event)}
+                          onClick={(event) => trackVariantCursor(variant.id, event)}
+                          onKeyUp={(event) => trackVariantCursor(variant.id, event)}
                           className={`${inputClass} font-mono text-xs`}
                           placeholder="Ej: CHASIS número {{vehiculo.chasis}}"
                         />
@@ -321,6 +396,31 @@ export function OptionBlockDialog({
           </div>
         </div>
       </div>
+
+      {insertingVariableForVariant && (
+        <InsertVariableDialog
+          variables={[...variables, ...pendingNewVariables]}
+          onInsertExisting={(variable) => {
+            insertTokenIntoVariant(insertingVariableForVariant, `{{${variable.field_key}}}`);
+            setInsertingVariableForVariant(null);
+          }}
+          onInsertNew={({ field_key, label, required, output_transform }) => {
+            setPendingNewVariables((current) => [
+              ...current,
+              {
+                field_key,
+                label,
+                required,
+                autofill_source: suggestAutofillSource(field_key),
+                output_transform,
+              },
+            ]);
+            insertTokenIntoVariant(insertingVariableForVariant, `{{${field_key}}}`);
+            setInsertingVariableForVariant(null);
+          }}
+          onClose={() => setInsertingVariableForVariant(null)}
+        />
+      )}
     </>
   );
 }

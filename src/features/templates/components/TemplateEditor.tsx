@@ -237,7 +237,10 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
     window.setTimeout(() => insertOptionBlockButtonRef.current?.focus(), 0);
   }
 
-  function saveOptionBlock(attrs: TemplateOptionBlockAttrs) {
+  function saveOptionBlock(
+    attrs: TemplateOptionBlockAttrs,
+    newVariablesFromDialog: TemplateWorkspaceVariable[] = [],
+  ) {
     if (!editor) return;
     if (optionBlockDialog !== "closed" && optionBlockDialog !== "insert") {
       // Edición: reemplaza los attrs del nodo en su posición capturada.
@@ -254,11 +257,29 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
     }
     closeOptionBlockDialog();
 
+    // Registra primero las variables creadas desde el botón "Insertar
+    // variable" de una variante (ya con su configuración completa) — DESPUÉS
+    // de actualizar el documento arriba, nunca antes: `onCreateVariable`
+    // dispara `setVariables` en el workspace, que se combina en el mismo
+    // render con el `setDocumentJson` que ya disparó `.run()` — si el orden
+    // se invirtiera, la poda de variables sin referencia
+    // (`TemplateWorkspace.tsx`) vería una clave recién creada que el
+    // documento (todavía sin guardar) no contiene aún, y la quitaría de
+    // inmediato.
+    for (const variable of newVariablesFromDialog) {
+      onCreateVariable(variable);
+    }
+
     // Claves referenciadas en CUALQUIER variante (misma regla que ya
     // decide qué variables están "activas" — ver `extractTemplateVariablesFromDocument`)
     // que todavía no tengan configuración — una sola apertura del diálogo
-    // para todas, sin duplicar una ya repetida entre variantes.
-    const configuredKeys = new Set(variables.map((v) => v.field_key));
+    // para todas, sin duplicar una ya repetida entre variantes. Las
+    // registradas arriba ya cuentan como configuradas aunque `variables`
+    // (prop de este render) todavía no las incluya.
+    const configuredKeys = new Set([
+      ...variables.map((v) => v.field_key),
+      ...newVariablesFromDialog.map((v) => v.field_key),
+    ]);
     const newKeys: string[] = [];
     const seen = new Set<string>();
     for (const variant of attrs.variants) {
@@ -584,15 +605,15 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           onInsertExisting={(variable) =>
             insertVariable(variable.field_key, variable.label)
           }
-          onInsertNew={(key, label) => {
+          onInsertNew={({ field_key, label, required, output_transform }) => {
             onCreateVariable({
-              field_key: key,
+              field_key,
               label,
-              required: false,
-              autofill_source: suggestAutofillSource(key),
-              output_transform: "none",
+              required,
+              autofill_source: suggestAutofillSource(field_key),
+              output_transform,
             });
-            insertVariable(key, label);
+            insertVariable(field_key, label);
           }}
           onClose={closeDialog}
         />
@@ -606,6 +627,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(
           onSave={saveOptionBlock}
           onDelete={optionBlockDialog === "insert" ? undefined : deleteOptionBlock}
           onClose={closeOptionBlockDialog}
+          variables={variables}
         />
       )}
 
