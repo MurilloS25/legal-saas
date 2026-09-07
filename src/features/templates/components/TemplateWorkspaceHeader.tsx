@@ -90,6 +90,10 @@ type Props = {
    * que el Índice (que depende de `template_id`) no puede configurarse. */
   indexLocked: boolean;
   actions?: React.ReactNode;
+  /** Intercepta el click en "‹ Machotes" — con cambios sin guardar,
+   * `TemplateWorkspace` cancela la navegación y pide confirmación en vez de
+   * dejar salir directo del machote. */
+  onBackClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
 export function TemplateWorkspaceHeader({
@@ -105,6 +109,7 @@ export function TemplateWorkspaceHeader({
   publishComplete,
   indexLocked,
   actions,
+  onBackClick,
 }: Props) {
   const completion: Record<TemplateWorkspaceSection, boolean> = {
     information: informationComplete,
@@ -138,6 +143,7 @@ export function TemplateWorkspaceHeader({
     <header className="mb-6">
       <Link
         href="/dashboard/templates"
+        onClick={onBackClick}
         className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
       >
         ‹ Machotes

@@ -9,6 +9,7 @@ import {
 } from "../model/template-workspace";
 import { buildTemplateContentJson } from "@/lib/editor/content";
 import { TemplateIdSchema } from "../model/templates";
+import { listTemplateFields } from "./detail-queries";
 import type { Database } from "@/lib/supabase/database.types";
 
 // Mínima copia del orden del stepper — usada solo para calcular a qué paso
@@ -157,4 +158,34 @@ export async function updateTemplateWorkspaceAction(
   revalidatePath("/dashboard/templates");
   revalidatePath(`/dashboard/templates/${templateId}`);
   return { success: true, updatedAt: saved.updated_at };
+}
+
+// ------------------------------------------------------------------ fresh field list (for Índice, after a workspace save)
+
+export type TemplateIndexFieldOption = {
+  id: string;
+  fieldKey: string;
+  label: string;
+};
+
+/**
+ * Lista fresca de `template_fields` (con `id` real) para el selector de
+ * Partes del Índice — una variable configurada en la misma sesión (todavía
+ * sin guardar cuando se cargó la página) no tiene ese `id` hasta que el
+ * guardado único del machote la persiste. El guardado coordinado
+ * (`TemplateWorkspace`) llama esto justo después de guardar el machote y
+ * antes de guardar la configuración del Índice, para que ese guardado
+ * pueda referenciar variables recién creadas en el mismo click de
+ * "Guardar" — sin esto, solo aparecerían tras recargar la página.
+ */
+export async function getTemplateIndexFieldOptionsAction(
+  templateId: string,
+): Promise<TemplateIndexFieldOption[]> {
+  if (!TemplateIdSchema.safeParse(templateId).success) return [];
+  const fields = await listTemplateFields(templateId);
+  return fields.map((field) => ({
+    id: field.id,
+    fieldKey: field.field_key,
+    label: field.label,
+  }));
 }
