@@ -314,12 +314,15 @@ test.describe("template notarial index default", () => {
     const templateSection = templateIndexSection(page);
     const toggle = templateSection.getByLabel("Incluir en Índice Notarial");
     await expect(toggle).toBeChecked();
-    // El toggle es un checkbox controlado que espera la respuesta de la
-    // Server Action antes de reflejar el nuevo estado — `uncheck()` valida
-    // el cambio más rápido de lo que tarda ese viaje de red, así que se usa
-    // un click simple con un `expect` que sí tolera esa espera.
+    // Guardado único (iteración 4): el toggle ya no guarda al instante —
+    // solo marca dirty, como cualquier otro cambio del machote — así que un
+    // clic requiere el "Guardar" global para persistir.
     await toggle.click();
-    await expect(toggle).not.toBeChecked({ timeout: 15_000 });
+    await expect(toggle).not.toBeChecked();
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // docFromOnId ya existía antes de este cambio — sigue incluida.
     await page.goto(`/dashboard/documents/${docFromOnId}`);
@@ -334,6 +337,10 @@ test.describe("template notarial index default", () => {
       "Incluir en Índice Notarial",
     );
     await restoreToggle.click();
-    await expect(restoreToggle).toBeChecked({ timeout: 15_000 });
+    await expect(restoreToggle).toBeChecked();
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

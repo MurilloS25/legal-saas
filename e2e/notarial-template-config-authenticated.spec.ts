@@ -307,6 +307,12 @@ test.describe("template notarial index configuration", () => {
       .selectOption(mappedFieldIds["folio.final"]);
 
     await openConfigIndexRow(page, "parties");
+    // Tri-estado de Partes: arranca en "Pendiente de definir" — hay que
+    // elegir "Requiere partes" explícitamente antes de que aparezcan el
+    // buscador y la lista de variables.
+    await section
+      .getByRole("radio", { name: "Requiere partes", exact: true })
+      .click();
     await section
       .getByRole("checkbox", { name: /Nombre del comprador/ })
       .check();

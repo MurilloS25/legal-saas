@@ -321,21 +321,15 @@ test.describe("template option blocks", () => {
       mappingEditor.getByText(/Aplicado al machote/),
     ).toBeVisible();
 
-    // El formulario de configuración del Índice es uno solo para todos sus
-    // campos: "Partes" sin resolver (ni variables ni confirmación vacía)
-    // bloquea el guardado completo del Índice, sin relación con lo que esta
-    // prueba cubre — se confirma vacío para poder guardar todo junto en un
-    // solo "Guardar" (guardado único: aplicar el mapeo ya marcó dirty el
-    // Índice, así que el machote y el Índice se coordinan en el mismo
-    // click — el RPC del Índice de todas formas exige que el bloque ya
-    // tenga `structuredOutput.type: "time"` persistido, y el guardado
-    // único ya garantiza ese orden internamente: primero el machote, luego
-    // el Índice).
-    await page.locator("#idx-parties-trigger").click();
-    await configSection
-      .getByLabel("Confirmo que este machote no requiere Partes para el índice.")
-      .check();
-
+    // Partes queda en su estado por defecto ("Pendiente de definir") sin
+    // que haga falta decidirlo aquí — ya no bloquea el guardado del Índice
+    // (ver tri-estado Pendiente/Requiere/No requiere en
+    // TemplateIndexConfigurationSection). Aplicar el mapeo de hora ya marcó
+    // dirty el Índice, así que el machote y el Índice se coordinan en el
+    // mismo click de "Guardar" — el RPC del Índice de todas formas exige
+    // que el bloque ya tenga `structuredOutput.type: "time"` persistido, y
+    // el guardado único ya garantiza ese orden internamente: primero el
+    // machote, luego el Índice.
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
