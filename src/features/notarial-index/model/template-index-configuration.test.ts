@@ -32,7 +32,9 @@ describe("TemplateIndexConfigurationSchema", () => {
     });
   });
 
-  it("requires explicit acceptance for an empty selection", () => {
+  it("accepts an empty selection both pending (not confirmed) and explicitly confirmed", () => {
+    // "Pendiente de definir": ni seleccionó variables ni confirmó que no
+    // hacen falta — ya no es un error, es un estado válido y guardable.
     expect(
       TemplateIndexConfigurationSchema.safeParse({
         party_separator: " Y ",
@@ -41,7 +43,9 @@ describe("TemplateIndexConfigurationSchema", () => {
         simple_fields: emptySimpleFields,
         template_field_ids: [],
       }).success,
-    ).toBe(false);
+    ).toBe(true);
+    // "No requiere partes": confirmación explícita de que el machote no
+    // necesita Partes.
     expect(
       TemplateIndexConfigurationSchema.safeParse({
         party_separator: " Y ",

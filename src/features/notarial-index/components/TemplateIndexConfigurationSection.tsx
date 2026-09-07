@@ -48,9 +48,9 @@ type Props = {
   readOnly?: boolean;
   /** Valor que heredarán las nuevas Escrituras creadas desde este Machote
    * (documents.include_in_notarial_index al crear — snapshot, no vínculo
-   * permanente). El toggle sigue guardándose al instante (checkbox de
-   * preferencia simple, sin riesgo de pérdida) — no participa del guardado
-   * único coordinado. */
+   * permanente). Cambiarlo marca dirty y se persiste junto con el resto del
+   * Índice en `TemplateIndexConfigurationHandle.save` — no guarda al
+   * instante. */
   includeByDefault: boolean;
   /** Notifica el `updated_at` fresco del Machote tras guardar el toggle —
    * quien lo reciba debe resincronizar su propio `expected_updated_at` para
@@ -93,6 +93,14 @@ const SIMPLE_FIELDS: Array<{
   { key: "protocol_book", label: "Tomo" },
   { key: "initial_folio", label: "Folio inicial" },
   { key: "final_folio", label: "Folio final" },
+];
+
+type PartiesMode = "pending" | "required" | "not_required";
+
+const PARTIES_MODE_OPTIONS: Array<{ mode: PartiesMode; label: string }> = [
+  { mode: "pending", label: "Pendiente de definir" },
+  { mode: "required", label: "Requiere partes" },
+  { mode: "not_required", label: "No requiere partes" },
 ];
 
 const INVALID_LABELS: Record<InvalidIndexMapping, string> = {
@@ -154,12 +162,12 @@ export const TemplateIndexConfigurationSection = forwardRef<
     }
   }, [fieldsProp]);
   const [inclusion, setInclusion] = useState(includeByDefault);
-  const [inclusionPending, setInclusionPending] = useState(false);
-  const [inclusionError, setInclusionError] = useState<string | null>(null);
-  // Mismo riesgo de estado local obsoleto ya corregido en
-  // NotarialMetadataSection (ver 20260818140000): este componente tampoco
-  // se desmonta al navegar entre pasos del Machote, así que se resincroniza
-  // explícitamente cuando el prop del servidor cambia de verdad.
+  // Línea base contra la que se compara para saber si el toggle tiene un
+  // cambio sin guardar (`inclusionDirty` más abajo) — también sirve para
+  // resincronizar cuando el prop del servidor cambia de verdad (mismo riesgo
+  // de estado local obsoleto ya corregido en NotarialMetadataSection, ver
+  // 20260818140000: este componente tampoco se desmonta al navegar entre
+  // pasos del Machote).
   const lastSyncedInclusion = useRef(includeByDefault);
   useEffect(() => {
     if (lastSyncedInclusion.current !== includeByDefault) {
@@ -167,27 +175,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
       setInclusion(includeByDefault);
     }
   }, [includeByDefault]);
-
-  async function handleInclusionChange(next: boolean) {
-    setInclusionError(null);
-    setInclusionPending(true);
-    const result = await setTemplateNotarialIndexDefaultAction(templateId, next);
-    setInclusionPending(false);
-    if (result.success && result.includeByDefault !== undefined) {
-      lastSyncedInclusion.current = result.includeByDefault;
-      setInclusion(result.includeByDefault);
-      if (result.updatedAt) onIncludeByDefaultSaved?.(result.updatedAt);
-      showToast(
-        result.includeByDefault
-          ? "Las nuevas Escrituras de este Machote se incluirán en el Índice Notarial."
-          : "Las nuevas Escrituras de este Machote no se incluirán en el Índice Notarial.",
-      );
-    } else {
-      setInclusionError(
-        result.message ?? "No fue posible actualizar la configuración del Índice.",
-      );
-    }
-  }
+  const inclusionDirty = inclusion !== lastSyncedInclusion.current;
 
   const availableIds = useMemo(
     () => new Set(fields.map((field) => field.id)),
@@ -207,6 +195,32 @@ export const TemplateIndexConfigurationSection = forwardRef<
   const [allowEmpty, setAllowEmpty] = useState(
     configuration?.allowEmpty ?? false,
   );
+  // Tri-estado explícito de Partes — reemplaza el checkbox ambiguo
+  // "confirmo que no requiere Partes" (que solo aparecía cuando la
+  // selección ya estaba vacía, y no distinguía "no lo he decidido" de
+  // "confirmé que no aplica"). `allowEmpty`/`selectedIds` siguen siendo lo
+  // que de verdad se envía al guardar — `partiesMode` es solo la capa de
+  // UI que los mantiene sincronizados y decide qué se muestra. A nivel de
+  // datos, "pending" y "required" con 0 variables seleccionadas son
+  // indistinguibles después de recargar (mismo payload: sin variables,
+  // `allow_empty = false`) — es una distinción de intención dentro de la
+  // sesión, no algo que el modelo persistido necesite representar aparte.
+  const [partiesMode, setPartiesMode] = useState<PartiesMode>(() => {
+    if ((configuration?.fields.length ?? 0) > 0) return "required";
+    return configuration?.allowEmpty ? "not_required" : "pending";
+  });
+  function handlePartiesModeChange(mode: PartiesMode) {
+    setPartiesMode(mode);
+    if (mode === "not_required") {
+      setSelectedIds([]);
+      setAllowEmpty(true);
+    } else if (mode === "pending") {
+      setSelectedIds([]);
+      setAllowEmpty(false);
+    } else {
+      setAllowEmpty(false);
+    }
+  }
   const [partiesSearch, setPartiesSearch] = useState("");
   // Índice resaltado por teclado dentro de `visibleFields` — patrón ARIA
   // combobox+listbox (mismo que `ClientCombobox`), adaptado a multi-select:
@@ -244,25 +258,34 @@ export const TemplateIndexConfigurationSection = forwardRef<
 
   // Línea base contra la que se compara para decidir si hay mapeos sin
   // guardar — no un `JSON.stringify` de todo el estado (frágil ante orden),
-  // solo los campos que de verdad importan, comparados por valor.
+  // solo los campos que de verdad importan, comparados por valor. Separado
+  // de `inclusionDirty` (arriba) a propósito: son dos escrituras
+  // independientes (`saveTemplateIndexConfigurationAction` vs
+  // `setTemplateNotarialIndexDefaultAction`) — `save()` solo dispara cada
+  // una si de verdad tiene cambios, para no forzar una decisión sobre
+  // Partes/campos simples solo porque el usuario tocó el toggle de
+  // inclusión.
   const snapshotRef = useRef({
     selectedIds,
     separator,
     fixedSuffix,
     allowEmpty,
     simpleFieldValues,
+    partiesMode,
   });
-  const isDirty = useMemo(() => {
+  const mappingDirty = useMemo(() => {
     const snap = snapshotRef.current;
     if (separator !== snap.separator) return true;
     if (fixedSuffix !== snap.fixedSuffix) return true;
     if (allowEmpty !== snap.allowEmpty) return true;
+    if (partiesMode !== snap.partiesMode) return true;
     if (selectedIds.length !== snap.selectedIds.length) return true;
     if (selectedIds.some((id, index) => id !== snap.selectedIds[index])) return true;
     return SIMPLE_FIELDS.some(
       ({ key }) => simpleFieldValues[key] !== snap.simpleFieldValues[key],
     );
-  }, [selectedIds, separator, fixedSuffix, allowEmpty, simpleFieldValues]);
+  }, [selectedIds, separator, fixedSuffix, allowEmpty, partiesMode, simpleFieldValues]);
+  const isDirty = mappingDirty || inclusionDirty;
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -288,113 +311,160 @@ export const TemplateIndexConfigurationSection = forwardRef<
       isDirty: () => isDirty,
       async save(freshFields) {
         setFields(freshFields);
-        const freshFieldsByKey = new Map(
-          freshFields.map((field) => [field.fieldKey, field.id]),
-        );
 
-        const resolvedSelectedIds: string[] = [];
-        for (const id of selectedIds) {
-          const resolved = resolveFieldId(id, freshFieldsByKey);
-          if (!resolved) {
-            const message =
-              "Una de las variables seleccionadas para Partes todavía no " +
-              "terminó de guardarse. Vuelve a intentar.";
-            setState({ message });
-            return { success: false, message };
-          }
-          resolvedSelectedIds.push(resolved);
-        }
+        // Dos escrituras independientes que comparten este único punto de
+        // entrada — cada una solo corre si de verdad tiene cambios. Sin
+        // esto, tocar solo el toggle de inclusión (machote sin ningún
+        // mapeo todavía) forzaría también el RPC de mapeo, que hoy exige
+        // decidir Partes (seleccionar variables o confirmar vacío) para
+        // poder guardar — ver limitación conocida sobre el estado
+        // "Pendiente" de Partes.
+        let mappingOk = true;
+        let inclusionOk = true;
+        let errorMessage: string | undefined;
 
-        const resolvedSimpleFieldValues: Record<SimpleIndexMappingKey, string> =
-          { ...simpleFieldValues };
-        for (const { key } of SIMPLE_FIELDS) {
-          const raw = simpleFieldValues[key];
-          if (key === "authorized_time") {
-            if (raw.startsWith("field:")) {
-              const resolved = resolveFieldId(
-                raw.slice("field:".length),
-                freshFieldsByKey,
-              );
-              if (!resolved) {
-                const message =
-                  "La variable elegida para Hora de autorización todavía " +
-                  "no terminó de guardarse. Vuelve a intentar.";
-                setState({ message });
-                return { success: false, message };
-              }
-              resolvedSimpleFieldValues[key] = `field:${resolved}`;
+        if (mappingDirty) {
+          const freshFieldsByKey = new Map(
+            freshFields.map((field) => [field.fieldKey, field.id]),
+          );
+
+          const resolvedSelectedIds: string[] = [];
+          for (const id of selectedIds) {
+            const resolved = resolveFieldId(id, freshFieldsByKey);
+            if (!resolved) {
+              const message =
+                "Una de las variables seleccionadas para Partes todavía no " +
+                "terminó de guardarse. Vuelve a intentar.";
+              setState({ message });
+              return { success: false, message };
             }
-            continue;
+            resolvedSelectedIds.push(resolved);
           }
-          if (!raw) continue;
-          const resolved = resolveFieldId(raw, freshFieldsByKey);
-          if (!resolved) {
-            const message =
-              "Una de las variables mapeadas todavía no terminó de " +
-              "guardarse. Vuelve a intentar.";
-            setState({ message });
-            return { success: false, message };
+
+          const resolvedSimpleFieldValues: Record<SimpleIndexMappingKey, string> =
+            { ...simpleFieldValues };
+          for (const { key } of SIMPLE_FIELDS) {
+            const raw = simpleFieldValues[key];
+            if (key === "authorized_time") {
+              if (raw.startsWith("field:")) {
+                const resolved = resolveFieldId(
+                  raw.slice("field:".length),
+                  freshFieldsByKey,
+                );
+                if (!resolved) {
+                  const message =
+                    "La variable elegida para Hora de autorización todavía " +
+                    "no terminó de guardarse. Vuelve a intentar.";
+                  setState({ message });
+                  return { success: false, message };
+                }
+                resolvedSimpleFieldValues[key] = `field:${resolved}`;
+              }
+              continue;
+            }
+            if (!raw) continue;
+            const resolved = resolveFieldId(raw, freshFieldsByKey);
+            if (!resolved) {
+              const message =
+                "Una de las variables mapeadas todavía no terminó de " +
+                "guardarse. Vuelve a intentar.";
+              setState({ message });
+              return { success: false, message };
+            }
+            resolvedSimpleFieldValues[key] = resolved;
           }
-          resolvedSimpleFieldValues[key] = resolved;
+
+          setPending(true);
+          const formData = new FormData();
+          formData.set("party_separator", separator);
+          formData.set("fixed_suffix", fixedSuffix);
+          if (allowEmpty) formData.set("allow_empty", "on");
+          for (const id of resolvedSelectedIds) {
+            formData.append("selected_field", id);
+          }
+          for (const { key } of SIMPLE_FIELDS) {
+            const name =
+              key === "authorized_time" ? "authorized_time_source" : `${key}_field_id`;
+            formData.set(name, resolvedSimpleFieldValues[key]);
+          }
+
+          const result = await saveTemplateIndexConfigurationAction(
+            templateId,
+            initialState,
+            formData,
+          );
+          setPending(false);
+
+          if (result.success) {
+            // Reemplaza cualquier id sintético `local:<clave>` por el id
+            // real recién resuelto — si no, en el siguiente render
+            // `fieldsById` (ya construido sobre `freshFields`, con ids
+            // reales) no encontraría esas claves, y la selección se vería
+            // "configurada" en el resumen pero vacía en la vista previa.
+            setSelectedIds(resolvedSelectedIds);
+            setSimpleFieldValues(resolvedSimpleFieldValues);
+            snapshotRef.current = {
+              selectedIds: resolvedSelectedIds,
+              separator,
+              fixedSuffix,
+              allowEmpty,
+              simpleFieldValues: resolvedSimpleFieldValues,
+              partiesMode,
+            };
+          } else {
+            mappingOk = false;
+            errorMessage =
+              result.message ??
+              "No fue posible guardar la configuración del Índice.";
+            if (
+              result.errors?.template_field_ids ||
+              result.errors?.party_separator ||
+              result.errors?.fixed_suffix
+            ) {
+              setOpenRowId("parties");
+            }
+          }
         }
 
-        setPending(true);
-        const formData = new FormData();
-        formData.set("party_separator", separator);
-        formData.set("fixed_suffix", fixedSuffix);
-        if (allowEmpty) formData.set("allow_empty", "on");
-        for (const id of resolvedSelectedIds) {
-          formData.append("selected_field", id);
-        }
-        for (const { key } of SIMPLE_FIELDS) {
-          const name =
-            key === "authorized_time" ? "authorized_time_source" : `${key}_field_id`;
-          formData.set(name, resolvedSimpleFieldValues[key]);
+        if (inclusionDirty) {
+          const result = await setTemplateNotarialIndexDefaultAction(
+            templateId,
+            inclusion,
+          );
+          if (result.success && result.includeByDefault !== undefined) {
+            lastSyncedInclusion.current = result.includeByDefault;
+            if (result.updatedAt) onIncludeByDefaultSaved?.(result.updatedAt);
+          } else {
+            inclusionOk = false;
+            errorMessage ??=
+              result.message ??
+              "No fue posible actualizar la inclusión en el Índice Notarial.";
+          }
         }
 
-        const result = await saveTemplateIndexConfigurationAction(
-          templateId,
-          initialState,
-          formData,
-        );
-        setPending(false);
-        setState(result);
-
-        if (result.success) {
-          // Reemplaza cualquier id sintético `local:<clave>` por el id real
-          // recién resuelto — si no, en el siguiente render `fieldsById` (ya
-          // construido sobre `freshFields`, con ids reales) no encontraría
-          // esas claves, y la selección se vería "configurada" en el
-          // resumen pero vacía en la vista previa.
-          setSelectedIds(resolvedSelectedIds);
-          setSimpleFieldValues(resolvedSimpleFieldValues);
-          snapshotRef.current = {
-            selectedIds: resolvedSelectedIds,
-            separator,
-            fixedSuffix,
-            allowEmpty,
-            simpleFieldValues: resolvedSimpleFieldValues,
-          };
-          showToast("Configuración guardada.");
+        const success = mappingOk && inclusionOk;
+        setState(success ? { success: true } : { message: errorMessage });
+        if (success) {
+          if (mappingDirty || inclusionDirty) showToast("Configuración guardada.");
           return { success: true };
         }
-        if (
-          result.errors?.template_field_ids ||
-          result.errors?.party_separator ||
-          result.errors?.fixed_suffix
-        ) {
-          setOpenRowId("parties");
-        }
-        return {
-          success: false,
-          message:
-            result.message ??
-            "No fue posible guardar la configuración del Índice.",
-        };
+        return { success: false, message: errorMessage };
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedIds, separator, fixedSuffix, allowEmpty, simpleFieldValues, isDirty, templateId],
+    [
+      selectedIds,
+      separator,
+      fixedSuffix,
+      allowEmpty,
+      partiesMode,
+      simpleFieldValues,
+      inclusion,
+      mappingDirty,
+      inclusionDirty,
+      isDirty,
+      templateId,
+    ],
   );
 
   const fieldsById = useMemo(
@@ -518,12 +588,19 @@ export const TemplateIndexConfigurationSection = forwardRef<
     ({ key }) => simpleFieldValues[key] !== "",
   ).length;
   const partiesConfigured = selectedIds.length > 0;
-  const partiesStatus: "configured" | "pending" | "optional" = partiesConfigured
-    ? "configured"
-    : allowEmpty
+  // Tri-estado: "Pendiente de definir" y "Requiere partes" sin ninguna
+  // variable mapeada todavía cuentan como pendientes; "Requiere partes"
+  // con al menos una variable, o "No requiere partes", cuentan como
+  // configurados — la única fila con status "optional" es "No requiere
+  // partes" (semánticamente configurada, pero sin datos que mapear).
+  const partiesStatus: "configured" | "pending" | "optional" =
+    partiesMode === "not_required"
       ? "optional"
-      : "pending";
-  const configuredCount = simpleConfiguredCount + (partiesConfigured ? 1 : 0);
+      : partiesConfigured
+        ? "configured"
+        : "pending";
+  const partiesCountsAsConfigured = partiesStatus !== "pending";
+  const configuredCount = simpleConfiguredCount + (partiesCountsAsConfigured ? 1 : 0);
   const pendingCount =
     SIMPLE_FIELDS.length -
     simpleConfiguredCount +
@@ -555,8 +632,8 @@ export const TemplateIndexConfigurationSection = forwardRef<
           id="template-notarial-inclusion-toggle"
           type="checkbox"
           checked={inclusion}
-          disabled={readOnly || inclusionPending}
-          onChange={(event) => handleInclusionChange(event.target.checked)}
+          disabled={readOnly}
+          onChange={(event) => setInclusion(event.target.checked)}
           className="mt-0.5 size-4 accent-accent-700"
         />
         <label
@@ -572,14 +649,18 @@ export const TemplateIndexConfigurationSection = forwardRef<
           individualmente en una Escritura si fuera necesario.
         </label>
       </div>
-      {inclusionError && (
-        <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
-          {inclusionError}
-        </p>
-      )}
       {!inclusion && (
         <p className="border-b border-slate-100 px-6 py-4 text-sm text-slate-500">
           Este Machote no utilizará configuración del Índice.
+        </p>
+      )}
+      {/* Fuera del contenedor `hidden={!inclusion}` de abajo a propósito:
+          un error al guardar el toggle de inclusión (con el índice
+          desactivado, así que sin ningún mapeo dirty) debe seguir siendo
+          visible aunque `inclusion` esté en false. */}
+      {!inclusion && state.message && (
+        <p role="alert" className="border-b border-slate-100 px-6 py-3 text-sm text-red-700">
+          {state.message}
         </p>
       )}
 
@@ -727,18 +808,74 @@ export const TemplateIndexConfigurationSection = forwardRef<
             id="idx-parties"
             name="Partes"
             meta={
-              partiesConfigured
-                ? `${selectedIds.length} variable${selectedIds.length === 1 ? "" : "s"} seleccionada${selectedIds.length === 1 ? "" : "s"}`
-                : allowEmpty
-                  ? "Confirmado sin Partes"
+              partiesMode === "required"
+                ? partiesConfigured
+                  ? `${selectedIds.length} variable${selectedIds.length === 1 ? "" : "s"} seleccionada${selectedIds.length === 1 ? "" : "s"}`
                   : "¿Quiénes aparecen en la columna “Partes”?"
+                : partiesMode === "not_required"
+                  ? "Confirmado sin Partes"
+                  : "Sin decidir todavía"
             }
             status={partiesStatus}
             statusLabel={partiesStatus === "optional" ? "Confirmado" : undefined}
             open={openRowId === "parties"}
             onToggle={() => toggleRow("parties")}
           >
-            <p className="text-xs text-slate-500">
+            <fieldset disabled={readOnly}>
+              <legend className="text-xs font-medium text-slate-700">
+                ¿Este machote tiene Partes para el índice?
+              </legend>
+              <div
+                role="radiogroup"
+                aria-label="¿Este machote tiene Partes para el índice?"
+                className="mt-2 flex flex-wrap gap-2"
+              >
+                {PARTIES_MODE_OPTIONS.map(({ mode, label }) => {
+                  const active = partiesMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      disabled={readOnly}
+                      onClick={() => handlePartiesModeChange(mode)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        active
+                          ? "border-accent-600 bg-accent-50 text-accent-800"
+                          : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            {partiesMode === "pending" && (
+              <p className="mt-3 text-sm text-slate-500">
+                Aún no has decidido si este machote necesita Partes para el
+                índice. El machote puede guardarse igual — podrás definirlo
+                más adelante.
+              </p>
+            )}
+
+            {partiesMode === "not_required" && (
+              <div className="mt-3">
+                <p className="text-sm text-slate-600">
+                  Este Machote no necesita generar automáticamente el campo
+                  &ldquo;Partes&rdquo; del índice.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Podrás completarlo manualmente en cada Escritura.
+                </p>
+              </div>
+            )}
+
+            {partiesMode === "required" && (
+              <>
+            <p className="mt-3 text-xs text-slate-500">
               Selecciona las variables que representan a las personas o
               entidades que deben aparecer en la columna &ldquo;Partes&rdquo;
               del índice.
@@ -872,28 +1009,6 @@ export const TemplateIndexConfigurationSection = forwardRef<
               </div>
             </div>
 
-            {selectedIds.length === 0 && (
-              <div className="mt-4">
-                <p className="text-sm text-slate-600">
-                  Este Machote no necesita generar automáticamente el campo
-                  &ldquo;Partes&rdquo; del índice.
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Podrás completarlo manualmente en cada Escritura.
-                </p>
-                <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={allowEmpty}
-                    onChange={(event) => setAllowEmpty(event.target.checked)}
-                    disabled={readOnly}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-                  Confirmo que este machote no requiere Partes para el índice.
-                </label>
-              </div>
-            )}
-
             {state.errors?.template_field_ids && (
               <p role="alert" className="mt-3 text-sm text-red-700">
                 {state.errors.template_field_ids}
@@ -912,6 +1027,8 @@ export const TemplateIndexConfigurationSection = forwardRef<
                 {previewMessage}
               </p>
             </div>
+              </>
+            )}
           </CollapsibleFieldRow>
         </div>
 
