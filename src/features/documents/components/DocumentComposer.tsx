@@ -16,30 +16,35 @@
  * `ResizableSplitPane`), y solo agregaba navegación sin una fase realmente
  * distinta.
  *
- * Jerarquía de acciones (tercer refinamiento): Reabrir y las utilitarias
- * (Descargar Word/Historial/Duplicar, todas con jerarquía visual
- * secundaria) viven en `DocumentWorkspaceHeader` porque son alcanzables
- * sin importar el paso activo — Reabrir porque una Escritura finalizada es
- * de solo lectura en todos los pasos, y las utilitarias porque no están
- * ligadas a ningún paso en particular (un menú "Más acciones" agrupándolas
- * se probó y se descartó: Descargar Word/Historial son demasiado
- * frecuentes para esconder, y sin ellas el menú no aportaba nada).
+ * Jerarquía de acciones: Reabrir y las utilitarias (Descargar Word/
+ * Historial/Duplicar, todas con jerarquía visual secundaria) viven en
+ * `DocumentWorkspaceHeader` porque son alcanzables sin importar el paso
+ * activo — Reabrir porque una Escritura finalizada es de solo lectura en
+ * todos los pasos, y las utilitarias porque no están ligadas a ningún
+ * paso en particular (un menú "Más acciones" agrupándolas se probó y se
+ * descartó: Descargar Word/Historial son demasiado frecuentes para
+ * esconder, y sin ellas el menú no aportaba nada).
  * Finalizar/Volver a borrador (`DocumentStatusControls`, rama draft/ready)
- * en cambio viven AQUÍ, integradas a la toolbar contextual de Guardar
- * (`DocumentSaveControls`) dentro del `<form>` de "Completar" — ambas son
- * acciones del documento en edición y no le pertenecen a Cobro ni a
- * Índice, así que no se repiten ahí.
+ * viven integradas al dock flotante de Guardar (`DocumentSaveControls`,
+ * cuarto refinamiento) — un solo montaje, hermano de los tres paneles
+ * (Completar/Cobro/Índice), `position: fixed` respecto al viewport, así
+ * que ambas acciones son alcanzables sin importar el paso activo NI el
+ * scroll, mientras la Escritura sea editable. No repite el control por
+ * cada paso ni lo confina a "Completar": ambas son acciones del documento
+ * en edición, no del contenido particular de un paso.
  *
- * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, toolbar
- * compacta y flotante — no una franja de ancho completo — dentro del
- * `<form>` de Completar) persiste título, valores, cliente y selecciones
- * de Bloques de opciones en un solo submit. Guardar nunca avanza de paso
- * ni cambia el lifecycle: eso es responsabilidad exclusiva de
- * `DocumentStatusControls`, que sigue bloqueado mientras haya cambios sin
- * guardar. Esto resuelve el caso central de reabrir una Escritura
- * finalizada y corregir un dato sin tener que navegar a ningún otro lado
- * primero — Reabrir ya deja al usuario en "Completar", editable, con
- * Guardar y Finalizar alcanzables de inmediato, en la misma toolbar.
+ * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, dock
+ * compacto y flotante — no una franja de ancho completo ni un elemento
+ * fijo solo dentro de "Completar") persiste título, valores, cliente y
+ * selecciones de Bloques de opciones en un solo submit, enviando el
+ * `<form>` de Completar vía el atributo HTML `form` aunque el botón ya no
+ * sea su descendiente DOM. Guardar nunca avanza de paso ni cambia el
+ * lifecycle: eso es responsabilidad exclusiva de `DocumentStatusControls`,
+ * que sigue bloqueado mientras haya cambios sin guardar. Esto resuelve el
+ * caso central de reabrir una Escritura finalizada y corregir un dato sin
+ * tener que navegar a ningún otro lado primero — Reabrir ya deja al
+ * usuario en "Completar", editable, con Guardar y Finalizar alcanzables
+ * de inmediato, en el mismo dock.
  *
  * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
  * queda bloqueado hasta entonces. "Índice" también requiere persistencia,
@@ -635,7 +640,7 @@ export function DocumentComposer(props: Props) {
         persistedPendingVariableCount={persistedPendingCount}
       />
 
-      <form action={formAction} noValidate>
+      <form id="document-completar-form" action={formAction} noValidate>
         {fields.map((field) => (
           <input
             key={field.field_key}
@@ -694,38 +699,6 @@ export function DocumentComposer(props: Props) {
               />
             }
             secondary={completarPrimary}
-          />
-
-          {/* Toolbar contextual de Guardar — exclusiva de "Completar": ni
-              Cobro ni Índice la necesitan, así que vive dentro de este
-              panel oculto por CSS, no como hermano suelto del `<form>`.
-              Integra Finalizar/Volver a borrador (rama draft/ready de
-              `DocumentStatusControls`) como acción relacionada — Reabrir
-              (rama final) y las utilitarias (Descargar Word/Historial/
-              Duplicar) viven en `DocumentWorkspaceHeader` en cambio,
-              porque una Escritura finalizada nunca llega a este `<form>`
-              (es solo-lectura, `canWrite` da `false` y el componente no
-              renderiza nada). */}
-          <DocumentSaveControls
-            dirty={dirty}
-            pending={pending}
-            saved={!!state.success && !saveErrorMessage}
-            isEdit={isEdit}
-            canWrite={!readOnly}
-            errorMessage={saveErrorMessage}
-            actions={
-              isEdit ? (
-                <DocumentStatusControls
-                  key={status}
-                  documentId={props.draft.id}
-                  status={status}
-                  dirty={dirty}
-                  canFinalize={canFinalize}
-                  notarialDataConfirmed={completedNotarial}
-                  includeInNotarialIndex={includeInNotarialIndex}
-                />
-              ) : undefined
-            }
           />
         </div>
       </form>
@@ -802,6 +775,39 @@ export function DocumentComposer(props: Props) {
           />
         )}
       </div>
+
+      {/* Dock flotante de Guardar — un solo montaje, hermano de los tres
+          paneles (no dentro de "Completar"): visible sin importar el paso
+          activo mientras la Escritura sea editable, para poder Guardar
+          desde Cobro/Índice sin volver a Completar primero. Integra
+          Finalizar/Volver a borrador (rama draft/ready de
+          `DocumentStatusControls`) como acción relacionada — Reabrir
+          (rama final) y las utilitarias (Descargar Word/Historial/
+          Duplicar) viven en `DocumentWorkspaceHeader` en cambio, porque
+          una Escritura finalizada nunca activa este dock (`canWrite` da
+          `false` y el componente no renderiza nada). */}
+      <DocumentSaveControls
+        formId="document-completar-form"
+        dirty={dirty}
+        pending={pending}
+        saved={!!state.success && !saveErrorMessage}
+        isEdit={isEdit}
+        canWrite={!readOnly}
+        errorMessage={saveErrorMessage}
+        actions={
+          isEdit ? (
+            <DocumentStatusControls
+              key={status}
+              documentId={props.draft.id}
+              status={status}
+              dirty={dirty}
+              canFinalize={canFinalize}
+              notarialDataConfirmed={completedNotarial}
+              includeInNotarialIndex={includeInNotarialIndex}
+            />
+          ) : undefined
+        }
+      />
 
       {leaveConfirmOpen && (
         <ConfirmDialog

@@ -10,11 +10,15 @@
  * un lugar distinto del workspace (ver `DocumentComposer`/
  * `DocumentWorkspaceHeader`): "final" (Reabrir) vive en el encabezado, junto
  * al resto de acciones globales; "draft"/"ready" (Finalizar/Volver a
- * borrador) vive dentro del panel "Completar", integrado a la barra de
- * Guardar — nunca ambas ramas montadas a la vez, porque son mutuamente
- * excluyentes según `status`. Ya no ofrece un enlace directo al paso
- * "Índice": el stepper ya lo cubre, así que agregar uno aquí solo
- * duplicaba navegación.
+ * borrador) vive integrada al dock flotante de Guardar — nunca ambas ramas
+ * montadas a la vez, porque son mutuamente excluyentes según `status`. Ya
+ * no ofrece un enlace directo al paso "Índice": el stepper ya lo cubre,
+ * así que agregar uno aquí solo duplicaba navegación.
+ *
+ * El motivo de un disabled por `dirty` se explica con `title` (tooltip
+ * accesible nativo) en el propio botón, no con una línea de texto
+ * permanente — esa línea hacía crecer el dock flotante justo en el
+ * estado dirty, el más frecuente durante la edición.
  */
 
 import { startTransition, useActionState, useRef, useState } from "react";
@@ -120,6 +124,7 @@ export function DocumentStatusControls({
           type="button"
           disabled={dirty || anyPending}
           onClick={() => setDialog("final")}
+          title={dirty ? "Guarda los cambios antes de finalizar." : undefined}
           className={primaryButtonClass}
         >
           Finalizar escritura
@@ -139,6 +144,7 @@ export function DocumentStatusControls({
                 type="button"
                 disabled={dirty || anyPending}
                 onClick={() => setDialog("final")}
+                title={dirty ? "Guarda los cambios antes de finalizar." : undefined}
                 className={primaryButtonClass}
               >
                 Finalizar escritura
@@ -147,6 +153,7 @@ export function DocumentStatusControls({
                 type="button"
                 disabled={dirty || anyPending}
                 onClick={() => setDialog("draft")}
+                title={dirty ? "Guarda los cambios antes de continuar." : undefined}
                 className={secondaryButtonClass}
               >
                 Volver a borrador
@@ -174,12 +181,6 @@ export function DocumentStatusControls({
             </button>
           )}
         </>
-      )}
-
-      {dirty && status !== "final" && (
-        <p className="w-full text-right text-xs text-amber-700">
-          Guarda los cambios antes de cambiar el estado.
-        </p>
       )}
 
       {showFinalDialog && (
