@@ -12,6 +12,18 @@
  * con "Revisar y finalizar": `values`, `clientId`, `dirty`), tanto antes
  * como después del primer guardado.
  *
+ * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, sticky,
+ * dentro del mismo `<form>` que Completar y Revisar) persiste título,
+ * valores, cliente y selecciones de Bloques de opciones en un solo submit
+ * — visible y funcional desde cualquiera de esos dos pasos, no solo desde
+ * Completar. Guardar nunca avanza de paso ni cambia el lifecycle: eso es
+ * responsabilidad exclusiva de `DocumentStatusControls`
+ * (Finalizar/Reabrir/Volver a borrador), que sigue bloqueado mientras haya
+ * cambios sin guardar. Esto resuelve el caso central de reabrir una
+ * Escritura finalizada y corregir un dato desde "Revisar" sin tener que
+ * volver artificialmente a "Completar" solo porque ahí vivía el único
+ * botón de guardado.
+ *
  * "Revisar y finalizar" fusiona lo que antes eran dos pasos separados
  * ("Revisar" y "Finalizar"): el paso de solo revisar el documento quedaba
  * vacío salvo por un botón, así que la finalización ocurre en el mismo
@@ -23,12 +35,14 @@
  *
  * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
  * queda bloqueado hasta entonces; "Índice" además requiere que esté
- * finalizada, igual que siempre. Índice vive fuera del `<form>` principal
- * porque tiene su propio `<form>`/Server Action (no puede anidarse).
+ * finalizada, igual que siempre. Ambos mantienen su propio guardado
+ * independiente (fuera de este `<form>`, cada uno con su propio
+ * `<form>`/Server Action) — el guardado único de este PR es exclusivo del
+ * contenido compartido por Completar/Revisar, no los subsume.
  */
 
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { TemplateDocument } from "@/lib/editor/types";
 import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
 import { extractActiveDocumentVariables } from "@/lib/editor/variables";
@@ -54,9 +68,11 @@ import { useDocumentPreview } from "../hooks/use-document-preview";
 import { DocumentContextBar } from "./DocumentContextBar";
 import { DocumentMobileViewToggle } from "./DocumentMobileViewToggle";
 import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
+import { DocumentSaveControls } from "./DocumentSaveControls";
 import { DocumentStatusControls } from "./DocumentStatusControls";
 import { DownloadDocxButton } from "./DownloadDocxButton";
 import { PendingFieldsDialog, type PendingField } from "./PendingFieldsDialog";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import {
   DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
@@ -75,26 +91,6 @@ import { DocumentReceivableStep } from "./DocumentReceivableStep";
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
 const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
-
-// Orden fijo del flujo guiado — usado para saber a qué paso avanza
-// "Guardar y continuar" (Completar → Revisar y finalizar) en modo edición.
-// El primer guardado (create → edit) avanza por el mismo criterio desde
-// `content-actions.ts`, que mantiene su propia copia mínima del destino.
-const DOCUMENT_STEP_ORDER: DocumentWorkspaceSection[] = [
-  "completar",
-  "revisar",
-  "cobro",
-  "notarial",
-];
-
-function nextDocumentSection(
-  current: DocumentWorkspaceSection,
-): DocumentWorkspaceSection {
-  const index = DOCUMENT_STEP_ORDER.indexOf(current);
-  return index >= 0 && index < DOCUMENT_STEP_ORDER.length - 1
-    ? DOCUMENT_STEP_ORDER[index + 1]
-    : current;
-}
 
 type SharedProps = {
   document: TemplateDocument;
@@ -162,6 +158,7 @@ function resolveSection(
 
 export function DocumentComposer(props: Props) {
   const { document, fields, templateName, clients, canFinalize } = props;
+  const router = useRouter();
   const isEdit = props.mode === "edit";
   const draft = isEdit ? props.draft : null;
   const status: DocumentStatus =
@@ -294,29 +291,20 @@ export function DocumentComposer(props: Props) {
     draft?.option_selections,
   );
 
-  // Un guardado exitoso (siempre disparado por "Guardar y continuar", el
-  // único submit del formulario compartido) confirma "Completar", muestra
-  // el toast de confirmación, y avanza a "Revisar y finalizar" — pero solo
-  // si el guardado ocurrió estando en "Completar" (evita reaccionar a un
-  // eco de un `state` ya procesado al cambiar de paso).
+  // Un guardado exitoso confirma "Completar" y muestra el toast — nunca
+  // avanza de paso: Guardar solo persiste (ver comentario de módulo).
+  // Reachable desde Completar o Revisar por igual, ya que el único
+  // `<form>` cubre ambos pasos.
   const lastProcessedState = useRef<DocumentDraftState | null>(null);
   useEffect(() => {
     if (state.success && lastProcessedState.current !== state) {
       lastProcessedState.current = state;
       setCompletarSavedOnceValid(title.trim() !== "");
       showToast("Escritura guardada.");
-      if (section === "completar") {
-        // `goToSection` sincroniza con un sistema externo (la URL, vía
-        // `history.pushState`) en reacción a que el Server Action ya
-        // confirmó el guardado — exactamente el caso que un efecto debe
-        // cubrir, no estado derivado que debiera calcularse en el render.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        goToSection(nextDocumentSection("completar"));
-      }
     }
-    // Deliberadamente solo [state]: se lee el valor más reciente de title/
-    // section en cada disparo, pero el efecto solo debe reaccionar a un
-    // guardado nuevo, no a cada tecleo.
+    // Deliberadamente solo [state]: se lee el valor más reciente de title
+    // en cada disparo, pero el efecto solo debe reaccionar a un guardado
+    // nuevo, no a cada tecleo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
@@ -400,13 +388,84 @@ export function DocumentComposer(props: Props) {
     }
   }
 
+  // Recargar/cerrar la pestaña con cambios sin guardar: el navegador exige
+  // su propio diálogo nativo aquí (ninguna UI personalizada puede
+  // interceptar `beforeunload`) — es la única protección real para este
+  // caso específico, distinta de la confirmación propia de abajo (que cubre
+  // salir DENTRO de la misma pestaña, p. ej. a otro módulo). Mismo patrón
+  // que `TemplateWorkspace` (Machotes), implementado aparte a propósito
+  // (ver comentario de módulo).
+  useEffect(() => {
+    if (!dirty) return;
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty]);
+
+  // Salir de VERDAD del workspace (breadcrumb "‹ Volver a Escrituras",
+  // navbar/drawer superior a otro módulo — cualquier <a> real que navegue a
+  // otra ruta) con cambios sin guardar pide confirmación en vez de
+  // perderlos. Deliberadamente NO intercepta navegación interna del
+  // stepper (botones, no <a>, y de todos modos misma ruta vía
+  // `history.pushState`) ni clics dentro de esta misma página. Interceptar
+  // a nivel de `document` (captura) es lo que cubre también la navbar
+  // superior compartida sin tener que tocar ese componente compartido.
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dirty) return;
+    function handleDocumentClick(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      const anchor = (event.target as HTMLElement | null)?.closest?.(
+        "a[href]",
+      ) as HTMLAnchorElement | null;
+      if (!anchor || (anchor.target && anchor.target !== "_self")) return;
+      let url: URL;
+      try {
+        url = new URL(anchor.href, window.location.origin);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname) return;
+      event.preventDefault();
+      setPendingHref(url.pathname + url.search);
+      setLeaveConfirmOpen(true);
+    }
+    // `window.document`, no `document`: ese identificador ya está tomado
+    // por el prop `document` (el machote estructurado) desestructurado más
+    // arriba, no por el DOM global.
+    window.document.addEventListener("click", handleDocumentClick, true);
+    return () =>
+      window.document.removeEventListener("click", handleDocumentClick, true);
+  }, [dirty]);
+
+  // No descarta `dirty` en error: el usuario nunca pierde sus cambios
+  // locales por un guardado fallido, y "Error al guardar" se distingue de
+  // "Cambios sin guardar" en vez de quedar enmascarado por él.
+  const saveErrorMessage =
+    !pending && !state.success && state.message ? state.message : undefined;
   const saveStatusText = pending
     ? "Guardando…"
-    : dirty
-      ? "Cambios sin guardar"
-      : state.success || isEdit
-        ? "Guardado"
-        : "Sin guardar";
+    : saveErrorMessage
+      ? "Error al guardar"
+      : dirty
+        ? "Cambios sin guardar"
+        : state.success || isEdit
+          ? "Guardado"
+          : "Sin guardar";
 
   const completedCompletar = completarSavedOnceValid && title.trim() !== "";
   const completedCobro =
@@ -536,20 +595,6 @@ export function DocumentComposer(props: Props) {
             ? "Esta escritura está finalizada (solo lectura). Reábrela para editarla de nuevo."
             : "Tu rol no permite editar escrituras. La ves en modo lectura."}
         </p>
-      )}
-      {!readOnly && (
-        <div>
-          <p className={`text-xs ${dirty && !pending ? "text-amber-700 font-medium" : "text-slate-500"}`}>
-            {saveStatusText}
-          </p>
-          <button
-            type="submit"
-            disabled={pending}
-            className="mt-2 w-full rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {pending ? "Guardando…" : "Guardar y continuar"}
-          </button>
-        </div>
       )}
     </section>
   );
@@ -712,6 +757,19 @@ export function DocumentComposer(props: Props) {
             <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
           </div>
         </div>
+
+        {/* Visible desde Completar y Revisar por igual — ambos comparten
+            este `<form>` y su estado (`values`/`clientId`/`dirty`). Fuera
+            de los paneles ocultos por sección, como única zona estable de
+            guardado del contenido de la Escritura. */}
+        <DocumentSaveControls
+          dirty={dirty}
+          pending={pending}
+          saved={!!state.success && !saveErrorMessage}
+          isEdit={isEdit}
+          canWrite={!readOnly}
+          errorMessage={saveErrorMessage}
+        />
       </form>
 
       <ExpandableDocumentPanel
@@ -782,6 +840,20 @@ export function DocumentComposer(props: Props) {
           <LockedStepPlaceholder title="Índice" />
         )}
       </div>
+
+      {leaveConfirmOpen && (
+        <ConfirmDialog
+          title="¿Salir sin guardar?"
+          description="Tienes cambios sin guardar en esta escritura. Si sales ahora, se perderán."
+          confirmLabel="Salir sin guardar"
+          tone="danger"
+          onConfirm={() => router.push(pendingHref ?? "/dashboard/documents")}
+          onClose={() => {
+            setLeaveConfirmOpen(false);
+            setPendingHref(null);
+          }}
+        />
+      )}
     </div>
   );
 }
