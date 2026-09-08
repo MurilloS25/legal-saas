@@ -16,26 +16,30 @@
  * `ResizableSplitPane`), y solo agregaba navegación sin una fase realmente
  * distinta.
  *
- * Jerarquía de acciones (segundo refinamiento): Reabrir y "Más acciones"
- * (Descargar Word/Duplicar/Historial) viven en `DocumentWorkspaceHeader`
- * porque son alcanzables sin importar el paso activo — Reabrir porque una
- * Escritura finalizada es de solo lectura en todos los pasos, y "Más
- * acciones" porque son secundarias, no ligadas a ningún paso en particular.
+ * Jerarquía de acciones (tercer refinamiento): Reabrir y las utilitarias
+ * (Descargar Word/Historial/Duplicar, todas con jerarquía visual
+ * secundaria) viven en `DocumentWorkspaceHeader` porque son alcanzables
+ * sin importar el paso activo — Reabrir porque una Escritura finalizada es
+ * de solo lectura en todos los pasos, y las utilitarias porque no están
+ * ligadas a ningún paso en particular (un menú "Más acciones" agrupándolas
+ * se probó y se descartó: Descargar Word/Historial son demasiado
+ * frecuentes para esconder, y sin ellas el menú no aportaba nada).
  * Finalizar/Volver a borrador (`DocumentStatusControls`, rama draft/ready)
- * en cambio viven AQUÍ, integradas a la barra de Guardar
+ * en cambio viven AQUÍ, integradas a la toolbar contextual de Guardar
  * (`DocumentSaveControls`) dentro del `<form>` de "Completar" — ambas son
  * acciones del documento en edición y no le pertenecen a Cobro ni a
  * Índice, así que no se repiten ahí.
  *
- * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, sticky,
- * dentro del `<form>` de Completar) persiste título, valores, cliente y
- * selecciones de Bloques de opciones en un solo submit. Guardar nunca
- * avanza de paso ni cambia el lifecycle: eso es responsabilidad exclusiva
- * de `DocumentStatusControls`, que sigue bloqueado mientras haya cambios
- * sin guardar. Esto resuelve el caso central de reabrir una Escritura
+ * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, toolbar
+ * compacta y flotante — no una franja de ancho completo — dentro del
+ * `<form>` de Completar) persiste título, valores, cliente y selecciones
+ * de Bloques de opciones en un solo submit. Guardar nunca avanza de paso
+ * ni cambia el lifecycle: eso es responsabilidad exclusiva de
+ * `DocumentStatusControls`, que sigue bloqueado mientras haya cambios sin
+ * guardar. Esto resuelve el caso central de reabrir una Escritura
  * finalizada y corregir un dato sin tener que navegar a ningún otro lado
  * primero — Reabrir ya deja al usuario en "Completar", editable, con
- * Guardar y Finalizar alcanzables de inmediato, en la misma barra.
+ * Guardar y Finalizar alcanzables de inmediato, en la misma toolbar.
  *
  * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
  * queda bloqueado hasta entonces. "Índice" también requiere persistencia,
@@ -692,15 +696,16 @@ export function DocumentComposer(props: Props) {
             secondary={completarPrimary}
           />
 
-          {/* Barra sticky de Guardar — exclusiva de "Completar" (segundo
-              refinamiento): ni Cobro ni Índice la necesitan, así que vive
-              dentro de este panel oculto por CSS, no como hermano suelto
-              del `<form>`. Integra Finalizar/Volver a borrador (rama
-              draft/ready de `DocumentStatusControls`) como acción
-              relacionada — Reabrir (rama final) y "Más acciones" viven en
-              `DocumentWorkspaceHeader` en cambio, porque una Escritura
-              finalizada nunca llega a este `<form>` (es solo-lectura,
-              `canWrite` da `false` y el componente no renderiza nada). */}
+          {/* Toolbar contextual de Guardar — exclusiva de "Completar": ni
+              Cobro ni Índice la necesitan, así que vive dentro de este
+              panel oculto por CSS, no como hermano suelto del `<form>`.
+              Integra Finalizar/Volver a borrador (rama draft/ready de
+              `DocumentStatusControls`) como acción relacionada — Reabrir
+              (rama final) y las utilitarias (Descargar Word/Historial/
+              Duplicar) viven en `DocumentWorkspaceHeader` en cambio,
+              porque una Escritura finalizada nunca llega a este `<form>`
+              (es solo-lectura, `canWrite` da `false` y el componente no
+              renderiza nada). */}
           <DocumentSaveControls
             dirty={dirty}
             pending={pending}

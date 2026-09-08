@@ -7,16 +7,9 @@ import { DocumentActivity } from "./DocumentActivity";
 type Props = {
   documentId: string;
   activity: DocumentActivityPage;
-  /** "full" (default): botón bordeado. "menu": fila de ancho completo
-   * dentro de "Más acciones". */
-  variant?: "full" | "menu";
 };
 
-export function DocumentHistoryDialog({
-  documentId,
-  activity,
-  variant = "full",
-}: Props) {
+export function DocumentHistoryDialog({ documentId, activity }: Props) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -37,11 +30,7 @@ export function DocumentHistoryDialog({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className={
-          variant === "menu"
-            ? "flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-accent-500"
-            : "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
-        }
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
       >
         Historial
       </button>

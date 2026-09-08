@@ -21,25 +21,28 @@
  * para consultar/cambiar esa decisión. Sigue bloqueado hasta que la
  * Escritura esté finalizada, igual que siempre.
  *
- * Jerarquía de acciones (segundo refinamiento tras el retiro de "Revisar y
- * finalizar"): el stepper ya cubre toda la navegación entre secciones, así
- * que este encabezado deja de repetir botones cuyo único propósito era
- * llevar a un paso que ya es un tab — se retiró el enlace "Ver Índice
- * Notarial"/"Completar datos del índice" (ver `DocumentStatusControls`).
- * Lo que queda aquí es deliberadamente mínimo:
+ * Jerarquía de acciones (tercer refinamiento): el stepper ya cubre toda la
+ * navegación entre secciones, así que este encabezado no repite botones
+ * cuyo único propósito era llevar a un paso que ya es un tab — se retiró
+ * el enlace "Ver Índice Notarial"/"Completar datos del índice" (ver
+ * `DocumentStatusControls`). Un menú "Más acciones" agrupando Descargar
+ * Word/Duplicar/Historial se probó y se descartó: Descargar Word e
+ * Historial son acciones frecuentes/consistentes con el resto del sistema
+ * y esconderlas detrás de un disclosure las hacía más difíciles de ubicar
+ * — viven aquí directamente, con jerarquía visual secundaria/discreta
+ * (nunca compiten con el CTA de lifecycle). Duplicar, menos frecuente,
+ * también queda aquí como secundario — con solo 3-4 acciones utilitarias
+ * en total un overflow ya no aportaba valor.
  *   - "Reabrir escritura" (`DocumentStatusControls`, rama `final`) — la
- *     única acción de lifecycle que tiene sentido fuera de "Completar",
- *     porque una Escritura finalizada es de solo lectura en todos los
- *     pasos, no solo en ese.
- *   - "Más acciones" (`DocumentMoreActionsMenu`) — Descargar Word, Duplicar
- *     e Historial, agrupadas detrás de un disclosure para no competir
- *     visualmente con las acciones primarias del documento.
- * Finalizar/Volver a borrador (rama `draft`/`ready`) YA NO vive aquí: se
- * integró a la barra de Guardar dentro de "Completar"
- * (`DocumentSaveControls`, vía `DocumentComposer`) porque ambas son
- * acciones del documento en edición y no le pertenecen a Cobro ni a
- * Índice — repetir el control global ahí solo porque el componente existe
- * llenaba esos pasos de acciones ajenas a su contenido. Guardar en sí
+ *     única acción de lifecycle que tiene sentido fuera de "Completar"
+ *     (una Escritura finalizada es de solo lectura en todos los pasos, no
+ *     solo en ese), y la única con peso visual primario aquí.
+ *   - Descargar Word, Historial, Duplicar — siempre visibles cuando la
+ *     Escritura existe, sin importar el estado ni el paso activo.
+ * Finalizar/Volver a borrador (rama `draft`/`ready`) NO vive aquí: vive en
+ * la toolbar contextual de "Completar" (`DocumentSaveControls`, vía
+ * `DocumentComposer`) junto a Guardar — ambas son acciones del documento
+ * en edición y no le pertenecen a Cobro ni a Índice. Guardar en sí
  * tampoco vive aquí por el mismo motivo: es exclusivo de "Completar".
  *
  * El compositor (valores, cliente, dirty) permanece montado en todo momento
@@ -55,8 +58,10 @@ import { HorizontalStepper, type StepStatus } from "@/components/document/Horizo
 import { documentStatusBadgeClass, documentStatusLabel } from "../model/status";
 import type { DocumentStatus } from "../model/lifecycle";
 import type { DocumentActivityPage } from "../server/activity-queries";
-import { DocumentMoreActionsMenu } from "./DocumentMoreActionsMenu";
+import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
 import { DocumentStatusControls } from "./DocumentStatusControls";
+import { DownloadDocxButton } from "./DownloadDocxButton";
+import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
 
 export type DocumentWorkspaceSection = "completar" | "cobro" | "notarial";
 
@@ -124,7 +129,7 @@ type Props = {
    * diálogo de reabrir advierte que esa confirmación quedará invalidada. */
   notarialDataConfirmed: boolean;
   /** Variables sin valor del estado PERSISTIDO (no del local) — para el
-   * aviso de Descargar Word dentro de "Más acciones". */
+   * aviso de "Descargar Word" cuando hay variables pendientes. */
   persistedPendingVariableCount: number;
 };
 
@@ -216,14 +221,28 @@ export function DocumentWorkspaceHeader({
                 notarialDataConfirmed={notarialDataConfirmed}
               />
             )}
-            <DocumentMoreActionsMenu
-              documentId={documentId}
-              documentTitle={title}
-              dirty={dirty}
-              persistedPendingVariableCount={persistedPendingVariableCount}
-              canDuplicate={canDuplicate}
-              activity={activity ?? EMPTY_ACTIVITY}
-            />
+            {/* Utilitarias, siempre visibles, jerarquía secundaria/discreta
+                — nunca compiten visualmente con Reabrir ni con Guardar/
+                Finalizar en "Completar". */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <DownloadDocxButton
+                documentId={documentId}
+                disabled={dirty}
+                pendingVariableCount={persistedPendingVariableCount}
+                variant="compact"
+              />
+              <DocumentHistoryDialog
+                documentId={documentId}
+                activity={activity ?? EMPTY_ACTIVITY}
+              />
+              {canDuplicate && (
+                <DuplicateDocumentButton
+                  documentId={documentId}
+                  documentTitle={title}
+                  variant="full"
+                />
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -21,12 +21,12 @@ type Props = {
   /** Variables sin valor del estado PERSISTIDO (no del estado local). */
   pendingVariableCount: number;
   /**
-   * "full" (compositor): botón ancho con textos de ayuda.
-   * "compact" (listado): botón pequeño sin ayuda, misma lógica de descarga.
-   * "menu" (dentro de "Más acciones"): fila de ancho completo estilo ítem
-   * de menú, sin ayuda — misma lógica de descarga que las otras variantes.
+   * "full" (paso Completar, histórico): botón ancho con textos de ayuda.
+   * "compact" (listado, encabezado del workspace): botón pequeño, sin
+   * texto de ayuda debajo — el motivo de un disabled se explica con
+   * `title` en su lugar. Misma lógica de descarga en ambas variantes.
    */
-  variant?: "full" | "compact" | "menu";
+  variant?: "full" | "compact";
   /** Nombre accesible cuando conviene distinguir varias filas. */
   ariaLabel?: string;
 };
@@ -127,17 +127,14 @@ export function DownloadDocxButton({
   }
 
   const preparing = status === "preparing";
-  const isMenu = variant === "menu";
   const showHelp = variant === "full";
 
-  const buttonClass = isMenu
-    ? "flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-    : compact
-      ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  const buttonClass = compact
+    ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
   return (
-    <div className={compact || isMenu ? "inline-block" : undefined}>
+    <div className={compact ? "inline-block" : undefined}>
       <button
         ref={triggerRef}
         type="button"
@@ -145,6 +142,7 @@ export function DownloadDocxButton({
         disabled={disabled || preparing}
         aria-label={ariaLabel}
         aria-describedby={showHelp && disabled ? `${titleId}-hint` : undefined}
+        title={compact && disabled ? "Guarda los cambios antes de descargar el Word." : undefined}
         className={buttonClass}
       >
         {preparing ? "Preparando…" : "Descargar Word"}
