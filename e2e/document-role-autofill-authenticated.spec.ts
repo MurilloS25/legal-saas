@@ -240,7 +240,7 @@ test.describe("document role autofill", () => {
       `${buyerName} (editado)`,
     );
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });

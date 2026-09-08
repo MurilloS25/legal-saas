@@ -152,9 +152,11 @@ test.describe("document docx download", () => {
     await fillField("Cliente Uno Editado");
     await expect(button).toBeDisabled();
 
-    // Guardar reactiva la descarga (el botón de guardado vive en Completar).
+    // Guardar reactiva la descarga — el botón es global (visible en
+    // Completar y Revisar por igual), pero se vuelve a Completar para
+    // editar el campo con `fillField`.
     await goToCompletar(page);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });

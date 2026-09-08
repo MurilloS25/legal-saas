@@ -171,7 +171,7 @@ test.describe("document option blocks", () => {
       .locator('input[data-variable-key="vehiculo.vin"]')
       .blur();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });

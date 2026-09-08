@@ -367,7 +367,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).not.toBeVisible();
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
@@ -402,7 +402,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).not.toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).toBeVisible();
     // asistente sí puede duplicar (documents.create) pero no finalizar
     // (documents.finalize es solo propietario/administrador).

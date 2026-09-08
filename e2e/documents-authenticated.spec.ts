@@ -166,7 +166,7 @@ test.describe("document composer workspace", () => {
       dataPanel(page).getByText("1 de 2 campos completos", { exact: true }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
 
     // Saving redirects to the edit view with a confirmation.
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
@@ -180,7 +180,7 @@ test.describe("document composer workspace", () => {
     // Register the persisted draft for cleanup (its id survives edits).
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
 
-    // El primer guardado ("Guardar y continuar") aterriza en "Revisar y
+    // El primer guardado ("Crear escritura") aterriza en "Revisar y
     // finalizar" (redirect con section=revisar) — volver a "Completar" para
     // ver la hoja documental, que solo se renderiza en ese paso.
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
@@ -268,7 +268,7 @@ test.describe("document composer workspace", () => {
       dataPanel(page).getByText("2 de 2 campos completos", { exact: true }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     await expect(
       page.getByRole("status").getByText("Escritura guardada."),
@@ -326,7 +326,7 @@ test.describe("document composer workspace", () => {
       await expect(fieldValue(page, fieldKey)).toHaveValue("", { timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     await expect(page.getByText(`${fieldLabel} es requerido`)).toBeVisible({
       timeout: 15_000,
@@ -405,7 +405,7 @@ test.describe("document composer workspace", () => {
     ).not.toBeVisible();
     await fillFieldLive(page, "poderdante.nombre", "Poderdante de Prueba");
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
 
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
@@ -481,7 +481,7 @@ test.describe("document composer workspace", () => {
     await expect(sheet.locator("u", { hasText: "San José" })).toBeVisible();
 
     await fillFieldLive(page, "otorgante.nombre", "Otorgante Estructurado");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible({ timeout: 30_000 });
@@ -521,7 +521,7 @@ test.describe("document composer workspace", () => {
 
     // Guardar con un cambio no borra el valor histórico.
     await fillFieldLive(page, "dato.uno", "Valor Uno B");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });

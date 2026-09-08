@@ -244,7 +244,7 @@ test.describe("document data sidebar", () => {
     await fillInlineField(page, "vehiculo.chasis", "CHASIS-003");
 
     await page.getByLabel("Título de la escritura").fill(draftTitle);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });

@@ -12,13 +12,20 @@ import {
 import { restDelete, restSelect } from "./support/supabase-admin";
 
 /**
- * Flujo guiado en Escrituras: "Guardar y continuar" avanza automáticamente
- * al siguiente paso (Completar → Revisar y finalizar → Cobro → Índice),
- * Finalizar avanza a "Cobro" (regresión explícita del bug donde el redirect
- * sin `section` caía de vuelta en "Completar" — ver
- * `markDocumentFinalAction` en `lifecycle-actions.ts`), Cobro se resuelve
- * explícitamente con "Continuar sin cobro"/"Continuar a Índice", y un
- * guardado o finalización fallidos no avanzan ni marcan un paso como
+ * Guardado único en Escrituras (iteración 5): un solo botón "Guardar"
+ * persiste título/valores/cliente/selecciones de Bloques de opciones —
+ * reachable desde Completar Y Revisar por igual (ambos comparten el mismo
+ * `<form>`); navegar entre esos dos pasos es libre y nunca requiere guardar
+ * antes ni avanza como efecto colateral de guardar — reemplaza el antiguo
+ * patrón "Guardar y continuar" (auto-avance a Revisar), retirado
+ * explícitamente en esta iteración, igual que ya se hizo en Machotes.
+ *
+ * Finalizar sigue avanzando a "Cobro" (regresión explícita del bug donde el
+ * redirect sin `section` caía de vuelta en "Completar" — ver
+ * `markDocumentFinalAction` en `lifecycle-actions.ts`) — eso no cambió:
+ * Finalizar es una transición de lifecycle, no el guardado de contenido.
+ * Cobro se resuelve explícitamente con "Continuar sin cobro"/"Continuar a
+ * Índice", y un guardado o finalización fallidos no marcan un paso como
  * completo. Complementa (no duplica)
  * `document-stepper-create-authenticated.spec.ts`, que cubre el primer
  * guardado en modo creación y el modal contextual de Cobro en detalle.
@@ -76,7 +83,7 @@ test.describe("document guided progression", () => {
     await runCleanup(registry, "document-guided-progression");
   });
 
-  test("A: saving from Completar advances to Revisar y finalizar, marks Completar ✓, and shows a toast (no permanent duplicate banner)", async ({
+  test("A: saving from Completar does not navigate away, shows a toast (no permanent duplicate banner), and marks Completar complete", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -88,16 +95,6 @@ test.describe("document guided progression", () => {
       label: "Parte",
       required: true,
     });
-    // El toast de confirmación ("Escritura guardada.") solo se observa en
-    // guardados de modo edición: el primer guardado en modo creación
-    // redirige (`redirect()` en el server action) antes de que
-    // `useActionState` resuelva `state.success` en el cliente, así que ese
-    // primer guardado nunca dispara el efecto que muestra el toast — solo
-    // el banner de hito (ver `document-milestone-feedback-authenticated.
-    // spec.ts`, test A). Se usa un documento ya persistido (modo edición)
-    // para probar el toast + auto-avance + ✓ juntos, igual que el
-    // equivalente en Machotes (`template-guided-progression-authenticated.
-    // spec.ts`, que también edita un machote ya existente).
     const doc = await createTestDocument(registry, template.id, {
       title: uniqueName("document-guided-progression", "escritura-a"),
       rendered_content: "ESCRITURA. Comparece {{parte.nombre}}.",
@@ -109,13 +106,15 @@ test.describe("document guided progression", () => {
       "true",
     );
     await fillFieldLive(page, "parte.nombre", "Persona de Prueba");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
-    // El guardado avanza automáticamente al siguiente paso del orden fijo.
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+    // Guardado único: no navega de paso — sigue en "Completar".
+    await expect(
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
-      { timeout: 15_000 },
     );
 
     // El toast se autodescarta a los 3.5s — verificarlo antes que
@@ -124,16 +123,17 @@ test.describe("document guided progression", () => {
     await expect(
       page.getByText("Escritura guardada.", { exact: true }),
     ).toHaveCount(1);
-    await expect(
-      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
-    ).toBeVisible();
 
+    // El paso activo se marca "current" (no "✓") mientras se está en él —
+    // el check solo se ve en un paso completo que YA NO es el actual, así
+    // que hay que salir de "Completar" para verlo.
+    await goToStep(page, "Revisar y finalizar");
     await expect(
       stepTab(page, "Completar").getByText("✓", { exact: true }),
     ).toBeVisible();
   });
 
-  test("B: a validation error on save does not advance the step nor mark it complete", async ({
+  test("B: a validation error on save keeps the workspace dirty and does not mark the step complete", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -156,7 +156,7 @@ test.describe("document guided progression", () => {
     // del servidor que procesar.
     const titleInput = page.getByLabel("Título de la escritura");
     await titleInput.fill("");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
@@ -173,11 +173,58 @@ test.describe("document guided progression", () => {
     ).toHaveCount(0);
   });
 
-  test("C: a failed finalize attempt (pending required variable) does not advance and shows the server error", async ({
+  test("C: navigating between Completar and Revisar never requires saving first, and a single Guardar reachable from either step persists edits", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
       name: uniqueName("document-guided-progression", "machote-c"),
+      content: "ESCRITURA sin variables.",
+    });
+    const doc = await createTestDocument(registry, template.id, {
+      title: uniqueName("document-guided-progression", "escritura-c"),
+      rendered_content: "ESCRITURA sin variables.",
+    });
+    const firstTitle = `${uniqueName("document-guided-progression", "escritura-c")} v2`;
+
+    await page.goto(`/dashboard/documents/${doc.id}`);
+
+    // Edita en Completar sin guardar y navega a Revisar — el cambio local
+    // no se pierde ni exige guardar antes de moverse.
+    await page.getByLabel("Título de la escritura").fill(firstTitle);
+    await goToStep(page, "Revisar y finalizar");
+    await expect(
+      page.locator('form p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
+    ).toBeVisible();
+
+    await goToStep(page, "Completar");
+    await expect(page.getByLabel("Título de la escritura")).toHaveValue(
+      firstTitle,
+    );
+
+    // Guardar es alcanzable (y funcional) parado en Revisar — no hace
+    // falta volver a Completar solo porque ahí vivía el único botón antes
+    // de esta iteración.
+    await goToStep(page, "Revisar y finalizar");
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await page.reload();
+    await expect(page.getByLabel("Título de la escritura")).toHaveValue(
+      firstTitle,
+    );
+  });
+
+  test("D: a failed finalize attempt (pending required variable) does not advance and shows the server error", async ({
+    page,
+  }) => {
+    const template = await createTestTemplate(registry, {
+      name: uniqueName("document-guided-progression", "machote-d"),
       content: "ESCRITURA. Comparece {{parte.nombre}}.",
     });
     await createTestTemplateField(registry, template.id, {
@@ -186,7 +233,7 @@ test.describe("document guided progression", () => {
       required: true,
     });
     const doc = await createTestDocument(registry, template.id, {
-      title: uniqueName("document-guided-progression", "escritura-c"),
+      title: uniqueName("document-guided-progression", "escritura-d"),
       rendered_content: "ESCRITURA. Comparece {{parte.nombre}}.",
     });
 
@@ -217,15 +264,15 @@ test.describe("document guided progression", () => {
     await expect(page.getByText("Finalizada", { exact: true })).toHaveCount(0);
   });
 
-  test("D: from Cobro with zero receivables, 'Continuar sin cobro' navigates to Índice, and reloading afterward is fine", async ({
+  test("E: from Cobro with zero receivables, 'Continuar sin cobro' navigates to Índice, and reloading afterward is fine", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
-      name: uniqueName("document-guided-progression", "machote-d"),
+      name: uniqueName("document-guided-progression", "machote-e"),
       content: "ESCRITURA sin variables.",
     });
     const doc = await createTestDocument(registry, template.id, {
-      title: uniqueName("document-guided-progression", "escritura-d"),
+      title: uniqueName("document-guided-progression", "escritura-e"),
       status: "final",
       rendered_content: "ESCRITURA sin variables.",
     });
@@ -250,47 +297,6 @@ test.describe("document guided progression", () => {
     await expect(
       page.getByRole("region", { name: "Datos para índice" }),
     ).toBeVisible();
-  });
-
-  test("E: manual back-navigation still works after auto-advancing forward, and re-saving advances again", async ({
-    page,
-  }) => {
-    const template = await createTestTemplate(registry, {
-      name: uniqueName("document-guided-progression", "machote-e"),
-      content: "ESCRITURA sin variables.",
-    });
-    const doc = await createTestDocument(registry, template.id, {
-      title: uniqueName("document-guided-progression", "escritura-e"),
-      rendered_content: "ESCRITURA sin variables.",
-    });
-
-    await page.goto(`/dashboard/documents/${doc.id}`);
-    await page
-      .getByLabel("Título de la escritura")
-      .fill(`${uniqueName("document-guided-progression", "escritura-e")} v2`);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
-      "aria-selected",
-      "true",
-      { timeout: 15_000 },
-    );
-
-    // Navegación manual hacia atrás — el auto-avance no vuelve esto un
-    // asistente de un solo sentido.
-    await goToStep(page, "Completar");
-    const secondTitle = `${uniqueName("document-guided-progression", "escritura-e")} v3`;
-    await page.getByLabel("Título de la escritura").fill(secondTitle);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
-      "aria-selected",
-      "true",
-      { timeout: 15_000 },
-    );
-    await goToStep(page, "Completar");
-    await expect(page.getByLabel("Título de la escritura")).toHaveValue(
-      secondTitle,
-    );
   });
 
   test("F: Finalizar aterriza en Cobro (regresión del bug), y desde ahí el modal de Cobro (incluyendo 'Crear nuevo cliente' anidado) sigue funcionando", async ({
@@ -322,14 +328,20 @@ test.describe("document guided progression", () => {
       .getByLabel("Cliente principal", { exact: true })
       .selectOption(existingClient.id);
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    // Primer guardado en modo creación: "Crear escritura" (no "Guardar" —
+    // ese label es exclusivo de edición). El redirect del server action
+    // sigue aterrizando en "Revisar y finalizar", sin relación con el
+    // auto-avance retirado (ese redirect es explícito del primer guardado,
+    // no un efecto de cliente).
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // Ya aterrizamos en "Revisar y finalizar" (test A) — no-op idempotente,
-    // explícito para no depender de a dónde nos dejó el guardado anterior.
+    // Ya aterrizamos en "Revisar y finalizar" (redirect del primer
+    // guardado) — no-op idempotente, explícito para no depender de a dónde
+    // nos dejó el guardado anterior.
     await goToStep(page, "Revisar y finalizar");
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const finalizeDialog = page.getByRole("alertdialog", {

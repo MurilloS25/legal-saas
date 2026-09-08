@@ -44,7 +44,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
     await page.goto(`/dashboard/documents/new/${template.id}`);
     const title = uniqueName("document-milestone", "escritura-a");
     await page.getByLabel("Título de la escritura").fill(title);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
 
     // El primer guardado avanza automáticamente a "Revisar y finalizar".
     await expect(
@@ -73,7 +73,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
     const documentId = new URL(page.url()).pathname.split("/").pop();
     await page.goto(`/dashboard/documents/${documentId}`);
     await page.getByLabel("Título de la escritura").fill(`${title} editado`);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });

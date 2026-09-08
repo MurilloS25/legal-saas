@@ -221,7 +221,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     ).toBeVisible();
 
     // Guardar desde Completar (paso activo al guardar).
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
 
     // El `?saved=1` es efímero — un efecto de montaje en `DocumentComposer`
     // lo limpia de la URL apenas dispara el toast de confirmación (el
@@ -345,7 +345,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await page.keyboard.press("Escape");
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Cobro");
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
