@@ -180,9 +180,9 @@ test.describe("document composer workspace", () => {
     // Register the persisted draft for cleanup (its id survives edits).
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
 
-    // El primer guardado ("Crear escritura") aterriza en "Revisar y
-    // finalizar" (redirect con section=revisar) — volver a "Completar" para
-    // ver la hoja documental, que solo se renderiza en ese paso.
+    // El primer guardado ("Crear escritura") aterriza en "Completar" (el
+    // paso por defecto) — la hoja documental ya está ahí; el clic es
+    // redundante pero inofensivo.
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       documentRegion(page).getByText(new RegExp(filledValue)),
@@ -275,8 +275,8 @@ test.describe("document composer workspace", () => {
     ).toBeVisible({ timeout: 15_000 });
     draftPath = new URL(page.url()).pathname;
 
-    // El guardado avanza automáticamente a "Revisar y finalizar"; volver a
-    // "Completar" para verificar la hoja documental.
+    // El guardado deja al usuario en "Completar" (el paso por defecto);
+    // el clic solo confirma la hoja documental está ahí.
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       documentRegion(page).getByText(/Cliente Editado 007 \(cero inicial: 012\)/),
@@ -415,8 +415,8 @@ test.describe("document composer workspace", () => {
     ).toBeVisible();
     await registerCreatedViaUi(registry, "documents", "title", bareDraftTitle);
 
-    // El primer guardado aterriza en "Revisar y finalizar" (redirect con
-    // section=revisar) — volver a "Completar" para ver la hoja documental.
+    // El primer guardado aterriza en "Completar" (el paso por defecto) —
+    // la hoja documental ya está ahí.
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       documentRegion(page).getByText(/Poderdante de Prueba/),
@@ -487,8 +487,8 @@ test.describe("document composer workspace", () => {
     ).toBeVisible({ timeout: 30_000 });
     await registerCreatedViaUi(registry, "documents", "title", structuredTitle);
 
-    // El primer guardado aterriza en "Revisar y finalizar" — volver a
-    // "Completar" para ver la hoja documental.
+    // El primer guardado aterriza en "Completar" (el paso por defecto) —
+    // la hoja documental ya está ahí.
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       documentRegion(page).getByText(/Otorgante Estructurado/),

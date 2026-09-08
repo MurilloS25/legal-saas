@@ -372,11 +372,10 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
     ).not.toBeVisible();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar vive en el encabezado del workspace, no en un paso propio.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
-    await page.getByRole("tab", { name: "Completar" }).click();
 
     // Solicitud manipulada: reactiva el título y fuerza el envío del form
     // principal del compositor.
@@ -407,7 +406,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     // asistente sí puede duplicar (documents.create) pero no finalizar
     // (documents.finalize es solo propietario/administrador).
     await expect(page.getByRole("button", { name: "Duplicar" })).toBeVisible();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar vive en el encabezado del workspace, no en un paso propio.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
@@ -418,7 +417,8 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   }) => {
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar/Reabrir viven en el encabezado del workspace, no en un
+    // paso propio.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
@@ -428,7 +428,6 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       timeout: 15_000,
     });
     // Finalizar redirige de verdad y avanza el paso a "Cobro".
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByText("Finalizada es de solo lectura"),
     ).toBeVisible();
@@ -438,7 +437,6 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(page.getByText("Finalizada es de solo lectura")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
@@ -455,7 +453,6 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).not.toBeVisible();

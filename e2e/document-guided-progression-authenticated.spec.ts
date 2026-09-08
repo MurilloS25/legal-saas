@@ -12,13 +12,16 @@ import {
 import { restDelete, restSelect } from "./support/supabase-admin";
 
 /**
- * Guardado único en Escrituras (iteración 5): un solo botón "Guardar"
- * persiste título/valores/cliente/selecciones de Bloques de opciones —
- * reachable desde Completar Y Revisar por igual (ambos comparten el mismo
- * `<form>`); navegar entre esos dos pasos es libre y nunca requiere guardar
- * antes ni avanza como efecto colateral de guardar — reemplaza el antiguo
- * patrón "Guardar y continuar" (auto-avance a Revisar), retirado
- * explícitamente en esta iteración, igual que ya se hizo en Machotes.
+ * Guardado único en Escrituras (iteración 5, con el stepper simplificado de
+ * la iteración 6): un solo botón "Guardar" persiste título/valores/
+ * cliente/selecciones de Bloques de opciones desde "Completar" — nunca
+ * avanza de paso ni cambia el lifecycle. El paso "Revisar y finalizar" que
+ * existió en la iteración 5 se retiró en la 6: mostraba prácticamente el
+ * mismo documento que ya se ve en Completar (vista previa en vivo,
+ * expandible a pantalla completa) y solo agregaba navegación. El stepper
+ * es ahora Completar → Cobro → Índice; Finalizar/Reabrir/Descargar Word
+ * viven en el encabezado del workspace (`DocumentWorkspaceHeader`), no en
+ * un paso propio — alcanzables sin importar la sección activa.
  *
  * Finalizar sigue avanzando a "Cobro" (regresión explícita del bug donde el
  * redirect sin `section` caía de vuelta en "Completar" — ver
@@ -40,10 +43,7 @@ function stepper(page: Page) {
   return page.getByRole("navigation", { name: "Pasos de la escritura" });
 }
 
-function stepTab(
-  page: Page,
-  name: "Completar" | "Revisar y finalizar" | "Cobro" | "Índice",
-) {
+function stepTab(page: Page, name: "Completar" | "Cobro" | "Índice") {
   return stepper(page).getByRole("tab", { name, exact: true });
 }
 
@@ -126,8 +126,9 @@ test.describe("document guided progression", () => {
 
     // El paso activo se marca "current" (no "✓") mientras se está en él —
     // el check solo se ve en un paso completo que YA NO es el actual, así
-    // que hay que salir de "Completar" para verlo.
-    await goToStep(page, "Revisar y finalizar");
+    // que hay que salir de "Completar" para verlo. "Cobro" ya está
+    // desbloqueado (la Escritura existe) aunque esté vacío.
+    await goToStep(page, "Cobro");
     await expect(
       stepTab(page, "Completar").getByText("✓", { exact: true }),
     ).toBeVisible();
@@ -173,7 +174,7 @@ test.describe("document guided progression", () => {
     ).toHaveCount(0);
   });
 
-  test("C: navigating between Completar and Revisar never requires saving first, and a single Guardar reachable from either step persists edits", async ({
+  test("C: navigating to Cobro and back to Completar never requires saving first, and Guardar persists edits made along the way", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -188,10 +189,10 @@ test.describe("document guided progression", () => {
 
     await page.goto(`/dashboard/documents/${doc.id}`);
 
-    // Edita en Completar sin guardar y navega a Revisar — el cambio local
-    // no se pierde ni exige guardar antes de moverse.
+    // Edita en Completar sin guardar y navega a Cobro — el cambio local no
+    // se pierde ni exige guardar antes de moverse.
     await page.getByLabel("Título de la escritura").fill(firstTitle);
-    await goToStep(page, "Revisar y finalizar");
+    await goToStep(page, "Cobro");
     await expect(
       page.locator('form p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
     ).toBeVisible();
@@ -201,15 +202,12 @@ test.describe("document guided progression", () => {
       firstTitle,
     );
 
-    // Guardar es alcanzable (y funcional) parado en Revisar — no hace
-    // falta volver a Completar solo porque ahí vivía el único botón antes
-    // de esta iteración.
-    await goToStep(page, "Revisar y finalizar");
+    // Guardar persiste el cambio sin navegar de paso.
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+    await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -238,7 +236,8 @@ test.describe("document guided progression", () => {
     });
 
     await page.goto(`/dashboard/documents/${doc.id}`);
-    await goToStep(page, "Revisar y finalizar");
+    // Finalizar vive en el encabezado — alcanzable directo desde
+    // "Completar", sin navegar a ningún paso.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -252,15 +251,12 @@ test.describe("document guided progression", () => {
       ),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Nada avanzó: seguimos en "Revisar y finalizar" (no en "Cobro"), sin
-    // marca de completo, y el estado sigue en borrador.
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+    // Nada avanzó: seguimos en "Completar" (no en "Cobro"), y el estado
+    // sigue en borrador.
+    await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    await expect(
-      stepTab(page, "Revisar y finalizar").getByText("✓", { exact: true }),
-    ).toHaveCount(0);
     await expect(page.getByText("Finalizada", { exact: true })).toHaveCount(0);
   });
 
@@ -330,19 +326,16 @@ test.describe("document guided progression", () => {
     await page.keyboard.press("Escape");
     // Primer guardado en modo creación: "Crear escritura" (no "Guardar" —
     // ese label es exclusivo de edición). El redirect del server action
-    // sigue aterrizando en "Revisar y finalizar", sin relación con el
-    // auto-avance retirado (ese redirect es explícito del primer guardado,
-    // no un efecto de cliente).
+    // deja al usuario en "Completar" (el paso por defecto — ya no existe
+    // "Revisar y finalizar" a donde aterrizar).
     await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // Ya aterrizamos en "Revisar y finalizar" (redirect del primer
-    // guardado) — no-op idempotente, explícito para no depender de a dónde
-    // nos dejó el guardado anterior.
-    await goToStep(page, "Revisar y finalizar");
+    // Finalizar vive en el encabezado — alcanzable directo desde
+    // "Completar" (paso por defecto tras el primer guardado).
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const finalizeDialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -352,15 +345,12 @@ test.describe("document guided progression", () => {
       .click();
 
     // === La aserción más importante de esta suite ===
-    // Finalizar debe avanzar a "Cobro", NUNCA de vuelta a "Completar" (el
+    // Finalizar debe avanzar a "Cobro", NUNCA quedar en "Completar" (el
     // bug original: el redirect no llevaba `section`, así que caía en el
     // paso por defecto).
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      stepTab(page, "Revisar y finalizar").getByText("✓", { exact: true }),
-    ).toBeVisible();
     await expect(stepTab(page, "Cobro")).toHaveAttribute(
       "aria-selected",
       "true",

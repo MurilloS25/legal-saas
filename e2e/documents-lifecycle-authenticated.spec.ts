@@ -37,13 +37,13 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-// El paso "Finalizar" (Estado/Reabrir/Descargar Word) vive en su propio
-// panel del stepper, oculto por defecto (el paso inicial es "Completar").
+// Estado/Reabrir/Finalizar/Descargar Word viven en el encabezado del
+// workspace (iteración 6) — visibles sin importar qué paso del stepper
+// esté activo, así que no hace falta navegar a ningún paso para verlos.
 async function goToFinalizar(page: Page) {
-  await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
   await expect(
     page.getByRole("heading", { name: "Estado de la escritura" }),
-  ).toBeVisible();
+  ).toBeAttached();
 }
 
 test.describe("document lifecycle statuses", () => {
@@ -123,17 +123,12 @@ test.describe("document lifecycle statuses", () => {
     ).toBeEnabled();
 
     // Finalizar redirige de verdad (server action) y avanza el paso activo
-    // a "Cobro" — el siguiente paso del flujo guiado tras completar
-    // "Revisar y finalizar" (antes este redirect no llevaba `section` y
-    // caía en el paso por defecto "Completar", el bug que este fix
-    // corrige). Hay que volver a "Revisar y finalizar" para ver el enlace.
-    await expect(
-      page.getByRole("tab", { name: "Revisar y finalizar", exact: true }),
-    ).toHaveAttribute("aria-selected", "false");
+    // a "Cobro" — el siguiente paso real del flujo guiado tras finalizar
+    // (Finalizar ahora vive en el encabezado, no en un paso propio del
+    // stepper).
     await expect(
       page.getByRole("tab", { name: "Cobro", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-    await goToFinalizar(page);
     await expect(
       page.getByRole("link", { name: "Completar datos del índice" }),
     ).toBeVisible();

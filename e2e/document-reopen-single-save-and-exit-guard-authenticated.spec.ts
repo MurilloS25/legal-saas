@@ -11,14 +11,19 @@ import {
 
 /**
  * Iteración 5 — guardado único + reopen/review coherente de Escrituras.
+ * Actualizado en la iteración 6 (stepper simplificado: "Revisar y
+ * finalizar" se retiró — Completar es ahora el único paso con contenido
+ * editable, y Finalizar/Reabrir viven en el encabezado del workspace, no
+ * en un paso propio).
  *
- * Caso crítico obligatorio (punto 37 del pedido): una Escritura finalizada
- * se reabre, se corrige un dato desde "Revisar y finalizar" (sin volver
- * artificialmente a "Completar"), se guarda desde ahí mismo, y se
- * refinaliza — todo sin navegación forzada. Complementa (no duplica)
- * `document-guided-progression-authenticated.spec.ts` (guardado único
- * básico) y `documents-docx-authenticated.spec.ts` (DOCX bloqueado con
- * dirty, ya cubierto ahí).
+ * Caso crítico obligatorio (punto 37 del pedido original): una Escritura
+ * finalizada se reabre, se corrige un dato, se guarda, y se refinaliza —
+ * todo sin navegación forzada. Con el stepper simplificado esto ocurre
+ * enteramente en "Completar" (el paso por defecto tras Reabrir): editar,
+ * Guardar y Finalizar están todos ahí mismo, sin un solo cambio de paso.
+ * Complementa (no duplica) `document-guided-progression-authenticated.
+ * spec.ts` (guardado único básico) y `documents-docx-authenticated.spec.ts`
+ * (DOCX bloqueado con dirty, ya cubierto ahí).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -30,20 +35,15 @@ function stepper(page: Page) {
   return page.getByRole("navigation", { name: "Pasos de la escritura" });
 }
 
-function stepTab(
-  page: Page,
-  name: "Completar" | "Revisar y finalizar" | "Cobro" | "Índice",
-) {
+function stepTab(page: Page, name: "Completar" | "Cobro" | "Índice") {
   return stepper(page).getByRole("tab", { name, exact: true });
 }
 
-// "Completar" (vía `DocumentPreviewPanel`) y "Revisar y finalizar" (el
-// `DocumentSheet` compartido, sin ese wrapper) renderizan cada uno su
-// propio `role="group"` nombrado "Documento" (mismo `aria-labelledby`) —
-// ambos permanecen montados, pero el panel oculto por CSS (`hidden`) queda
-// fuera del árbol de accesibilidad, así que este locator siempre resuelve
-// al que esté visible en el paso activo, sin necesidad de escopar por
-// paso.
+// El documento vive en un único `role="group"` nombrado "Documento" (vía
+// `DocumentPreviewPanel`, dentro de "Completar") — el modal de pantalla
+// completa (`ExpandableDocumentPanel`) reutiliza el mismo `DocumentSheet`
+// pero solo se monta mientras está abierto, así que este locator nunca es
+// ambiguo en el flujo normal (no expandido).
 function documentGroup(page: Page) {
   return page.getByRole("group", { name: "Documento", exact: true });
 }
@@ -71,12 +71,12 @@ async function editFieldLive(page: Page, key: string, value: string) {
   }).toPass({ timeout: 20_000 });
 }
 
-test.describe("document reopen: single save from Revisar, and exit guard", () => {
+test.describe("document reopen: single save from Completar, and exit guard", () => {
   test.afterAll(async () => {
     await runCleanup(registry, "document-reopen-guard");
   });
 
-  test("A: reopening a finalized document, correcting a field from Revisar (no forced trip to Completar), saving there, and refinalizing all work end to end", async ({
+  test("A: reopening a finalized document, correcting a field, saving, and refinalizing all work end to end without a single step change", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -95,8 +95,8 @@ test.describe("document reopen: single save from Revisar, and exit guard", () =>
       status: "final",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}?section=revisar`);
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+    await page.goto(`/dashboard/documents/${doc.id}`);
+    await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -107,34 +107,34 @@ test.describe("document reopen: single save from Revisar, and exit guard", () =>
       .getByRole("button", { name: "Reabrir escritura" })
       .click();
 
-    // Reabrir deja parado en "Revisar y finalizar" — no navega a
-    // "Completar" solo porque ahí vivía el guardado antes de esta
-    // iteración.
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+    // Reabrir deja parado en "Completar" (el paso por defecto) — editable
+    // de inmediato.
+    await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
       { timeout: 15_000 },
     );
     await expect(page.getByText("Borrador", { exact: true }).first()).toBeVisible();
 
-    // Corregir el dato directamente desde Revisar — sin ir a "Completar".
+    // Corregir el dato — sin navegar a ningún otro lado.
     await editFieldLive(page, "parte.nombre", "Persona Corregida");
     await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
 
-    // Finalizar está deshabilitado mientras hay cambios sin guardar.
+    // Finalizar (en el encabezado) está deshabilitado mientras hay
+    // cambios sin guardar.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeDisabled();
 
-    // Guardar es alcanzable y funcional parado en Revisar.
+    // Guardar, sin cambiar de paso.
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(saveStatus(page)).toHaveText("Guardado", { timeout: 15_000 });
-    await expect(stepTab(page, "Revisar y finalizar")).toHaveAttribute(
+    await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
     );
 
-    // Refinalizar sin navegación artificial.
+    // Refinalizar, también desde el mismo lugar.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "Finalizar escritura" })
@@ -147,8 +147,8 @@ test.describe("document reopen: single save from Revisar, and exit guard", () =>
     // El dato corregido sobrevive un reload completo. Refinalizar redirige
     // a "Cobro" (regresión conocida y deliberada, cubierta aparte en
     // `document-guided-progression-authenticated.spec.ts`) — se navega
-    // explícitamente de vuelta a "Revisar" para ver el documento.
-    await page.goto(`/dashboard/documents/${doc.id}?section=revisar`);
+    // explícitamente de vuelta a "Completar" para ver el documento.
+    await page.goto(`/dashboard/documents/${doc.id}`);
     await expect(
       documentGroup(page).getByText("Persona Corregida"),
     ).toBeVisible();
@@ -174,10 +174,10 @@ test.describe("document reopen: single save from Revisar, and exit guard", () =>
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await editFieldLive(page, "parte.nombre", "Persona B editada");
-    await stepTab(page, "Revisar y finalizar").click();
     await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
 
-    // dirty bloquea Finalizar — nunca finaliza el snapshot anterior.
+    // dirty bloquea Finalizar (en el encabezado) — nunca finaliza el
+    // snapshot anterior.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeDisabled();
@@ -231,7 +231,7 @@ test.describe("document reopen: single save from Revisar, and exit guard", () =>
     await page.getByLabel("Título de la escritura").fill(`${doc.id} editado`);
     await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
 
-    await stepTab(page, "Revisar y finalizar").click();
+    await stepTab(page, "Cobro").click();
     await expect(page.getByText("¿Salir sin guardar?")).toHaveCount(0);
     await stepTab(page, "Completar").click();
     await expect(page.getByText("¿Salir sin guardar?")).toHaveCount(0);

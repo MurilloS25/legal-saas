@@ -33,13 +33,15 @@ async function openIndexRow(page: Page, name: string) {
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
 }
 
-async function open(page: Page, section: "document" | "notarial" | "revisar" = "notarial") {
+// "document" (paso "Completar", default) sirve tanto para ver la hoja
+// documental como para Reabrir/Finalizar — ambos viven en el encabezado
+// del workspace, visible sin importar la sección activa. Ya no existe un
+// paso "Revisar y finalizar" al que navegar aparte.
+async function open(page: Page, section: "document" | "notarial" = "notarial") {
   await page.goto(
     section === "notarial"
       ? `/dashboard/documents/${docId}?section=notarial`
-      : section === "revisar"
-        ? `/dashboard/documents/${docId}?section=revisar`
-        : `/dashboard/documents/${docId}`,
+      : `/dashboard/documents/${docId}`,
   );
   if (section === "notarial") await expect(notarialSection(page)).toBeVisible();
 }
@@ -159,9 +161,12 @@ test.describe("notarial index confirmation lifecycle", () => {
       notarialSection(page).getByLabel("Tomo", { exact: true }),
     ).toBeDisabled();
 
-    // El check del stepper representa "confirmado", no solo completo.
+    // El check del stepper representa "confirmado", no solo completo — el
+    // encabezado (y su stepper) es el mismo sin importar la sección activa,
+    // pero el paso activo nunca muestra su propio check (convención
+    // existente del stepper): hay que mirarlo desde otro paso.
     const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });
-    await page.goto(`/dashboard/documents/${docId}?section=revisar`);
+    await open(page, "document");
     await expect(
       stepper.getByRole("tab", { name: "Índice", exact: true }).getByText("✓", { exact: true }),
     ).toBeVisible();
@@ -200,7 +205,6 @@ test.describe("notarial index confirmation lifecycle", () => {
 
     // El check del stepper desaparece: ya no está confirmado.
     const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });
-    await page.goto(`/dashboard/documents/${docId}?section=revisar`);
     await expect(
       stepper.getByRole("tab", { name: "Índice", exact: true }).getByText("✓", { exact: true }),
     ).toHaveCount(0);
@@ -223,7 +227,7 @@ test.describe("notarial index confirmation lifecycle", () => {
   test("G: reopening invalidates the confirmation without deleting metadata", async ({
     page,
   }) => {
-    await open(page, "revisar");
+    await open(page, "document");
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     const dialog = page.getByRole("alertdialog", { name: "¿Reabrir la escritura?" });
     await expect(
@@ -238,7 +242,7 @@ test.describe("notarial index confirmation lifecycle", () => {
   test("H: re-finalizing keeps Revisión requerida — no automatic reconfirmation", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docId}?section=revisar`);
+    await open(page, "document");
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await dialog.getByRole("button", { name: "Finalizar escritura" }).click();
@@ -257,7 +261,6 @@ test.describe("notarial index confirmation lifecycle", () => {
     ).toHaveValue("08");
 
     const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });
-    await page.goto(`/dashboard/documents/${docId}?section=revisar`);
     await expect(
       stepper.getByRole("tab", { name: "Índice", exact: true }).getByText("✓", { exact: true }),
     ).toHaveCount(0);

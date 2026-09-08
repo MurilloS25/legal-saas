@@ -57,9 +57,14 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-/** "Descargar Word" vive en el paso Finalizar, un panel independiente. */
+/**
+ * "Descargar Word" vive en el encabezado del workspace (iteración 6) —
+ * visible sin importar el paso activo del stepper, así que ya no hace
+ * falta navegar a ningún lado para alcanzarlo. Se conserva como no-op
+ * para no tener que tocar cada call site de este archivo.
+ */
 async function goToFinalizar(page: Page) {
-  await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+  void page;
 }
 
 async function goToCompletar(page: Page) {

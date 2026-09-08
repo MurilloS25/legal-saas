@@ -159,8 +159,8 @@ test.describe("create a client from the document workspace", () => {
     const documentId = page.url().match(/documents\/([0-9a-f-]{36})/)![1];
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // El guardado avanza a "Revisar y finalizar"; el chip de "Cliente
-    // principal" solo vive en "Completar".
+    // El chip de "Cliente principal" vive en "Completar" (ya el paso por
+    // defecto tras el primer guardado, pero explícito tras el reload).
     await page.reload();
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await openClientPrincipalPopover(page);

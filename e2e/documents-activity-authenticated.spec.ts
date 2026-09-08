@@ -109,7 +109,6 @@ test.describe("document activity history", () => {
 
   test("D: finalizing records a lifecycle event", async ({ page }) => {
     await openDocument(page);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "Finalizar escritura" })
@@ -139,7 +138,6 @@ test.describe("document activity history", () => {
 
   test("F: generating a Word file records an event", async ({ page }) => {
     await openDocument(page);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     await downloadPromise;
@@ -151,7 +149,6 @@ test.describe("document activity history", () => {
 
   test("G: a failed operation records no activity", async ({ page }) => {
     await openDocument(page);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })
@@ -166,10 +163,8 @@ test.describe("document activity history", () => {
     const beforeContentEventCount = await contentEvents.count();
     await page.getByRole("button", { name: "Cerrar historial" }).click();
 
-    // Reabrir aterriza en "Revisar y finalizar" (no avanza — deshace la
-    // finalización). El campo de título vive en "Completar" (el botón
-    // "Guardar" ya es global — visible en Completar y Revisar por igual).
-    await page.getByRole("tab", { name: "Completar", exact: true }).click();
+    // Reabrir aterriza en "Completar" (el paso por defecto) — el campo de
+    // título y el botón "Guardar" ya están ahí mismo, sin navegar.
 
     // Vaciar un campo requerido bloquea el guardado (operación fallida).
     await fillInlineField(page, "parte.nombre", "");

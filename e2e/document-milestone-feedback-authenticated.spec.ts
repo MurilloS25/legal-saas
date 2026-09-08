@@ -46,10 +46,11 @@ test.describe("document milestone feedback (toast replacement)", () => {
     await page.getByLabel("Título de la escritura").fill(title);
     await page.getByRole("button", { name: "Crear escritura" }).click();
 
-    // El primer guardado avanza automáticamente a "Revisar y finalizar".
+    // El primer guardado deja al usuario en "Completar" (el paso por
+    // defecto) — sin un paso "Revisar y finalizar" al que avanzar.
     await expect(
       page,
-    ).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+\?.*section=revisar/, {
+    ).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
@@ -95,7 +96,6 @@ test.describe("document milestone feedback (toast replacement)", () => {
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await expect(contentEditor(page)).toBeVisible();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -146,9 +146,9 @@ test.describe("document milestone feedback (toast replacement)", () => {
     await expect(row.getByText("Pendiente", { exact: true })).toBeVisible();
     await expect(row).toContainText(template.name);
 
-    // "Reabrir escritura" vive en el paso "Revisar y finalizar".
+    // "Reabrir escritura" vive en el encabezado del workspace, visible sin
+    // importar el paso activo.
     await page.goto(`/dashboard/documents/${doc.id}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     const reopenDialog = page.getByRole("alertdialog", {
       name: "¿Reabrir la escritura?",
@@ -168,7 +168,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
   // 20260819210000_template_notarial_index_default.sql). El copy ahora
   // depende del valor real de documents.include_in_notarial_index en vez de
   // un mensaje genérico fijo.
-  test("C: finalizing a document excluded from the Índice (Machote default=false) shows a bare finalization toast, with no mention of the Índice at all, and the step stays absent", async ({
+  test("C: finalizing a document excluded from the Índice (Machote default=false) shows a bare finalization toast, with no mention of the Índice at all, and the step stays reachable showing the excluded card", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -184,7 +184,6 @@ test.describe("document milestone feedback (toast replacement)", () => {
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await expect(contentEditor(page)).toBeVisible();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -202,13 +201,13 @@ test.describe("document milestone feedback (toast replacement)", () => {
       page.getByRole("status").getByText(/Índice/i),
     ).toHaveCount(0);
 
-    // El paso Índice sigue ausente del stepper para una Escritura excluida
-    // (comportamiento existente, no parte de este hotfix — solo confirma
-    // que el toast quedó coherente con él).
+    // El paso Índice sigue alcanzable en el stepper para una Escritura
+    // excluida (iteración 6) — solo confirma que el toast quedó coherente
+    // con el hecho de que la exclusión no bloquea la navegación.
     await expect(
       page
         .getByRole("navigation", { name: "Pasos de la escritura" })
         .getByRole("tab", { name: "Índice", exact: true }),
-    ).toHaveCount(0);
+    ).toBeVisible();
   });
 });

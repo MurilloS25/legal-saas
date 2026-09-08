@@ -264,9 +264,8 @@ test.describe("document inline field editing", () => {
       `${templateName} — Borrador`,
     );
 
-    // El guardado avanza a "Revisar y finalizar"; la hoja documental
-    // editable (con `data-variable-key` en inputs) solo se renderiza en
-    // "Completar" — volver ahí tras recargar.
+    // El primer guardado ya deja al usuario en "Completar" (no navega) —
+    // recargar preserva ese mismo paso.
     await page.reload();
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(fieldValue(page, "comprador.nombre")).toHaveValue(
@@ -290,9 +289,8 @@ test.describe("document inline field editing", () => {
     request,
   }) => {
     await page.goto(documentUrl);
-    // `documentUrl` quedó apuntando a "Revisar y finalizar" (paso al que
-    // avanzó el guardado en el test E) — la hoja documental editable solo
-    // se renderiza en "Completar".
+    // "Completar" ya es el paso por defecto — click explícito por
+    // claridad, no porque haga falta.
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
     const documentId = new URL(documentUrl).pathname.split("/").pop();
@@ -310,15 +308,15 @@ test.describe("document inline field editing", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar/Reabrir viven en el encabezado del workspace — alcanzables
+    // sin importar el paso activo.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Finalizar escritura" })
       .click();
     // Finalizar redirige de verdad (server action) y avanza al paso
-    // siguiente ("Cobro") — hay que volver a Finalizar para ver Reabrir.
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // siguiente ("Cobro").
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).toBeVisible({ timeout: 15_000 });
@@ -336,13 +334,11 @@ test.describe("document inline field editing", () => {
     await expect(inlineVariable(page, "comprador.nombre")).toHaveCount(3);
 
     // Reabrir para no dejar el documento finalizado tras el test.
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Reabrir escritura" })
       .click();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeVisible({ timeout: 15_000 });

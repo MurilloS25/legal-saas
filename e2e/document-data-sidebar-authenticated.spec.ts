@@ -250,8 +250,8 @@ test.describe("document data sidebar", () => {
     });
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
 
-    // El guardado avanza a "Revisar y finalizar"; el panel de datos
-    // ("Datos de la Escritura") solo se renderiza en "Completar".
+    // El primer guardado ya deja al usuario en "Completar" (no navega) —
+    // ahí vive el panel de datos ("Datos de la Escritura").
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       dataPanel(page).getByText("3 de 3 campos completos"),
