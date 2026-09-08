@@ -200,9 +200,8 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    // "Descargar Word" vive dentro de "Más acciones" en el encabezado del
-    // workspace — alcanzable sin importar el paso activo.
-    await page.getByRole("button", { name: "Más acciones" }).click();
+    // "Descargar Word" vive directo en el encabezado del workspace —
+    // alcanzable sin importar el paso activo.
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     const download = await downloadPromise;

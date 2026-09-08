@@ -223,9 +223,6 @@ test.describe("document composer workspace", () => {
     ).toHaveAttribute("aria-selected", "true");
     await expect(page.getByLabel("Título de la escritura")).toBeVisible();
 
-    // "Historial" vive dentro de "Más acciones" en el encabezado
-    // (segundo refinamiento, iteración 6).
-    await page.getByRole("button", { name: "Más acciones" }).click();
     const historyTrigger = page.getByRole("button", { name: "Historial" });
     await historyTrigger.click();
     await expect(

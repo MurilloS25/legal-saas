@@ -53,12 +53,6 @@ function normalizeLinkHost(rawLink: string, page: Page): string {
 }
 
 async function documentActivity(page: Page) {
-  // "Historial" vive dentro de "Más acciones" en el encabezado del
-  // workspace (segundo refinamiento, iteración 6).
-  const moreActions = page.getByRole("button", { name: "Más acciones" });
-  if ((await moreActions.getAttribute("aria-expanded")) !== "true") {
-    await moreActions.click();
-  }
   await page.getByRole("button", { name: "Historial" }).click();
   const dialog = page.getByRole("dialog", { name: "Historial de la escritura" });
   await expect(dialog).toBeVisible();

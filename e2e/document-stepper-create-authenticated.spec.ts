@@ -18,13 +18,13 @@ import { restDelete, restSelect } from "./support/supabase-admin";
  * completamente funcional antes de guardar — incluida la revisión en vivo
  * del documento (misma vista, expandible a pantalla completa); ya no existe
  * un paso "Revisar y finalizar" separado (se retiró: mostraba
- * prácticamente el mismo documento y solo agregaba navegación). "Más
- * acciones" (Descargar Word/Duplicar/Historial) y Reabrir viven en el
- * encabezado del workspace, alcanzables sin importar el paso activo;
- * Finalizar en cambio vive integrado a la barra de Guardar dentro de
- * "Completar" (segundo refinamiento — no le pertenece a Cobro ni a
- * Índice). Todos requieren que la Escritura ya exista. "Cobro" requiere
- * que la Escritura ya exista (queda bloqueado/con aviso hasta el primer
+ * prácticamente el mismo documento y solo agregaba navegación). Descargar
+ * Word/Historial/Duplicar y Reabrir viven en el encabezado del workspace,
+ * alcanzables sin importar el paso activo; Finalizar en cambio vive
+ * integrado a la toolbar de Guardar dentro de "Completar" (no le
+ * pertenece a Cobro ni a Índice). Todos requieren que la Escritura ya
+ * exista. "Cobro" requiere que la Escritura ya exista (queda bloqueado/con
+ * aviso hasta el primer
  * guardado); "Índice" además requiere finalización.
  * El primer guardado redirige a la URL de edición preservando el paso
  * activo (siempre "Completar", el único paso alcanzable antes de guardar),
@@ -153,8 +153,8 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       );
     }
 
-    // Finalizar (Completar), y "Más acciones"/Descargar Word (encabezado)
-    // requieren que la Escritura exista — ninguno aparece todavía.
+    // Finalizar (Completar) y Descargar Word (encabezado) requieren que la
+    // Escritura exista — ninguno aparece todavía.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toHaveCount(0);
@@ -262,16 +262,14 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       "Disponible después de finalizar la escritura.",
     );
 
-    // "Más acciones" (Descargar Word) ya existe en el encabezado (la
-    // Escritura ya existe) y es alcanzable sin importar el paso activo —
-    // seguimos parados en "Cobro" desde el bloque anterior. Finalizar, en
-    // cambio, vive integrado a la barra de Guardar dentro de "Completar"
-    // (segundo refinamiento) — no le pertenece a Cobro, así que no
-    // aparece aquí.
+    // Descargar Word ya existe en el encabezado (la Escritura ya existe) y
+    // es alcanzable sin importar el paso activo — seguimos parados en
+    // "Cobro" desde el bloque anterior. Finalizar, en cambio, vive
+    // integrado a la toolbar de Guardar dentro de "Completar" — no le
+    // pertenece a Cobro, así que no aparece aquí.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "Más acciones" }).click();
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();

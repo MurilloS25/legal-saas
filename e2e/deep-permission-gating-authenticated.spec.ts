@@ -369,10 +369,8 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByRole("button", { name: /^Guardar$/ }),
     ).not.toBeVisible();
-    // Duplicar vive dentro de "Más acciones" (segundo refinamiento) — se
-    // abre el menú para confirmar que la ausencia es por permiso
-    // (documents.create), no solo porque el menú está cerrado.
-    await page.getByRole("button", { name: "Más acciones" }).click();
+    // Duplicar vive directo en el encabezado — su ausencia aquí es por
+    // permiso (documents.create), no por estar oculto tras un disclosure.
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
     ).not.toBeVisible();
@@ -408,9 +406,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: /^Guardar$/ }),
     ).toBeVisible();
     // asistente sí puede duplicar (documents.create) pero no finalizar
-    // (documents.finalize es solo propietario/administrador). Duplicar
-    // vive dentro de "Más acciones".
-    await page.getByRole("button", { name: "Más acciones" }).click();
+    // (documents.finalize es solo propietario/administrador).
     await expect(page.getByRole("button", { name: "Duplicar" })).toBeVisible();
     // Finalizar vive integrado a la barra de Guardar dentro de "Completar".
     await expect(

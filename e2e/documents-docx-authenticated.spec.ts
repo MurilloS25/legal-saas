@@ -58,16 +58,14 @@ function documentRegion(page: Page) {
 }
 
 /**
- * "Descargar Word" vive dentro de "Más acciones" en el encabezado del
- * workspace (segundo refinamiento, iteración 6) — visible sin importar el
- * paso activo del stepper, pero detrás de ese disclosure, no como botón
- * suelto. Idempotente: si el menú ya está abierto, no hace nada.
+ * "Descargar Word" vive directo en el encabezado del workspace (tercer
+ * refinamiento — un menú "Más acciones" agrupándolo se probó y se
+ * descartó: es demasiado frecuente para esconder) — visible sin importar
+ * el paso activo del stepper, así que no hace falta navegar ni abrir nada
+ * para alcanzarlo. Se conserva como no-op para no tocar cada call site.
  */
 async function openMoreActions(page: Page) {
-  const trigger = page.getByRole("button", { name: "Más acciones" });
-  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
-    await trigger.click();
-  }
+  void page;
 }
 
 async function goToCompletar(page: Page) {
@@ -115,8 +113,8 @@ test.describe("document docx download", () => {
   test("B: the download button appears on a saved draft", async ({ page }) => {
     await openComposer(page, completeDocId);
     await openMoreActions(page);
-    // El botón vive dentro de "Más acciones" (variant="menu"), sin el
-    // texto de ayuda de la variante "full" del compositor.
+    // Variante "compact" en el encabezado — sin el texto de ayuda que
+    // acompaña a la variante "full" del paso Completar histórico.
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
@@ -160,9 +158,8 @@ test.describe("document docx download", () => {
     await fillField("Cliente Uno Editado");
     await expect(button).toBeDisabled();
 
-    // Guardar reactiva la descarga — alcanzable desde cualquier paso vía
-    // "Más acciones", pero se vuelve a Completar para editar el campo con
-    // `fillField`.
+    // Guardar reactiva la descarga — alcanzable desde cualquier paso, pero
+    // se vuelve a Completar para editar el campo con `fillField`.
     await goToCompletar(page);
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(

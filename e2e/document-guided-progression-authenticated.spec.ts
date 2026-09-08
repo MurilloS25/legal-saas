@@ -19,12 +19,12 @@ import { restDelete, restSelect } from "./support/supabase-admin";
  * existió en la iteración 5 se retiró en la 6: mostraba prácticamente el
  * mismo documento que ya se ve en Completar (vista previa en vivo,
  * expandible a pantalla completa) y solo agregaba navegación. El stepper
- * es ahora Completar → Cobro → Índice. Reabrir y "Más acciones" (Descargar
- * Word/Duplicar/Historial) viven en el encabezado del workspace
+ * es ahora Completar → Cobro → Índice. Reabrir y las utilitarias
+ * (Descargar Word/Historial/Duplicar) viven en el encabezado del workspace
  * (`DocumentWorkspaceHeader`), alcanzables sin importar la sección activa
- * — Finalizar en cambio vive integrado a la barra de Guardar dentro de
- * "Completar" (segundo refinamiento), que es el paso por defecto, así que
- * en la práctica tampoco requiere navegar.
+ * — Finalizar en cambio vive integrado a la toolbar de Guardar dentro de
+ * "Completar", que es el paso por defecto, así que en la práctica tampoco
+ * requiere navegar.
  *
  * Finalizar sigue avanzando a "Cobro" (regresión explícita del bug donde el
  * redirect sin `section` caía de vuelta en "Completar" — ver
