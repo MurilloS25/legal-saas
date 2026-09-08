@@ -23,7 +23,18 @@ const fieldLabel = "Nombre de la parte";
 let templateId = "";
 let documentId = "";
 
+/** "Historial" y "Descargar Word" viven dentro de "Más acciones" en el
+ * encabezado (segundo refinamiento, iteración 6) — idempotente: si el
+ * menú ya está abierto, no hace nada. */
+async function openMoreActions(page: Page) {
+  const trigger = page.getByRole("button", { name: "Más acciones" });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+    await trigger.click();
+  }
+}
+
 async function activitySection(page: Page) {
+  await openMoreActions(page);
   await page.getByRole("button", { name: "Historial" }).click();
   const dialog = page.getByRole("dialog", { name: "Historial de la escritura" });
   await expect(dialog).toBeVisible();
@@ -138,6 +149,7 @@ test.describe("document activity history", () => {
 
   test("F: generating a Word file records an event", async ({ page }) => {
     await openDocument(page);
+    await openMoreActions(page);
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     await downloadPromise;
@@ -162,6 +174,17 @@ test.describe("document activity history", () => {
     });
     const beforeContentEventCount = await contentEvents.count();
     await page.getByRole("button", { name: "Cerrar historial" }).click();
+    // Cerrar "Historial" solo cierra ese diálogo anidado — "Más acciones"
+    // (el panel que lo contiene) sigue abierto y, sin cerrarlo también,
+    // queda flotando sobre el documento y absorbe el clic que
+    // `fillInlineField` necesita hacer justo debajo. Un clic en el título
+    // (fuera del panel) dispara el cierre por clic-afuera del propio
+    // Popover, sin depender de dónde esté el foco en ese instante (a
+    // diferencia de Escape, cuyo cierre si sí depende de eso).
+    await page.getByLabel("Título de la escritura").click();
+    await expect(
+      page.getByRole("dialog", { name: "Más acciones de la escritura" }),
+    ).toHaveCount(0);
 
     // Reabrir aterriza en "Completar" (el paso por defecto) — el campo de
     // título y el botón "Guardar" ya están ahí mismo, sin navegar.

@@ -19,9 +19,12 @@ import { restDelete, restSelect } from "./support/supabase-admin";
  * existió en la iteración 5 se retiró en la 6: mostraba prácticamente el
  * mismo documento que ya se ve en Completar (vista previa en vivo,
  * expandible a pantalla completa) y solo agregaba navegación. El stepper
- * es ahora Completar → Cobro → Índice; Finalizar/Reabrir/Descargar Word
- * viven en el encabezado del workspace (`DocumentWorkspaceHeader`), no en
- * un paso propio — alcanzables sin importar la sección activa.
+ * es ahora Completar → Cobro → Índice. Reabrir y "Más acciones" (Descargar
+ * Word/Duplicar/Historial) viven en el encabezado del workspace
+ * (`DocumentWorkspaceHeader`), alcanzables sin importar la sección activa
+ * — Finalizar en cambio vive integrado a la barra de Guardar dentro de
+ * "Completar" (segundo refinamiento), que es el paso por defecto, así que
+ * en la práctica tampoco requiere navegar.
  *
  * Finalizar sigue avanzando a "Cobro" (regresión explícita del bug donde el
  * redirect sin `section` caía de vuelta en "Completar" — ver
@@ -190,12 +193,16 @@ test.describe("document guided progression", () => {
     await page.goto(`/dashboard/documents/${doc.id}`);
 
     // Edita en Completar sin guardar y navega a Cobro — el cambio local no
-    // se pierde ni exige guardar antes de moverse.
+    // se pierde ni exige guardar antes de moverse. La barra de Guardar en
+    // sí (con su propio `role="status"`) vive solo dentro de "Completar"
+    // (segundo refinamiento) — el estado sin guardar sigue siendo visible
+    // en el encabezado (global) sin importar el paso activo.
     await page.getByLabel("Título de la escritura").fill(firstTitle);
     await goToStep(page, "Cobro");
-    await expect(
-      page.locator('form p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
-    ).toBeVisible();
+    // Varios lugares reflejan "Cambios sin guardar" (encabezado, badge del
+    // propio tab "Completar" en el stepper) — basta con confirmar que al
+    // menos uno es visible, sin importar cuál.
+    await expect(page.getByText("Cambios sin guardar").first()).toBeVisible();
 
     await goToStep(page, "Completar");
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
@@ -236,8 +243,8 @@ test.describe("document guided progression", () => {
     });
 
     await page.goto(`/dashboard/documents/${doc.id}`);
-    // Finalizar vive en el encabezado — alcanzable directo desde
-    // "Completar", sin navegar a ningún paso.
+    // Finalizar vive en "Completar" (el paso por defecto) — alcanzable de
+    // inmediato, sin navegar a ningún otro paso.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",
@@ -334,8 +341,8 @@ test.describe("document guided progression", () => {
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // Finalizar vive en el encabezado — alcanzable directo desde
-    // "Completar" (paso por defecto tras el primer guardado).
+    // Finalizar vive en "Completar" (paso por defecto tras el primer
+    // guardado) — alcanzable de inmediato.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const finalizeDialog = page.getByRole("alertdialog", {
       name: "Finalizar escritura",

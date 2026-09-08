@@ -37,13 +37,22 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-// Estado/Reabrir/Finalizar/Descargar Word viven en el encabezado del
-// workspace (iteración 6) — visibles sin importar qué paso del stepper
-// esté activo, así que no hace falta navegar a ningún paso para verlos.
+// Segundo refinamiento (iteración 6): Reabrir vive en el encabezado del
+// workspace, global; Finalizar/Volver a borrador viven en "Completar",
+// integrados a la barra de Guardar — pero "Completar" es el paso por
+// defecto al que aterriza `open()`, así que ninguno de los dos requiere
+// navegar. Descargar Word vive detrás de "Más acciones", también global.
 async function goToFinalizar(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Estado de la escritura" }),
   ).toBeAttached();
+}
+
+async function openMoreActions(page: Page) {
+  const trigger = page.getByRole("button", { name: "Más acciones" });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+    await trigger.click();
+  }
 }
 
 test.describe("document lifecycle statuses", () => {
@@ -129,9 +138,6 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByRole("tab", { name: "Cobro", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-    await expect(
-      page.getByRole("link", { name: "Completar datos del índice" }),
-    ).toBeVisible();
   });
 
   test("C: final is read-only and can be reopened to draft", async ({ page }) => {
@@ -143,7 +149,8 @@ test.describe("document lifecycle statuses", () => {
     await expect(
       page.getByText(/Finalizada es de solo lectura/),
     ).toBeVisible();
-    // La descarga sigue disponible en finalizado.
+    // La descarga sigue disponible en finalizado, dentro de "Más acciones".
+    await openMoreActions(page);
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();

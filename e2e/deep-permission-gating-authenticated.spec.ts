@@ -369,10 +369,14 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(
       page.getByRole("button", { name: /^Guardar$/ }),
     ).not.toBeVisible();
+    // Duplicar vive dentro de "Más acciones" (segundo refinamiento) — se
+    // abre el menú para confirmar que la ausencia es por permiso
+    // (documents.create), no solo porque el menú está cerrado.
+    await page.getByRole("button", { name: "Más acciones" }).click();
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
     ).not.toBeVisible();
-    // Finalizar vive en el encabezado del workspace, no en un paso propio.
+    // Finalizar vive integrado a la barra de Guardar dentro de "Completar".
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
@@ -404,9 +408,11 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: /^Guardar$/ }),
     ).toBeVisible();
     // asistente sí puede duplicar (documents.create) pero no finalizar
-    // (documents.finalize es solo propietario/administrador).
+    // (documents.finalize es solo propietario/administrador). Duplicar
+    // vive dentro de "Más acciones".
+    await page.getByRole("button", { name: "Más acciones" }).click();
     await expect(page.getByRole("button", { name: "Duplicar" })).toBeVisible();
-    // Finalizar vive en el encabezado del workspace, no en un paso propio.
+    // Finalizar vive integrado a la barra de Guardar dentro de "Completar".
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
@@ -417,8 +423,8 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   }) => {
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    // Finalizar/Reabrir viven en el encabezado del workspace, no en un
-    // paso propio.
+    // Finalizar vive en "Completar" (paso por defecto); Reabrir vive en el
+    // encabezado del workspace.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
@@ -442,7 +448,9 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).not.toBeVisible();
 
-    await page.getByRole("link", { name: "Completar datos del índice" }).click();
+    // El enlace superior directo al Índice se retiró (redundante con el
+    // stepper) — el tab "Índice" es ahora la única vía.
+    await page.getByRole("tab", { name: "Índice", exact: true }).click();
     await expect(page).toHaveURL(/section=notarial/);
     await expect(
       page.getByText("Tu rol no permite editar los datos del índice"),

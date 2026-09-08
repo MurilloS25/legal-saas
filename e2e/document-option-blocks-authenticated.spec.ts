@@ -200,8 +200,9 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    // "Descargar Word" vive en el encabezado del workspace — alcanzable
-    // sin importar el paso activo.
+    // "Descargar Word" vive dentro de "Más acciones" en el encabezado del
+    // workspace — alcanzable sin importar el paso activo.
+    await page.getByRole("button", { name: "Más acciones" }).click();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     const download = await downloadPromise;
@@ -218,8 +219,8 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    // Finalizar/Reabrir viven en el encabezado del workspace — alcanzables
-    // sin importar el paso activo.
+    // `documentUrl` aterriza en "Completar" (paso por defecto) — Finalizar
+    // vive ahí; Reabrir vive en el encabezado del workspace (global).
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")

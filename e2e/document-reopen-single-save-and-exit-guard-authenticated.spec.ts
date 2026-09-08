@@ -120,8 +120,8 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
     await editFieldLive(page, "parte.nombre", "Persona Corregida");
     await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
 
-    // Finalizar (en el encabezado) está deshabilitado mientras hay
-    // cambios sin guardar.
+    // Finalizar (en "Completar", integrado a la barra de Guardar) está
+    // deshabilitado mientras hay cambios sin guardar.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeDisabled();
@@ -176,7 +176,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
     await editFieldLive(page, "parte.nombre", "Persona B editada");
     await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
 
-    // dirty bloquea Finalizar (en el encabezado) — nunca finaliza el
+    // dirty bloquea Finalizar (en "Completar") — nunca finaliza el
     // snapshot anterior.
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),

@@ -146,6 +146,9 @@ test.describe("document duplication", () => {
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible();
 
+    // Duplicar vive dentro de "Más acciones" en el encabezado del
+    // workspace (segundo refinamiento, iteración 6).
+    await page.getByRole("button", { name: "Más acciones" }).click();
     await page.getByRole("button", { name: "Duplicar" }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();

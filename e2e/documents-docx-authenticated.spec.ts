@@ -58,13 +58,16 @@ function documentRegion(page: Page) {
 }
 
 /**
- * "Descargar Word" vive en el encabezado del workspace (iteración 6) —
- * visible sin importar el paso activo del stepper, así que ya no hace
- * falta navegar a ningún lado para alcanzarlo. Se conserva como no-op
- * para no tener que tocar cada call site de este archivo.
+ * "Descargar Word" vive dentro de "Más acciones" en el encabezado del
+ * workspace (segundo refinamiento, iteración 6) — visible sin importar el
+ * paso activo del stepper, pero detrás de ese disclosure, no como botón
+ * suelto. Idempotente: si el menú ya está abierto, no hace nada.
  */
-async function goToFinalizar(page: Page) {
-  void page;
+async function openMoreActions(page: Page) {
+  const trigger = page.getByRole("button", { name: "Más acciones" });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+    await trigger.click();
+  }
 }
 
 async function goToCompletar(page: Page) {
@@ -111,9 +114,9 @@ test.describe("document docx download", () => {
 
   test("B: the download button appears on a saved draft", async ({ page }) => {
     await openComposer(page, completeDocId);
-    await goToFinalizar(page);
-    // El botón vive en la franja compacta de estado (variant="compact"),
-    // sin el texto de ayuda del formulario completo de Cuentas por cobrar.
+    await openMoreActions(page);
+    // El botón vive dentro de "Más acciones" (variant="menu"), sin el
+    // texto de ayuda de la variante "full" del compositor.
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
@@ -140,7 +143,7 @@ test.describe("document docx download", () => {
       );
       await input.fill(value);
       await input.blur();
-      await goToFinalizar(page);
+      await openMoreActions(page);
     }
 
     // Provoca un cambio local sin guardar. Se reintenta el fill hasta que el
@@ -157,15 +160,15 @@ test.describe("document docx download", () => {
     await fillField("Cliente Uno Editado");
     await expect(button).toBeDisabled();
 
-    // Guardar reactiva la descarga — el botón es global (visible en
-    // Completar y Revisar por igual), pero se vuelve a Completar para
-    // editar el campo con `fillField`.
+    // Guardar reactiva la descarga — alcanzable desde cualquier paso vía
+    // "Más acciones", pero se vuelve a Completar para editar el campo con
+    // `fillField`.
     await goToCompletar(page);
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
-    await goToFinalizar(page);
+    await openMoreActions(page);
     await expect(button).toBeEnabled();
   });
 
@@ -173,7 +176,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, completeDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
@@ -240,7 +243,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, pendingDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
 
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
@@ -259,7 +262,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, pendingDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
     const dialog = page.getByRole("dialog", {
@@ -308,7 +311,7 @@ test.describe("document docx download", () => {
   test("K: the download button works on a mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await openComposer(page, completeDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
 
     const button = page.getByRole("button", { name: "Descargar Word" });
     await expect(button).toBeVisible();

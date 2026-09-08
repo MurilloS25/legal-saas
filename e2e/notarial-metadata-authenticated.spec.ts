@@ -200,6 +200,9 @@ test.describe("notarial index metadata", () => {
     page,
   }) => {
     await open(page, workingId);
+    // "Historial" vive dentro de "Más acciones" en el encabezado
+    // (segundo refinamiento, iteración 6).
+    await page.getByRole("button", { name: "Más acciones" }).click();
     await page.getByRole("button", { name: "Historial" }).click();
     const activity = page.getByRole("dialog", {
       name: "Historial de la escritura",

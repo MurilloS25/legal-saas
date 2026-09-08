@@ -308,8 +308,8 @@ test.describe("document inline field editing", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    // Finalizar/Reabrir viven en el encabezado del workspace — alcanzables
-    // sin importar el paso activo.
+    // `documentUrl` aterriza en "Completar" (paso por defecto) — Finalizar
+    // vive ahí; Reabrir vive en el encabezado del workspace (global).
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
