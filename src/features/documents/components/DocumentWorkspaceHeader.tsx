@@ -2,43 +2,54 @@
 
 /**
  * Encabezado del workspace de una Escritura — creación y edición: breadcrumb,
- * título/estado en vivo, y el stepper horizontal de navegación entre
- * Completar / Revisar y finalizar / Cobro / Índice.
+ * título/estado en vivo, acciones del workspace, y el stepper horizontal de
+ * navegación entre Completar / Cobro / Índice.
  *
  * El stepper es la vista principal desde que se inicia una Escritura nueva:
  * no existe un flujo alternativo de una sola página para el modo creación.
- * "Completar" y "Revisar y finalizar" operan sobre estado local puro para
- * su parte de revisión y son siempre navegables — la finalización en sí
- * (dentro de ese mismo paso) requiere que la Escritura ya exista. "Cobro"
- * requiere que la Escritura ya exista (`documentId`) y queda bloqueado
- * hasta el primer guardado. "Índice" tiene además su restricción de
- * siempre: permanece bloqueado hasta que la escritura esté finalizada, aun
- * después de existir.
+ * "Completar" opera sobre estado local puro, es siempre navegable, y es
+ * también donde vive la revisión completa del documento (vista previa en
+ * vivo + expandir a pantalla completa) — ya no existe un paso "Revisar y
+ * finalizar" separado: mostraba prácticamente el mismo documento que
+ * Completar y solo agregaba navegación, sin una fase realmente distinta.
+ * "Cobro" requiere que la Escritura ya exista (`documentId`) y queda
+ * bloqueado hasta el primer guardado. "Índice" permanece SIEMPRE visible en
+ * el stepper una vez persistida — a diferencia de antes, ya no desaparece
+ * cuando la Escritura está excluida del Índice Notarial (`documents.
+ * include_in_notarial_index = false`): esa exclusión decide si aparece en
+ * el listado general del Índice, no si el usuario puede acceder al paso
+ * para consultar/cambiar esa decisión. Sigue bloqueado hasta que la
+ * Escritura esté finalizada, igual que siempre.
+ *
+ * Las acciones del workspace (Finalizar/Reabrir/Volver a borrador,
+ * Descargar Word, Duplicar, Historial) viven aquí, junto al título, en vez
+ * de dentro de un paso específico — todas dependen de que la Escritura ya
+ * exista, ninguna es exclusiva de un paso, y mantenerlas en el encabezado
+ * (que no se oculta al cambiar de paso) las hace alcanzables sin importar
+ * dónde esté parado el usuario. Guardar (persistir contenido) es la única
+ * acción que NO vive aquí — sigue en su propia barra sticky
+ * (`DocumentSaveControls`), deliberadamente separada de Finalizar (guardar
+ * ≠ cambiar el lifecycle).
  *
  * El compositor (valores, cliente, dirty) permanece montado en todo momento
  * — cambiar de sección solo cambia qué panel es visible — así que ir de
- * Completar a Revisar y de vuelta nunca reinicia el formulario ni descarta
+ * Completar a Cobro y de vuelta nunca reinicia el formulario ni descarta
  * cambios sin guardar, tanto antes como después del primer guardado. La URL
  * se mantiene sincronizada (`history.pushState`) igual que en el workspace
  * de Machotes.
- *
- * Historial y Duplicar no son pasos del flujo — son acciones independientes
- * que se muestran junto al título, y solo tienen sentido una vez que la
- * Escritura existe.
  */
 
 import Link from "next/link";
 import { HorizontalStepper, type StepStatus } from "@/components/document/HorizontalStepper";
 import { documentStatusBadgeClass, documentStatusLabel } from "../model/status";
+import type { DocumentStatus } from "../model/lifecycle";
 import type { DocumentActivityPage } from "../server/activity-queries";
 import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
+import { DocumentStatusControls } from "./DocumentStatusControls";
+import { DownloadDocxButton } from "./DownloadDocxButton";
 import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
 
-export type DocumentWorkspaceSection =
-  | "completar"
-  | "revisar"
-  | "cobro"
-  | "notarial";
+export type DocumentWorkspaceSection = "completar" | "cobro" | "notarial";
 
 const STEP_META: Array<{
   id: DocumentWorkspaceSection;
@@ -49,11 +60,6 @@ const STEP_META: Array<{
     id: "completar",
     label: "Completar",
     description: "Escribe los datos de la escritura; se reflejan de inmediato en el documento.",
-  },
-  {
-    id: "revisar",
-    label: "Revisar y finalizar",
-    description: "Revisa el documento completo y finaliza la escritura cuando esté lista.",
   },
   {
     id: "cobro",
@@ -78,7 +84,7 @@ type Props = {
   documentId?: string;
   title: string;
   clientName: string | null;
-  status: string;
+  status: DocumentStatus;
   section: DocumentWorkspaceSection;
   saveStatusText: string;
   onSectionChange: (section: DocumentWorkspaceSection) => void;
@@ -97,10 +103,21 @@ type Props = {
   completarComplete?: boolean;
   cobroComplete?: boolean;
   notarialComplete?: boolean;
-  /** documents.include_in_notarial_index — cuando es false, "Índice" no
-   * aparece en la navegación normal del stepper (la ruta sigue siendo
-   * alcanzable por enlace directo; ver NotarialMetadataSection). */
+  /** documents.include_in_notarial_index — ya no decide si "Índice"
+   * aparece en el stepper (siempre aparece una vez persistida); solo se
+   * usa para el texto de ayuda de Finalizar en `DocumentStatusControls`. */
   includeInNotarialIndex?: boolean;
+  /** true si hay cambios locales sin guardar en el compositor — bloquea
+   * Finalizar/Reabrir/Volver a borrador y Descargar Word. */
+  dirty: boolean;
+  /** documents.finalize — controla Finalizar/Reabrir/Volver a borrador. */
+  canFinalize: boolean;
+  /** true si los datos del Índice están actualmente Confirmados — el
+   * diálogo de reabrir advierte que esa confirmación quedará invalidada. */
+  notarialDataConfirmed: boolean;
+  /** Variables sin valor del estado PERSISTIDO (no del local) — para el
+   * aviso de Descargar Word. */
+  persistedPendingVariableCount: number;
 };
 
 export function DocumentWorkspaceHeader({
@@ -117,19 +134,20 @@ export function DocumentWorkspaceHeader({
   cobroComplete = false,
   notarialComplete = false,
   includeInNotarialIndex = true,
+  dirty,
+  canFinalize,
+  notarialDataConfirmed,
+  persistedPendingVariableCount,
 }: Props) {
   const persisted = !!documentId;
   const notarialUnlocked = persisted && status === "final";
   const completion: Record<DocumentWorkspaceSection, boolean> = {
     completar: completarComplete,
-    revisar: status === "final",
     cobro: cobroComplete,
     notarial: notarialComplete,
   };
 
-  const steps = STEP_META.filter(
-    ({ id }) => id !== "notarial" || includeInNotarialIndex,
-  ).map(({ id, label, description }) => {
+  const steps = STEP_META.map(({ id, label, description }) => {
     const needsPersistence = id === "cobro" || id === "notarial";
     const locked =
       (needsPersistence && !persisted) || (id === "notarial" && persisted && !notarialUnlocked);
@@ -177,18 +195,42 @@ export function DocumentWorkspaceHeader({
           </p>
         </div>
         {documentId && (
-          <div className="flex items-center gap-2 shrink-0">
-            {canDuplicate && (
-              <DuplicateDocumentButton
-                documentId={documentId}
-                documentTitle={title}
-                variant="full"
-              />
-            )}
-            <DocumentHistoryDialog
+          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            {/* Acción primaria de lifecycle — visualmente distinta (acento)
+                de las secundarias de abajo. Guardar (persistencia de
+                contenido) vive aparte, en su propia barra sticky. */}
+            <DocumentStatusControls
+              key={status}
               documentId={documentId}
-              activity={activity ?? EMPTY_ACTIVITY}
+              status={status}
+              dirty={dirty}
+              canFinalize={canFinalize}
+              notarialDataConfirmed={notarialDataConfirmed}
+              includeInNotarialIndex={includeInNotarialIndex}
             />
+            {/* Acciones secundarias, agrupadas y visualmente discretas —
+                mismos componentes autocontenidos de siempre (cada uno con
+                su propio diálogo), solo reubicados aquí desde el antiguo
+                paso "Revisar y finalizar". */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <DownloadDocxButton
+                documentId={documentId}
+                disabled={dirty}
+                pendingVariableCount={persistedPendingVariableCount}
+                variant="compact"
+              />
+              {canDuplicate && (
+                <DuplicateDocumentButton
+                  documentId={documentId}
+                  documentTitle={title}
+                  variant="full"
+                />
+              )}
+              <DocumentHistoryDialog
+                documentId={documentId}
+                activity={activity ?? EMPTY_ACTIVITY}
+              />
+            </div>
           </div>
         )}
       </div>
