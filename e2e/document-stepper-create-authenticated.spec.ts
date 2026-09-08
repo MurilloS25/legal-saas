@@ -19,12 +19,11 @@ import { restDelete, restSelect } from "./support/supabase-admin";
  * del documento (misma vista, expandible a pantalla completa); ya no existe
  * un paso "Revisar y finalizar" separado (se retiró: mostraba
  * prácticamente el mismo documento y solo agregaba navegación). Descargar
- * Word/Historial/Duplicar y Reabrir viven en el encabezado del workspace,
- * alcanzables sin importar el paso activo; Finalizar en cambio vive
- * integrado a la toolbar de Guardar dentro de "Completar" (no le
- * pertenece a Cobro ni a Índice). Todos requieren que la Escritura ya
- * exista. "Cobro" requiere que la Escritura ya exista (queda bloqueado/con
- * aviso hasta el primer
+ * Word/Historial/Duplicar y Reabrir viven en el encabezado del workspace;
+ * Guardar/Finalizar viven en un dock flotante (`position: fixed`) — ambos
+ * alcanzables sin importar el paso activo. Todos requieren que la
+ * Escritura ya exista. "Cobro" requiere que la Escritura ya exista (queda
+ * bloqueado/con aviso hasta el primer
  * guardado); "Índice" además requiere finalización.
  * El primer guardado redirige a la URL de edición preservando el paso
  * activo (siempre "Completar", el único paso alcanzable antes de guardar),
@@ -262,14 +261,13 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       "Disponible después de finalizar la escritura.",
     );
 
-    // Descargar Word ya existe en el encabezado (la Escritura ya existe) y
-    // es alcanzable sin importar el paso activo — seguimos parados en
-    // "Cobro" desde el bloque anterior. Finalizar, en cambio, vive
-    // integrado a la toolbar de Guardar dentro de "Completar" — no le
-    // pertenece a Cobro, así que no aparece aquí.
+    // Descargar Word (encabezado) y el dock de Guardar/Finalizar (`fixed`,
+    // cuarto refinamiento) son alcanzables sin importar el paso activo —
+    // seguimos parados en "Cobro" desde el bloque anterior y ambos ya
+    // existen (la Escritura ya existe).
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
-    ).toHaveCount(0);
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();

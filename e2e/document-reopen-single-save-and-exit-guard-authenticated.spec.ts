@@ -48,9 +48,13 @@ function documentGroup(page: Page) {
   return page.getByRole("group", { name: "Documento", exact: true });
 }
 
+// El dock (cuarto refinamiento) es `position: fixed`, hermano de los tres
+// paneles — ya no vive dentro del `<form>` de Completar en el DOM (el
+// botón "Guardar" lo sigue enviando vía el atributo `form`, no por
+// anidamiento).
 function saveStatus(page: Page) {
-  return page.locator('form p[role="status"]').filter({
-    hasText: /Cambios sin guardar|Guardando…|Guardado|Error al guardar/,
+  return page.locator('p[role="status"]').filter({
+    hasText: /^Sin guardar$|^Guardando…$|^Guardado$|^Error al guardar$/,
   });
 }
 
@@ -118,7 +122,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
 
     // Corregir el dato — sin navegar a ningún otro lado.
     await editFieldLive(page, "parte.nombre", "Persona Corregida");
-    await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
+    await expect(saveStatus(page)).toHaveText("Sin guardar");
 
     // Finalizar (en "Completar", integrado a la barra de Guardar) está
     // deshabilitado mientras hay cambios sin guardar.
@@ -174,22 +178,23 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await editFieldLive(page, "parte.nombre", "Persona B editada");
-    await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
+    await expect(saveStatus(page)).toHaveText("Sin guardar");
 
     // dirty bloquea Finalizar (en "Completar") — nunca finaliza el
-    // snapshot anterior.
-    await expect(
-      page.getByRole("button", { name: "Finalizar escritura" }),
-    ).toBeDisabled();
-    await expect(
-      page.getByText("Guarda los cambios antes de cambiar el estado."),
-    ).toBeVisible();
+    // snapshot anterior. El motivo es un `title` accesible en el propio
+    // botón, no una línea de texto permanente.
+    const finalButton = page.getByRole("button", { name: "Finalizar escritura" });
+    await expect(finalButton).toBeDisabled();
+    await expect(finalButton).toHaveAttribute(
+      "title",
+      "Guarda los cambios antes de finalizar.",
+    );
 
     // Simula una carrera: la escritura se finaliza por otra vía (p. ej.
     // otra pestaña) mientras el cliente todavía la cree editable — el
     // guardado falla en servidor (`.neq("status","final")` no encuentra
-    // fila). El error se distingue de "Cambios sin guardar" (no queda
-    // enmascarado por él) y dirty se preserva, así que Finalizar sigue sin
+    // fila). El error se distingue de "Sin guardar" (no queda enmascarado
+    // por él) y dirty se preserva, así que Finalizar sigue sin
     // habilitarse — nunca se finaliza un snapshot desactualizado.
     await setTestDocumentStatus(doc.id, "final");
     await page.getByRole("button", { name: "Guardar" }).click();
@@ -229,7 +234,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
 
     await page.goto(`/dashboard/documents/${doc.id}`);
     await page.getByLabel("Título de la escritura").fill(`${doc.id} editado`);
-    await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
+    await expect(saveStatus(page)).toHaveText("Sin guardar");
 
     await stepTab(page, "Cobro").click();
     await expect(page.getByText("¿Salir sin guardar?")).toHaveCount(0);
@@ -255,7 +260,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
     await page.goto(`/dashboard/documents/${doc.id}`);
     const editedTitle = `${doc.id} editado D`;
     await page.getByLabel("Título de la escritura").fill(editedTitle);
-    await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
+    await expect(saveStatus(page)).toHaveText("Sin guardar");
 
     await page.getByRole("link", { name: "Clientes" }).click();
     const dialog = page.getByRole("alertdialog", { name: "¿Salir sin guardar?" });

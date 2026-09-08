@@ -215,10 +215,14 @@ test.describe("document lifecycle statuses", () => {
     const finalButton = page.getByRole("button", {
       name: "Finalizar escritura",
     });
-    await expect(
-      page.getByText("Guarda los cambios antes de cambiar el estado."),
-    ).toBeVisible();
     await expect(finalButton).toBeDisabled();
+    // El motivo ya no es una línea de texto permanente (crecía el dock en
+    // el estado dirty, el más frecuente) — es un `title` accesible en el
+    // propio botón.
+    await expect(finalButton).toHaveAttribute(
+      "title",
+      "Guarda los cambios antes de finalizar.",
+    );
   });
 
   test("G: pending variables block finalizing (server-side)", async ({

@@ -193,10 +193,10 @@ test.describe("document guided progression", () => {
     await page.goto(`/dashboard/documents/${doc.id}`);
 
     // Edita en Completar sin guardar y navega a Cobro — el cambio local no
-    // se pierde ni exige guardar antes de moverse. La barra de Guardar en
-    // sí (con su propio `role="status"`) vive solo dentro de "Completar"
-    // (segundo refinamiento) — el estado sin guardar sigue siendo visible
-    // en el encabezado (global) sin importar el paso activo.
+    // se pierde ni exige guardar antes de moverse. El dock de Guardar
+    // (cuarto refinamiento) es `position: fixed`, visible sin importar el
+    // paso activo mientras la Escritura sea editable — sigue siendo
+    // alcanzable en "Cobro" también.
     await page.getByLabel("Título de la escritura").fill(firstTitle);
     await goToStep(page, "Cobro");
     // Varios lugares reflejan "Cambios sin guardar" (encabezado, badge del
