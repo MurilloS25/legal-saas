@@ -318,7 +318,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: "Insertar variable" }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).not.toBeVisible();
 
     // Solicitud manipulada: reactiva el campo "Nombre" a mano vía DOM (como
@@ -350,7 +350,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Negrita" })).toBeEnabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).toBeVisible();
   });
 

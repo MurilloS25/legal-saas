@@ -7,12 +7,13 @@ import {
 } from "./support/factories";
 
 /**
- * Flujo guiado en Machotes: "Guardar y continuar" avanza automáticamente al
- * siguiente paso del stepper (Información → Documento → Variables → Índice →
- * Publicar), muestra un toast transitorio en vez de un banner permanente, y
- * un guardado inválido no avanza ni marca el paso como completo. Complementa
- * (no duplica) `template-stepper-create-authenticated.spec.ts`, que cubre el
- * primer guardado en modo creación.
+ * Guardado único en Machotes (iteración 4): un solo botón "Guardar"
+ * persiste Información/Documento/Variables/Índice juntos; navegar entre
+ * pasos del stepper es libre y nunca requiere guardar antes ni avanza como
+ * efecto colateral de guardar — reemplaza el antiguo patrón "Guardar y
+ * continuar" (auto-avance por paso), retirado explícitamente en esta
+ * iteración. Complementa (no duplica) `template-stepper-create-authenticated.spec.ts`,
+ * que cubre el primer guardado en modo creación.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -36,7 +37,7 @@ test.describe("template guided progression", () => {
     await runCleanup(registry, "template-guided-progression");
   });
 
-  test("A: saving from Información advances to Documento, marks Información ✓, and shows a toast (no permanent duplicate banner)", async ({
+  test("A: saving from Información does not navigate away, shows a toast (no permanent duplicate banner), and marks Información complete", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -53,15 +54,15 @@ test.describe("template guided progression", () => {
     await page
       .getByLabel("Descripción (opcional)")
       .fill("Descripción del flujo guiado");
-    await page
-      .getByRole("button", { name: "Guardar y continuar" })
-      .click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
-    // El guardado avanza automáticamente al siguiente paso del orden fijo.
-    await expect(tab(page, "Documento")).toHaveAttribute(
+    // Guardado único: no navega de paso — sigue en "Información".
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(tab(page, "Información")).toHaveAttribute(
       "aria-selected",
       "true",
-      { timeout: 15_000 },
     );
 
     // El toast se autodescarta a los 3.5s — verificarlo antes que cualquier
@@ -71,16 +72,17 @@ test.describe("template guided progression", () => {
     await expect(
       page.getByText("Machote guardado.", { exact: true }),
     ).toHaveCount(1);
-    await expect(
-      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
-    ).toBeVisible();
 
+    // El paso activo se marca "current" (no "✓") mientras se está en él —
+    // el check solo se ve en un paso completo que YA NO es el actual, así
+    // que hay que salir de "Información" para verlo.
+    await goToTab(page, "Documento");
     await expect(
       tab(page, "Información").getByText("✓", { exact: true }),
     ).toBeVisible();
   });
 
-  test("B: a validation error on save does not advance the step nor mark it complete", async ({
+  test("B: a validation error on save keeps the workspace dirty and does not mark the step complete", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -99,14 +101,10 @@ test.describe("template guided progression", () => {
     // antes de que exista una respuesta del servidor que procesar.
     const nameInput = page.getByLabel("Nombre del machote");
     await nameInput.fill("");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
-    // Nada avanzó: seguimos en "Información", sin marca de completo, y el
-    // campo sigue inválido según el navegador.
-    await expect(tab(page, "Información")).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    // Nada se guardó: sin marca de completo, el campo sigue inválido según
+    // el navegador, y el estado global sigue "Cambios sin guardar".
     await expect(
       tab(page, "Información").getByText("✓", { exact: true }),
     ).toHaveCount(0);
@@ -116,9 +114,12 @@ test.describe("template guided progression", () => {
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toHaveCount(0);
+    await expect(
+      page.locator('p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
+    ).toBeVisible();
   });
 
-  test("C: manual back-navigation still works after auto-advancing forward, and re-saving advances again", async ({
+  test("C: navigating between steps never requires saving first, and edits made before saving survive both directions", async ({
     page,
   }) => {
     const template = await createTestTemplate(registry, {
@@ -128,37 +129,49 @@ test.describe("template guided progression", () => {
 
     await page.goto(`/dashboard/templates/${template.id}`);
 
-    // Primer guardado: Información → Documento.
+    // Edita Información sin guardar y navega a Documento — el cambio local
+    // no se pierde ni exige guardar antes de moverse.
     await page
       .getByLabel("Descripción (opcional)")
       .fill("Primera descripción");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-    await expect(tab(page, "Documento")).toHaveAttribute(
-      "aria-selected",
-      "true",
-      { timeout: 15_000 },
-    );
+    await goToTab(page, "Documento");
+    await expect(
+      page.locator('p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
+    ).toBeVisible();
 
-    // Navegación manual hacia atrás — el auto-avance no vuelve esto un
-    // asistente de un solo sentido.
     await goToTab(page, "Información");
     await expect(page.getByLabel("Descripción (opcional)")).toHaveValue(
       "Primera descripción",
     );
 
+    // Un guardado real persiste el cambio y limpia el dirty — sigue en
+    // "Información" (guardar no navega).
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(tab(page, "Información")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    // Segunda edición, navegación manual de ida y vuelta, y un segundo
+    // guardado — el patrón se repite sin depender de ningún avance
+    // automático.
     await page
       .getByLabel("Descripción (opcional)")
       .fill("Segunda descripción, tras volver manualmente");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-
-    // Vuelve a avanzar automáticamente, de nuevo a Documento.
-    await expect(tab(page, "Documento")).toHaveAttribute(
-      "aria-selected",
-      "true",
-      { timeout: 15_000 },
-    );
-
+    await goToTab(page, "Documento");
     await goToTab(page, "Información");
+    await expect(page.getByLabel("Descripción (opcional)")).toHaveValue(
+      "Segunda descripción, tras volver manualmente",
+    );
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
     await expect(page.getByLabel("Descripción (opcional)")).toHaveValue(
       "Segunda descripción, tras volver manualmente",
     );

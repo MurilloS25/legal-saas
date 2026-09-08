@@ -99,7 +99,7 @@ test.describe("template variables workspace", () => {
     ).toBeVisible();
   });
 
-  test("B: 'Guardar variable' persists a pending variable immediately, with no separate 'Guardar y continuar' click needed", async ({
+  test("B: 'Guardar variable' applies the edit locally (marks the workspace dirty); the single global 'Guardar' persists it", async ({
     page,
   }) => {
     await openWorkspace(page);
@@ -112,19 +112,23 @@ test.describe("template variables workspace", () => {
     await page.getByLabel("Variable obligatoria").check();
     await page.getByRole("button", { name: "Guardar variable" }).click();
 
+    // "Guardar variable" ya no persiste por su cuenta (guardado único): solo
+    // aplica el cambio al estado local, igual que cualquier otra edición —
+    // la fila ya se ve "Configurada" y el workspace queda con cambios sin
+    // guardar hasta el botón "Guardar" global.
     await expect(
       variableRow(page, pendingKey).getByText("Configurada"),
     ).toBeVisible();
-    // "Guardar variable" ya envió el formulario: sin un segundo clic en
-    // "Guardar y continuar", el estado vuelve a "Guardado". "Guardar
-    // variable" nunca avanza de paso (solo el botón principal lo hace), así
-    // que seguimos en "Variables" tras el guardado.
+    await expect(page.locator('p[role="status"]')).toHaveText(
+      "Cambios sin guardar",
+      { timeout: 5_000 },
+    );
+
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
 
-    // Recargar ya debe mostrar la variable persistida — no fue necesario
-    // ningún clic adicional en "Guardar y continuar".
     await page.reload();
     const row = variableRow(page, pendingKey);
     await expect(row.getByText(pendingLabel)).toBeVisible();
@@ -171,7 +175,7 @@ test.describe("template variables workspace", () => {
     await expect(variableRow(page, configuredKey)).not.toBeVisible();
     await expect(variableRow(page, pendingKey)).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -198,7 +202,7 @@ test.describe("template variables workspace", () => {
     // Deja este estado guardado — E parte de aquí (todavía referenciada,
     // todavía sin configurar).
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -228,10 +232,6 @@ test.describe("template variables workspace", () => {
     await expect(
       variableRow(page, configuredKey).getByText("Configurada"),
     ).toBeVisible();
-    // Espera a que ese envío inmediato termine antes de disparar otro.
-    await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
-      timeout: 15_000,
-    });
 
     await variableRow(page, configuredKey)
       .getByRole("button", { name: `Quitar configuración de ${configuredKey}` })
@@ -241,7 +241,7 @@ test.describe("template variables workspace", () => {
       variableRow(page, configuredKey).getByText("Pendiente de configurar"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -295,7 +295,9 @@ test.describe("template variables workspace", () => {
     await expect(
       variableRow(page, newKey).getByText("Dígitos en palabras"),
     ).toBeVisible();
-    // Persistido de inmediato, sin un segundo clic en "Guardar y continuar".
+    // "Guardar variable" solo aplica el cambio localmente — el guardado
+    // único (botón "Guardar" global) es lo que persiste.
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
@@ -336,7 +338,7 @@ test.describe("template variables workspace", () => {
     await expect(row.getByText("Obligatoria")).toBeVisible();
     await expect(row.getByText("Dígitos en palabras")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });

@@ -307,6 +307,12 @@ test.describe("template notarial index configuration", () => {
       .selectOption(mappedFieldIds["folio.final"]);
 
     await openConfigIndexRow(page, "parties");
+    // Tri-estado de Partes: arranca en "Pendiente de definir" — hay que
+    // elegir "Requiere partes" explícitamente antes de que aparezcan el
+    // buscador y la lista de variables.
+    await section
+      .getByRole("radio", { name: "Requiere partes", exact: true })
+      .click();
     await section
       .getByRole("checkbox", { name: /Nombre del comprador/ })
       .check();
@@ -323,8 +329,14 @@ test.describe("template notarial index configuration", () => {
       ),
     ).toBeVisible();
 
-    await section.getByRole("button", { name: "Guardar configuración" }).click();
+    // El guardado del Índice se unificó en el único botón "Guardar" del
+    // machote (ya no tiene su propio botón "Guardar configuración") — el
+    // guardado coordinado dispara ambos toasts.
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.getByText("Configuración guardada.")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("Machote guardado.")).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -623,7 +635,7 @@ test.describe("template notarial index configuration", () => {
         timeout: 2_000,
       });
     }).toPass({ timeout: 20_000 });
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();

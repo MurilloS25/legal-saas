@@ -6,6 +6,7 @@ export { CollapsibleFieldRow } from "./components/CollapsibleFieldRow";
 export type {
   IndexConfigurationField,
   IndexConfigurationOptionBlock,
+  TemplateIndexConfigurationHandle,
 } from "./components/TemplateIndexConfigurationSection";
 export type { TemplateIndexConfiguration } from "./model/template-index-configuration";
 export { generateConfiguredPartiesPreview } from "./model/parties";

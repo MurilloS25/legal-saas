@@ -68,13 +68,10 @@ export const TemplateIndexConfigurationSchema = z
         message: "La hora solo puede tener una fuente",
       });
     }
-    if (!value.allow_empty && value.template_field_ids.length === 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["template_field_ids"],
-        message: "Selecciona al menos un campo o confirma la configuración vacía",
-      });
-    }
+    // Sin selección Y sin `allow_empty` ya NO es un error: es el estado
+    // "Pendiente de definir" de Partes (ver TemplateIndexConfigurationSection,
+    // tri-estado Pendiente/Requiere/No requiere) — un machote puede guardarse
+    // sin haber decidido todavía si necesita Partes para el Índice.
     if (new Set(value.template_field_ids).size !== value.template_field_ids.length) {
       ctx.addIssue({
         code: "custom",

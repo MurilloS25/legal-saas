@@ -238,6 +238,18 @@ export default defineConfig({
       dependencies: ["chromium-template-stepper-create"],
     },
 
+    // Sticky Guardar bar + tri-estado de Partes (Pendiente/Requiere/No
+    // requiere) en el workspace de Machotes — authenticated.
+    {
+      name: "chromium-template-sticky-and-parties",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-workspace-sticky-and-parties-authenticated\.spec\.ts/,
+      dependencies: ["chromium-template-guided-progression"],
+    },
+
     // Documents (Escrituras) workspace — authenticated.
     {
       name: "chromium-documents",
