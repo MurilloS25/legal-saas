@@ -23,8 +23,10 @@ type Props = {
   /**
    * "full" (compositor): botón ancho con textos de ayuda.
    * "compact" (listado): botón pequeño sin ayuda, misma lógica de descarga.
+   * "menu" (dentro de "Más acciones"): fila de ancho completo estilo ítem
+   * de menú, sin ayuda — misma lógica de descarga que las otras variantes.
    */
-  variant?: "full" | "compact";
+  variant?: "full" | "compact" | "menu";
   /** Nombre accesible cuando conviene distinguir varias filas. */
   ariaLabel?: string;
 };
@@ -125,32 +127,30 @@ export function DownloadDocxButton({
   }
 
   const preparing = status === "preparing";
+  const isMenu = variant === "menu";
+  const showHelp = variant === "full";
 
-  const buttonClass = compact
-    ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-    : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  const buttonClass = isMenu
+    ? "flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    : compact
+      ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
   return (
-    <div className={compact ? "inline-block" : undefined}>
+    <div className={compact || isMenu ? "inline-block" : undefined}>
       <button
         ref={triggerRef}
         type="button"
         onClick={onClick}
         disabled={disabled || preparing}
         aria-label={ariaLabel}
-        aria-describedby={!compact && disabled ? `${titleId}-hint` : undefined}
+        aria-describedby={showHelp && disabled ? `${titleId}-hint` : undefined}
         className={buttonClass}
       >
-        {preparing
-          ? compact
-            ? "Preparando…"
-            : "Preparando Word…"
-          : compact
-            ? "Descargar Word"
-            : "Descargar Word"}
+        {preparing ? "Preparando…" : "Descargar Word"}
       </button>
 
-      {!compact &&
+      {showHelp &&
         (disabled ? (
           <p id={`${titleId}-hint`} className="mt-1.5 text-xs text-slate-500">
             Guarda los cambios antes de descargar el Word.

@@ -2,13 +2,18 @@
 
 /**
  * Barra de guardado del workspace de Escrituras — sticky, compacta, visible
- * desde Completar y Revisar (los dos pasos que comparten el `<form>` de
+ * solo dentro del panel "Completar" (el único paso con el `<form>` de
  * contenido editable). Mismo patrón conceptual que
  * `TemplateSaveControls` (Machotes): dirty/guardando/guardado/error +
  * protección contra doble submit — implementado aparte a propósito (no
  * importado desde `features/templates`) para mantener esta iteración
  * acotada solo a Escrituras; ver comentario de módulo en
  * `DocumentComposer.tsx` sobre qué se reutiliza conceptualmente y qué no.
+ *
+ * `actions` integra Finalizar/Volver a borrador (`DocumentStatusControls`)
+ * en esta misma barra cuando la Escritura es editable — ambas son acciones
+ * del documento en edición y deben sentirse relacionadas, sin repetirse en
+ * Cobro/Índice (que no reciben este componente en absoluto).
  */
 
 type Props = {
@@ -22,6 +27,9 @@ type Props = {
    * usuario nunca pierde sus cambios locales por un guardado fallido. */
   errorMessage?: string;
   onSaveClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Acciones de lifecycle relacionadas (Finalizar/Volver a borrador),
+   * mostradas junto a Guardar — omitido en modo creación (sin documentId). */
+  actions?: React.ReactNode;
 };
 
 export function DocumentSaveControls({
@@ -32,6 +40,7 @@ export function DocumentSaveControls({
   canWrite,
   errorMessage,
   onSaveClick,
+  actions,
 }: Props) {
   if (!canWrite) return null;
 
@@ -76,6 +85,11 @@ export function DocumentSaveControls({
       >
         {label}
       </button>
+      {actions && (
+        <div className="flex flex-wrap items-center gap-2 border-l border-slate-200/80 pl-3">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

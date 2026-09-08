@@ -9,8 +9,12 @@ import {
 type Props = {
   documentId: string;
   documentTitle: string;
-  /** "compact" para la lista (solo ícono); "full" para el header del compositor. */
-  variant?: "compact" | "full";
+  /**
+   * "compact" para la lista (solo ícono); "full" para el header del
+   * compositor; "menu" dentro de "Más acciones" (fila de ancho completo
+   * con ícono + etiqueta, estilo ítem de menú).
+   */
+  variant?: "compact" | "full" | "menu";
 };
 
 export function DuplicateDocumentButton({
@@ -28,7 +32,9 @@ export function DuplicateDocumentButton({
   const triggerClass =
     variant === "compact"
       ? "flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-accent-50 hover:text-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-1 transition-colors"
-      : "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0";
+      : variant === "menu"
+        ? "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
+        : "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0";
 
   return (
     <>
@@ -55,7 +61,7 @@ export function DuplicateDocumentButton({
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
-        {variant === "full" && "Duplicar"}
+        {variant !== "compact" && "Duplicar"}
       </button>
 
       {open && (

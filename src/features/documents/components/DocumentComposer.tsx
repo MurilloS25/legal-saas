@@ -14,11 +14,18 @@
  * y se retiró: mostraba prácticamente el mismo documento que ya se ve en
  * "Completar" (vista previa en vivo, expandible a pantalla completa vía
  * `ResizableSplitPane`), y solo agregaba navegación sin una fase realmente
- * distinta. Finalizar/Reabrir/Volver a borrador (`DocumentStatusControls`)
- * y Descargar Word ahora viven en `DocumentWorkspaceHeader`, junto a
- * Duplicar e Historial — todas dependen de que la Escritura ya exista,
- * ninguna es exclusiva de un paso, y el encabezado no se oculta al cambiar
- * de sección.
+ * distinta.
+ *
+ * Jerarquía de acciones (segundo refinamiento): Reabrir y "Más acciones"
+ * (Descargar Word/Duplicar/Historial) viven en `DocumentWorkspaceHeader`
+ * porque son alcanzables sin importar el paso activo — Reabrir porque una
+ * Escritura finalizada es de solo lectura en todos los pasos, y "Más
+ * acciones" porque son secundarias, no ligadas a ningún paso en particular.
+ * Finalizar/Volver a borrador (`DocumentStatusControls`, rama draft/ready)
+ * en cambio viven AQUÍ, integradas a la barra de Guardar
+ * (`DocumentSaveControls`) dentro del `<form>` de "Completar" — ambas son
+ * acciones del documento en edición y no le pertenecen a Cobro ni a
+ * Índice, así que no se repiten ahí.
  *
  * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, sticky,
  * dentro del `<form>` de Completar) persiste título, valores, cliente y
@@ -28,7 +35,7 @@
  * sin guardar. Esto resuelve el caso central de reabrir una Escritura
  * finalizada y corregir un dato sin tener que navegar a ningún otro lado
  * primero — Reabrir ya deja al usuario en "Completar", editable, con
- * Guardar y Finalizar alcanzables de inmediato.
+ * Guardar y Finalizar alcanzables de inmediato, en la misma barra.
  *
  * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
  * queda bloqueado hasta entonces. "Índice" también requiere persistencia,
@@ -71,6 +78,7 @@ import { DocumentContextBar } from "./DocumentContextBar";
 import { DocumentMobileViewToggle } from "./DocumentMobileViewToggle";
 import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
 import { DocumentSaveControls } from "./DocumentSaveControls";
+import { DocumentStatusControls } from "./DocumentStatusControls";
 import { PendingFieldsDialog, type PendingField } from "./PendingFieldsDialog";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import {
@@ -614,7 +622,6 @@ export function DocumentComposer(props: Props) {
         onSectionChange={goToSection}
         activity={isEdit ? props.activity : undefined}
         canDuplicate={isEdit ? props.canDuplicate : false}
-        includeInNotarialIndex={includeInNotarialIndex}
         completarComplete={completedCompletar}
         cobroComplete={completedCobro}
         notarialComplete={completedNotarial}
@@ -684,21 +691,38 @@ export function DocumentComposer(props: Props) {
             }
             secondary={completarPrimary}
           />
-        </div>
 
-        {/* Barra sticky de Guardar — único hijo restante del `<form>`
-            fuera del panel "Completar" (el paso "Revisar y finalizar" que
-            antes vivía aparte se retiró; Finalizar/Descargar Word ahora
-            viven en `DocumentWorkspaceHeader`, alcanzables sin importar el
-            paso activo). */}
-        <DocumentSaveControls
-          dirty={dirty}
-          pending={pending}
-          saved={!!state.success && !saveErrorMessage}
-          isEdit={isEdit}
-          canWrite={!readOnly}
-          errorMessage={saveErrorMessage}
-        />
+          {/* Barra sticky de Guardar — exclusiva de "Completar" (segundo
+              refinamiento): ni Cobro ni Índice la necesitan, así que vive
+              dentro de este panel oculto por CSS, no como hermano suelto
+              del `<form>`. Integra Finalizar/Volver a borrador (rama
+              draft/ready de `DocumentStatusControls`) como acción
+              relacionada — Reabrir (rama final) y "Más acciones" viven en
+              `DocumentWorkspaceHeader` en cambio, porque una Escritura
+              finalizada nunca llega a este `<form>` (es solo-lectura,
+              `canWrite` da `false` y el componente no renderiza nada). */}
+          <DocumentSaveControls
+            dirty={dirty}
+            pending={pending}
+            saved={!!state.success && !saveErrorMessage}
+            isEdit={isEdit}
+            canWrite={!readOnly}
+            errorMessage={saveErrorMessage}
+            actions={
+              isEdit ? (
+                <DocumentStatusControls
+                  key={status}
+                  documentId={props.draft.id}
+                  status={status}
+                  dirty={dirty}
+                  canFinalize={canFinalize}
+                  notarialDataConfirmed={completedNotarial}
+                  includeInNotarialIndex={includeInNotarialIndex}
+                />
+              ) : undefined
+            }
+          />
+        </div>
       </form>
 
       <ExpandableDocumentPanel

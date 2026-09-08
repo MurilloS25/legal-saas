@@ -5,10 +5,19 @@
  * con compatibilidad para el estado histórico `ready` y confirmaciones
  * accesibles. No se puede cambiar de estado con cambios locales sin guardar.
  * Finalizar se valida en servidor (bloquea si hay variables pendientes).
+ *
+ * Un solo componente para las dos ramas de estado, pero cada una se monta en
+ * un lugar distinto del workspace (ver `DocumentComposer`/
+ * `DocumentWorkspaceHeader`): "final" (Reabrir) vive en el encabezado, junto
+ * al resto de acciones globales; "draft"/"ready" (Finalizar/Volver a
+ * borrador) vive dentro del panel "Completar", integrado a la barra de
+ * Guardar — nunca ambas ramas montadas a la vez, porque son mutuamente
+ * excluyentes según `status`. Ya no ofrece un enlace directo al paso
+ * "Índice": el stepper ya lo cubre, así que agregar uno aquí solo
+ * duplicaba navegación.
  */
 
 import { startTransition, useActionState, useRef, useState } from "react";
-import Link from "next/link";
 import {
   markDocumentFinalAction,
   reopenDocumentAction,
@@ -34,8 +43,10 @@ type Props = {
   notarialDataConfirmed: boolean;
   /** documents.include_in_notarial_index — heredado del Machote al crear
    * (o corregido individualmente desde el paso Índice). Finalizar ya no
-   * decide este valor; solo lo muestra. */
-  includeInNotarialIndex: boolean;
+   * decide este valor; solo lo muestra en su diálogo de confirmación
+   * (rama draft/ready). Irrelevante para la rama final (Reabrir) — opcional
+   * para esa llamada. */
+  includeInNotarialIndex?: boolean;
 };
 
 type DialogKind = "final" | "reopen" | "draft" | null;
@@ -52,7 +63,7 @@ export function DocumentStatusControls({
   dirty,
   canFinalize,
   notarialDataConfirmed,
-  includeInNotarialIndex,
+  includeInNotarialIndex = true,
 }: Props) {
   const [toDraft, toDraftAction, toDraftPending] = useActionState(
     returnDocumentToDraftAction.bind(null, documentId),
@@ -157,17 +168,11 @@ export function DocumentStatusControls({
               type="button"
               disabled={anyPending}
               onClick={() => setDialog("reopen")}
-              className={secondaryButtonClass}
+              className={primaryButtonClass}
             >
               Reabrir escritura
             </button>
           )}
-          <Link
-            href={`/dashboard/documents/${documentId}?section=notarial`}
-            className="inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-          >
-            {includeInNotarialIndex ? "Completar datos del índice" : "Ver Índice Notarial"}
-          </Link>
         </>
       )}
 

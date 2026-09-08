@@ -15,7 +15,7 @@
  * documento).
  */
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 type Props = {
   triggerLabel: React.ReactNode;
@@ -52,6 +52,29 @@ export function Popover({
       wasOpenRef.current = false;
       window.requestAnimationFrame(() => triggerRef.current?.focus());
     }
+  }, [open]);
+
+  // `align` es una preferencia (anclar a la izquierda o derecha del
+  // trigger), no una garantía — en un viewport angosto (móvil) un trigger
+  // cerca de un borde puede dejar el panel parcialmente fuera de pantalla.
+  // Se mide después de montar y se corrige con un `translateX` puntual, sin
+  // tocar el CSS de posicionamiento base (que sigue funcionando igual en
+  // desktop, donde nunca hace falta corregir nada).
+  useLayoutEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    // Un viewport de 0×0 (pestaña oculta, no visible aún) daría un shift
+    // sin sentido — sin esto la corrección quedaría corrupta hasta el
+    // siguiente open/close.
+    if (!panel || window.innerWidth <= 0) return;
+    const margin = 8;
+    const rect = panel.getBoundingClientRect();
+    let shift = 0;
+    if (rect.left < margin) shift = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) {
+      shift = window.innerWidth - margin - rect.right;
+    }
+    panel.style.transform = shift !== 0 ? `translateX(${shift}px)` : "";
   }, [open]);
 
   function close() {
