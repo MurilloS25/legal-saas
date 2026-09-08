@@ -36,11 +36,11 @@ export function TemplateSaveControls({
   const label = pending ? "Guardando…" : !isEdit ? "Crear machote" : "Guardar";
 
   return (
-    <div className="sticky bottom-0 z-20 -mx-4 mt-8 flex flex-wrap items-center justify-end gap-4 border-t border-slate-200 bg-white/95 px-4 py-4 shadow-[0_-2px_8px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
-      <div className="text-right">
+    <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200/80 bg-slate-50/95 px-4 py-2 shadow-[0_-1px_4px_rgba(15,23,42,0.04)] backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+      <div className="text-right leading-tight">
         <p
           role="status"
-          className={`text-sm ${
+          className={`text-xs ${
             errorMessage
               ? "text-red-700 font-medium"
               : dirty && !pending
@@ -53,7 +53,7 @@ export function TemplateSaveControls({
             : "Tu rol no permite editar machotes. Lo ves en modo lectura."}
         </p>
         {errorMessage && (
-          <p role="alert" className="mt-1 text-xs text-red-700">
+          <p role="alert" className="text-xs text-red-700">
             {errorMessage}
           </p>
         )}
@@ -63,7 +63,7 @@ export function TemplateSaveControls({
           type="submit"
           disabled={pending || (isEdit && !dirty)}
           onClick={onSaveClick}
-          className="rounded-lg bg-accent-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="rounded-md bg-accent-700 px-4 py-1.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {label}
         </button>
