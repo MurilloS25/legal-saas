@@ -635,8 +635,6 @@ export function DocumentComposer(props: Props) {
         cobroComplete={completedCobro}
         notarialComplete={completedNotarial}
         dirty={dirty}
-        canFinalize={canFinalize}
-        notarialDataConfirmed={completedNotarial}
         persistedPendingVariableCount={persistedPendingCount}
       />
 
@@ -776,23 +774,24 @@ export function DocumentComposer(props: Props) {
         )}
       </div>
 
-      {/* Dock flotante de Guardar — un solo montaje, hermano de los tres
+      {/* Dock flotante de lifecycle — un solo montaje, hermano de los tres
           paneles (no dentro de "Completar"): visible sin importar el paso
-          activo mientras la Escritura sea editable, para poder Guardar
-          desde Cobro/Índice sin volver a Completar primero. Integra
-          Finalizar/Volver a borrador (rama draft/ready de
-          `DocumentStatusControls`) como acción relacionada — Reabrir
-          (rama final) y las utilitarias (Descargar Word/Historial/
-          Duplicar) viven en `DocumentWorkspaceHeader` en cambio, porque
-          una Escritura finalizada nunca activa este dock (`canWrite` da
-          `false` y el componente no renderiza nada). */}
+          activo mientras la Escritura tenga algo que ofrecer ahí, para
+          poder Guardar/Reabrir desde Cobro/Índice sin volver a Completar
+          primero. Integra Finalizar/Volver a borrador (rama draft/ready)
+          o Reabrir (rama final) de `DocumentStatusControls`, según
+          `status` — las utilitarias (Descargar Word/Historial/Duplicar)
+          viven en `DocumentWorkspaceHeader` en cambio, fijas ahí sin
+          importar el estado. */}
       <DocumentSaveControls
         formId="document-completar-form"
+        status={status}
         dirty={dirty}
         pending={pending}
         saved={!!state.success && !saveErrorMessage}
         isEdit={isEdit}
-        canWrite={!readOnly}
+        canEdit={canEdit}
+        canFinalize={canFinalize}
         errorMessage={saveErrorMessage}
         actions={
           isEdit ? (

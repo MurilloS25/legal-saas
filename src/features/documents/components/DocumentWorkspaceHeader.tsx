@@ -2,7 +2,7 @@
 
 /**
  * Encabezado del workspace de una Escritura — creación y edición: breadcrumb,
- * título/estado en vivo, cliente, acciones globales mínimas, y el stepper
+ * título/estado en vivo, cliente, acciones utilitarias fijas, y el stepper
  * horizontal de navegación entre Completar / Cobro / Índice.
  *
  * El stepper es la vista principal desde que se inicia una Escritura nueva:
@@ -21,29 +21,29 @@
  * para consultar/cambiar esa decisión. Sigue bloqueado hasta que la
  * Escritura esté finalizada, igual que siempre.
  *
- * Jerarquía de acciones (tercer refinamiento): el stepper ya cubre toda la
- * navegación entre secciones, así que este encabezado no repite botones
- * cuyo único propósito era llevar a un paso que ya es un tab — se retiró
- * el enlace "Ver Índice Notarial"/"Completar datos del índice" (ver
- * `DocumentStatusControls`). Un menú "Más acciones" agrupando Descargar
- * Word/Duplicar/Historial se probó y se descartó: Descargar Word e
- * Historial son acciones frecuentes/consistentes con el resto del sistema
- * y esconderlas detrás de un disclosure las hacía más difíciles de ubicar
- * — viven aquí directamente, con jerarquía visual secundaria/discreta
- * (nunca compiten con el CTA de lifecycle). Duplicar, menos frecuente,
- * también queda aquí como secundario — con solo 3-4 acciones utilitarias
- * en total un overflow ya no aportaba valor.
- *   - "Reabrir escritura" (`DocumentStatusControls`, rama `final`) — la
- *     única acción de lifecycle que tiene sentido fuera de "Completar"
- *     (una Escritura finalizada es de solo lectura en todos los pasos, no
- *     solo en ese), y la única con peso visual primario aquí.
- *   - Descargar Word, Historial, Duplicar — siempre visibles cuando la
- *     Escritura existe, sin importar el estado ni el paso activo.
- * Finalizar/Volver a borrador (rama `draft`/`ready`) NO vive aquí: vive en
- * la toolbar contextual de "Completar" (`DocumentSaveControls`, vía
- * `DocumentComposer`) junto a Guardar — ambas son acciones del documento
- * en edición y no le pertenecen a Cobro ni a Índice. Guardar en sí
- * tampoco vive aquí por el mismo motivo: es exclusivo de "Completar".
+ * Jerarquía de acciones (quinto refinamiento): este encabezado ya NO aloja
+ * ningún control de lifecycle (ni Finalizar/Volver a borrador ni Reabrir) —
+ * los tres viven en el dock flotante (`DocumentSaveControls`, vía
+ * `DocumentComposer`), que reutiliza la misma posición/composición sin
+ * importar el `status`. Antes Reabrir vivía aquí junto a las utilitarias,
+ * pero eso hacía que Borrador → Finalizada reorganizara visualmente la
+ * cabecera entera (el resto de acciones "saltaban" a una fila distinta) —
+ * moverlo también al dock resuelve esa inconsistencia: el cambio de estado
+ * ahora solo se nota en el dock, nunca aquí arriba. Lo que sí queda fijo
+ * aquí, siempre en la misma posición sin importar `status` ni el paso
+ * activo, es:
+ *   - Descargar Word, Historial, Duplicar — jerarquía visual secundaria/
+ *     discreta (nunca compiten con el dock). Un menú "Más acciones"
+ *     agrupándolas se probó y se descartó: Descargar Word e Historial son
+ *     demasiado frecuentes para esconder, y sin ellas el menú no aportaba
+ *     valor. Duplicar, menos frecuente, igual queda aquí como secundario —
+ *     con solo 3 acciones utilitarias un overflow no aporta nada.
+ *   - El aviso "Finalizada es de solo lectura..." cuando corresponde —
+ *     información sobre el documento, no una acción, así que vive junto al
+ *     badge de estado, nunca dentro de un contenedor de botones.
+ * El stepper ya cubre toda la navegación entre secciones, así que tampoco
+ * repite botones cuyo único propósito sería llevar a un paso que ya es un
+ * tab — por eso no existe un enlace "Ver Índice Notarial".
  *
  * El compositor (valores, cliente, dirty) permanece montado en todo momento
  * — cambiar de sección solo cambia qué panel es visible — así que ir de
@@ -59,7 +59,6 @@ import { documentStatusBadgeClass, documentStatusLabel } from "../model/status";
 import type { DocumentStatus } from "../model/lifecycle";
 import type { DocumentActivityPage } from "../server/activity-queries";
 import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
-import { DocumentStatusControls } from "./DocumentStatusControls";
 import { DownloadDocxButton } from "./DownloadDocxButton";
 import { DuplicateDocumentButton } from "./DuplicateDocumentButton";
 
@@ -118,16 +117,8 @@ type Props = {
   cobroComplete?: boolean;
   notarialComplete?: boolean;
   /** true si hay cambios locales sin guardar en el compositor — bloquea
-   * Descargar Word (Finalizar/Reabrir/Volver a borrador tienen su propio
-   * bloqueo por dirty donde viven: Finalizar en `DocumentSaveControls`
-   * dentro de "Completar"; Reabrir nunca puede ocurrir con dirty porque una
-   * Escritura finalizada no es editable). */
+   * Descargar Word. */
   dirty: boolean;
-  /** documents.finalize — controla "Reabrir escritura" aquí. */
-  canFinalize: boolean;
-  /** true si los datos del Índice están actualmente Confirmados — el
-   * diálogo de reabrir advierte que esa confirmación quedará invalidada. */
-  notarialDataConfirmed: boolean;
   /** Variables sin valor del estado PERSISTIDO (no del local) — para el
    * aviso de "Descargar Word" cuando hay variables pendientes. */
   persistedPendingVariableCount: number;
@@ -147,8 +138,6 @@ export function DocumentWorkspaceHeader({
   cobroComplete = false,
   notarialComplete = false,
   dirty,
-  canFinalize,
-  notarialDataConfirmed,
   persistedPendingVariableCount,
 }: Props) {
   const persisted = !!documentId;
@@ -205,44 +194,35 @@ export function DocumentWorkspaceHeader({
           <p className="mt-2 text-sm text-slate-500">
             Cliente: {clientName ?? "Sin cliente"}
           </p>
+          {/* Información sobre el documento, no una acción — separada a
+              propósito de cualquier contenedor de botones (ni aquí ni en
+              el dock, que solo aloja el propio Reabrir). */}
+          {status === "final" && (
+            <p className="mt-2 text-xs text-slate-500">
+              Finalizada es de solo lectura. No significa firmada,
+              presentada ni enviada oficialmente.
+            </p>
+          )}
         </div>
         {documentId && (
-          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-            {/* Solo la rama "final" (Reabrir) se monta aquí — draft/ready
-                (Finalizar/Volver a borrador) vive en "Completar", junto a
-                Guardar (ver DocumentSaveControls vía DocumentComposer). */}
-            {status === "final" && (
-              <DocumentStatusControls
-                key={status}
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <DownloadDocxButton
+              documentId={documentId}
+              disabled={dirty}
+              pendingVariableCount={persistedPendingVariableCount}
+              variant="compact"
+            />
+            <DocumentHistoryDialog
+              documentId={documentId}
+              activity={activity ?? EMPTY_ACTIVITY}
+            />
+            {canDuplicate && (
+              <DuplicateDocumentButton
                 documentId={documentId}
-                status={status}
-                dirty={dirty}
-                canFinalize={canFinalize}
-                notarialDataConfirmed={notarialDataConfirmed}
+                documentTitle={title}
+                variant="full"
               />
             )}
-            {/* Utilitarias, siempre visibles, jerarquía secundaria/discreta
-                — nunca compiten visualmente con Reabrir ni con Guardar/
-                Finalizar en "Completar". */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <DownloadDocxButton
-                documentId={documentId}
-                disabled={dirty}
-                pendingVariableCount={persistedPendingVariableCount}
-                variant="compact"
-              />
-              <DocumentHistoryDialog
-                documentId={documentId}
-                activity={activity ?? EMPTY_ACTIVITY}
-              />
-              {canDuplicate && (
-                <DuplicateDocumentButton
-                  documentId={documentId}
-                  documentTitle={title}
-                  variant="full"
-                />
-              )}
-            </div>
           </div>
         )}
       </div>

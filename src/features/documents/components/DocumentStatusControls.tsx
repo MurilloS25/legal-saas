@@ -6,19 +6,20 @@
  * accesibles. No se puede cambiar de estado con cambios locales sin guardar.
  * Finalizar se valida en servidor (bloquea si hay variables pendientes).
  *
- * Un solo componente para las dos ramas de estado, pero cada una se monta en
- * un lugar distinto del workspace (ver `DocumentComposer`/
- * `DocumentWorkspaceHeader`): "final" (Reabrir) vive en el encabezado, junto
- * al resto de acciones globales; "draft"/"ready" (Finalizar/Volver a
- * borrador) vive integrada al dock flotante de Guardar — nunca ambas ramas
- * montadas a la vez, porque son mutuamente excluyentes según `status`. Ya
- * no ofrece un enlace directo al paso "Índice": el stepper ya lo cubre,
- * así que agregar uno aquí solo duplicaba navegación.
+ * Un solo componente para las dos ramas de estado, ambas integradas al
+ * mismo dock flotante (`DocumentSaveControls`) — nunca montadas a la vez,
+ * porque son mutuamente excluyentes según `status`: "draft"/"ready"
+ * (Finalizar/Volver a borrador) cuando es editable, "final" (Reabrir)
+ * cuando no. Ya no ofrece un enlace directo al paso "Índice": el stepper
+ * ya lo cubre, así que agregar uno aquí solo duplicaba navegación.
  *
- * El motivo de un disabled por `dirty` se explica con `title` (tooltip
- * accesible nativo) en el propio botón, no con una línea de texto
- * permanente — esa línea hacía crecer el dock flotante justo en el
- * estado dirty, el más frecuente durante la edición.
+ * El aviso "Finalizada es de solo lectura..." ya no vive aquí — es
+ * información sobre el documento, no parte de un control de acción, así
+ * que se movió al encabezado del workspace (`DocumentWorkspaceHeader`),
+ * separada de cualquier botón. El motivo de un disabled por `dirty` se
+ * explica con `title` (tooltip accesible nativo) en el propio botón, no
+ * con una línea de texto permanente — esa línea hacía crecer el dock
+ * flotante justo en el estado dirty, el más frecuente durante la edición.
  */
 
 import { startTransition, useActionState, useRef, useState } from "react";
@@ -163,24 +164,16 @@ export function DocumentStatusControls({
         </>
       )}
 
-      {status === "final" && (
-        <>
-          <p className="w-full text-right text-xs text-slate-500">
-            Finalizada es de solo lectura. No significa firmada, presentada ni
-            enviada oficialmente.
-          </p>
-          {canFinalize && (
-            <button
-              ref={triggerRef}
-              type="button"
-              disabled={anyPending}
-              onClick={() => setDialog("reopen")}
-              className={primaryButtonClass}
-            >
-              Reabrir escritura
-            </button>
-          )}
-        </>
+      {status === "final" && canFinalize && (
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={anyPending}
+          onClick={() => setDialog("reopen")}
+          className={primaryButtonClass}
+        >
+          Reabrir escritura
+        </button>
       )}
 
       {showFinalDialog && (
