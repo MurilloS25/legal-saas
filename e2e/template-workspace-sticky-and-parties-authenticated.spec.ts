@@ -8,13 +8,17 @@ import {
 } from "./support/factories";
 
 /**
- * Iteración 4 (ajustes adicionales sobre PR #196):
+ * Iteración 4 (ajustes adicionales sobre PR #196) + ajuste visual posterior
+ * (PR #197, control de Guardar reutilizado desde Escrituras):
  *
- * 1. La barra de Guardar del workspace de Machotes es ahora `sticky
- *    bottom-0` y vive DENTRO del mismo `<form>` que los cinco pasos
- *    (incluido Índice) — antes vivía fuera del `<form>`, así que en
- *    Índice "flotaba" cerca del principio de la página en vez de quedar
- *    anclada al fondo del contenido real de ese paso.
+ * 1. La barra de Guardar del workspace de Machotes vive DENTRO del mismo
+ *    `<form>` que los cinco pasos (incluido Índice), pero visualmente es un
+ *    dock flotante (`position: fixed`, vía `WorkspaceActionDock`) — el
+ *    mismo patrón aprobado en Escrituras: siempre alcanzable durante el
+ *    scroll sin importar qué paso esté visible. El estado corto del dock
+ *    usa el mismo vocabulario compacto que Escrituras ("Sin guardar" en vez
+ *    de "Cambios sin guardar"); el texto informativo del encabezado
+ *    (`TemplateWorkspaceHeader`, fuera del dock) no cambió.
  * 2. Partes (dentro de la configuración del Índice del machote) pasó de
  *    un checkbox ambiguo ("confirmo que no requiere Partes", solo visible
  *    cuando la selección ya estaba vacía) a un control tri-estado
@@ -102,7 +106,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
     await page.goto(`/dashboard/templates/${template.id}`);
     await expect(saveStatus(page)).toHaveText("Guardado");
     await page.getByLabel("Descripción (opcional)").fill("Cambio de prueba");
-    await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
+    await expect(saveStatus(page)).toHaveText("Sin guardar");
     await expect(saveButton(page)).toBeInViewport();
 
     await saveButton(page).click();
@@ -212,7 +216,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
     await expect(saveStatus(page)).toHaveText("Guardado");
 
     await section.getByRole("radio", { name: "No requiere partes" }).click();
-    await expect(saveStatus(page)).toHaveText("Cambios sin guardar");
+    await expect(saveStatus(page)).toHaveText("Sin guardar");
     // "No requiere partes" usa el badge "Confirmado" (no "Configurado") —
     // mismo texto que ya usaba esta fila para el estado "optional" antes
     // del tri-estado explícito (ver CollapsibleFieldRow/statusLabel).

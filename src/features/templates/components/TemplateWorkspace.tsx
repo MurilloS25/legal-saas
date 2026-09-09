@@ -20,11 +20,14 @@
  * funcional en ambos modos. Los cinco pasos, incluido Índice, viven dentro
  * del mismo `<form>` — Índice ya no tiene su propio `<form>`/Server Action
  * (su guardado corre por `TemplateIndexConfigurationHandle`, invocado
- * directamente), así que no hay riesgo de formularios anidados. Esto
- * también es lo que permite que la barra de Guardar sticky se ancle al
- * fondo del contenido de CADA paso (incluida Índice) en vez de quedar fuera
- * del `<form>`, donde "flotaría" cerca del principio de la página mientras
- * los demás pasos están ocultos.
+ * directamente), así que no hay riesgo de formularios anidados.
+ *
+ * El control de Guardar (`TemplateSaveControls`) es el último hijo de ese
+ * mismo `<form>`, pero visualmente es un dock flotante (`position: fixed`,
+ * vía `WorkspaceActionDock`) — el mismo patrón aprobado en el workspace de
+ * Escrituras (`DocumentSaveControls`): persistente durante el scroll desde
+ * cualquier paso, sin importar cuál esté oculto, en vez de la franja sticky
+ * de ancho completo que tenía antes.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -783,13 +786,12 @@ export function TemplateWorkspace(props: Props) {
           )}
         </div>
 
-        {/* Barra de guardado sticky: única zona estable de guardado del
+        {/* Dock flotante de Guardar: única zona estable de guardado del
             machote completo, visible desde cualquier paso — incluida
-            Índice, que ya no tiene su propio botón. `sticky bottom-0`
-            (dentro de `TemplateSaveControls`) se pega al fondo del
-            viewport mientras el paso activo tiene contenido debajo, sin
-            un `position: fixed` que tape el layout ni ancho propio: sigue
-            el ancho normal de este <form>. */}
+            Índice, que ya no tiene su propio botón. Último hijo del
+            <form>, pero `position: fixed` (vía `WorkspaceActionDock`) lo
+            mantiene siempre alcanzable durante el scroll, sin importar qué
+            paso esté visible. */}
         <TemplateSaveControls
           dirty={globalDirty}
           pending={pending || indexSavePending}

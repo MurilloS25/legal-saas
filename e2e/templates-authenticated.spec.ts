@@ -360,7 +360,7 @@ test.describe("templates module", () => {
     await page.keyboard.insertText(" acepta las condiciones revisadas.");
 
     await expect(
-      page.getByRole("status").filter({ hasText: "Cambios sin guardar" }),
+      page.getByRole("status").filter({ hasText: "Sin guardar" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Guardar" }).click();
 

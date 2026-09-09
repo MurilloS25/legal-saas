@@ -37,17 +37,17 @@
  * espacio que el dock fijo ya no reserva por sí solo, para que nunca tape
  * el contenido final de cualquiera de los tres paneles.
  *
- * ADVERTENCIA — no agregar `backdrop-blur`/`filter`/`transform` al panel
- * del dock (el div con `bg-white ... shadow-md`): cualquiera de esas
- * propiedades convierte a ese div en el "containing block" de sus
- * descendientes `position: fixed`, así que el `ConfirmDialog` que abren
- * "Finalizar escritura"/"Reabrir escritura" (dentro de `actions`) dejaría
- * de centrarse en el viewport y quedaría atrapado dentro del propio dock
- * — ya pasó una vez con `backdrop-blur-sm` (el botón "Cancelar" terminaba
- * fuera de la pantalla, inalcanzable).
+ * El contenedor visual del dock (posicionamiento, ancho, spacer, advertencia
+ * sobre `backdrop-blur`/`filter`/`transform`) vive en `WorkspaceActionDock`
+ * (compartido con el dock de Guardar de Machotes) — este archivo solo aporta
+ * el contenido específico de Escrituras (dirty/guardado/lifecycle); ver ese
+ * componente para el detalle de la advertencia de containing block (ya
+ * ocurrió una vez con `backdrop-blur-sm`: el botón "Cancelar" de un
+ * `ConfirmDialog` terminaba fuera de la pantalla, inalcanzable).
  */
 
 import { useId } from "react";
+import { WorkspaceActionDock } from "@/components/workspace/WorkspaceActionDock";
 import type { DocumentStatus } from "../model/lifecycle";
 
 type Props = {
@@ -76,24 +76,6 @@ type Props = {
   formId: string;
 };
 
-function DockShell({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {/* Reserva en el flujo normal el espacio que el dock (fixed, más
-          abajo) ya no ocupa por sí solo — evita que tape el final de
-          cualquiera de los tres paneles al hacer scroll hasta el fondo. */}
-      <div aria-hidden="true" className="h-36" />
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30">
-        <div className="pointer-events-none mx-auto flex w-full max-w-screen-2xl justify-end px-4 sm:px-6 lg:px-10">
-          <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-md">
-            {children}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
 export function DocumentSaveControls({
   status,
   dirty,
@@ -116,7 +98,7 @@ export function DocumentSaveControls({
     // reabrir, el dock no aporta nada y no se monta.
     if (!canFinalize) return null;
     return (
-      <DockShell>
+      <WorkspaceActionDock>
         <p
           className="text-xs whitespace-nowrap text-slate-500"
           title="Finalizada es de solo lectura. No significa firmada, presentada ni enviada oficialmente."
@@ -128,7 +110,7 @@ export function DocumentSaveControls({
             {actions}
           </div>
         )}
-      </DockShell>
+      </WorkspaceActionDock>
     );
   }
 
@@ -147,7 +129,7 @@ export function DocumentSaveControls({
   const label = pending ? "Guardando…" : !isEdit ? "Crear escritura" : "Guardar";
 
   return (
-    <DockShell>
+    <WorkspaceActionDock>
       <p
         role="status"
         title={errorMessage}
@@ -185,6 +167,6 @@ export function DocumentSaveControls({
           {actions}
         </div>
       )}
-    </DockShell>
+    </WorkspaceActionDock>
   );
 }
