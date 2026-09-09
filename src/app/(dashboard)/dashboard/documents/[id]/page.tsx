@@ -124,15 +124,14 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     : null;
   const notarialUnlocked = document.status === "final";
   const initialSection: DocumentWorkspaceSection =
-    requestedSection === "revisar" || requestedSection === "cobro"
+    requestedSection === "cobro"
       ? requestedSection
       : requestedSection === "notarial" && notarialUnlocked
         ? "notarial"
-        // "finalizar" ya no es un paso propio — su contenido vive en
-        // "revisar" ("Revisar y finalizar"); un enlace viejo aterriza ahí.
-        : requestedSection === "finalizar"
-          ? "revisar"
-          : "completar";
+        // "revisar" y "finalizar" ya no son pasos propios — un enlace
+        // viejo con cualquiera de esos valores aterriza en "completar"
+        // (ahí vive ahora la revisión del documento y Finalizar).
+        : "completar";
 
   const receivablesNewHref = canManageReceivables
     ? appendReturnTo(

@@ -617,7 +617,7 @@ test.describe("template notarial index configuration", () => {
       section.getByLabel("Hora de autorización", { exact: true }),
     ).toHaveValue("10:20"); // hora.valor="diez", hora.minutos="veinte"
 
-    await page.goto(`/dashboard/documents/${firstDocumentId}?section=revisar`);
+    await page.goto(`/dashboard/documents/${firstDocumentId}`);
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog")
@@ -637,7 +637,6 @@ test.describe("template notarial index configuration", () => {
     }).toPass({ timeout: 20_000 });
     await page.getByRole("button", { name: "Guardar" }).click();
 
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")

@@ -272,11 +272,11 @@ export async function createDocumentDraftAction(
   }
 
   revalidatePath("/dashboard/documents");
-  // "Guardar y continuar" avanza al siguiente paso del flujo guiado en vez
-  // de preservar el paso activo — el único botón que dispara este primer
-  // guardado (en "Completar", el único paso editable antes de que la
-  // Escritura exista) siempre implica "continuar" a "Revisar y finalizar".
-  redirect(`/dashboard/documents/${data.id}?saved=1&section=revisar`);
+  // "Completar" es el único paso editable antes de que la Escritura exista
+  // y también donde vive el resto del workspace (revisión del documento,
+  // Finalizar) desde que "Revisar y finalizar" se retiró como paso propio
+  // — así que la transición create → edit permanece ahí, sin `section`.
+  redirect(`/dashboard/documents/${data.id}?saved=1`);
 }
 
 // ------------------------------------------------------------------ update draft

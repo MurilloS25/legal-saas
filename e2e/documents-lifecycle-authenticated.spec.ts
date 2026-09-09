@@ -37,13 +37,14 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-// El paso "Finalizar" (Estado/Reabrir/Descargar Word) vive en su propio
-// panel del stepper, oculto por defecto (el paso inicial es "Completar").
+// Reabrir y Descargar Word viven en el encabezado del workspace, global;
+// Finalizar/Volver a borrador viven en "Completar", integrados a la
+// toolbar de Guardar — pero "Completar" es el paso por defecto al que
+// aterriza `open()`, así que ninguno de los dos requiere navegar.
 async function goToFinalizar(page: Page) {
-  await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
   await expect(
     page.getByRole("heading", { name: "Estado de la escritura" }),
-  ).toBeVisible();
+  ).toBeAttached();
 }
 
 test.describe("document lifecycle statuses", () => {
@@ -123,20 +124,12 @@ test.describe("document lifecycle statuses", () => {
     ).toBeEnabled();
 
     // Finalizar redirige de verdad (server action) y avanza el paso activo
-    // a "Cobro" — el siguiente paso del flujo guiado tras completar
-    // "Revisar y finalizar" (antes este redirect no llevaba `section` y
-    // caía en el paso por defecto "Completar", el bug que este fix
-    // corrige). Hay que volver a "Revisar y finalizar" para ver el enlace.
-    await expect(
-      page.getByRole("tab", { name: "Revisar y finalizar", exact: true }),
-    ).toHaveAttribute("aria-selected", "false");
+    // a "Cobro" — el siguiente paso real del flujo guiado tras finalizar
+    // (Finalizar ahora vive en el encabezado, no en un paso propio del
+    // stepper).
     await expect(
       page.getByRole("tab", { name: "Cobro", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-    await goToFinalizar(page);
-    await expect(
-      page.getByRole("link", { name: "Completar datos del índice" }),
-    ).toBeVisible();
   });
 
   test("C: final is read-only and can be reopened to draft", async ({ page }) => {
@@ -222,10 +215,14 @@ test.describe("document lifecycle statuses", () => {
     const finalButton = page.getByRole("button", {
       name: "Finalizar escritura",
     });
-    await expect(
-      page.getByText("Guarda los cambios antes de cambiar el estado."),
-    ).toBeVisible();
     await expect(finalButton).toBeDisabled();
+    // El motivo ya no es una línea de texto permanente (crecía el dock en
+    // el estado dirty, el más frecuente) — es un `title` accesible en el
+    // propio botón.
+    await expect(finalButton).toHaveAttribute(
+      "title",
+      "Guarda los cambios antes de finalizar.",
+    );
   });
 
   test("G: pending variables block finalizing (server-side)", async ({

@@ -244,14 +244,14 @@ test.describe("document data sidebar", () => {
     await fillInlineField(page, "vehiculo.chasis", "CHASIS-003");
 
     await page.getByLabel("Título de la escritura").fill(draftTitle);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
 
-    // El guardado avanza a "Revisar y finalizar"; el panel de datos
-    // ("Datos de la Escritura") solo se renderiza en "Completar".
+    // El primer guardado ya deja al usuario en "Completar" (no navega) —
+    // ahí vive el panel de datos ("Datos de la Escritura").
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(
       dataPanel(page).getByText("3 de 3 campos completos"),

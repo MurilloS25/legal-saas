@@ -102,7 +102,10 @@ async function createDocumentFromTemplate(
 
   await page.getByLabel("Título de la escritura").fill(title);
   await fillFieldLive(page, fieldKey, partyName);
-  await page.getByRole("button", { name: "Guardar" }).click();
+  // El primer guardado de una Escritura nueva usa la etiqueta "Crear
+  // escritura", no "Guardar" (esa solo aparece tras existir en DB) — ver
+  // DocumentSaveControls.tsx.
+  await page.getByRole("button", { name: "Crear escritura" }).click();
   await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
     timeout: 30_000,
   });
@@ -142,17 +145,18 @@ test.describe("template notarial index default", () => {
     });
   });
 
-  // Regresión encontrada en smoke manual de producción: en modo creación
-  // (antes del primer guardado, la Escritura todavía no existe en DB) el
-  // stepper mostraba SIEMPRE 4 pasos, sin importar el default real del
-  // Machote — corregido a nivel de bug, no solo de test (ver
-  // DocumentComposer.tsx: `includeInNotarialIndex` en modo "create" ahora
-  // lee `template.include_in_notarial_index_by_default`, no `true` fijo).
-  test("A2: the stepper reflects the Machote's default from the very first render, before any save exists", async ({
+  // Desde la iteración 6 del stepper (Completar/Cobro/Índice fijos), el
+  // paso "Índice" ya NO depende del default del Machote para existir en la
+  // navegación — ni antes de guardar (creación) ni después. El default
+  // solo decide qué contenido muestra ese paso una vez alcanzable (nunca
+  // si es alcanzable). Esto reemplaza la regresión original de AUD (donde
+  // el conteo de pasos sí variaba) por una aserción de estabilidad: el
+  // conteo nunca varía, sin importar el default.
+  test("A2: the stepper always shows the Índice step from the very first render, before any save exists, regardless of the Machote's default", async ({
     page,
   }) => {
     await openCreatePage(page, templateOnName);
-    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
+    await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
     ).toBeVisible();
@@ -161,10 +165,10 @@ test.describe("template notarial index default", () => {
     await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
-    ).toHaveCount(0);
+    ).toBeVisible();
   });
 
-  test("B: creating from a default=true template shows 4 steps (Índice included) after saving", async ({
+  test("B: creating from a default=true template shows the Índice step, included, after saving", async ({
     page,
   }) => {
     const title = uniqueName("tnid", "doc-on");
@@ -174,13 +178,13 @@ test.describe("template notarial index default", () => {
       title,
       "Persona Uno",
     );
-    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
+    await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
     ).toBeVisible();
   });
 
-  test("C: creating from a default=false template shows 3 steps (no Índice) after saving", async ({
+  test("C: creating from a default=false template still shows the Índice step (excluded) after saving", async ({
     page,
   }) => {
     const title = uniqueName("tnid", "doc-off");
@@ -193,27 +197,38 @@ test.describe("template notarial index default", () => {
     await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
-    ).toHaveCount(0);
+    ).toBeVisible();
   });
 
-  test("C2: Cobro's continue button reads 'Finalizar flujo' and returns to Revisar y finalizar when the document is excluded from the Índice (AUD-04)", async ({
+  // AUD-04 original probaba que Cobro devolvía a "Revisar y finalizar" con
+  // una etiqueta de botón distinta ("Finalizar flujo") cuando la Escritura
+  // estaba excluida — esa rama se eliminó junto con el paso "Revisar y
+  // finalizar" (iteración 6): el botón ahora siempre dice lo mismo. Sigue
+  // intentando continuar a "Índice", incluida o no, pero docFromOffId
+  // todavía no está finalizada en este punto (eso ocurre en el test D
+  // siguiente) — con "Índice" bloqueado, el guardarraíl de
+  // `resolveSection` en DocumentComposer revierte la navegación de vuelta
+  // a "Completar" (mismo guardarraíl que protege un enlace directo a
+  // `?section=notarial` sin finalizar), en vez de dejar al usuario viendo
+  // un paso inalcanzable.
+  test("C2: Cobro's continue button always reads the same label, and never strands the user on a locked Índice before finalizing", async ({
     page,
   }) => {
     await page.goto(`/dashboard/documents/${docFromOffId}?section=cobro`);
     const cobro = page.getByRole("region", { name: "Cuentas por cobrar de la escritura" });
     await expect(cobro).toBeVisible();
     const continueButton = cobro.getByRole("button", { name: "Finalizar flujo" });
-    await expect(continueButton).toBeVisible();
-    await continueButton.click();
+    await expect(continueButton).toHaveCount(0);
+    await cobro.getByRole("button", { name: /Continuar/ }).click();
     await expect(
-      stepper(page).getByRole("tab", { name: "Revisar y finalizar", exact: true }),
+      stepper(page).getByRole("tab", { name: "Completar", exact: true }),
     ).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
   });
 
   test("D: finalize dialog shows no checkbox, only static status text matching the current value", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docFromOnId}?section=revisar`);
+    await page.goto(`/dashboard/documents/${docFromOnId}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialogOn = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(dialogOn.getByRole("checkbox")).toHaveCount(0);
@@ -231,7 +246,7 @@ test.describe("template notarial index default", () => {
     await stepper(page).getByRole("tab", { name: "Índice", exact: true }).click();
     await expect(notarialSection(page)).toBeVisible();
 
-    await page.goto(`/dashboard/documents/${docFromOffId}?section=revisar`);
+    await page.goto(`/dashboard/documents/${docFromOffId}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialogOff = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(dialogOff.getByRole("checkbox")).toHaveCount(0);
@@ -246,11 +261,10 @@ test.describe("template notarial index default", () => {
     page,
   }) => {
     await page.goto(`/dashboard/documents/${docFromOffId}`);
-    // El paso "Índice" ya no aparece en la navegación normal.
+    // El paso "Índice" sigue en la navegación normal, aunque esté excluida.
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
-    ).toHaveCount(0);
-    // Pero la ruta sigue siendo alcanzable por enlace directo.
+    ).toBeVisible();
     await page.goto(`/dashboard/documents/${docFromOffId}?section=notarial`);
     await expect(
       page.getByText("No pertenece al Índice Notarial", { exact: true }),
@@ -279,14 +293,20 @@ test.describe("template notarial index default", () => {
       page.getByText("No pertenece al Índice Notarial"),
     ).toHaveCount(0);
 
-    // El paso reaparece de inmediato en la navegación normal del stepper.
+    // El paso siempre estuvo en la navegación normal del stepper — sigue
+    // ahí, ahora mostrando la sección completa en vez de la tarjeta.
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
     ).toBeVisible();
-    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
+    await expect(stepper(page).getByRole("tab")).toHaveCount(3);
   });
 
-  test("G: excluding while standing on Índice navigates to a valid previous step", async ({
+  // Antes de la iteración 6, excluir mientras se estaba parado en "Índice"
+  // navegaba a "Cobro" de inmediato porque el paso dejaba de existir. Ya
+  // no existe ese callback (`onExcludedFromIndex` fue retirado de
+  // DocumentComposer): el paso nunca desaparece, así que excluir ahora deja
+  // al usuario exactamente donde estaba, viendo el resultado inmediato.
+  test("G: excluding while standing on Índice stays on Índice, showing the compact card immediately", async ({
     page,
   }) => {
     await page.goto(`/dashboard/documents/${docFromOffId}?section=notarial`);
@@ -297,13 +317,12 @@ test.describe("template notarial index default", () => {
       .getByRole("button", { name: "Excluir" })
       .click();
 
-    // Ya no queda parado en un paso inexistente: navegó a "Cobro".
     await expect(
-      page.getByRole("region", { name: "Cuentas por cobrar de la escritura" }),
+      page.getByText("No pertenece al Índice Notarial", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
-    ).toHaveCount(0);
+    ).toHaveAttribute("aria-selected", "true");
   });
 
   test("H: changing the template default later does not retroactively change existing documents", async ({
@@ -326,7 +345,7 @@ test.describe("template notarial index default", () => {
 
     // docFromOnId ya existía antes de este cambio — sigue incluida.
     await page.goto(`/dashboard/documents/${docFromOnId}`);
-    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
+    await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
     ).toBeVisible();

@@ -11,20 +11,26 @@ import {
 import { restDelete, restSelect } from "./support/supabase-admin";
 
 /**
- * Escritura nueva: el stepper de 4 pasos (Completar / Revisar y finalizar /
- * Cobro / Índice) es la vista principal desde
- * `/dashboard/documents/new/[templateId]` — no hay un flujo alternativo de
- * una sola página para creación, y la creación siempre arranca en
- * "Completar". "Completar" y la revisión dentro de "Revisar y finalizar"
- * operan sobre estado local y ya son completamente funcionales antes de
- * guardar; los controles de finalización (dentro de ese mismo paso) y
- * "Cobro" requieren que la Escritura ya exista (quedan bloqueados/con
- * aviso hasta el primer guardado); "Índice" además requiere finalización.
+ * Escritura nueva: el stepper de 3 pasos (Completar / Cobro / Índice) es la
+ * vista principal desde `/dashboard/documents/new/[templateId]` — no hay un
+ * flujo alternativo de una sola página para creación, y la creación siempre
+ * arranca en "Completar". "Completar" opera sobre estado local y ya es
+ * completamente funcional antes de guardar — incluida la revisión en vivo
+ * del documento (misma vista, expandible a pantalla completa); ya no existe
+ * un paso "Revisar y finalizar" separado (se retiró: mostraba
+ * prácticamente el mismo documento y solo agregaba navegación). Descargar
+ * Word/Historial/Duplicar y Reabrir viven en el encabezado del workspace;
+ * Guardar/Finalizar viven en un dock flotante (`position: fixed`) — ambos
+ * alcanzables sin importar el paso activo. Todos requieren que la
+ * Escritura ya exista. "Cobro" requiere que la Escritura ya exista (queda
+ * bloqueado/con aviso hasta el primer
+ * guardado); "Índice" además requiere finalización.
  * El primer guardado redirige a la URL de edición preservando el paso
- * activo, sin perder ningún dato ya ingresado (título, cliente principal,
- * valores de variables). "Cobro" es contextual: crear una cuenta o
- * registrar un pago ocurre en un modal, sin abandonar la Escritura — la
- * administración completa sigue viviendo en Cuentas por cobrar.
+ * activo (siempre "Completar", el único paso alcanzable antes de guardar),
+ * sin perder ningún dato ya ingresado (título, cliente principal, valores
+ * de variables). "Cobro" es contextual: crear una cuenta o registrar un
+ * pago ocurre en un modal, sin abandonar la Escritura — la administración
+ * completa sigue viviendo en Cuentas por cobrar.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -40,21 +46,7 @@ function stepper(page: Page) {
   return page.getByRole("navigation", { name: "Pasos de la escritura" });
 }
 
-/** Paso "Revisar y finalizar" — vista de solo lectura, con su propio encabezado. */
-function reviewHeading(page: Page) {
-  return page.getByRole("heading", { name: "Revisión del documento" });
-}
-
-/**
- * Contenedor del paso "Revisar y finalizar" — acota las búsquedas de
- * contenido ahí, ya que la misma variable renderizada aparece también
- * (oculta) en el panel "Completar" editable y en `ExpandableDocumentPanel`.
- */
-function revisarPanel(page: Page) {
-  return page.locator("#document-panel-revisar");
-}
-
-/** Hoja documental editable — solo existe en el paso "Completar". */
+/** Hoja documental editable — vive en el paso "Completar". */
 function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
@@ -65,10 +57,7 @@ function cobroSection(page: Page) {
   });
 }
 
-async function goToStep(
-  page: Page,
-  name: "Completar" | "Revisar y finalizar" | "Cobro" | "Índice",
-) {
+async function goToStep(page: Page, name: "Completar" | "Cobro" | "Índice") {
   await stepper(page).getByRole("tab", { name, exact: true }).click();
 }
 
@@ -112,7 +101,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     ).toBeVisible();
   });
 
-  test("B: creación arranca en Completar, muestra exactamente 4 pasos, pasos que requieren persistencia bloqueados/con aviso y no navegables, Cliente principal funcional antes de guardar, navegación entre pasos preserva estado, y el guardado redirige preservando el paso activo", async ({
+  test("B: creación arranca en Completar, muestra exactamente 3 pasos, pasos que requieren persistencia bloqueados/con aviso y no navegables, Cliente principal funcional antes de guardar, navegación entre pasos preserva estado, y el guardado no navega de paso", async ({
     page,
   }) => {
     const clientName = uniqueName("document-stepper-create", "cliente");
@@ -131,8 +120,9 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       timeout: 15_000,
     });
 
-    // Exactamente 4 pasos — "Finalizar" ya no es un paso independiente.
-    await expect(stepper(page).getByRole("tab")).toHaveCount(4);
+    // Exactamente 3 pasos — ni "Revisar y finalizar" ni "Finalizar" son
+    // pasos independientes.
+    await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Completar", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
@@ -141,9 +131,6 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
         name: "Revisar y finalizar",
         exact: true,
       }),
-    ).toBeVisible();
-    await expect(
-      stepper(page).getByRole("tab", { name: "Finalizar", exact: true }),
     ).toHaveCount(0);
     const cobroTab = stepper(page).getByRole("tab", {
       name: "Cobro",
@@ -164,6 +151,15 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
         "Disponible después de guardar la escritura por primera vez.",
       );
     }
+
+    // Finalizar (Completar) y Descargar Word (encabezado) requieren que la
+    // Escritura exista — ninguno aparece todavía.
+    await expect(
+      page.getByRole("button", { name: "Finalizar escritura" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Descargar Word" }),
+    ).toHaveCount(0);
 
     // Título y Cliente principal, en Completar.
     await page.getByLabel("Título de la escritura").fill(title);
@@ -186,31 +182,12 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     // por validación.
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Uno");
 
-    // Revisar y finalizar: la revisión es accesible antes de guardar; la
-    // finalización en sí (dentro del mismo paso) queda con aviso.
-    await goToStep(page, "Revisar y finalizar");
-    await expect(reviewHeading(page)).toBeVisible();
-    await expect(
-      revisarPanel(page).getByText(
-        "Finalizar y descargar estarán disponibles después de guardar la escritura por primera vez.",
-      ),
-    ).toBeVisible();
-    await expect(
-      revisarPanel(page).getByRole("button", { name: "Finalizar escritura" }),
-    ).toHaveCount(0);
-
-    // Clic en un paso bloqueado no navega a ningún lado ni descarta nada.
+    // Clic en un paso bloqueado no navega a ningún lado ni descarta nada —
+    // seguimos en "Completar", el único paso alcanzable antes de guardar.
     await cobroTab.click({ force: true });
     await expect(
-      stepper(page).getByRole("tab", {
-        name: "Revisar y finalizar",
-        exact: true,
-      }),
+      stepper(page).getByRole("tab", { name: "Completar", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-
-    // Volver a Completar: el título y el cliente principal no se perdieron
-    // al navegar entre pasos.
-    await goToStep(page, "Completar");
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
       title,
     );
@@ -220,8 +197,8 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       }),
     ).toBeVisible();
 
-    // Guardar desde Completar (paso activo al guardar).
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    // Guardar desde Completar (el único paso editable antes de guardar).
+    await page.getByRole("button", { name: "Crear escritura" }).click();
 
     // El `?saved=1` es efímero — un efecto de montaje en `DocumentComposer`
     // lo limpia de la URL apenas dispara el toast de confirmación (el
@@ -239,29 +216,12 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     // podría no estar comprometida todavía, y el lookup por título fallaría.
     await registerCreatedViaUi(registry, "documents", "title", title);
 
-    // El guardado desde "Completar" ahora avanza al siguiente paso del
-    // flujo guiado en vez de preservar el paso activo — Completar es
-    // siempre el único paso alcanzable antes de guardar, y su "siguiente"
-    // es siempre "Revisar y finalizar", así que el redirect del server
-    // action aterriza ahí directamente (`&section=revisar`, hardcodeado en
-    // `createDocumentDraftAction`).
+    // El guardado no navega de paso — seguimos en "Completar" (el redirect
+    // del primer guardado en modo creación tampoco lleva `section`, así
+    // que el default coincide). Los datos ingresados siguen ahí.
     await expect(
-      stepper(page).getByRole("tab", {
-        name: "Revisar y finalizar",
-        exact: true,
-      }),
+      stepper(page).getByRole("tab", { name: "Completar", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-    // Completar ya muestra ✓ — el guardado que acaba de ocurrir fue exitoso
-    // y el título quedó no vacío.
-    await expect(
-      stepper(page)
-        .getByRole("tab", { name: "Completar", exact: true })
-        .getByText("✓", { exact: true }),
-    ).toBeVisible();
-
-    // Los datos ingresados siguen ahí — hay que volver a "Completar" para
-    // verlos, porque el paso activo tras el redirect ya no es ese panel.
-    await goToStep(page, "Completar");
     await expect(page.getByLabel("Título de la escritura")).toHaveValue(
       title,
     );
@@ -282,29 +242,37 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     ).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Ir a Revisar" })).toHaveCount(0);
 
-    // Cobro queda habilitado; Índice sigue bloqueado porque requiere
-    // además que la escritura esté finalizada.
-    await expect(cobroTab).not.toBeDisabled();
+    // Completar ya muestra ✓ — el guardado que acaba de ocurrir fue exitoso
+    // y el título quedó no vacío. El check solo se ve en un paso completo
+    // que YA NO es el actual, así que hay que salir de "Completar" (a
+    // "Cobro", ya desbloqueado) para verlo.
+    await goToStep(page, "Cobro");
+    await expect(
+      stepper(page)
+        .getByRole("tab", { name: "Completar", exact: true })
+        .getByText("✓", { exact: true }),
+    ).toBeVisible();
+
+    // Índice sigue bloqueado porque requiere además que la escritura esté
+    // finalizada.
     await expect(indiceTab).toBeDisabled();
     await expect(indiceTab).toHaveAttribute(
       "title",
       "Disponible después de finalizar la escritura.",
     );
 
-    // Revisar y finalizar ahora expone los controles reales de finalización
-    // (la escritura ya existe). Ya estamos en este paso desde el redirect
-    // del guardado; esta navegación es un no-op idempotente que se deja
-    // explícito para no depender de en qué paso nos dejó el bloque anterior.
-    await goToStep(page, "Revisar y finalizar");
+    // Descargar Word (encabezado) y el dock de Guardar/Finalizar (`fixed`,
+    // cuarto refinamiento) son alcanzables sin importar el paso activo —
+    // seguimos parados en "Cobro" desde el bloque anterior y ambos ya
+    // existen (la Escritura ya existe).
     await expect(
-      revisarPanel(page).getByRole("button", { name: "Finalizar escritura" }),
+      page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeVisible();
     await expect(
-      revisarPanel(page).getByRole("button", { name: "Descargar Word" }),
+      page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
 
     // Cobro: paso contextual, todavía sin cuentas.
-    await cobroTab.click();
     await expect(cobroSection(page)).toBeVisible();
     await expect(
       cobroSection(page).getByText(
@@ -345,16 +313,15 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await page.keyboard.press("Escape");
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Cobro");
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
     const documentUrl = new URL(page.url());
 
-    // El guardado ya aterrizó en "Revisar y finalizar" (ver test B), pero la
-    // navegación manual a un paso desbloqueado es independiente de cuál sea
-    // el paso activo — funciona igual desde aquí.
+    // El guardado ya deja al usuario en "Completar" (ver test B) — la
+    // navegación manual a un paso desbloqueado funciona igual desde ahí.
     await goToStep(page, "Cobro");
     await expect(cobroSection(page)).toBeVisible();
     const cobroUrl = new URL(page.url());

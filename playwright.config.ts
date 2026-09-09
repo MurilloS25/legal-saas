@@ -287,6 +287,19 @@ export default defineConfig({
       dependencies: ["chromium-document-stepper-create"],
     },
 
+    // Guardado único: reopen desde Revisar sin navegación forzada, y
+    // navigation guard (salida real del workspace de Escrituras) —
+    // authenticated.
+    {
+      name: "chromium-document-reopen-guard",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-reopen-single-save-and-exit-guard-authenticated\.spec\.ts/,
+      dependencies: ["chromium-document-guided-progression"],
+    },
+
     // Inline editing of variables directly in the document sheet — authenticated.
     {
       name: "chromium-document-inline-editing",
