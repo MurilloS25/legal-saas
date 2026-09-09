@@ -104,7 +104,7 @@ test.describe("template guided progression", () => {
     await page.getByRole("button", { name: "Guardar" }).click();
 
     // Nada se guardó: sin marca de completo, el campo sigue inválido según
-    // el navegador, y el estado global sigue "Cambios sin guardar".
+    // el navegador, y el estado global sigue "Sin guardar".
     await expect(
       tab(page, "Información").getByText("✓", { exact: true }),
     ).toHaveCount(0);
@@ -115,7 +115,7 @@ test.describe("template guided progression", () => {
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.locator('p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
+      page.locator('p[role="status"]').filter({ hasText: "Sin guardar" }),
     ).toBeVisible();
   });
 
@@ -136,7 +136,7 @@ test.describe("template guided progression", () => {
       .fill("Primera descripción");
     await goToTab(page, "Documento");
     await expect(
-      page.locator('p[role="status"]').filter({ hasText: "Cambios sin guardar" }),
+      page.locator('p[role="status"]').filter({ hasText: "Sin guardar" }),
     ).toBeVisible();
 
     await goToTab(page, "Información");

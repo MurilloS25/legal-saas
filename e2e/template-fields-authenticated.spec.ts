@@ -120,7 +120,7 @@ test.describe("template variables workspace", () => {
       variableRow(page, pendingKey).getByText("Configurada"),
     ).toBeVisible();
     await expect(page.locator('p[role="status"]')).toHaveText(
-      "Cambios sin guardar",
+      "Sin guardar",
       { timeout: 5_000 },
     );
 
