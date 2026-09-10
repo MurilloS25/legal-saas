@@ -9,10 +9,7 @@
 -- estado, reopen de la Escritura invalida la confirmación sin borrar
 -- metadata, y los eventos de auditoría nuevos quedan registrados.
 --
--- Nota: `dnm_update_workspace` exige `owner_id = auth.uid()` (misma
--- restricción estructural ya documentada para `documents_update_workspace`
--- en rls_document_reopen_permission.test.sql) — cada escenario de rol prueba
--- sobre SU PROPIA fila, no sobre la de otro miembro.
+-- Cross-creator collaboration is covered by release_security_rls_lifecycle.test.sql.
 
 begin;
 
@@ -69,8 +66,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'c1111111-d000-0000-0000-000000000001', 'c1111111-1111-1111-1111-111111111111',
   'c1111111-1111-1111-1111-111111111111', 'c1111111-0000-0000-0000-000000000001',
-  'Escritura confirmable', 'final', '{}'::jsonb, ''
+  'Escritura confirmable', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','c1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='c1111111-d000-0000-0000-000000000001';
+reset role;
+select set_config('request.jwt.claim.sub','c1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 
 -- 1) Confirmar exige completitud: metadata parcial, propietario intenta
 -- confirmar directamente -> rechazado.
@@ -108,8 +114,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'c3333333-d000-0000-0000-000000000001', 'c3333333-3333-3333-3333-333333333333',
   'c1111111-1111-1111-1111-111111111111', 'c1111111-0000-0000-0000-000000000001',
-  'Escritura del asistente', 'final', '{}'::jsonb, ''
+  'Escritura del asistente', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','c1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='c3333333-d000-0000-0000-000000000001';
+reset role;
+select set_config('request.jwt.claim.sub','c3333333-3333-3333-3333-333333333333',true);
+set local role authenticated;
+
 insert into public.document_notarial_metadata
   (owner_id, workspace_id, document_id, instrument_number, authorized_at, protocol_book,
    initial_folio, final_folio, act_name_override, parties_override)
@@ -280,8 +295,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'c1111111-d000-0000-0000-000000000002', 'c1111111-1111-1111-1111-111111111111',
   'c1111111-1111-1111-1111-111111111111', 'c1111111-0000-0000-0000-000000000001',
-  'Escritura nunca confirmada', 'final', '{}'::jsonb, ''
+  'Escritura nunca confirmada', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','c1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='c1111111-d000-0000-0000-000000000002';
+reset role;
+select set_config('request.jwt.claim.sub','c1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 insert into public.document_notarial_metadata (owner_id, workspace_id, document_id, instrument_number)
 values ('c1111111-1111-1111-1111-111111111111', 'c1111111-1111-1111-1111-111111111111',
         'c1111111-d000-0000-0000-000000000002', 60);
