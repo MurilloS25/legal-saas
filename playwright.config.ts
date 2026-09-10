@@ -47,6 +47,11 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "chromium-release-save-races",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-save-races\.spec\.ts/,
+    },
+    {
       name: "chromium-release-security",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /release-security-collaboration\.spec\.ts/,

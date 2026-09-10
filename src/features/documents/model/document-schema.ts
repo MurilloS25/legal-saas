@@ -19,6 +19,8 @@ import {
 export { DOCUMENT_STATUSES };
 export type { DocumentStatus };
 
+export const DocumentVersionSchema = z.iso.datetime({ offset: true });
+
 const MAX_TITLE_LENGTH = 200;
 const MAX_KEY_LENGTH = 120;
 const MAX_VALUE_LENGTH = 20_000;

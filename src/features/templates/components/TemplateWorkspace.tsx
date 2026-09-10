@@ -32,6 +32,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
+import { useSaveRevision } from "@/lib/forms/use-save-revision";
 import { useRouter } from "next/navigation";
 import {
   createTemplateWorkspaceAction,
@@ -127,7 +128,8 @@ export function TemplateWorkspace(props: Props) {
   const [variables, setVariables] = useState<TemplateWorkspaceVariable[]>(
     props.initialVariables,
   );
-  const [dirty, setDirty] = useState(false);
+  const { dirty, markDirty, captureRevision, completeSave } = useSaveRevision();
+  const submittedRevision = useRef(0);
   const [mobileView, setMobileView] = useState<TemplateMobileView>("edit");
   // "Información" es el primer paso definido — tanto una escritura nueva
   // como una entrada normal de edición abren ahí (ver `resolveInitialSection`
@@ -138,7 +140,7 @@ export function TemplateWorkspace(props: Props) {
   );
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [aiHelpOpen, setAiHelpOpen] = useState(false);
-  const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
+  const [expectedVersion, setExpectedVersion] = useState(template?.updated_at ?? "");
   const editorRef = useRef<TemplateEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const aiHelpButtonRef = useRef<HTMLButtonElement>(null);
@@ -162,9 +164,7 @@ export function TemplateWorkspace(props: Props) {
   // `updated_at` viejo, y el siguiente guardado del Machote se rechaza como
   // conflicto optimista contra el propio usuario (nadie más lo tocó).
   function handleNotarialIndexDefaultSaved(updatedAt: string) {
-    if (expectedUpdatedAtRef.current) {
-      expectedUpdatedAtRef.current.value = updatedAt;
-    }
+    setExpectedVersion(updatedAt);
   }
 
   // Mantiene la URL sincronizada con la sección activa sin disparar una
@@ -205,6 +205,11 @@ export function TemplateWorkspace(props: Props) {
     ? updateTemplateWorkspaceAction.bind(null, template!.id)
     : createTemplateWorkspaceAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [lastVersionState, setLastVersionState] = useState(state);
+  if (lastVersionState !== state) {
+    setLastVersionState(state);
+    if (state.success && state.updatedAt) setExpectedVersion(state.updatedAt);
+  }
   const { showToast } = useToast();
 
   const { contentKeys, document, model: previewModel } =
@@ -330,9 +335,6 @@ export function TemplateWorkspace(props: Props) {
   useEffect(() => {
     if (!state.success || lastSuccess.current === state) return;
     lastSuccess.current = state;
-    if (state.updatedAt && expectedUpdatedAtRef.current) {
-      expectedUpdatedAtRef.current.value = state.updatedAt;
-    }
     setSavedOnceValid({
       information: informationComplete,
       document: true,
@@ -342,8 +344,9 @@ export function TemplateWorkspace(props: Props) {
     });
 
     void (async () => {
+      const savedRevision = submittedRevision.current;
       const indexOk = await finishIndexSave();
-      setDirty(false);
+      completeSave(savedRevision);
       if (indexOk) showToast("Machote guardado.");
     })();
     // Deliberadamente solo [state]: se leen los valores más recientes de
@@ -394,10 +397,6 @@ export function TemplateWorkspace(props: Props) {
   const completedVariables = savedOnceValid.variables && variablesComplete;
   const completedIndex = savedOnceValid.notarial && indexComplete;
   const completedPublish = savedOnceValid.publish && status === "active";
-
-  function markDirty() {
-    if (!dirty) setDirty(true);
-  }
 
   /**
    * Único punto de entrada para cambios desde la pestaña Variables. El nodo
@@ -498,7 +497,9 @@ export function TemplateWorkspace(props: Props) {
           : "Guardado";
 
   return (
-    <div>
+    <>
+      {!isEdit && pending && <p role="status" className="mb-3 text-sm text-slate-600">Guardando… Espera antes de continuar editando.</p>}
+    <div inert={!isEdit && pending}>
       <TemplateWorkspaceHeader
         name={name}
         status={status}
@@ -514,7 +515,10 @@ export function TemplateWorkspace(props: Props) {
         actions={props.mode === "edit" ? props.headerActions : undefined}
       />
 
-      <form ref={formRef} action={formAction} noValidate>
+      <form ref={formRef} action={formAction} noValidate onSubmit={(event) => {
+        if (pending || indexSavePending) { event.preventDefault(); return; }
+        submittedRevision.current = captureRevision();
+      }}>
         {/* Datos serializados que acompañan al submit. */}
         <input
           type="hidden"
@@ -529,12 +533,9 @@ export function TemplateWorkspace(props: Props) {
         <input type="hidden" name="section" value={section} />
         {isEdit && (
           <input
-            ref={expectedUpdatedAtRef}
             type="hidden"
             name="expected_updated_at"
-            defaultValue={
-              props.mode === "edit" ? props.template.updated_at : ""
-            }
+            value={expectedVersion}
           />
         )}
 
@@ -827,5 +828,6 @@ export function TemplateWorkspace(props: Props) {
         />
       )}
     </div>
+    </>
   );
 }

@@ -199,7 +199,14 @@ export function DocumentComposer(props: Props) {
     ? updateDocumentDraftAction.bind(null, props.draft.id)
     : createDocumentDraftAction.bind(null, props.templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
-  const { dirty, markDirty } = useDocumentDirtyState(state);
+  const { dirty, markDirty, startSave } = useDocumentDirtyState(state);
+  const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
+  const [expectedVersion, setExpectedVersion] = useState(draft?.updated_at ?? "");
+  const [lastVersionState, setLastVersionState] = useState(state);
+  if (lastVersionState !== state) {
+    setLastVersionState(state);
+    if (state.success && state.updatedAt) setExpectedVersion(state.updatedAt);
+  }
   const { mobileView, setMobileView } = useDocumentLayout();
 
   const [section, setSection] = useState<DocumentWorkspaceSection>(
@@ -618,7 +625,9 @@ export function DocumentComposer(props: Props) {
   );
 
   return (
-    <div>
+    <>
+      {!isEdit && pending && <p role="status" className="mb-3 text-sm text-slate-600">Guardando… Espera antes de continuar editando.</p>}
+    <div inert={!isEdit && pending}>
       <DocumentWorkspaceHeader
         documentId={isEdit ? props.draft.id : undefined}
         title={title}
@@ -638,7 +647,11 @@ export function DocumentComposer(props: Props) {
         persistedPendingVariableCount={persistedPendingCount}
       />
 
-      <form id="document-completar-form" action={formAction} noValidate>
+      <form id="document-completar-form" action={formAction} noValidate onSubmit={(event) => {
+        if (pending) { event.preventDefault(); return; }
+        startSave();
+      }}>
+        {isEdit && <input ref={expectedUpdatedAtRef} type="hidden" name="expected_updated_at" value={expectedVersion} />}
         {fields.map((field) => (
           <input
             key={field.field_key}
@@ -657,6 +670,21 @@ export function DocumentComposer(props: Props) {
         {state.message && (
           <div role="alert" className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {state.message}
+            {isEdit && state.conflictUpdatedAt && (
+              <div className="mt-3 flex flex-wrap gap-4">
+                <a href={`/dashboard/documents/${props.draft.id}`} target="_blank" rel="noopener noreferrer" className="underline">
+                  Revisar versión guardada (nueva pestaña)
+                </a>
+                <button type="submit" disabled={pending} className="underline disabled:opacity-50" onClick={() => {
+                  if (expectedUpdatedAtRef.current && state.conflictUpdatedAt) {
+                    setExpectedVersion(state.conflictUpdatedAt);
+                    expectedUpdatedAtRef.current.value = state.conflictUpdatedAt;
+                  }
+                }}>
+                  Conservar mis cambios y reintentar
+                </button>
+              </div>
+            )}
           </div>
         )}
         {state.errors && Object.keys(state.errors).length > 0 && (
@@ -799,7 +827,7 @@ export function DocumentComposer(props: Props) {
               key={status}
               documentId={props.draft.id}
               status={status}
-              dirty={dirty}
+              dirty={dirty || pending}
               canFinalize={canFinalize}
               notarialDataConfirmed={completedNotarial}
               includeInNotarialIndex={includeInNotarialIndex}
@@ -822,6 +850,7 @@ export function DocumentComposer(props: Props) {
         />
       )}
     </div>
+    </>
   );
 }
 
