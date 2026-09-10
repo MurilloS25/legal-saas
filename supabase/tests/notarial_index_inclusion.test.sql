@@ -98,8 +98,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'f1111111-d000-0000-0000-000000000002', 'f1111111-1111-1111-1111-111111111111',
   'f1111111-1111-1111-1111-111111111111', 'f1111111-0000-0000-0000-000000000001',
-  'Caso B constancia', 'final', '{}'::jsonb, ''
+  'Caso B constancia', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='f1111111-d000-0000-0000-000000000002';
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 update public.documents set include_in_notarial_index = false
  where id = 'f1111111-d000-0000-0000-000000000002';
 select is(
@@ -115,8 +124,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'f1111111-d000-0000-0000-000000000003', 'f1111111-1111-1111-1111-111111111111',
   'f1111111-1111-1111-1111-111111111111', 'f1111111-0000-0000-0000-000000000001',
-  'Caso E sin fecha', 'final', '{}'::jsonb, '', true, '2026-05-10T12:00:00Z'
+  'Caso E sin fecha', 'draft', '{}'::jsonb, '', true, '2026-05-10T12:00:00Z'
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='f1111111-d000-0000-0000-000000000003';
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 select is(
   (select count(*) from public.notarial_index_entries where document_id = 'f1111111-d000-0000-0000-000000000003'),
   1::bigint,
@@ -145,8 +163,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'f1111111-d000-0000-0000-000000000004', 'f1111111-1111-1111-1111-111111111111',
   'f1111111-1111-1111-1111-111111111111', 'f1111111-0000-0000-0000-000000000001',
-  'Caso G/H propietario', 'final', '{}'::jsonb, '', true
+  'Caso G/H propietario', 'draft', '{}'::jsonb, '', true
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='f1111111-d000-0000-0000-000000000004';
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 reset role;
 
 select set_config('request.jwt.claim.sub', 'f3333333-3333-3333-3333-333333333333', true);
@@ -156,8 +183,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'f1111111-d000-0000-0000-000000000005', 'f3333333-3333-3333-3333-333333333333',
   'f1111111-1111-1111-1111-111111111111', 'f1111111-0000-0000-0000-000000000001',
-  'Doc asistente', 'final', '{}'::jsonb, '', true
+  'Doc asistente', 'draft', '{}'::jsonb, '', true
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','f1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='f1111111-d000-0000-0000-000000000005';
+reset role;
+select set_config('request.jwt.claim.sub','f3333333-3333-3333-3333-333333333333',true);
+set local role authenticated;
+
 
 update public.documents set include_in_notarial_index = false
  where id = 'f1111111-d000-0000-0000-000000000005';
@@ -185,13 +221,8 @@ reset role;
 select set_config('request.jwt.claim.sub', 'f4444444-4444-4444-4444-444444444444', true);
 set local role authenticated;
 
-select ok(
-  tnid_incl_test.statement_fails($$
-    update public.documents set include_in_notarial_index = false
-    where id = 'f1111111-d000-0000-0000-000000000004'
-  $$),
-  '8c) Solo_lectura NO puede cambiar la inclusión (rechazado por RLS, sin rol de escritura)'
-);
+select is_empty($q$update public.documents set include_in_notarial_index = false
+    where id = 'f1111111-d000-0000-0000-000000000004' returning id$q$, '8c) Solo_lectura NO puede cambiar la inclusión (rechazado por RLS, sin rol de escritura)');
 
 reset role;
 

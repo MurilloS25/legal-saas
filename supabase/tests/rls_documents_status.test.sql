@@ -123,8 +123,17 @@ select ok(
 insert into public.documents (id, owner_id, template_id, title, status, field_values, rendered_content)
 values (
   '51111111-d000-0000-0000-000000000002', '51111111-1111-1111-1111-111111111111',
-  '51111111-0000-0000-0000-000000000001', 'Doc finalizado', 'final', '{}'::jsonb, ''
+  '51111111-0000-0000-0000-000000000001', 'Doc finalizado', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','51111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='51111111-d000-0000-0000-000000000002';
+reset role;
+select set_config('request.jwt.claim.sub','51111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 
 -- Un delete que no matchea ninguna fila por RLS no lanza excepción: solo
 -- afecta 0 filas. `statement_fails` no sirve aquí (no hay error que atrapar).

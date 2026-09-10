@@ -73,17 +73,28 @@ export async function saveProfileAction(
     };
   }
 
-  const { error } = await supabase.from("lawyer_profiles").upsert(
-    {
+  const values = {
+    full_name: result.data.full_name,
+    professional_code: result.data.professional_code || null,
+    email: result.data.email || null,
+    phone: result.data.phone || null,
+  };
+  // Update preserves the original creator. A concurrent first insert fails
+  // safely on the workspace uniqueness constraint instead of replacing it.
+  const { data: updated, error: updateError } = await supabase
+    .from("lawyer_profiles")
+    .update(values)
+    .eq("workspace_id", workspaceId)
+    .select("id")
+    .maybeSingle();
+  let error = updateError;
+  if (!error && !updated) {
+    ({ error } = await supabase.from("lawyer_profiles").insert({
+      ...values,
       owner_id: user.id,
       workspace_id: workspaceId,
-      full_name: result.data.full_name,
-      professional_code: result.data.professional_code || null,
-      email: result.data.email || null,
-      phone: result.data.phone || null,
-    },
-    { onConflict: "workspace_id" },
-  );
+    }));
+  }
 
   if (error) {
     return { message: "No fue posible guardar el despacho. Intenta de nuevo." };
@@ -135,20 +146,31 @@ export async function saveDocumentSettingsAction(
     };
   }
 
-  const { error } = await supabase.from("document_settings").upsert(
-    {
+  const values = {
+    font_family: result.data.font_family,
+    font_size: result.data.font_size,
+    margin_top_cm: result.data.margin_top_cm,
+    margin_bottom_cm: result.data.margin_bottom_cm,
+    margin_left_cm: result.data.margin_left_cm,
+    margin_right_cm: result.data.margin_right_cm,
+    line_spacing: result.data.line_spacing,
+  };
+  // Update preserves the original creator. A concurrent first insert fails
+  // safely on the workspace uniqueness constraint instead of replacing it.
+  const { data: updated, error: updateError } = await supabase
+    .from("document_settings")
+    .update(values)
+    .eq("workspace_id", workspaceId)
+    .select("id")
+    .maybeSingle();
+  let error = updateError;
+  if (!error && !updated) {
+    ({ error } = await supabase.from("document_settings").insert({
+      ...values,
       owner_id: user.id,
       workspace_id: workspaceId,
-      font_family: result.data.font_family,
-      font_size: result.data.font_size,
-      margin_top_cm: result.data.margin_top_cm,
-      margin_bottom_cm: result.data.margin_bottom_cm,
-      margin_left_cm: result.data.margin_left_cm,
-      margin_right_cm: result.data.margin_right_cm,
-      line_spacing: result.data.line_spacing,
-    },
-    { onConflict: "workspace_id" },
-  );
+    }));
+  }
 
   if (error) {
     return { message: "No fue posible guardar la configuración de documentos. Intenta de nuevo." };
