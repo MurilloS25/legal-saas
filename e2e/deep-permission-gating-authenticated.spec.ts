@@ -180,7 +180,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
    * porque no existe hasta que ese test corre. */
   let cobroReceivableId: string | undefined;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ browser }) => {
     ownerId = await createDisposableUser(ownerEmail, PASSWORD);
     assistantId = await createDisposableUser(assistantEmail, PASSWORD);
     readerId = await createDisposableUser(readerEmail, PASSWORD);
@@ -251,11 +251,18 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       template_id: templateId,
       client_id: clientId,
       title: "Escritura gating profundo (reabrir directo)",
-      status: "final",
+      status: "draft",
       field_values: {},
       rendered_content: "Contenido de prueba.",
     });
     reopenTargetDocumentId = reopenTargetDocument.id;
+    const fixturePage = await browser.newPage();
+    try {
+      await loginAndExpectDashboard(fixturePage, ownerEmail, PASSWORD);
+      expect((await directPatchDocumentStatus(fixturePage, reopenTargetDocumentId, "final")).ok).toBe(true);
+    } finally {
+      await fixturePage.close();
+    }
 
     const receivable = await restInsert<{ id: string }>("receivables", {
       owner_id: ownerId,

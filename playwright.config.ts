@@ -46,6 +46,11 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
+    {
+      name: "chromium-release-security",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-security-collaboration\.spec\.ts/,
+    },
     // Auth setup — logs in and saves storageState.
     // Runs before chromium-authenticated but not before chromium-public.
     {

@@ -171,13 +171,16 @@ export async function createTestDocument(
     template_id: templateId,
     client_id: options.client_id ?? null,
     title: options.title,
-    status: options.status ?? "draft",
+    status: "draft",
     field_values: options.field_values ?? {},
     option_selections: options.option_selections ?? {},
     rendered_content: options.rendered_content ?? "",
     ...(options.created_at ? { created_at: options.created_at } : {}),
   });
   registry.register("documents", id);
+  if (options.status && options.status !== "draft") {
+    await restUpdate("documents", id, { status: options.status });
+  }
   return { id };
 }
 
