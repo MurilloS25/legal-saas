@@ -50,7 +50,7 @@ async function transitionDocument(
 
   const { data: doc, error: documentError } = await supabase
     .from("documents")
-    .select("id, status, template_id, field_values, option_selections")
+    .select("id, status, template_id, field_values, option_selections, updated_at")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -133,6 +133,7 @@ async function transitionDocument(
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .eq("status", doc.status)
+    .eq("updated_at", doc.updated_at)
     .select("id")
     .maybeSingle();
 
@@ -142,7 +143,7 @@ async function transitionDocument(
   if (!updated) {
     return {
       message:
-        "El estado cambió en otra pestaña. Recarga la escritura e intenta de nuevo.",
+        "La escritura cambió en otra pestaña. Recarga y revisa la versión actual antes de finalizar.",
     };
   }
 

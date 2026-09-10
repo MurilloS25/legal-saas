@@ -162,20 +162,9 @@ export const TemplateIndexConfigurationSection = forwardRef<
     }
   }, [fieldsProp]);
   const [inclusion, setInclusion] = useState(includeByDefault);
-  // Línea base contra la que se compara para saber si el toggle tiene un
-  // cambio sin guardar (`inclusionDirty` más abajo) — también sirve para
-  // resincronizar cuando el prop del servidor cambia de verdad (mismo riesgo
-  // de estado local obsoleto ya corregido en NotarialMetadataSection, ver
-  // 20260818140000: este componente tampoco se desmonta al navegar entre
-  // pasos del Machote).
-  const lastSyncedInclusion = useRef(includeByDefault);
-  useEffect(() => {
-    if (lastSyncedInclusion.current !== includeByDefault) {
-      lastSyncedInclusion.current = includeByDefault;
-      setInclusion(includeByDefault);
-    }
-  }, [includeByDefault]);
-  const inclusionDirty = inclusion !== lastSyncedInclusion.current;
+  // A response acknowledges the submitted value without replacing later edits.
+  const [savedInclusion, setSavedInclusion] = useState(includeByDefault);
+  const inclusionDirty = inclusion !== savedInclusion;
 
   const availableIds = useMemo(
     () => new Set(fields.map((field) => field.id)),
@@ -265,7 +254,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
   // una si de verdad tiene cambios, para no forzar una decisión sobre
   // Partes/campos simples solo porque el usuario tocó el toggle de
   // inclusión.
-  const snapshotRef = useRef({
+  const [snapshot, setSnapshot] = useState({
     selectedIds,
     separator,
     fixedSuffix,
@@ -274,7 +263,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
     partiesMode,
   });
   const mappingDirty = useMemo(() => {
-    const snap = snapshotRef.current;
+    const snap = snapshot;
     if (separator !== snap.separator) return true;
     if (fixedSuffix !== snap.fixedSuffix) return true;
     if (allowEmpty !== snap.allowEmpty) return true;
@@ -284,7 +273,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
     return SIMPLE_FIELDS.some(
       ({ key }) => simpleFieldValues[key] !== snap.simpleFieldValues[key],
     );
-  }, [selectedIds, separator, fixedSuffix, allowEmpty, partiesMode, simpleFieldValues]);
+  }, [selectedIds, separator, fixedSuffix, allowEmpty, partiesMode, simpleFieldValues, snapshot]);
   const isDirty = mappingDirty || inclusionDirty;
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -401,16 +390,16 @@ export const TemplateIndexConfigurationSection = forwardRef<
             // `fieldsById` (ya construido sobre `freshFields`, con ids
             // reales) no encontraría esas claves, y la selección se vería
             // "configurada" en el resumen pero vacía en la vista previa.
-            setSelectedIds(resolvedSelectedIds);
-            setSimpleFieldValues(resolvedSimpleFieldValues);
-            snapshotRef.current = {
+            setSelectedIds(current => current === selectedIds ? resolvedSelectedIds : current);
+            setSimpleFieldValues(current => current === simpleFieldValues ? resolvedSimpleFieldValues : current);
+            setSnapshot({
               selectedIds: resolvedSelectedIds,
               separator,
               fixedSuffix,
               allowEmpty,
               simpleFieldValues: resolvedSimpleFieldValues,
               partiesMode,
-            };
+            });
           } else {
             mappingOk = false;
             errorMessage =
@@ -432,7 +421,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
             inclusion,
           );
           if (result.success && result.includeByDefault !== undefined) {
-            lastSyncedInclusion.current = result.includeByDefault;
+            setSavedInclusion(result.includeByDefault);
             if (result.updatedAt) onIncludeByDefaultSaved?.(result.updatedAt);
           } else {
             inclusionOk = false;

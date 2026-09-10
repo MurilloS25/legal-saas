@@ -10,6 +10,7 @@ import {
   DocumentRenderedContentSchema,
   DocumentTitleSchema,
   DocumentValuesSchema,
+  DocumentVersionSchema,
   mergeDocumentDraftValues,
 } from "../model/document-schema";
 import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
@@ -34,6 +35,8 @@ export type DocumentDraftState = {
   titleError?: string;
   message?: string;
   success?: boolean;
+  updatedAt?: string;
+  conflictUpdatedAt?: string;
 };
 
 export type DeleteDocumentState = {
@@ -288,6 +291,11 @@ export async function updateDocumentDraftAction(
 ): Promise<DocumentDraftState> {
   const { supabase, workspaceId } = await requireWorkspace();
 
+  const version = DocumentVersionSchema.safeParse(formData.get("expected_updated_at"));
+  if (!version.success) {
+    return { message: "No se pudo comprobar la versión. Recarga la escritura antes de guardar." };
+  }
+
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
@@ -352,21 +360,29 @@ export async function updateDocumentDraftAction(
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .neq("status", "final")
-    .select("id")
+    .eq("updated_at", version.data)
+    .select("id, updated_at")
     .maybeSingle();
 
   if (error) {
     return { message: "No fue posible guardar el borrador. Intenta de nuevo." };
   }
   if (!updated) {
+    const { data: current } = await supabase
+      .from("documents")
+      .select("updated_at, status")
+      .eq("id", documentId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
     return {
-      message: "Esta escritura está finalizada. Reábrela antes de editarla.",
+      message: "La escritura cambió desde que la abriste. Tus cambios siguen en esta pestaña. Revisa la versión guardada antes de reintentar: el reintento reemplazará su contenido con tus cambios.",
+      conflictUpdatedAt: current && !isReadOnlyStatus(current.status) ? current.updated_at : undefined,
     };
   }
 
   revalidatePath("/dashboard/documents");
   revalidatePath(`/dashboard/documents/${documentId}`);
-  return { success: true };
+  return { success: true, updatedAt: updated.updated_at };
 }
 
 // ------------------------------------------------------------------ delete draft

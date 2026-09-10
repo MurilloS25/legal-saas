@@ -109,6 +109,7 @@ export function DocumentStatusControls({
   }
 
   function submitFinal() {
+    if (dirty || anyPending) return;
     submitAction(finalAction);
   }
 
@@ -192,7 +193,7 @@ export function DocumentStatusControls({
             </>
           }
           confirmLabel="Finalizar escritura"
-          pending={finalPending}
+          pending={finalPending || dirty}
           error={final.message}
           onConfirm={submitFinal}
           onClose={closeDialog}
