@@ -52,6 +52,8 @@ import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { CollapsibleFieldRow } from "./CollapsibleFieldRow";
 import { useToast } from "@/components/feedback/Toast";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
+import { matchesPersistedNotarialSnapshot } from "../model/confirmation-snapshot";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
@@ -199,6 +201,15 @@ export function NotarialMetadataSection({
   >(null);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const [confirmedAt, setConfirmedAt] = useState(metadata?.notarial_confirmed_at ?? null);
+  const metadataVersion = metadata?.version ?? 1;
+  const [confirmationVersionState, setConfirmationVersionState] = useState(() => ({
+    source: metadataVersion,
+    value: metadataVersion,
+  }));
+  if (confirmationVersionState.source !== metadataVersion) {
+    setConfirmationVersionState({ source: metadataVersion, value: metadataVersion });
+  }
+  const confirmationVersion = confirmationVersionState.value;
   const [reviewRequiredFlag, setReviewRequiredFlag] = useState(
     metadata?.notarial_review_required ?? false,
   );
@@ -220,19 +231,21 @@ export function NotarialMetadataSection({
       setReviewRequiredFlag(serverReviewRequired);
     }
   }, [metadata?.notarial_confirmed_at, metadata?.notarial_review_required]);
-
   async function handleConfirm() {
-    if (!metadata) return;
+    if (!metadata || !matchesPersistedNotarialSnapshot(liveMetadata, metadata) || pending || confirmationBusy) return;
     setConfirmationDialog(null);
     setConfirmationError(null);
     setConfirmationBusy(true);
-    const result = await confirmNotarialMetadataAction(documentId, metadata.version);
+    const result = await confirmNotarialMetadataAction(documentId, confirmationVersion);
     setConfirmationBusy(false);
     if (result.success) {
       const confirmedNow = new Date().toISOString();
       lastSyncedConfirmedAt.current = confirmedNow;
       lastSyncedReviewRequired.current = false;
       setConfirmedAt(confirmedNow);
+      if (result.version) {
+        setConfirmationVersionState((current) => ({ ...current, value: result.version! }));
+      }
       setReviewRequiredFlag(false);
       showToast("Datos del Índice confirmados.");
     } else {
@@ -247,12 +260,15 @@ export function NotarialMetadataSection({
     setConfirmationDialog(null);
     setConfirmationError(null);
     setConfirmationBusy(true);
-    const result = await startNotarialCorrectionAction(documentId, metadata.version);
+    const result = await startNotarialCorrectionAction(documentId, confirmationVersion);
     setConfirmationBusy(false);
     if (result.success) {
       lastSyncedConfirmedAt.current = null;
       lastSyncedReviewRequired.current = true;
       setConfirmedAt(null);
+      if (result.version) {
+        setConfirmationVersionState((current) => ({ ...current, value: result.version! }));
+      }
       setReviewRequiredFlag(true);
       showToast("Corrección de datos del Índice iniciada.");
     } else {
@@ -358,7 +374,10 @@ export function NotarialMetadataSection({
   }
 
   const liveMetadata = {
-    instrument_number: Number(instrument),
+    notes,
+    authorizedDate,
+    authorizedTime,
+    instrument_number: instrument === "" ? null : Number(instrument),
     authorized_at: authorizedAt,
     protocol_book: protocolBook,
     initial_folio: initialFolio,
@@ -370,6 +389,10 @@ export function NotarialMetadataSection({
       metadata?.generated_parties ?? generatedPartiesPreview,
   };
   const complete = isNotarialComplete(liveMetadata);
+  const matchesPersisted = matchesPersistedNotarialSnapshot(liveMetadata, metadata);
+  const [initialInput] = useState(JSON.stringify(liveMetadata));
+  const metadataDirty = metadata ? !matchesPersisted : JSON.stringify(liveMetadata) !== initialInput;
+  useUnsavedChanges(metadataDirty);
   const missingFields = notarialMissingFields(liveMetadata);
 
   const confirmationState = notarialConfirmationState(
@@ -382,7 +405,7 @@ export function NotarialMetadataSection({
   // directo. La base de datos ya rechaza esto de todos modos
   // (enforce_notarial_metadata_editable); deshabilitar aquí evita el
   // viaje de red innecesario y comunica el bloqueo con claridad.
-  const fieldsDisabled = !canEdit || isConfirmed;
+  const fieldsDisabled = !canEdit || isConfirmed || pending || confirmationBusy;
   const canConfirmNow = canConfirm && canConfirmNotarialIndex(confirmationState, complete);
   const canCorrectNow = canConfirm && isConfirmed;
 
@@ -540,7 +563,7 @@ export function NotarialMetadataSection({
           {canConfirmNow && (
             <button
               type="button"
-              disabled={confirmationBusy}
+              disabled={confirmationBusy || pending || !matchesPersisted}
               onClick={() => setConfirmationDialog("confirm")}
               className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
             >
@@ -559,6 +582,11 @@ export function NotarialMetadataSection({
           )}
         </div>
       </div>
+      {canConfirm && !isConfirmed && !matchesPersisted && (
+        <p role="status" className="px-6 py-2 text-sm text-amber-800">
+          Guarda los cambios del índice antes de confirmar los datos visibles.
+        </p>
+      )}
       {confirmationError && (
         <p role="alert" className="border-b border-slate-100 px-6 py-2 text-xs text-red-700">
           {confirmationError}
@@ -620,7 +648,7 @@ export function NotarialMetadataSection({
           }
         />
 
-        <input type="hidden" name="version" value={metadata?.version ?? 1} />
+        <input type="hidden" name="version" value={confirmationVersion} />
 
         {/* Fuera de las filas colapsables a propósito: si vivieran dentro de
             `CollapsibleFieldRow`, dejarían de enviarse en el submit en
@@ -1053,7 +1081,7 @@ export function NotarialMetadataSection({
           title="¿Confirmar datos del Índice?"
           description="Confirma que revisaste la información utilizada para el Índice Notarial. Después de confirmar, los datos quedarán bloqueados para edición normal. Si necesitas corregirlos posteriormente, el cambio quedará registrado."
           confirmLabel="Confirmar datos"
-          pending={confirmationBusy}
+          pending={confirmationBusy || pending || !matchesPersisted}
           onConfirm={handleConfirm}
           onClose={() => setConfirmationDialog(null)}
         />

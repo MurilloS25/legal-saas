@@ -60,7 +60,7 @@
  */
 
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { TemplateDocument } from "@/lib/editor/types";
 import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
 import { extractActiveDocumentVariables } from "@/lib/editor/variables";
@@ -89,7 +89,7 @@ import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
 import { DocumentSaveControls } from "./DocumentSaveControls";
 import { DocumentStatusControls } from "./DocumentStatusControls";
 import { PendingFieldsDialog, type PendingField } from "./PendingFieldsDialog";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
 import {
   DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
@@ -176,7 +176,6 @@ function resolveSection(
 
 export function DocumentComposer(props: Props) {
   const { document, fields, templateName, clients, canFinalize } = props;
-  const router = useRouter();
   const isEdit = props.mode === "edit";
   const draft = isEdit ? props.draft : null;
   const status: DocumentStatus =
@@ -413,69 +412,7 @@ export function DocumentComposer(props: Props) {
     }
   }
 
-  // Recargar/cerrar la pestaña con cambios sin guardar: el navegador exige
-  // su propio diálogo nativo aquí (ninguna UI personalizada puede
-  // interceptar `beforeunload`) — es la única protección real para este
-  // caso específico, distinta de la confirmación propia de abajo (que cubre
-  // salir DENTRO de la misma pestaña, p. ej. a otro módulo). Mismo patrón
-  // que `TemplateWorkspace` (Machotes), implementado aparte a propósito
-  // (ver comentario de módulo).
-  useEffect(() => {
-    if (!dirty) return;
-    function handleBeforeUnload(event: BeforeUnloadEvent) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirty]);
-
-  // Salir de VERDAD del workspace (breadcrumb "‹ Volver a Escrituras",
-  // navbar/drawer superior a otro módulo — cualquier <a> real que navegue a
-  // otra ruta) con cambios sin guardar pide confirmación en vez de
-  // perderlos. Deliberadamente NO intercepta navegación interna del
-  // stepper (botones, no <a>, y de todos modos misma ruta vía
-  // `history.pushState`) ni clics dentro de esta misma página. Interceptar
-  // a nivel de `document` (captura) es lo que cubre también la navbar
-  // superior compartida sin tener que tocar ese componente compartido.
-  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
-  useEffect(() => {
-    if (!dirty) return;
-    function handleDocumentClick(event: MouseEvent) {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-      const anchor = (event.target as HTMLElement | null)?.closest?.(
-        "a[href]",
-      ) as HTMLAnchorElement | null;
-      if (!anchor || (anchor.target && anchor.target !== "_self")) return;
-      let url: URL;
-      try {
-        url = new URL(anchor.href, window.location.origin);
-      } catch {
-        return;
-      }
-      if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname) return;
-      event.preventDefault();
-      setPendingHref(url.pathname + url.search);
-      setLeaveConfirmOpen(true);
-    }
-    // `window.document`, no `document`: ese identificador ya está tomado
-    // por el prop `document` (el machote estructurado) desestructurado más
-    // arriba, no por el DOM global.
-    window.document.addEventListener("click", handleDocumentClick, true);
-    return () =>
-      window.document.removeEventListener("click", handleDocumentClick, true);
-  }, [dirty]);
+  useUnsavedChanges(dirty);
 
   // No descarta `dirty` en error: el usuario nunca pierde sus cambios
   // locales por un guardado fallido, y "Error al guardar" se distingue de
@@ -836,19 +773,6 @@ export function DocumentComposer(props: Props) {
         }
       />
 
-      {leaveConfirmOpen && (
-        <ConfirmDialog
-          title="¿Salir sin guardar?"
-          description="Tienes cambios sin guardar en esta escritura. Si sales ahora, se perderán."
-          confirmLabel="Salir sin guardar"
-          tone="danger"
-          onConfirm={() => router.push(pendingHref ?? "/dashboard/documents")}
-          onClose={() => {
-            setLeaveConfirmOpen(false);
-            setPendingHref(null);
-          }}
-        />
-      )}
     </div>
     </>
   );
