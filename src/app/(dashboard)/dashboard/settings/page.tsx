@@ -4,6 +4,7 @@ import { hasPermission } from "@/lib/server/permissions";
 import { SettingsTabs } from "./_components/SettingsTabs";
 import type { TeamMember } from "@/app/(dashboard)/dashboard/team/MemberRow";
 import type { WorkspaceActivityEvent } from "@/app/(dashboard)/dashboard/team/activity-format";
+import { resolveSettingsLoad } from "./settings-load";
 
 export const metadata = {
   title: "Cuenta y configuración — LexCR",
@@ -48,9 +49,13 @@ export default async function SettingsPage({ searchParams }: Props) {
         : Promise.resolve({ data: null, error: null }),
     ]);
 
-  if (needsTeam && (membersResult.error || activityResult.error)) {
-    throw new Error("No fue posible cargar la información del equipo.");
-  }
+  const loaded = resolveSettingsLoad({
+    needsTeam,
+    profileResult,
+    settingsResult,
+    membersResult,
+    activityResult,
+  });
 
   return (
     <PageContainer>
@@ -67,14 +72,14 @@ export default async function SettingsPage({ searchParams }: Props) {
         <SettingsTabs
           userEmail={user.email ?? null}
           canManage={canManage}
-          initialProfile={profileResult.data}
-          initialSettings={settingsResult.data}
+          initialProfile={loaded.profile}
+          initialSettings={loaded.settings}
           team={
             canManageMembers
               ? {
                   canManageMembers: true,
-                  members: needsTeam ? (membersResult.data ?? []) : [],
-                  activity: needsTeam ? (activityResult.data ?? []) : [],
+                  members: loaded.members,
+                  activity: loaded.activity,
                   callerUserId: user.id,
                   callerRole: role,
                 }

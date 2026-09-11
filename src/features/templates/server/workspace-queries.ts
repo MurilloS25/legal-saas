@@ -4,6 +4,10 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import type { Tables } from "@/lib/supabase/database.types";
 import { TEMPLATES_PAGE_SIZE, type TemplatesQuery } from "../model/workspace-query";
+import {
+  AUXILIARY_QUERY_LIMIT,
+  ensureWithinResultLimit,
+} from "@/lib/server/bounded-results";
 
 export type TemplateListRow = Pick<
   Tables<"templates">,
@@ -26,10 +30,15 @@ export async function listTemplates(): Promise<TemplateListRow[]> {
     .from("templates")
     .select(TEMPLATE_COLUMNS)
     .eq("workspace_id", workspaceId)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(AUXILIARY_QUERY_LIMIT + 1);
 
   if (error) throwDataAccessError("list templates", error);
-  return data ?? [];
+  return ensureWithinResultLimit(
+    data ?? [],
+    AUXILIARY_QUERY_LIMIT,
+    "machotes",
+  );
 }
 
 export type TemplatesPage = {
