@@ -53,14 +53,11 @@ strategy. Supabase Cloud must not be touched without explicit authorization.
 
 ## Current State
 
-The application currently colocates much of each feature below
-`src/app/(dashboard)/dashboard`. This is valid Next.js colocation, and the
-working MVP must not be rewritten merely to satisfy a folder diagram.
-
-However, some route segments now also contain reusable components, complex
-queries, Server Actions, persistence details, and cross-feature integrations.
-There are also deep imports between route segments. These are the boundaries to
-improve gradually.
+The application is organized primarily below `src/features`, with `src/app`
+responsible for App Router composition, route loading and error boundaries.
+Feature modules contain reusable UI, models, queries and Server Actions and
+expose intentional public entry points. Route-private components remain
+colocated when they are specific to one route, such as the settings workspace.
 
 The existing `src/domain`, `src/application`, and `src/infrastructure`
 directories contain placeholders and do not represent the implemented
@@ -265,15 +262,16 @@ Future foundation work will:
 These changes must preserve:
 
 - RLS as the primary data authorization control.
-- Explicit server-side ownership checks as defense in depth.
+- Explicit server-side Workspace membership and permission checks as defense in depth.
 - Zod validation at trust boundaries.
 - No service role key in browser code.
 - Versioned migrations and local RLS tests for database changes.
 
 ## Data And Document Boundaries
 
-The system may persist validated user-owned draft `field_values` and rendered
-text snapshots for the approved draft workflow. It must not store generated
+The system may persist validated Workspace-owned `field_values`, rendered text
+and minimal structured Machote snapshots for the approved Escritura workflow.
+It must not store generated
 Word/PDF files, signed documents, official submissions, or generated document
 storage paths.
 
@@ -281,6 +279,28 @@ DOCX files are generated server-side in memory through
 `src/lib/documents/docx`, returned as downloads, and discarded. The document
 model and variable renderer remain shared rather than duplicated by export
 code. See `docs/DOCX_EXPORT.md`.
+
+## Current Workspace Flows
+
+- The dashboard shell uses a desktop top navbar and a mobile drawer. Account
+  actions open Perfil, Configuración or Despacho; team management is part of
+  Despacho and remains permission-gated.
+- Machotes use Información → Documento → Variables → Índice → Publicar. One
+  persistent Guardar action coordinates the workspace without auto-advancing.
+  Option Blocks contribute variables from every variant to the global catalog;
+  structured time mapping belongs to Índice configuration rather than the
+  Option Block dialog.
+- Escrituras use Completar → Cobro → Índice. `Revisar y finalizar` is not a
+  step: preview is part of Completar and Finalizar/Reabrir are lifecycle actions
+  in the persistent action dock. Download, history and duplication remain
+  header utilities.
+- Dirty-state revisions prevent an older save response from marking newer edits
+  clean. A shared navigation guard covers app links, account navigation, logout
+  and `beforeunload`; browser back/forward remains subject to the App Router's
+  non-cancelable history behavior.
+- Document saves and finalization use optimistic concurrency based on the
+  expected `updated_at`. Each new Escritura captures an immutable structured
+  Machote snapshot used by preview, later edits, finalization and DOCX.
 
 ## State And Data Libraries
 
@@ -301,12 +321,13 @@ Machotes, Clientes, Cuentas por cobrar). Each keeps the header and body
 rendered from the same `getHeaderGroups()`/`getVisibleCells()` model, so the
 column count and alignment can no longer drift between header and rows.
 
-Server-paginated listings (Escrituras, Cuentas por cobrar, Índice Notarial)
-keep `manualPagination`/`manualFiltering`/`manualSorting: true` and continue to
-delegate search, filtering, sorting, and pagination to the server. Listings
-that load their full result set today (Machotes, Clientes) keep that behavior
-unchanged; TanStack Table only replaces their header/row rendering, not their
-data-loading strategy.
+Clientes, Machotes, Escrituras, Cuentas por cobrar and Índice Notarial are all
+server-paginated. They keep `manualPagination` and delegate result-set
+pagination to normalized PostgREST count/range queries. Filters and sorting are
+also server-side where each workspace exposes them. The current URL source of
+truth is `page`, with a fixed page size of 10; a user-selectable `pageSize` is
+not part of the current product. TanStack Table owns presentation state, not
+data loading.
 
 Do not install or migrate additional listings to TanStack Table outside an
 explicit task with acceptance criteria. Timelines, activity feeds, and other
@@ -388,7 +409,12 @@ develop
       `- refactor/receivables-feature-module
 ```
 
-## Incremental Migration Plan
+## Historical Incremental Migration Plan
+
+The following sequence records the modularization plan that led to the current
+feature-based structure. Foundations, core feature extraction, TanStack Table,
+generated Supabase types and the first hardening passes are implemented. It is
+history and must not be read as a current backlog.
 
 1. **Architecture decision:** align documentation without moving code.
 2. **Foundations:** generated Supabase types, typed clients, `requireUser()`,

@@ -1,8 +1,9 @@
 # DESIGN.md — Design System de LexCR
 
-Fuente de verdad visual de la aplicación. El Panel principal (`/dashboard`)
-y su sidebar son la referencia aprobada: cualquier pantalla nueva o
-migrada debe verse como si perteneciera al mismo Panel.
+Fuente de verdad visual de la aplicación. El shell vigente usa una navbar
+superior oscura en desktop y un drawer lateral en móvil. El Panel principal
+(`/dashboard`) y ese shell son la referencia aprobada: cualquier pantalla
+nueva o migrada debe verse como si perteneciera al mismo producto.
 
 Este documento reemplaza a `docs/design/DESIGN.md` ("Sober Juris") como
 especificación autoritativa. Ese archivo se conserva solo como referencia
@@ -57,11 +58,11 @@ Todos los valores están implementados como tokens Tailwind v4 en
 | Fondo de aplicación | `bg-slate-50` (`--background`) | `#F8FAFC` |
 | Superficie / card | `bg-white` | `#FFFFFF` |
 | Superficie atenuada | `bg-slate-100` | `#F1F5F9` |
-| Sidebar (base) | `bg-ink-800` | `#1B2A42` |
-| Sidebar hover | `bg-ink-700` | `#26374F` |
-| Sidebar activo | `bg-ink-600` | `#32455E` |
-| Sidebar texto secundario / iconos inactivos | `text-ink-400` | `#90A0BA` |
-| Sidebar tooltip / superficie más oscura | `bg-ink-900` | `#14202F` |
+| Navbar/drawer (base) | `bg-ink-800` | `#1B2A42` |
+| Navegación hover | `bg-ink-700` | `#26374F` |
+| Navegación activa | `bg-ink-600` | `#32455E` |
+| Navegación secundaria / iconos inactivos | `text-ink-400` | `#90A0BA` |
+| Overlay móvil / superficie más oscura | `bg-ink-900` | `#14202F` |
 | Texto principal | `text-slate-900` | `#0F172A` |
 | Texto secundario | `text-slate-600` / `text-slate-500` | `#475569` / `#64748B` |
 | Texto deshabilitado | `text-slate-400` | `#94A3B8` |
@@ -71,7 +72,7 @@ Todos los valores están implementados como tokens Tailwind v4 en
 | Focus ring | `ring-accent-500` (`ring-accent-400` sobre fondo oscuro) | `#3E73C4` / `#5D91DC` |
 
 Escala `accent` completa (variante más clara/intensa del mismo azul que
-el sidebar — es el único acento decorativo de toda la app):
+la navegación oscura — es el único acento decorativo de toda la app):
 
 | Token | Valor | Uso típico |
 |---|---|---|
@@ -111,8 +112,8 @@ Estados semánticos (paleta estándar de Tailwind, no tokens propios):
 - Rojo solo para error, peligro o vencido real.
 - No usar teal (`teal-*`) en ningún componente nuevo o migrado — el
   acento único de la aplicación es `accent-*`.
-- No usar gradientes decorativos ni glassmorphism. El sidebar usa un
-  color sólido (`bg-ink-800`), sin degradado.
+- No usar gradientes decorativos ni glassmorphism. La navbar y el drawer
+  usan un color sólido (`bg-ink-800`), sin degradado.
 - No usar colores distintos por módulo como firma visual — todos los
   módulos comparten exactamente la misma paleta.
 
@@ -160,28 +161,24 @@ todas las páginas del dashboard. `width="wide"` (default) para listados,
 Panel y vistas de detalle; `width="form"` solo para creación/edición
 standalone (`/nuevo`). No crear wrappers de ancho alternativos.
 
-### Sidebar
+### Shell: navbar superior y drawer móvil
 
 `src/app/(dashboard)/_components/AppShell.tsx`. Ver §3 para colores.
 
-- Marca: "LexCR" / "Gestión Notarial", sin icono decorativo.
-- Ítem de navegación: icono 18px + label, barra izquierda `accent-400`
-  de 3px cuando está activo, fondo `ink-600` activo / `ink-700` hover.
-- Colapsable a riel de solo iconos (80px) con un botón compacto junto a
-  la marca (no una fila completa al pie). Tooltip que cambia de texto
-  según estado, `aria-pressed`, persistencia en `localStorage`
-  (`lexcr.sidebar.collapsed`), `overflow-x: hidden` para que el riel
-  colapsado nunca produzca scroll horizontal.
-- Perfil al pie: avatar con iniciales (fondo `ink-700`, nunca un color
-  vistoso), nombre + correo, "Cerrar sesión" siempre accesible (icono
-  solo cuando está colapsado).
-- Móvil: drawer deslizante (`translate-x`), mismo color `ink-800`, sin
-  colapso (el colapso es una característica de escritorio).
+- Desktop: navbar horizontal sticky `bg-ink-800`, marca LexCR, rutas
+  principales y subrayado `accent-400` para la ruta activa.
+- El menú de usuario agrupa Perfil, Configuración, Despacho y Cerrar sesión.
+  La gestión del equipo vive dentro de Despacho según permisos.
+- No existe sidebar desktop ni estado persistido de colapso.
+- Móvil: botón hamburguesa que abre un drawer `bg-ink-800`; replica las
+  rutas, identidad de cuenta y logout, con diálogo accesible y overlay.
+- Tanto navbar como drawer participan en el guard compartido de navegación
+  cuando Machotes o Escrituras tienen cambios sin guardar.
 
 ### Encabezados de página / workspace
 
 Título + badge de estado (si aplica) + acciones a la derecha. Los
-workspaces con pestañas (Machotes, Escrituras, Cuentas por cobrar) usan
+workspaces con pasos o pestañas (Machotes, Escrituras, Cuentas por cobrar) usan
 el mismo patrón: breadcrumb, título, `role="tablist"` con indicador de
 pestaña activa (borde inferior `accent-700` + texto `accent-800`), y las
 pestañas permanecen siempre montadas (solo se ocultan con `hidden`) para
@@ -224,10 +221,12 @@ Labels siempre visibles. Input: `border-slate-300`, focus
 texto `text-red-700`, componente compartido `FieldError`. Compactos pero
 legibles — nunca comprimidos a costa de la legibilidad.
 
-### Tabs
+### Pasos y tabs
 
-Ver "Encabezados de página / workspace". Mismo patrón en los tres
-workspaces que las usan.
+Machotes usa Información, Documento, Variables, Índice y Publicar. Escrituras
+usa Completar, Cobro e Índice; `Revisar y finalizar` no es un paso. Cuentas por
+cobrar conserva tabs de detalle. Cambiar de sección no debe desmontar ni perder
+edición local.
 
 ### Badges
 
@@ -270,7 +269,7 @@ No crear un tercer patrón de diálogo sin necesidad real.
 
 ### Drawers
 
-Ver "Sidebar → Móvil" y "Diálogos → Slide-over". Mismo mecanismo de
+Ver "Shell: navbar superior y drawer móvil" y "Diálogos → Slide-over". Mismo mecanismo de
 transición (`translate-x`, `duration-200 ease-in-out`).
 
 ### Estados vacíos
@@ -306,11 +305,11 @@ genéricas — el documento es el protagonista de esas pantallas.
 ## 8. Responsive
 
 - Mobile-first en todos los formularios (una columna en móvil).
-- Sidebar: expandido/colapsado en escritorio (`lg:`), drawer deslizante
-  en móvil (por debajo de `lg:`).
+- Navbar horizontal en escritorio (`lg:`), drawer deslizante en móvil
+  (por debajo de `lg:`).
 - Tablas: wrappers con `overflow-x-auto` cuando el contenido no cabe;
   evitar densidad excesiva en MVP.
-- Tabs: `overflow-x-auto` en el `role="tablist"` para que no se rompan
+- Pasos/tabs: `overflow-x-auto` en el `role="tablist"` para que no se rompan
   en pantallas angostas.
 - Workspaces con documento + panel lateral (Machotes, Escrituras) usan
   un selector de vista Editar/Vista previa en móvil en vez de mostrar
@@ -323,7 +322,7 @@ No se implementa en esta iteración. La infraestructura de tokens
 soportarlo más adelante sin reescribir componentes, siguiendo estas
 reglas cuando se implemente:
 
-- El sidebar ya usa un azul oscuro coherente — en modo oscuro el resto
+- La navegación ya usa un azul oscuro coherente — en modo oscuro el resto
   de la app debe acercarse a esa misma familia, no a negro puro.
 - Las superficies oscuras deben ser azul-grisáceas (`ink-900`/`ink-800`
   o una variante), nunca `#000000`.

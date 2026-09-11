@@ -161,6 +161,15 @@ Authentication → Email Templates para que enlace a
 (contenido equivalente a `supabase/templates/invite.html`) — de lo
 contrario producción seguiría usando el patrón GET vulnerable.
 
+### Redirect posterior a confirmación
+
+El parámetro `next` de `/auth/confirm` se acepta únicamente cuando representa
+una ruta interna segura. La normalización rechaza URLs absolutas,
+protocol-relative, backslashes y esquemas externos codificados antes de
+redirigir. Las rutas internas válidas se conservan. La política está aislada en
+`src/app/auth/confirm/safe-redirect.ts` y cubierta por tests unitarios; no se
+debe reemplazar por una comprobación basada solo en `startsWith("/")`.
+
 ### Revocación de usuarios
 
 Revocar un usuario (Authentication → Users → banear/eliminar) bloquea
@@ -226,20 +235,17 @@ propuesto para no bloquear esa implementación:
   (`mfa.getAuthenticatorAssuranceLevel()`) y pedir el código antes de
   considerar el login completo, en vez de redirigir directo a
   `/dashboard`.
-- **Enforcement diferenciado por rol:** cuando exista distinción real de
-  roles (propietario/notario vs. asistente — hoy no existe, es
-  mono-usuario por cuenta), la política propuesta es exigir `aal2`
+- **Enforcement diferenciado por rol:** los roles de Workspace ya existen,
+  pero MFA todavía no. Si se aprueba MFA, la política propuesta es exigir `aal2`
   (MFA verificado) para acciones sensibles del propietario/notario
   (p. ej. configuración de la cuenta, exportación notarial) vía un check
   de servidor (`getAuthenticatorAssuranceLevel()` en el Server Action/ruta
   correspondiente), mientras que un futuro rol de asistente con permisos
   más acotados podría operar en `aal1` si sus acciones son de menor
-  riesgo. Esto requiere que el modelo de roles exista primero — no se
-  diseña en detalle hasta esa iteración (ver
-  `03_AUDITORIA_Y_DISENO_WORKSPACES_MULTIUSUARIO.md`).
-- **No implementado ahora** porque el piloto actual es de un solo usuario
-  por cuenta y el spec de esta iteración pide explícitamente entregar el
-  diseño, no el código.
+  riesgo. La implementación debe usar la matriz de permisos vigente y requiere
+  una decisión de producto/seguridad separada.
+- **No implementado ahora:** esta sección conserva únicamente el diseño futuro
+  de MFA; no describe una capacidad actual.
 
 ## Pruebas
 

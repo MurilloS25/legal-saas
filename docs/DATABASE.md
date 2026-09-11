@@ -24,7 +24,9 @@ The database target is Supabase Postgres with Supabase Auth and Row Level Securi
 - The database stores only data required for lawyer profile settings, clients, templates, persistent draft escrituras, optional document metadata, notarial index preparation, and basic receivables.
 - `document_metadata` is not created automatically every time a Word document is generated.
 - `document_metadata` is created only when the user chooses to save information for notarial index preparation and/or accounts receivable.
-- Accounts receivable is intentionally basic and does not include formal accounting, tax calculation, electronic invoicing, or a separate partial-payment table.
+- Accounts receivable is intentionally basic. It includes payment records and
+  payment voiding/activity, but not formal accounting, tax calculation or
+  electronic invoicing.
 - This document describes approved schema decisions and future candidate fields. New migrations still require an explicit task.
 
 ## Database Goals
@@ -445,9 +447,9 @@ Rules:
   marks it incomplete for explicit reconciliation.
 - Saving is transactional through `save_template_index_configuration`, which
   derives the owner from `auth.uid()` and validates all relationships.
-- Saving an Option Block time source uses the owner-validated transactional
+- Saving an Option Block time source uses the Workspace-validated transactional
   RPC `save_template_index_mapping_with_block_source`.
-- RLS is owner-only on both tables; anonymous access is not allowed.
+- RLS is Workspace- and role-aware on both tables; anonymous access is not allowed.
 - The configuration stores no client values or escritura text. Generated
   `Partes` is snapshotted only in the document's notarial metadata.
 - Existing variable mappings remain valid. Historical blocks without
@@ -466,7 +468,9 @@ Decision:
 - `field_values` stores a flat `field_key -> text` map.
 - `rendered_content` stores the server-rendered plain-text result of the last save.
 - `template_snapshot` stores one versioned JSON object containing the canonical structured document and only its configured field metadata (labels, required flags, autofill sources and output transforms). Variables without explicit configuration are derived again from the snapshotted document, so they are not duplicated in JSON. The snapshot is fixed when the Escritura is created and is the shared source for later preview, edits, finalization and DOCX export.
-- `status` only allows `draft` in this iteration.
+- `status` supports `draft`, historical `ready`, and `final`. New rows start as
+  `draft`; valid drafts may finalize directly, while `ready` remains for
+  compatibility with existing rows.
 - Editing a machote must not silently rewrite saved draft snapshots.
 - Saving a draft again regenerates `rendered_content` from its own `template_snapshot` and saved values, never from the current Machote.
 - Rows created before `template_snapshot` remain `null`. They use their historical `rendered_content` as a deterministic plain-text compatibility document; the missing variable/Option Block/formatting structure is not reconstructed from the current Machote.
@@ -900,7 +904,7 @@ RLS tests should include:
 - User cannot update `owner_id` to another user.
 - Anonymous users cannot access private user-owned data.
 
-### Workspaces (added, Iteration 4)
+### Workspaces (historical Iteration 4 baseline; superseded by Iterations 5–6)
 
 `supabase/migrations/20260804200000_workspace_foundation.sql` adds
 `workspaces` and `workspace_members` (role + active/invited/revoked
@@ -915,8 +919,8 @@ suspended independently of Supabase Auth. `document_metadata` and
 scaffolding from the first migration, never referenced by application
 code.
 
-This iteration only implements one functional role (`propietario`); no
-invitations, no other roles in practice, and `workspace_id` is a
+At that historical checkpoint the application implemented one functional role
+(`propietario`), no invitations, and `workspace_id` was a
 `generated always as (owner_id) stored` column — a deliberate
 simplification possible only because a workspace and its sole owner are
 1:1 today. Full rationale, what's simplified vs. the original design, and
@@ -1014,7 +1018,8 @@ Migration files must:
 - Store draft escritura text only through the approved user-owned `documents` model.
 - Avoid broad public access.
 
-No migrations should be created until this design is approved.
+Future migrations require an explicit approved database task and must extend
+the versioned model described here.
 
 ### Notarial index export history
 
@@ -1024,7 +1029,7 @@ It never stores the generated Word file, its contents, a storage path, or full
 escritura text. CSV is not an active format. The owner is always derived from
 `auth.uid()` by the restricted `log_notarial_index_export` RPC.
 
-The export query is owner-only, restricted to one selected Costa Rica
+The export query is Workspace- and permission-scoped, restricted to one selected Costa Rica
 fortnight, ordered by instrument number with deterministic tie-breakers, and
 limited to 2,000 rows. Exceeding the limit fails explicitly rather than
 returning a partial index.

@@ -15,10 +15,10 @@ These rules are strict for the MVP foundation and future product work.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` in Client Components, browser code, logs, or `NEXT_PUBLIC_*` variables.
 - Use Supabase anon keys only for public client initialization.
 - Use server-only code for privileged operations.
-- Require RLS for every user-owned table before real user data is stored.
+- Require RLS for every Workspace-owned table before real user data is stored.
 - Store generated Word/PDF files, signed documents, official submissions, and generated document storage paths nowhere in the application.
 - Store full escritura content only through the explicitly approved persistent draft workflow.
-- Treat draft `field_values` and `rendered_content` as sensitive user-owned data: validate it, protect it with RLS, and never log it.
+- Treat `field_values`, `rendered_content`, and `template_snapshot` as sensitive Workspace data: validate them, protect them with RLS, and never log their content.
 - Keep structured metadata minimal and purpose-bound.
 
 ## Architecture

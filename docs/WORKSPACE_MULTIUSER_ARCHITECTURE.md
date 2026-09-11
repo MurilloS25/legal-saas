@@ -6,15 +6,13 @@ Este documento describía originalmente **solo diagnóstico y diseño**
 (Iteración 3, `03_AUDITORIA_Y_DISENO_WORKSPACES_MULTIUSUARIO.md`) — sin
 migraciones, RLS, invitaciones ni UI.
 
-**Iteración 4 (`04_FUNDACION_WORKSPACES_Y_MEMBRESIAS.md`) ya está
-implementada** — ver §11 más abajo para el estado real (qué se implementó
-exactamente, cómo difiere del diseño original, y el runbook de rollback).
-Solo cubre la "Fase A" de este diseño (aditiva) más el corte de RLS a
-membresía, con un único rol funcional (`propietario`) — sin invitaciones,
-sin `notary_profiles`, sin permisos personalizados. Las iteraciones 5-6
-(invitaciones reales, roles adicionales, separación de identidad
-profesional) siguen sin implementar y no deben comenzar hasta aprobación
-explícita.
+Este documento es un **ADR histórico/evolutivo**, no la fuente normativa del
+estado actual. Las Iteraciones 4, 5 y 6 están implementadas; §§11–13 registran
+qué se entregó y cómo cambió el diseño original. El producto actual tiene
+Workspaces, invitaciones y cuatro roles fijos (`propietario`, `administrador`,
+`asistente`, `solo_lectura`), además de identidad profesional separada de la
+identidad del actor. Para el modelo vigente usar `docs/DATABASE.md`; para reglas
+de autorización usar `docs/SECURITY.md` y el código/migrations versionados.
 
 ## Objetivo
 

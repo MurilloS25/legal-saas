@@ -41,7 +41,7 @@ AI agents must understand:
 - This is a legal productivity SaaS MVP.
 - The primary users are independent lawyers in Costa Rica.
 - The app helps with templates, persistent draft escrituras, Word generation, client reuse, notarial index metadata, and receivables.
-- The app may store validated draft `field_values` and server-rendered text snapshots.
+- The app may store validated `field_values`, server-rendered text, and the minimal structured Machote snapshot required by the approved persistent Escritura workflow.
 - The app does not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - The app does not provide legal advice.
 - The app does not submit official legal documents.
@@ -166,7 +166,7 @@ For database changes:
 3. Add or update RLS tests for ownership and access-control behavior.
 4. Run local Supabase validation.
 5. Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
-6. Persist draft escritura text only through the approved user-owned `documents` draft model, protected by RLS and no-content logging rules.
+6. Persist Escritura content only through the approved Workspace-owned `documents` model, protected by RLS and no-content logging rules.
 
 ## Prompting Rules
 
