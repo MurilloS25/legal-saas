@@ -6,38 +6,25 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
-  DocumentOptionSelectionsSchema,
-  DocumentRenderedContentSchema,
-  DocumentTitleSchema,
   DocumentValuesSchema,
   DocumentVersionSchema,
-  mergeDocumentDraftValues,
 } from "../model/document-schema";
 import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
-import { validateDocumentFill } from "../model/document-fill";
-import type { FillableTemplateField } from "@/features/templates";
 import {
   toVariableAutofillSource,
   toVariableOutputTransform,
-  type VariableOutputTransform,
 } from "@/features/templates/model/variable-autofill";
 import { resolveTemplateContent } from "@/lib/editor/content";
-import { renderStructuredTemplate } from "@/lib/editor/render";
-import type { TemplateDocument } from "@/lib/editor/types";
 import { isReadOnlyStatus } from "../model/lifecycle";
 import { resolveOptionalClientId } from "./client-actions";
+import {
+  validateDraftInput,
+  type DocumentDraftState,
+} from "./document-draft-validation";
+
+export type { DocumentDraftState } from "./document-draft-validation";
 
 // ------------------------------------------------------------------ types
-
-export type DocumentDraftState = {
-  /** Errores por field_key del machote. */
-  errors?: Record<string, string>;
-  titleError?: string;
-  message?: string;
-  success?: boolean;
-  updatedAt?: string;
-  conflictUpdatedAt?: string;
-};
 
 export type DeleteDocumentState = {
   message?: string;
@@ -97,118 +84,6 @@ async function loadOwnedTemplateWithFields(
       templateText,
     ),
     document,
-  };
-}
-
-/** Mapa `field_key -> output_transform` para el render compartido. */
-function buildTransformsMap(
-  fields: FillableTemplateField[],
-): Record<string, VariableOutputTransform> {
-  const transforms: Record<string, VariableOutputTransform> = {};
-  for (const field of fields) {
-    if (field.output_transform !== "none") {
-      transforms[field.field_key] = field.output_transform;
-    }
-  }
-  return transforms;
-}
-
-function validateDraftInput(
-  formData: FormData,
-  fields: FillableTemplateField[],
-  document: TemplateDocument,
-  existingValues?: Record<string, string>,
-): { state: DocumentDraftState } | {
-  title: string;
-  values: Record<string, string>;
-  optionSelections: Record<string, string>;
-  rendered: string;
-} {
-  const titleResult = DocumentTitleSchema.safeParse(
-    String(formData.get("title") ?? ""),
-  );
-
-  const rawValues: Record<string, string> = {};
-  for (const field of fields) {
-    rawValues[field.field_key] = String(formData.get(field.field_key) ?? "");
-  }
-  const fillResult = validateDocumentFill(fields, rawValues);
-
-  if (!titleResult.success || !fillResult.success) {
-    return {
-      state: {
-        titleError: titleResult.success
-          ? undefined
-          : titleResult.error.issues[0]?.message,
-        errors: fillResult.success ? undefined : fillResult.errors,
-      },
-    };
-  }
-
-  // Defensa en profundidad: aunque las keys provienen de campos propios,
-  // se validan formato, tamaño y claves reservadas antes de persistir.
-  const valuesToPersist = existingValues
-    ? mergeDocumentDraftValues(
-        existingValues,
-        fillResult.values,
-        fields.map((field) => field.field_key),
-      )
-    : fillResult.values;
-
-  const valuesResult = DocumentValuesSchema.safeParse(valuesToPersist);
-  if (!valuesResult.success) {
-    return {
-      state: {
-        message: valuesResult.error.issues[0]?.message ??
-          "Los valores no son válidos.",
-      },
-    };
-  }
-
-  // Selección de variante por Bloque de opciones (blockId -> variantId). Un
-  // JSON inválido o ausente se trata como "sin selecciones" — no bloquea el
-  // guardado, ya que sin selección cada bloque simplemente usa su variante
-  // predeterminada.
-  let optionSelectionsRaw: unknown = {};
-  try {
-    const raw = String(formData.get("option_selections") ?? "{}");
-    optionSelectionsRaw = raw ? JSON.parse(raw) : {};
-  } catch {
-    optionSelectionsRaw = {};
-  }
-  const optionSelectionsResult =
-    DocumentOptionSelectionsSchema.safeParse(optionSelectionsRaw);
-  if (!optionSelectionsResult.success) {
-    return {
-      state: {
-        message:
-          optionSelectionsResult.error.issues[0]?.message ??
-          "Las selecciones de bloques no son válidas.",
-      },
-    };
-  }
-
-  const rendered = renderStructuredTemplate(
-    document,
-    valuesResult.data,
-    buildTransformsMap(fields),
-    optionSelectionsResult.data,
-  );
-  const renderedResult = DocumentRenderedContentSchema.safeParse(rendered);
-  if (!renderedResult.success) {
-    return {
-      state: {
-        message: renderedResult.error.issues[0]?.message ??
-          "El contenido del documento es demasiado largo.",
-      },
-    };
-  }
-
-  return {
-    title: titleResult.data,
-    values: valuesResult.data,
-    optionSelections: optionSelectionsResult.data,
-    rendered: renderedResult.data,
   };
 }
 

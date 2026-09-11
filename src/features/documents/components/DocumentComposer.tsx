@@ -103,6 +103,7 @@ import type { NotarialMetadata } from "@/features/notarial-index/model/notarial"
 import type { NotarialMetadataPrefill } from "@/features/notarial-index/model/prefill";
 import { NotarialMetadataSection } from "@/features/notarial-index";
 import type { ReceivableEntry } from "@/features/receivables";
+import { FieldError } from "@/components/forms/FieldError";
 import { DocumentReceivableStep } from "./DocumentReceivableStep";
 
 const inputClass =
@@ -248,6 +249,7 @@ export function DocumentComposer(props: Props) {
   const [title, setTitle] = useState(
     isEdit ? props.draft.title : props.defaultTitle,
   );
+  const [submittedTitle, setSubmittedTitle] = useState(title);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const field of fields) {
@@ -430,6 +432,10 @@ export function DocumentComposer(props: Props) {
           : "Sin guardar";
 
   const completedCompletar = completarSavedOnceValid && title.trim() !== "";
+  const visibleTitleError =
+    state.titleError && submittedTitle === title
+      ? state.titleError
+      : undefined;
   const completedCobro =
     isEdit && ((props.receivables.length > 0) || cobroAcknowledged);
   // El check del stepper representa "datos confirmados", no solo
@@ -513,7 +519,10 @@ export function DocumentComposer(props: Props) {
           disabled={readOnly}
           onChange={(event) => changeTitle(event.target.value)}
           className={inputClass}
+          aria-invalid={!!visibleTitleError}
+          aria-describedby={visibleTitleError ? "composer-title-error" : undefined}
         />
+        <FieldError id="composer-title-error" message={visibleTitleError} />
       </div>
 
       {totalCount > 0 && (
@@ -586,6 +595,7 @@ export function DocumentComposer(props: Props) {
 
       <form id="document-completar-form" action={formAction} noValidate onSubmit={(event) => {
         if (pending) { event.preventDefault(); return; }
+        setSubmittedTitle(title);
         startSave();
       }}>
         {isEdit && <input ref={expectedUpdatedAtRef} type="hidden" name="expected_updated_at" value={expectedVersion} />}

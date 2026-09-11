@@ -47,6 +47,11 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "chromium-release-validation-auth",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-validation-auth\.spec\.ts/,
+    },
+    {
       name: "chromium-release-navigation-confirmation",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /release-navigation-confirmation\.spec\.ts/,
