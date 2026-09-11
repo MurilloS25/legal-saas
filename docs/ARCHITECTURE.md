@@ -325,9 +325,10 @@ Clientes, Machotes, Escrituras, Cuentas por cobrar and Índice Notarial are all
 server-paginated. They keep `manualPagination` and delegate result-set
 pagination to normalized PostgREST count/range queries. Filters and sorting are
 also server-side where each workspace exposes them. The current URL source of
-truth is `page`, with a fixed page size of 10; a user-selectable `pageSize` is
-not part of the current product. TanStack Table owns presentation state, not
-data loading.
+truth uses `page` and the normalized `pageSize` whitelist (5, 10, 25 or 50;
+default 10). Changing the size or a relevant filter returns to page 1, while
+navigation preserves filters and ordering. TanStack Table owns presentation
+state, not data loading.
 
 Do not install or migrate additional listings to TanStack Table outside an
 explicit task with acceptance criteria. Timelines, activity feeds, and other

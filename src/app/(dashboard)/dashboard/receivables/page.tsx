@@ -18,6 +18,7 @@ import {
 import { ReceivablesToolbar, ReceivablesTable } from "@/features/receivables";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { buildPageSizeOptions, type PageSizeOption } from "@/lib/pagination";
 
 export const metadata = {
   title: "Cuentas por cobrar — LexCR",
@@ -65,6 +66,16 @@ export default async function ReceivablesPage({ searchParams }: Props) {
     const qs = new URLSearchParams(params).toString();
     return qs ? `/dashboard/receivables?${qs}` : "/dashboard/receivables";
   }
+
+  const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
+    const params = receivablesQueryToParams({ ...query, page: 1, pageSize });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/receivables?${qs}` : "/dashboard/receivables";
+  });
+
+  const rangeStart =
+    page.totalCount === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
+  const rangeEnd = Math.min(query.page * query.pageSize, page.totalCount);
 
   return (
     <PageContainer>
@@ -155,6 +166,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
           dueFrom: query.dueFrom,
           dueTo: query.dueTo,
           sort: query.sort,
+          pageSize: query.pageSize,
         }}
         clients={clients.map((c) => ({ id: c.id, full_name: c.full_name }))}
         statusOptions={STATUS_OPTIONS}
@@ -191,10 +203,10 @@ export default async function ReceivablesPage({ searchParams }: Props) {
           <TablePagination
             page={page.page}
             pageCount={page.pageCount}
-            countLabel={
-              page.totalCount === 1 ? "1 cuenta" : `${page.totalCount} cuentas`
-            }
+            countLabel={`${rangeStart}–${rangeEnd} de ${page.totalCount}`}
             pageHref={pageHref}
+            pageSize={query.pageSize}
+            pageSizeOptions={pageSizeOptions}
           />
         </div>
       )}

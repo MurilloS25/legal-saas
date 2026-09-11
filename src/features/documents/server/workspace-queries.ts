@@ -4,7 +4,6 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import { extractTemplateVariables } from "@/features/templates";
 import {
-  DOCUMENTS_PAGE_SIZE,
   sanitizeSearchTermForPostgrest,
   sortColumnFor,
   type DocumentsQuery,
@@ -83,11 +82,11 @@ export async function listDocumentsPage(
   if (orClause) request = request.or(orClause);
 
   const { column, ascending } = sortColumnFor(query.sort);
-  const from = (query.page - 1) * DOCUMENTS_PAGE_SIZE;
+  const from = (query.page - 1) * query.pageSize;
   const { data, count, error } = await request
     .order(column, { ascending })
     .order("id", { ascending: true })
-    .range(from, from + DOCUMENTS_PAGE_SIZE - 1);
+    .range(from, from + query.pageSize - 1);
 
   if (error && !isRangeNotSatisfiable(error)) {
     throwDataAccessError("list documents workspace", error);
@@ -115,7 +114,7 @@ export async function listDocumentsPage(
     return {
       rows: [],
       total,
-      pageCount: Math.max(1, Math.ceil(total / DOCUMENTS_PAGE_SIZE)),
+      pageCount: Math.max(1, Math.ceil(total / query.pageSize)),
     };
   }
 
@@ -128,6 +127,6 @@ export async function listDocumentsPage(
   return {
     rows,
     total,
-    pageCount: Math.max(1, Math.ceil(total / DOCUMENTS_PAGE_SIZE)),
+    pageCount: Math.max(1, Math.ceil(total / query.pageSize)),
   };
 }

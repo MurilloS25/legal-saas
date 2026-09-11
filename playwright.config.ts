@@ -644,6 +644,18 @@ export default defineConfig({
       testMatch: /settings-authenticated\.spec\.ts/,
       dependencies: ["chromium-dashboard"],
     },
+
+    // Shared server-side table pagination — authenticated and independently
+    // selectable for directed validation.
+    {
+      name: "chromium-table-pagination",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /table-pagination-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
   ],
   webServer: {
     command: "pnpm dev",
