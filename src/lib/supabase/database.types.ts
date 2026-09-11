@@ -357,6 +357,7 @@ export type Database = {
           rendered_content: string
           status: string
           template_id: string
+          template_snapshot: Json | null
           title: string
           updated_at: string
           workspace_id: string
@@ -372,6 +373,7 @@ export type Database = {
           rendered_content?: string
           status?: string
           template_id: string
+          template_snapshot?: Json | null
           title: string
           updated_at?: string
           workspace_id: string
@@ -387,6 +389,7 @@ export type Database = {
           rendered_content?: string
           status?: string
           template_id?: string
+          template_snapshot?: Json | null
           title?: string
           updated_at?: string
           workspace_id?: string

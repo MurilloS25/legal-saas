@@ -6,7 +6,7 @@ Lawyers can download a saved escritura draft as an editable Word (`.docx`) file.
 
 - Generation is **on demand** and **server-only**. Nothing is stored: no Supabase Storage, no disk, no database blob, no external service.
 - The file always reflects the **last saved draft**. The download button is disabled while there are unsaved changes (`Guarda los cambios antes de descargar el Word`).
-- If the template changes after a draft was saved, export falls back to the persisted `rendered_content` snapshot so the Word file still represents the saved draft, not the newer template text.
+- Preview, editing, finalization and DOCX all consume the Escritura's immutable `template_snapshot`; later changes to the source Machote do not affect existing Escrituras. Rows created before that column use their persisted `rendered_content` as a plain-text compatibility document.
 - **Pending variables stay visible.** A variable without a value appears in the Word as `{{clave}}`; it is never dropped or emptied. If the saved draft has pending variables, an accessible confirmation dialog is shown before downloading (count + cancel + "Descargar de todas formas").
 - No Microsoft Graph, Office APIs, LibreOffice, external conversion, or Tiptap Cloud is used.
 
@@ -28,7 +28,7 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
 ```
 
 - Authenticates on the server; anonymous → `401`.
-- Loads only the caller's own document (`owner_id`) and its own template — does not distinguish missing from foreign (`404`), defense in depth beyond RLS.
+- Loads only the caller's own document and its stored template snapshot — does not distinguish missing from foreign (`404`), defense in depth beyond RLS.
 - Accepts nothing from the client except the document ID in the path: not content, `field_values`, title, ownership, filename or status.
 - Response headers: OOXML MIME, `Content-Disposition: attachment` (ASCII fallback + RFC 5987 `filename*`), `Content-Length`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
 - Errors are generic (`No fue posible generar el documento.`) with no SQL, stack, or document content; only a non-sensitive technical code is logged.
@@ -36,7 +36,7 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
 ## Modules
 
 - `src/lib/documents/docx/` — server-only generation layer:
-  - `document.ts` — `buildEscrituraDocx({ contentJson, fieldValues, renderedContent?, title, formatting? })` → `{ buffer, filename, pendingVariables }`.
+  - `document.ts` — `buildEscrituraDocx({ document, fieldValues, title, formatting? })` → `{ buffer, filename, pendingVariables }`.
   - `generate.ts` — `generateDocumentDocx(model, formatting?)` (neutral `DocumentModel` → in-memory Buffer).
   - `formatting.ts` — formatting preferences type, defaults, unit conversions, `resolveDocumentFormatting`.
   - `settings-loader.ts` — `loadDocumentFormattingPreferences(supabase, ownerId)`.
@@ -47,11 +47,11 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
 - `src/app/api/documents/[id]/docx/route.ts` — the Route Handler.
 - `src/app/(dashboard)/dashboard/documents/_components/DownloadDocxButton.tsx` — the client button, unsaved-changes gate and pending-variables dialog.
 
-Compatibility: works for structured `content_json.doc` and legacy text-only machotes (converted via the shared layer), preserves historical `field_values`, and keeps export stable against later template edits through the saved `rendered_content` snapshot.
+Compatibility: new Escrituras retain variables, Option Blocks and formatting from their structured `template_snapshot`. Pre-migration rows retain the exact text of their last saved `rendered_content`; structure that was never persisted cannot be recovered and is not guessed from the current Machote.
 
 ## Privacy
 
-Legal content may be sensitive. The feature sends nothing to third parties, adds no analytics/telemetry/API keys, and never logs `field_values`, `rendered_content` or template text. Generated buffers live only in memory for the duration of the request. E2E downloads use temporary paths that are ignored by git.
+Legal content may be sensitive. The feature sends nothing to third parties, adds no analytics/telemetry/API keys, and never logs `field_values`, `rendered_content`, `template_snapshot` or template text. Generated buffers live only in memory for the duration of the request. E2E downloads use temporary paths that are ignored by git.
 
 ## Dependencies
 

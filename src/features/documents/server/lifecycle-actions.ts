@@ -16,7 +16,7 @@ import {
   isDocumentStatus,
   type DocumentAction,
 } from "../model/lifecycle";
-import { resolveTemplateContent } from "@/lib/editor/content";
+import { resolveDocumentTemplateSnapshot } from "../model/document-template-snapshot";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 
 export type DocumentStatusState = {
@@ -50,7 +50,7 @@ async function transitionDocument(
 
   const { data: doc, error: documentError } = await supabase
     .from("documents")
-    .select("id, status, template_id, field_values, option_selections, updated_at")
+    .select("id, status, field_values, option_selections, rendered_content, template_snapshot, updated_at")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -81,20 +81,6 @@ async function transitionDocument(
 
   // Finalizar exige que no queden variables sin valor.
   if (target === "final") {
-    const { data: template, error: templateError } = await supabase
-      .from("templates")
-      .select("content_json")
-      .eq("id", doc.template_id)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-
-    if (templateError) {
-      throwDataAccessError("load lifecycle template", templateError);
-    }
-    if (!template) {
-      return { message: "El machote de esta escritura ya no está disponible." };
-    }
-
     const values = DocumentValuesSchema.safeParse(doc.field_values ?? {});
     if (!values.success) {
       throwDataAccessError("parse lifecycle field values", {
@@ -110,7 +96,15 @@ async function transitionDocument(
       });
     }
 
-    const { document } = resolveTemplateContent(template.content_json);
+    let document;
+    try {
+      document = resolveDocumentTemplateSnapshot(
+        doc.template_snapshot,
+        doc.rendered_content,
+      ).document;
+    } catch {
+      return { message: "No fue posible leer la versión documental guardada." };
+    }
     const pending = findUnresolvedDocumentVariables(
       document,
       values.data,

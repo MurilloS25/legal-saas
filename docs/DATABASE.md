@@ -17,7 +17,7 @@ The database target is Supabase Postgres with Supabase Auth and Row Level Securi
 - Child records must validate ownership consistency with parent records.
 - Anonymous users must not access private user-owned data.
 - Generated Word files, PDFs, signed documents, official submission payloads, and storage paths for generated documents are intentionally excluded.
-- Persistent draft escrituras may store validated `field_values` and a server-rendered `rendered_content` text snapshot.
+- Persistent draft escrituras may store validated `field_values`, a server-rendered `rendered_content` text snapshot, and the minimal structured `template_snapshot` needed to keep that Escritura editable against its creation version.
 - Persistent draft text is sensitive user-owned data and must be protected by RLS, validation, and no-content logging rules.
 - The first migration focuses on independent lawyers and physical-person clients.
 - Company clients, legal representatives, audit events, and independent notes are deferred.
@@ -464,10 +464,12 @@ Decision:
 
 - `documents` is for editable drafts, not generated Word/PDF storage.
 - `field_values` stores a flat `field_key -> text` map.
-- `rendered_content` stores the server-rendered plain-text snapshot used for preview and continuation.
+- `rendered_content` stores the server-rendered plain-text result of the last save.
+- `template_snapshot` stores one versioned JSON object containing the canonical structured document and only its configured field metadata (labels, required flags, autofill sources and output transforms). Variables without explicit configuration are derived again from the snapshotted document, so they are not duplicated in JSON. The snapshot is fixed when the Escritura is created and is the shared source for later preview, edits, finalization and DOCX export.
 - `status` only allows `draft` in this iteration.
 - Editing a machote must not silently rewrite saved draft snapshots.
-- Saving a draft again regenerates `rendered_content` from the current machote and saved values.
+- Saving a draft again regenerates `rendered_content` from its own `template_snapshot` and saved values, never from the current Machote.
+- Rows created before `template_snapshot` remain `null`. They use their historical `rendered_content` as a deterministic plain-text compatibility document; the missing variable/Option Block/formatting structure is not reconstructed from the current Machote.
 - Unknown historical `field_values` should be preserved unless a future explicit deletion workflow is approved.
 
 Candidate fields:
@@ -480,6 +482,7 @@ title
 status
 field_values
 rendered_content
+template_snapshot nullable
 created_at
 updated_at
 ```
@@ -498,7 +501,7 @@ Relationships:
 
 Sensitive data:
 
-- Contains draft legal text and submitted field values.
+- Contains draft legal text, submitted field values and a structured copy of the Machote content used for that Escritura.
 - Must be treated as sensitive user-owned data.
 - Must not contain generated Word/PDF files, signed documents, official submission payloads, or storage paths.
 

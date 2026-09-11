@@ -41,16 +41,32 @@ import { markDocumentFinalAction } from "./lifecycle-actions";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const originalVersion = "2026-09-09T00:00:01.000Z";
-function form(title = "Edición A", version = originalVersion) {
+function form(
+  title = "Edición A",
+  version = originalVersion,
+  values: Record<string, string> = {},
+) {
   const data = new FormData();
   data.set("title", title);
   data.set("expected_updated_at", version);
+  for (const [key, value] of Object.entries(values)) data.set(key, value);
   return data;
 }
 beforeEach(() => {
   db.version = 1;
   db.beforeUpdate = undefined;
-  db.row = { id, workspace_id: "workspace", template_id: id, title: "Original", status: "draft", field_values: {}, option_selections: {}, updated_at: originalVersion };
+  db.row = {
+    id,
+    workspace_id: "workspace",
+    template_id: id,
+    title: "Original",
+    status: "draft",
+    field_values: {},
+    option_selections: {},
+    rendered_content: "Texto fijo.",
+    template_snapshot: null,
+    updated_at: originalVersion,
+  };
 });
 
 describe("document save concurrency", () => {
@@ -97,5 +113,41 @@ describe("document save concurrency", () => {
   it("finalizes an unchanged validated snapshot", async () => {
     expect((await markDocumentFinalAction(id, {}, form())).success).toBe(true);
     expect(db.row.status).toBe("final");
+  });
+
+  it("saves and finalizes against the stored template snapshot", async () => {
+    db.row.template_snapshot = {
+      version: 1,
+      document: {
+        type: "doc",
+        content: [{
+          type: "paragraph",
+          content: [
+            { type: "text", text: "VERSION UNO: " },
+            { type: "templateVariable", attrs: { key: "persona.nombre" } },
+          ],
+        }],
+      },
+      fields: [{
+        field_key: "persona.nombre",
+        label: "Nombre",
+        field_type: "text",
+        required: true,
+        autofill_source: "none",
+        output_transform: "none",
+      }],
+    };
+
+    const blocked = await markDocumentFinalAction(id, {}, form());
+    expect(blocked.pendingCount).toBe(1);
+
+    const saved = await updateDocumentDraftAction(
+      id,
+      {},
+      form("Edición snapshot", originalVersion, { "persona.nombre": "Ana" }),
+    );
+    expect(saved.success).toBe(true);
+    expect(db.row.rendered_content).toBe("VERSION UNO: Ana");
+    expect((await markDocumentFinalAction(id, {}, form())).success).toBe(true);
   });
 });
