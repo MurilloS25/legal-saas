@@ -16,6 +16,10 @@ import {
   NOTARIAL_INDEX_SELECT,
 } from "./mappers";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
+import {
+  AUXILIARY_QUERY_LIMIT,
+  ensureWithinResultLimit,
+} from "@/lib/server/bounded-results";
 
 export type NotarialIndexPage = {
   rows: NotarialIndexRow[];
@@ -136,11 +140,17 @@ export async function listNotarialActTypes(): Promise<string[]> {
     .from("notarial_index_entries")
     .select("act_name")
     .eq("workspace_id", workspaceId)
-    .not("act_name", "is", null);
+    .not("act_name", "is", null)
+    .limit(AUXILIARY_QUERY_LIMIT + 1);
 
   if (error) throwDataAccessError("list notarial act types", error);
+  const rows = ensureWithinResultLimit(
+    data ?? [],
+    AUXILIARY_QUERY_LIMIT,
+    "tipos de acto",
+  );
   const set = new Set<string>();
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const value = row.act_name;
     if (value && value.trim() !== "") set.add(value);
   }

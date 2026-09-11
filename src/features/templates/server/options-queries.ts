@@ -3,6 +3,10 @@ import "server-only";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { TemplateStatus } from "../model/templates";
+import {
+  AUXILIARY_QUERY_LIMIT,
+  ensureWithinResultLimit,
+} from "@/lib/server/bounded-results";
 
 export type TemplateOption = {
   id: string;
@@ -28,8 +32,14 @@ export async function listTemplateOptions(
 
   if (filter.status) request = request.eq("status", filter.status);
 
-  const { data, error } = await request.order("updated_at", { ascending: false });
+  const { data, error } = await request
+    .order("updated_at", { ascending: false })
+    .limit(AUXILIARY_QUERY_LIMIT + 1);
 
   if (error) throwDataAccessError("list template options", error);
-  return data ?? [];
+  return ensureWithinResultLimit(
+    data ?? [],
+    AUXILIARY_QUERY_LIMIT,
+    "machotes",
+  );
 }

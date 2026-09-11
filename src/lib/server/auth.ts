@@ -3,14 +3,22 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ForbiddenError, UnauthorizedError } from "@/lib/server/errors";
+import {
+  DataAccessError,
+  ForbiddenError,
+  UnauthorizedError,
+  throwDataAccessError,
+} from "@/lib/server/errors";
 import type { WorkspaceRole } from "@/lib/server/permissions";
 
 const getServerAuth = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  if (error) throwDataAccessError("authenticate user", error);
 
   return { supabase, user };
 });
@@ -73,10 +81,12 @@ export const getWorkspaceAccess = cache(
     supabase: Awaited<ReturnType<typeof createClient>>,
     userId: string,
   ): Promise<WorkspaceAccessState> => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("workspace_members")
       .select("workspace_id, role, status")
       .eq("user_id", userId);
+
+    if (error) throwDataAccessError("load workspace access", error);
 
     const rows = data ?? [];
 
@@ -132,8 +142,18 @@ export const getWorkspaceAccess = cache(
  * a resolver el estado por su cuenta.
  */
 export async function requireWorkspace() {
-  const { supabase, user } = await requireUser();
-  const access = await getWorkspaceAccess(supabase, user.id);
+  let context: Awaited<ReturnType<typeof requireUser>>;
+  let access: WorkspaceAccessState;
+  try {
+    context = await requireUser();
+    access = await getWorkspaceAccess(context.supabase, context.user.id);
+  } catch (error) {
+    if (error instanceof DataAccessError) {
+      redirect("/workspace-unavailable?reason=load-error");
+    }
+    throw error;
+  }
+  const { supabase, user } = context;
 
   if (access.kind === "active") {
     return {

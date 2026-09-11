@@ -4,6 +4,10 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import { CLIENTS_PAGE_SIZE, type ClientsQuery } from "../model/workspace-query";
 import type { ClientRow } from "../model/types";
+import {
+  AUXILIARY_QUERY_LIMIT,
+  ensureWithinResultLimit,
+} from "@/lib/server/bounded-results";
 
 const CLIENT_COLUMNS =
   "id, full_name, identification_type, identification_number, marital_status, nationality, occupation, exact_address, created_at, updated_at";
@@ -15,10 +19,15 @@ export async function listClients(): Promise<ClientRow[]> {
     .from("clients")
     .select(CLIENT_COLUMNS)
     .eq("workspace_id", workspaceId)
-    .order("full_name", { ascending: true });
+    .order("full_name", { ascending: true })
+    .limit(AUXILIARY_QUERY_LIMIT + 1);
 
   if (error) throwDataAccessError("list clients", error);
-  return data ?? [];
+  return ensureWithinResultLimit(
+    data ?? [],
+    AUXILIARY_QUERY_LIMIT,
+    "clientes",
+  );
 }
 
 export type ClientsPage = {
