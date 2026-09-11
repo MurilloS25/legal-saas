@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { extractSafeRedirectPath } from "./safe-redirect";
 
 // Email confirmation endpoint for Supabase Auth.
 //
@@ -9,28 +10,10 @@ import { createClient } from "@/lib/supabase/server";
 //   <your-domain>/auth/confirm?token_hash={{ .TokenHash }}&type=signup
 //
 // The optional `next` parameter controls where to redirect after confirmation.
-// It may arrive as a bare relative path OR as an absolute URL: Supabase's
-// email templates substitute {{ .RedirectTo }} with whatever absolute
-// `redirectTo` was passed to the *ForEmail() call (e.g. resetPasswordForEmail),
-// since that same value must also satisfy Supabase's allow-list, which expects
-// full URLs. Either way, only the path is used — the redirect always happens
-// on the CURRENT request's origin (never a host parsed out of `next`), because
-// verifyOtp() below sets the session cookie scoped to this origin, and
-// redirecting to a different host would lose that cookie.
-function extractSafeRedirectPath(next: string | null): string {
-  if (!next) return "/dashboard";
-  let path = next;
-  if (!path.startsWith("/")) {
-    try {
-      const url = new URL(next);
-      path = `${url.pathname}${url.search}`;
-    } catch {
-      return "/dashboard";
-    }
-  }
-  return path.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
-}
-
+// It must be a root-relative internal path. Absolute, protocol-relative,
+// backslash-normalized, and encoded external destinations fall back to the
+// dashboard. verifyOtp() below sets a cookie scoped to this request's origin,
+// and no user-controlled host may influence the final redirect.
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
