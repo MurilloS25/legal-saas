@@ -1,5 +1,10 @@
 # RLS Verification
 
+> **Historical scope.** This document records the manual verification approach
+> for the first migration. It is not the current complete authorization
+> runbook. Current Workspace/role behavior is covered by the versioned pgTAP
+> suites in `supabase/tests`; run them locally with `pnpm supabase db test`.
+
 ## Purpose
 
 This document explains how to verify the first Supabase migration's Row Level Security behavior in local development.

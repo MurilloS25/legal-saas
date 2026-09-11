@@ -1,6 +1,6 @@
 # Design References
 
-This folder contains design references generated with [Stitch](https://stitch.withgoogle.com/) for the original Sober Juris moodboard. It predates the implemented app; the actual design system now lives in [`DESIGN.md`](../../DESIGN.md) at the repo root, documenting the approved Panel/sidebar.
+This folder contains design references generated with [Stitch](https://stitch.withgoogle.com/) for the original Sober Juris moodboard. It predates the implemented app; the actual design system now lives in [`DESIGN.md`](../../DESIGN.md) at the repo root, documenting the approved Panel/navbar/mobile-drawer shell.
 
 ## Files
 
@@ -30,6 +30,6 @@ Do **not** use them to:
 
 ## Design System
 
-The authoritative design system is documented in the root [`DESIGN.md`](../../DESIGN.md) — it reflects the approved Panel/sidebar, not this folder's original moodboard.
+The authoritative design system is documented in the root [`DESIGN.md`](../../DESIGN.md) — it reflects the approved Panel/navbar/mobile-drawer shell, not this folder's original moodboard.
 
 For implementation rules (Tailwind tokens, component guidelines, things to avoid), read `docs/UI_GUIDELINES.md`.

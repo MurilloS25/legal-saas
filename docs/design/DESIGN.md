@@ -124,6 +124,12 @@ spacing:
   margin: 32px
 ---
 
+# Historical design reference — Sober Juris
+
+This generated moodboard predates the implemented LexCR shell and is not a
+normative specification. Use the repository root `DESIGN.md` for current UI
+decisions. This file is retained only as design history.
+
 ## Brand & Style
 
 The design system is anchored in the principles of **Professional Soft SaaS**, prioritizing clarity, legal precision, and a sense of calm authority. It is designed for legal professionals who require a high-focus environment that reduces cognitive load during intensive document review and case management.

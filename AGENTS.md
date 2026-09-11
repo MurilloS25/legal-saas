@@ -106,7 +106,7 @@ These rules apply to all tasks:
 - Do not add document-generation logic until the template model is approved.
 - Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - Do not store full escritura content outside the explicitly approved persistent draft workflow.
-- Treat persistent draft text as sensitive user-owned data: validate it, protect it with RLS, and never log it.
+- Treat persistent Escritura values, rendered text, and structured Machote snapshots as sensitive Workspace data: validate them, protect them with RLS, and never log their content.
 - Do not expose `SUPABASE_SERVICE_ROLE_KEY` to client-side code.
 - Do not commit real `.env` files.
 - Do not add dependencies without explaining why.
@@ -166,7 +166,7 @@ Accessibility is mandatory for UI work.
 
 For UI tasks, read `docs/ACCESSIBILITY.md`.
 
-For UI implementation tasks, read `docs/UI_GUIDELINES.md` first, then `DESIGN.md` (repo root) for the actual color tokens, typography, spacing, and component patterns — it documents the approved Panel/sidebar as the visual reference for the whole app.
+For UI implementation tasks, read `docs/UI_GUIDELINES.md` first, then `DESIGN.md` (repo root) for the actual color tokens, typography, spacing, and component patterns — it documents the current desktop top navbar/mobile drawer shell and the approved visual system.
 
 `docs/design/` holds the original Stitch/Sober Juris moodboard and PNG mockups — historical inspiration only, superseded by `DESIGN.md` for anything token-level. Read `docs/design/README.md` before using the PNG mockups.
 
@@ -271,7 +271,7 @@ For database changes:
 3. Add or update RLS tests.
 4. Run local Supabase validation.
 5. Keep generated Word/PDF files, signed documents, official submission payloads, and generated document storage paths out of the database.
-6. Persist draft escritura text only through the approved `documents` draft model, protected by owner-based RLS and safe logging rules.
+6. Persist Escritura content only through the approved `documents` model, protected by Workspace- and role-based RLS and safe logging rules.
 
 ## Worktree Rule
 

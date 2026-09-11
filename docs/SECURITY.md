@@ -42,9 +42,9 @@ The application may store:
 - Lawyer profile data.
 - Template definitions.
 - Template field definitions.
-- Persistent draft `field_values`.
-- Persistent draft `rendered_content` text snapshots.
-- Persistent draft `template_snapshot` structured content, limited to the Machote document and configured field metadata needed to reopen and export the Escritura consistently; derived variables are reconstructed from that document instead of duplicated.
+- Persistent `field_values` and Option Block selections.
+- Persistent `rendered_content` text snapshots.
+- Persistent `template_snapshot` structured content, limited to the Machote document and configured field metadata needed to reopen and export the Escritura consistently; derived variables are reconstructed from that document instead of duplicated.
 - Client metadata.
 - Minimal document metadata.
 - Minimal notarial index metadata.
@@ -55,20 +55,21 @@ When in doubt, store less.
 
 ## Supabase And RLS
 
-Supabase Row Level Security is mandatory for user-owned data.
+Supabase Row Level Security is mandatory for Workspace-owned data.
 
-Every user-owned table must:
+Every Workspace-owned table must:
 
-- Include an ownership model, usually `owner_id`.
+- Include `workspace_id` and preserve `owner_id` where the current schema uses it
+  for creator/audit compatibility.
 - Enable RLS before production use.
 - Define policies for select, insert, update, and delete when applicable.
-- Restrict access to the owning user or explicitly authorized account scope.
+- Restrict access to active Workspace membership and the required fixed role.
 - Be tested with allowed and denied access cases.
 
-Base policy idea:
+Current policy idea:
 
 ```sql
-owner_id = auth.uid()
+is_workspace_member(workspace_id, allowed_roles)
 ```
 
 RLS is not optional.
@@ -152,7 +153,7 @@ Required controls:
 - Secure environment variable handling.
 - No debug-only routes in production.
 - No broad database policies.
-- No public unrestricted tables for user-owned data.
+- No public unrestricted tables for Workspace-owned data.
 - Review Supabase policies before deployment.
 - Use secure defaults in CI/CD.
 
@@ -194,7 +195,7 @@ Required controls:
 
 - Log important security-relevant events without sensitive legal content.
 - Do not log generated document file content.
-- Do not log persistent draft `field_values`, `rendered_content` or `template_snapshot`.
+- Do not log persistent `field_values`, `rendered_content` or `template_snapshot`.
 - Do not log full escritura text.
 - Do not log secrets.
 - Capture enough operational context to investigate failures safely.
@@ -236,12 +237,14 @@ Rules:
 
 ## Document Generation Security
 
-Generated documents and persistent draft text must be handled carefully.
+Generated documents and persistent Escritura content must be handled carefully.
 
 Rules:
 
 - Generate files for immediate download.
-- Persist draft `field_values`, server-rendered text snapshots and the minimal structured template snapshot only in the approved user-owned `documents` draft model.
+- Persist `field_values`, selections, server-rendered text snapshots and the
+  minimal structured template snapshot only in the approved Workspace-owned
+  `documents` model.
 - Do not persist generated Word/PDF files.
 - Avoid writing generated files to permanent storage.
 - Avoid logging draft values, rendered snapshots, structured template snapshots, or generated content.
@@ -253,7 +256,7 @@ Rules:
 Logs must not include:
 
 - Generated Word/PDF document content.
-- Persistent draft `field_values`, `rendered_content` or `template_snapshot`.
+- Persistent `field_values`, `rendered_content` or `template_snapshot`.
 - Full escritura content.
 - Secrets.
 - Credentials.

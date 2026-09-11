@@ -41,8 +41,10 @@ Allowed data:
 - Reusable client metadata.
 - Template definitions.
 - Template field definitions.
-- Persistent draft `field_values`.
-- Persistent draft `rendered_content` text snapshots.
+- Persistent `field_values` and Option Block selections.
+- Persistent `rendered_content` text snapshots.
+- The minimal versioned `template_snapshot` required to preserve the source
+  Machote for each new Escritura.
 - Minimal document metadata.
 - Minimal notarial index metadata.
 - Basic accounts receivable metadata.
@@ -71,7 +73,11 @@ Generated documents must be:
 - Downloaded by the lawyer.
 - Discarded by the application after generation.
 
-Persistent draft escrituras may store validated `field_values` and a server-rendered text snapshot so the lawyer can continue editing later. Draft text is sensitive user-owned data and must be protected by RLS, safe validation, and no-content logging.
+Persistent escrituras may store validated values, selections, server-rendered
+text and the minimal structured Machote snapshot needed for later editing and
+DOCX. Preview, saving, finalization and export must use that same source. A
+later Machote edit must not alter an existing Escritura. This content is
+sensitive Workspace data and requires RLS, validation and no-content logging.
 
 Generated documents must not be:
 
@@ -94,6 +100,12 @@ Templates may include:
 - Repeated party roles when needed.
 
 Templates should be controlled and structured.
+
+Variables referenced by any Option Block variant remain in the global variable
+catalog. Required validation considers only variables active under the current
+selections; shared active variables remain required. The Option Block dialog
+does not expose a "Salida estructurada" control. Structured time mappings for
+the notarial Index are configured in the Index step.
 
 The product should not attempt to recreate Microsoft Word inside the browser.
 
@@ -130,6 +142,12 @@ The system must not:
 - Replace the lawyer's review.
 - Connect to official platforms without explicit future approval.
 
+Inclusion in the notarial Index is snapshotted from the Machote when an
+Escritura is created and can be corrected after finalization. Confirmation and
+correction operate on the exact saved metadata snapshot. `Partes` preserves the
+difference between derived data, a manual override and an intentional empty
+value.
+
 ## Accounts Receivable Rules
 
 Accounts receivable is basic in the MVP.
@@ -143,6 +161,8 @@ Allowed:
 - Related document metadata.
 - Notes.
 - Basic summary.
+- Multiple payments with immutable financial totals after payments exist,
+  except through the approved payment/void lifecycle.
 
 Not included:
 
@@ -151,11 +171,13 @@ Not included:
 - Tax calculations unless explicitly approved.
 - Integration with external accounting systems.
 
-## User Ownership Rules
+## Workspace Ownership And Authorization Rules
 
-Each independent lawyer owns their own data.
+Application data belongs to a notarial Workspace. Access requires an active
+membership and the permission assigned to one of the fixed roles:
+`propietario`, `administrador`, `asistente` or `solo_lectura`.
 
-A user must not access another user's:
+A user must not access another Workspace's:
 
 - Clients.
 - Templates.
@@ -164,7 +186,10 @@ A user must not access another user's:
 - Receivables.
 - Settings.
 
-Supabase RLS is required for user-owned data.
+Supabase RLS is required for Workspace-owned data. Sensitive lifecycle actions
+such as finalization, Index confirmation/export, membership management and
+settings changes remain restricted according to the server permission matrix;
+the UI gate is not the authorization boundary.
 
 ## AI Rules
 
@@ -195,6 +220,9 @@ Prioritize:
 - Reusable templates.
 - Clear download flow.
 - Clear missing-field validation.
+- One explicit Guardar action per Machote/Escritura workspace, without
+  auto-advance.
+- Protection against navigation with unsaved changes and concurrent overwrites.
 
 Avoid:
 

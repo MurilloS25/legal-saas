@@ -215,7 +215,8 @@ Important requirements:
 - Clear required fields.
 - Clear missing-field validation.
 - No confusing focus jumps.
-- Review step before download when possible.
+- A clearly reachable saved-document review/preview before download; this may
+  live in the main completion step rather than a separate step.
 
 ## Empty States
 

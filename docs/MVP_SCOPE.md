@@ -40,9 +40,12 @@ This application is not:
 
 ### Authentication And User Profile
 
-- User registration and login through Supabase Auth.
-- Basic lawyer profile.
-- Default document formatting preferences.
+- Private-pilot login, invitation acceptance and password recovery through
+  Supabase Auth; public signup is disabled.
+- One notarial Workspace per account membership, with current roles
+  `propietario`, `administrador`, `asistente` and `solo_lectura`.
+- Personal account identity, shared professional/notarial profile, team
+  management and default document formatting preferences.
 
 ### Document Formatting Settings
 
@@ -84,15 +87,31 @@ Templates may include:
 
 ### Document Generation
 
-The MVP lets lawyers save draft escrituras while they work, using validated field values and a server-rendered text snapshot.
+The MVP lets authorized Workspace members save escrituras while they work,
+using validated field values, Option Block selections, a server-rendered text
+snapshot and an immutable structured snapshot of the source Machote.
 
 Word (`.docx`) export is implemented: the lawyer downloads the saved draft as an editable Word file generated on demand in server memory and discarded immediately — never stored. See `docs/DOCX_EXPORT.md`.
 
-The application may store draft `field_values` and `rendered_content` for the user's own persistent drafts.
+The application may store `field_values`, `option_selections`,
+`rendered_content` and the minimal `template_snapshot` required to keep an
+Escritura editable and exportable against the Machote version used at creation.
 
 An escritura may optionally be associated with a single principal client (`documents.client_id`, nullable); the association is never required and the escritura survives if the client is later deleted (`client_id` becomes NULL).
 
-Escrituras have a basic lifecycle: `draft` (Borrador) → `ready` (Listo para revisar) → `final` (Finalizado). Transitions are `draft↔ready` and `ready↔final`; a draft cannot jump straight to final. Finalizing is blocked while variables are pending. A finalized escritura is read-only until reopened. `final` does not mean signed, submitted, or officially filed — no signature or submission is implied.
+Escrituras use `draft` (Borrador) and `final` (Finalizada). A valid draft may
+be finalized directly; finalization is blocked by unsaved changes, pending
+required active variables or a concurrent update. A finalized Escritura is
+read-only until an authorized user reopens it. Historical `ready` rows remain
+supported and may be finalized or returned to draft. `final` does not mean
+signed, submitted or officially filed.
+
+The workspace uses Completar → Cobro → Índice. Preview lives in Completar;
+`Revisar y finalizar` is not a separate step. Guardar is a single persistent
+action without auto-advance. Finalizar and Reabrir are lifecycle actions;
+Descargar Word, Historial and Duplicar remain available as document utilities.
+Dirty-state and navigation guards preserve local edits, and saves/finalization
+use optimistic concurrency.
 
 The `/dashboard/documents` workspace supports server-side search (title, client, template), filters (status, client, template), sort, and pagination, all reflected in shareable query params.
 
@@ -119,6 +138,13 @@ warns about incomplete rows without blocking the lawyer, and downloads an
 editable `.docx`. The file is generated in server memory and discarded after
 the response. CSV export is not supported.
 
+Each Escritura snapshots the Machote's default inclusion decision at creation.
+After finalization, authorized users may include or exclude it from the Index.
+Notarial metadata progresses through pending, ready-to-confirm, confirmed and
+correction-required states. Confirmation binds to the exact persisted visible
+snapshot; reopening invalidates confirmation without deleting metadata.
+`Partes` distinguishes derived, manually overridden and explicitly empty data.
+
 The system must not submit the official notarial index.
 
 The lawyer remains responsible for official submission and validation.
@@ -143,12 +169,12 @@ The MVP does not include formal accounting or electronic invoicing.
 
 The MVP must include:
 
-- User-owned data isolation.
-- Supabase RLS for user-owned data.
+- Workspace membership and role isolation.
+- Supabase RLS for Workspace-owned data.
 - Input validation.
 - Data minimization.
 - No storage of generated Word/PDF files.
-- Persistent draft escritura text is sensitive user-owned data and must stay protected by validation, RLS, and safe logging rules.
+- Persistent Escritura content is sensitive Workspace data and must stay protected by validation, RLS, and safe logging rules.
 - No storage of unnecessary sensitive legal details outside the draft workflow.
 
 ### Accessibility
@@ -193,8 +219,8 @@ These may be considered after the MVP:
 - PDF export.
 - Uploading existing `.docx` templates.
 - More advanced template versioning.
-- More advanced role management.
-- Multi-lawyer firm accounts.
+- Custom permissions beyond the current fixed role matrix.
+- Multiple Workspaces per account and enterprise multi-firm hierarchy.
 - Audit log dashboard.
 - Electronic invoicing integration.
 - Advanced reports.
@@ -208,8 +234,9 @@ The application may store:
 - User profile data.
 - Template definitions.
 - Template field definitions.
-- Persistent draft `field_values`.
-- Persistent draft `rendered_content` text snapshots.
+- Persistent `field_values` and Option Block selections.
+- Persistent `rendered_content` text snapshots.
+- Minimal versioned `template_snapshot` objects for new Escrituras.
 - Client metadata.
 - Minimal document metadata.
 - Minimal notarial index metadata.

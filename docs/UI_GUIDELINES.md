@@ -27,7 +27,7 @@ The product should not feel:
 
 ## Color Palette
 
-The full token table (including the sidebar `ink-*` scale and the
+The full token table (including the navigation `ink-*` scale and the
 `accent-*` scale that replaced the old teal accent) lives in
 [`DESIGN.md`](../DESIGN.md) at the repo root — that document is now the
 source of truth for color. Summary:
@@ -78,7 +78,7 @@ States:
 Focus:
 
 - Focus ring: `#3E73C4` (`accent-500`), `#5D91DC` (`accent-400`) on dark
-  surfaces like the sidebar.
+  surfaces like the navbar and mobile drawer.
 
 ## Component Rules
 
@@ -112,8 +112,9 @@ Layout:
 
 - Main app background uses `#F8FAFC`.
 - Main content uses white cards.
-- App layout uses a collapsible left sidebar (see `DESIGN.md` §7) with a
-  mobile-only top bar; no persistent desktop top header.
+- App layout uses the persistent top navbar documented in `DESIGN.md` §7 on
+  desktop and a hamburger-triggered drawer on mobile. There is no desktop
+  sidebar or collapse preference.
 - Keep screens calm and spacious.
 - Do not add fake metrics just to fill space.
 
@@ -154,7 +155,7 @@ Responsive:
 
 - Mobile-first.
 - Forms should work well on small screens.
-- Sidebar can become collapsed or hidden on mobile later.
+- Primary navigation becomes a modal drawer on mobile.
 - Cards and tables should avoid horizontal overflow where possible.
 
 Component Usage:
@@ -178,7 +179,7 @@ Things to Avoid:
 
 The authoritative color/typography/spacing/component specification is
 [`DESIGN.md`](../DESIGN.md) at the repo root — it documents the approved
-Panel/sidebar as the visual reference for the whole app. Read it before
+Panel/navbar/drawer as the visual reference for the whole app. Read it before
 any UI implementation task.
 
 `docs/design/` holds the original Sober Juris moodboard (superseded,
@@ -196,7 +197,7 @@ tokens take precedence over the old mockups.
 
 Use as broad inspiration, not strict copy:
 
-- shadcn/ui Blocks for login, dashboard, sidebar, forms and app structure.
+- shadcn/ui Blocks for login, dashboard, navigation, forms and app structure.
 - Tailwind color system for consistent tokens.
 - Clean SaaS dashboards for layout inspiration.
 - WCAG contrast guidance for readability and accessibility.
