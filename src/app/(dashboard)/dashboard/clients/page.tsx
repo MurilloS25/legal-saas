@@ -4,13 +4,13 @@ import {
   ClientsWorkspace,
   clientsQueryToParams,
   parseClientsQuery,
-  CLIENTS_PAGE_SIZE,
   type ClientLifecycleEvent,
   type RawClientsQuery,
 } from "@/features/clients";
 import { listClientsPage } from "@/features/clients/server";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { buildPageSizeOptions, type PageSizeOption } from "@/lib/pagination";
 
 export const metadata = {
   title: "Clientes — LexCR",
@@ -31,10 +31,16 @@ export default async function ClientsPage({ searchParams }: Props) {
       : undefined;
 
   const pageHref = (targetPage: number) => {
-    const params = clientsQueryToParams({ page: targetPage });
+    const params = clientsQueryToParams({ page: targetPage, pageSize: query.pageSize });
     const qs = new URLSearchParams(params).toString();
     return qs ? `/dashboard/clients?${qs}` : "/dashboard/clients";
   };
+
+  const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
+    const params = clientsQueryToParams({ page: 1, pageSize });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/clients?${qs}` : "/dashboard/clients";
+  });
 
   if (page.total > 0 && query.page > page.pageCount) {
     redirect(pageHref(page.pageCount));
@@ -48,8 +54,9 @@ export default async function ClientsPage({ searchParams }: Props) {
         page={query.page}
         pageCount={page.pageCount}
         total={page.total}
-        pageSize={CLIENTS_PAGE_SIZE}
+        pageSize={query.pageSize}
         pageHref={pageHref}
+        pageSizeOptions={pageSizeOptions}
         canWrite={hasPermission(role, "clients.write")}
       />
     </>

@@ -11,6 +11,13 @@ import {
 const UUID = "41111111-c000-0000-0000-000000000001";
 
 describe("parseDocumentsQuery", () => {
+  it("normalizes the shared page size whitelist", () => {
+    expect(parseDocumentsQuery({}).pageSize).toBe(10);
+    expect(parseDocumentsQuery({ pageSize: "5" }).pageSize).toBe(5);
+    expect(parseDocumentsQuery({ pageSize: "25" }).pageSize).toBe(25);
+    expect(parseDocumentsQuery({ pageSize: "50" }).pageSize).toBe(50);
+    expect(parseDocumentsQuery({ pageSize: "12" }).pageSize).toBe(10);
+  });
   it("returns safe defaults for an empty query", () => {
     const q = parseDocumentsQuery({});
     expect(q).toMatchObject({

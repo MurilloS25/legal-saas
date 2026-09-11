@@ -7,13 +7,19 @@
  */
 
 import { RECEIVABLE_STATUSES, RECEIVABLE_CURRENCIES } from "./status";
+import {
+  DEFAULT_PAGE_SIZE,
+  normalizePage,
+  normalizePageSize,
+  type PageSizeOption,
+} from "@/lib/pagination";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const MAX_SEARCH_LENGTH = 100;
-export const RECEIVABLES_PAGE_SIZE = 10;
+export const RECEIVABLES_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 export const RECEIVABLE_SORT_OPTIONS = [
   { value: "recent", label: "Más recientes", column: "created_at", ascending: false },
@@ -44,6 +50,7 @@ export type RawReceivablesQuery = {
   due_to?: string;
   sort?: string;
   page?: string;
+  pageSize?: string;
 };
 
 export type ReceivablesQuery = {
@@ -59,6 +66,7 @@ export type ReceivablesQuery = {
   dueTo: string | null;
   sort: ReceivableSortValue;
   page: number;
+  pageSize: PageSizeOption;
   hasActiveFilters: boolean;
 };
 
@@ -103,12 +111,6 @@ function normalizeSort(value: string | undefined): ReceivableSortValue {
   return match ? match.value : DEFAULT_SORT;
 }
 
-function normalizePage(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return 1;
-  return Math.min(parsed, 100_000);
-}
-
 export function parseReceivablesQuery(
   raw: RawReceivablesQuery,
 ): ReceivablesQuery {
@@ -136,6 +138,7 @@ export function parseReceivablesQuery(
     dueTo,
     sort: normalizeSort(raw.sort),
     page: normalizePage(raw.page),
+    pageSize: normalizePageSize(raw.pageSize),
     hasActiveFilters:
       search !== "" ||
       status !== null ||
@@ -191,6 +194,9 @@ export function receivablesQueryToParams(
   if (query.dueFrom) params.due_from = query.dueFrom;
   if (query.dueTo) params.due_to = query.dueTo;
   if (query.sort && query.sort !== DEFAULT_SORT) params.sort = query.sort;
+  if (query.pageSize && query.pageSize !== RECEIVABLES_PAGE_SIZE) {
+    params.pageSize = String(query.pageSize);
+  }
   if (query.page && query.page > 1) params.page = String(query.page);
   return params;
 }

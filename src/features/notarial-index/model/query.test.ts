@@ -12,6 +12,12 @@ import {
 const now = new Date("2026-07-16T14:00:00.000Z");
 
 describe("parseNotarialQuery", () => {
+  it("normalizes the shared page size whitelist", () => {
+    expect(parseNotarialQuery({}, now).pageSize).toBe(10);
+    expect(parseNotarialQuery({ pageSize: "5" }, now).pageSize).toBe(5);
+    expect(parseNotarialQuery({ pageSize: "50" }, now).pageSize).toBe(50);
+    expect(parseNotarialQuery({ pageSize: "12" }, now).pageSize).toBe(10);
+  });
   it("uses the current Costa Rica fortnight as a safe default", () => {
     expect(parseNotarialQuery({}, now)).toMatchObject({
       search: "",

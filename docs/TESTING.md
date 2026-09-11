@@ -501,6 +501,7 @@ pnpm e2e:headed   # headed browser
 | `chromium-release-navigation-confirmation` | `e2e/release-navigation-confirmation.spec.ts` | Shared navigation guard and exact persisted notarial confirmation snapshots |
 | `chromium-release-validation-auth` | `e2e/release-validation-auth.spec.ts` | Accessible title errors, safe auth redirects and required variables limited to active Option Block variants |
 | `chromium-document-template-snapshot` | `e2e/document-template-snapshot-authenticated.spec.ts` | Machote v1 snapshot survives a later v2 edit across preview, edit, lifecycle, duplication and DOCX; new Escrituras use v2 |
+| `chromium-table-pagination` | `e2e/table-pagination-authenticated.spec.ts` | Shared 5/10/25/50 server-side page size across the five workspaces, URL persistence, filter/page resets, navigation and final/out-of-range pages |
 
 **Setting up authenticated E2E tests:**
 

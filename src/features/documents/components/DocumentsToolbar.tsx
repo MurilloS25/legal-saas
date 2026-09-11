@@ -11,6 +11,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { DOCUMENTS_PAGE_SIZE } from "../model/workspace-query";
+import type { PageSizeOption } from "@/lib/pagination";
 
 type Option = { value: string; label: string };
 
@@ -21,6 +23,7 @@ type Props = {
     clientId: string | null;
     templateId: string | null;
     sort: string;
+    pageSize: PageSizeOption;
   };
   clients: { id: string; full_name: string }[];
   templates: { id: string; name: string }[];
@@ -65,6 +68,9 @@ export function DocumentsToolbar({
     if (client_) params.set("client", client_);
     if (template_) params.set("template", template_);
     if (sort_ && sort_ !== DEFAULT_SORT) params.set("sort", sort_);
+    if (initial.pageSize !== DOCUMENTS_PAGE_SIZE) {
+      params.set("pageSize", String(initial.pageSize));
+    }
     // Cualquier cambio reinicia la paginación (no se conserva `page`).
 
     const qs = params.toString();
@@ -208,7 +214,12 @@ export function DocumentsToolbar({
           type="button"
           onClick={() => {
             setSearch("");
-            router.push("/dashboard/documents");
+            const params = new URLSearchParams();
+            if (initial.pageSize !== DOCUMENTS_PAGE_SIZE) {
+              params.set("pageSize", String(initial.pageSize));
+            }
+            const qs = params.toString();
+            router.push(qs ? `/dashboard/documents?${qs}` : "/dashboard/documents");
           }}
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
         >

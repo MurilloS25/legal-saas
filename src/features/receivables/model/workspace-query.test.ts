@@ -7,6 +7,13 @@ import {
 } from "./workspace-query";
 
 describe("parseReceivablesQuery", () => {
+  it("normalizes the shared page size whitelist", () => {
+    expect(parseReceivablesQuery({}).pageSize).toBe(10);
+    expect(parseReceivablesQuery({ pageSize: "5" }).pageSize).toBe(5);
+    expect(parseReceivablesQuery({ pageSize: "25" }).pageSize).toBe(25);
+    expect(parseReceivablesQuery({ pageSize: "50" }).pageSize).toBe(50);
+    expect(parseReceivablesQuery({ pageSize: "12" }).pageSize).toBe(10);
+  });
   it("defaults to an empty, unfiltered first page", () => {
     const q = parseReceivablesQuery({});
     expect(q.page).toBe(1);
