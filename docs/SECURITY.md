@@ -44,6 +44,7 @@ The application may store:
 - Template field definitions.
 - Persistent draft `field_values`.
 - Persistent draft `rendered_content` text snapshots.
+- Persistent draft `template_snapshot` structured content, limited to the Machote document and configured field metadata needed to reopen and export the Escritura consistently; derived variables are reconstructed from that document instead of duplicated.
 - Client metadata.
 - Minimal document metadata.
 - Minimal notarial index metadata.
@@ -193,7 +194,7 @@ Required controls:
 
 - Log important security-relevant events without sensitive legal content.
 - Do not log generated document file content.
-- Do not log persistent draft `field_values` or `rendered_content`.
+- Do not log persistent draft `field_values`, `rendered_content` or `template_snapshot`.
 - Do not log full escritura text.
 - Do not log secrets.
 - Capture enough operational context to investigate failures safely.
@@ -240,10 +241,10 @@ Generated documents and persistent draft text must be handled carefully.
 Rules:
 
 - Generate files for immediate download.
-- Persist draft `field_values` and server-rendered text snapshots only in the approved user-owned `documents` draft model.
+- Persist draft `field_values`, server-rendered text snapshots and the minimal structured template snapshot only in the approved user-owned `documents` draft model.
 - Do not persist generated Word/PDF files.
 - Avoid writing generated files to permanent storage.
-- Avoid logging draft values, rendered snapshots, or generated content.
+- Avoid logging draft values, rendered snapshots, structured template snapshots, or generated content.
 - Keep export adapters server-side.
 - Validate all input before export.
 
@@ -252,7 +253,7 @@ Rules:
 Logs must not include:
 
 - Generated Word/PDF document content.
-- Persistent draft `field_values` or `rendered_content`.
+- Persistent draft `field_values`, `rendered_content` or `template_snapshot`.
 - Full escritura content.
 - Secrets.
 - Credentials.

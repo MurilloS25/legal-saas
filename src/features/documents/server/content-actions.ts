@@ -15,6 +15,10 @@ import {
   toVariableOutputTransform,
 } from "@/features/templates/model/variable-autofill";
 import { resolveTemplateContent } from "@/lib/editor/content";
+import {
+  createDocumentTemplateSnapshot,
+  resolveDocumentTemplateSnapshot,
+} from "../model/document-template-snapshot";
 import { isReadOnlyStatus } from "../model/lifecycle";
 import { resolveOptionalClientId } from "./client-actions";
 import {
@@ -136,6 +140,10 @@ export async function createDocumentDraftAction(
       field_values: result.values,
       option_selections: result.optionSelections,
       rendered_content: result.rendered,
+      template_snapshot: createDocumentTemplateSnapshot(
+        loaded.document,
+        loaded.fields,
+      ),
       // El snapshot del default del Machote lo garantiza el trigger
       // `documents_notarial_index_snapshot` (ver 20260822090000) — cualquier
       // valor enviado aquí se descarta, así que no se envía ninguno.
@@ -177,7 +185,7 @@ export async function updateDocumentDraftAction(
 
   const { data: existing, error: existingError } = await supabase
     .from("documents")
-    .select("id, template_id, field_values, status")
+    .select("id, field_values, status, rendered_content, template_snapshot")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -192,13 +200,14 @@ export async function updateDocumentDraftAction(
     };
   }
 
-  const loaded = await loadOwnedTemplateWithFields(
-    supabase,
-    existing.template_id,
-    workspaceId,
-  );
-  if (!loaded) {
-    return { message: "El machote de esta escritura ya no está disponible." };
+  let snapshot;
+  try {
+    snapshot = resolveDocumentTemplateSnapshot(
+      existing.template_snapshot,
+      existing.rendered_content,
+    );
+  } catch {
+    return { message: "No fue posible leer la versión documental guardada." };
   }
 
   const existingValuesResult = DocumentValuesSchema.safeParse(
@@ -210,8 +219,8 @@ export async function updateDocumentDraftAction(
 
   const result = validateDraftInput(
     formData,
-    loaded.fields,
-    loaded.document,
+    snapshot.fields,
+    snapshot.document,
     existingValuesResult.data,
   );
   if ("state" in result) return result.state;

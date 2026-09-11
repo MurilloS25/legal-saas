@@ -14,12 +14,7 @@ import {
 } from "@/features/notarial-index/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
-import { buildFillableFields } from "@/features/templates";
-import {
-  toVariableAutofillSource,
-  toVariableOutputTransform,
-} from "@/features/templates/model/variable-autofill";
-import { resolveTemplateContent } from "@/lib/editor/content";
+import { resolveDocumentTemplateSnapshot } from "@/features/documents/model/document-template-snapshot";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { listReceivablesByDocument } from "@/features/receivables/server";
 import {
@@ -96,9 +91,10 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     })),
     document.field_values,
   );
-  const resolvedTemplateContent = template
-    ? resolveTemplateContent(template.content_json)
-    : null;
+  const resolvedTemplateContent = resolveDocumentTemplateSnapshot(
+    document.template_snapshot,
+    document.rendered_content,
+  );
   const notarialPrefill = resolveNotarialMetadataPrefill({
     metadata: notarialMetadata,
     configuration: indexConfiguration,
@@ -107,7 +103,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       fieldKey: field.field_key,
     })),
     fieldValues: document.field_values,
-    templateDocument: resolvedTemplateContent?.document,
+    templateDocument: resolvedTemplateContent.document,
     optionSelections: document.option_selections,
     templateName: template?.name ?? null,
     generatedParties: generatedPartiesPreview,
@@ -175,8 +171,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       ) : (
         <DocumentComposerLoader
           templateName={template.name}
-          contentJson={template.content_json}
-          templateFields={templateFields}
+          templateSnapshot={resolvedTemplateContent}
           document={document}
           savedJustNow={saved === "1"}
           canEdit={canEdit}
@@ -203,8 +198,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
 // Carga de campos, clientes y documento etiquetado para el compositor.
 async function DocumentComposerLoader({
   templateName,
-  contentJson,
-  templateFields,
+  templateSnapshot,
   document,
   savedJustNow,
   canEdit,
@@ -224,8 +218,7 @@ async function DocumentComposerLoader({
   notarialConfirmedByName,
 }: {
   templateName: string;
-  contentJson: unknown;
-  templateFields: Awaited<ReturnType<typeof listTemplateFields>>;
+  templateSnapshot: ReturnType<typeof resolveDocumentTemplateSnapshot>;
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   savedJustNow: boolean;
   canEdit: boolean;
@@ -244,16 +237,7 @@ async function DocumentComposerLoader({
   canConfirmNotarial: boolean;
   notarialConfirmedByName: string | null;
 }) {
-  const { document: templateDocument, templateText } =
-    resolveTemplateContent(contentJson);
-  const fields = buildFillableFields(
-    templateFields.map((field) => ({
-      ...field,
-      autofill_source: toVariableAutofillSource(field.autofill_source),
-      output_transform: toVariableOutputTransform(field.output_transform),
-    })),
-    templateText,
-  );
+  const { document: templateDocument, fields } = templateSnapshot;
   const labeledDocument = applyVariableLabels(
     templateDocument,
     Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
@@ -277,6 +261,7 @@ async function DocumentComposerLoader({
       templateName={templateName}
       document={labeledDocument}
       fields={fields}
+      legacyTemplateSnapshot={templateSnapshot.legacy}
       clients={clientOptions}
       initialClientId={document.client_id}
       initialSection={initialSection}

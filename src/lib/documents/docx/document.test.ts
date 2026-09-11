@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { buildEscrituraDocx } from "./document";
 import { buildTemplateContentJson } from "@/lib/editor/content";
 import { legacyTextToDocument } from "@/lib/editor/convert";
+import type { TemplateDocument } from "@/lib/editor/types";
 import { extractDocxText, readDocx } from "../../../../test/support/docx";
 
 describe("buildEscrituraDocx", () => {
   it("generates a docx from a legacy text-only template", async () => {
     const result = await buildEscrituraDocx({
-      contentJson: { text: "Poder de {{poderdante.nombre}} en {{lugar}}." },
+      document: legacyTextToDocument("Poder de {{poderdante.nombre}} en {{lugar}}."),
       fieldValues: { "poderdante.nombre": "Ana Tester" },
       title: "Poder Especial",
     });
@@ -26,7 +27,7 @@ describe("buildEscrituraDocx", () => {
     const contentJson = buildTemplateContentJson(doc);
 
     const result = await buildEscrituraDocx({
-      contentJson,
+      document: contentJson.doc,
       fieldValues: { "otorgante.nombre": "Otorgante Estructurado" },
       title: "Escritura Estructurada",
     });
@@ -42,7 +43,7 @@ describe("buildEscrituraDocx", () => {
     // El machote ya no usa {{dato.dos}}, pero su valor histórico persiste en
     // field_values y no debe romper la generación.
     const result = await buildEscrituraDocx({
-      contentJson: { text: "Acta con {{dato.uno}}." },
+      document: legacyTextToDocument("Acta con {{dato.uno}}."),
       fieldValues: { "dato.uno": "Uno", "dato.dos": "Dos histórico" },
       title: "Acta",
     });
@@ -53,11 +54,10 @@ describe("buildEscrituraDocx", () => {
     expect(body).not.toContain("Dos histórico");
   });
 
-  it("uses the persisted rendered snapshot when the template changed after save", async () => {
+  it("uses the document snapshot even after the source template changed", async () => {
     const result = await buildEscrituraDocx({
-      contentJson: { text: "Texto NUEVO con {{nombre}}." },
+      document: legacyTextToDocument("Texto guardado con {{nombre}}."),
       fieldValues: { nombre: "Ana Tester" },
-      renderedContent: "Texto guardado con Ana Tester.",
       title: "Snapshot estable",
     });
 
@@ -70,7 +70,7 @@ describe("buildEscrituraDocx", () => {
 
   it("applies the configured output transform, matching the render pipeline", async () => {
     const result = await buildEscrituraDocx({
-      contentJson: { text: "Cédula {{comprador.cedula}}." },
+      document: legacyTextToDocument("Cédula {{comprador.cedula}}."),
       fieldValues: { "comprador.cedula": "208390123" },
       title: "Compraventa",
       transforms: { "comprador.cedula": "digits_to_words" },
@@ -85,7 +85,7 @@ describe("buildEscrituraDocx", () => {
   });
 
   it("renders an optionBlock's selected variant in the docx", async () => {
-    const doc = {
+    const doc: TemplateDocument = {
       type: "doc",
       content: [
         {
@@ -125,7 +125,7 @@ describe("buildEscrituraDocx", () => {
     };
 
     const defaultResult = await buildEscrituraDocx({
-      contentJson: { text: "placeholder", doc },
+      document: doc,
       fieldValues: { "vehiculo.numero": "999" },
       title: "Compraventa",
     });
@@ -135,7 +135,7 @@ describe("buildEscrituraDocx", () => {
     expect(defaultBody).toContain("Comparecen con número 999.");
 
     const selectedResult = await buildEscrituraDocx({
-      contentJson: { text: "placeholder", doc },
+      document: doc,
       fieldValues: { "vehiculo.chasis": "ABC123" },
       title: "Compraventa",
       optionSelections: { b1: "distintos" },
@@ -148,7 +148,7 @@ describe("buildEscrituraDocx", () => {
 
   it("uses the safe filename fallback for an empty title", async () => {
     const result = await buildEscrituraDocx({
-      contentJson: { text: "Texto." },
+      document: legacyTextToDocument("Texto."),
       fieldValues: {},
       title: "   ",
     });

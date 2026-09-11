@@ -155,6 +155,8 @@ type Props = SharedProps &
         /** notarial_index.generate — confirmar/corregir datos del Índice. */
         canConfirmNotarial: boolean;
         notarialConfirmedByName: string | null;
+        /** Escritura anterior al snapshot estructurado: conserva texto histórico plano. */
+        legacyTemplateSnapshot?: boolean;
       }
   );
 
@@ -592,6 +594,17 @@ export function DocumentComposer(props: Props) {
         dirty={dirty}
         persistedPendingVariableCount={persistedPendingCount}
       />
+
+      {isEdit && props.legacyTemplateSnapshot && (
+        <div
+          role="status"
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Esta escritura fue creada antes del snapshot estructurado. Se conserva
+          su última vista guardada; la estructura histórica de variables y
+          bloques no puede recuperarse.
+        </div>
+      )}
 
       <form id="document-completar-form" action={formAction} noValidate onSubmit={(event) => {
         if (pending) { event.preventDefault(); return; }

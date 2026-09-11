@@ -8,6 +8,13 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { buildFillableFields } from "../../src/features/templates/model/fillable-fields";
+import {
+  toVariableAutofillSource,
+  toVariableOutputTransform,
+} from "../../src/features/templates/model/variable-autofill";
+import { resolveTemplateContent } from "../../src/lib/editor/content";
+import { createDocumentTemplateSnapshot } from "../../src/features/documents/model/document-template-snapshot";
 import {
   CleanupRegistry,
   formatCleanupFailures,
@@ -81,9 +88,10 @@ export async function createTestTemplate(
 export async function updateTestTemplateContent(
   templateId: string,
   content: string,
+  doc?: unknown,
 ): Promise<void> {
   await restUpdate("templates", templateId, {
-    content_json: { text: content },
+    content_json: doc ? { text: content, doc } : { text: content },
     text_preview: content.slice(0, 300),
   });
 }
@@ -154,6 +162,8 @@ export async function createTestDocument(
     rendered_content?: string;
     client_id?: string;
     status?: "draft" | "ready" | "final";
+    /** null crea deliberadamente una fila de compatibilidad pre-migration. */
+    template_snapshot?: unknown;
     /**
      * Fija `created_at` en vez de dejarlo en "ahora". Necesario para
      * fixtures sin `authorized_at` que dependan de una quincena concreta:
@@ -166,6 +176,35 @@ export async function createTestDocument(
   },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
+  let templateSnapshot = options.template_snapshot;
+  if (!("template_snapshot" in options)) {
+    const [template] = await restSelect<{ content_json: unknown }>(
+      `templates?select=content_json&id=eq.${templateId}`,
+    );
+    const templateFields = await restSelect<{
+      field_key: string;
+      label: string;
+      field_type: string;
+      required: boolean;
+      autofill_source: string;
+      output_transform: string;
+    }>(
+      `template_fields?select=field_key,label,field_type,required,autofill_source,output_transform&template_id=eq.${templateId}&order=sort_order.asc,created_at.asc`,
+    );
+    if (!template) throw new Error("Test template not found while creating document snapshot");
+    const resolved = resolveTemplateContent(template.content_json);
+    templateSnapshot = createDocumentTemplateSnapshot(
+      resolved.document,
+      buildFillableFields(
+        templateFields.map((field) => ({
+          ...field,
+          autofill_source: toVariableAutofillSource(field.autofill_source),
+          output_transform: toVariableOutputTransform(field.output_transform),
+        })),
+        resolved.templateText,
+      ),
+    );
+  }
   const id = await restInsert("documents", {
     owner_id: userId,
     template_id: templateId,
@@ -175,6 +214,7 @@ export async function createTestDocument(
     field_values: options.field_values ?? {},
     option_selections: options.option_selections ?? {},
     rendered_content: options.rendered_content ?? "",
+    template_snapshot: templateSnapshot,
     ...(options.created_at ? { created_at: options.created_at } : {}),
   });
   registry.register("documents", id);

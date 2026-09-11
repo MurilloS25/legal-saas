@@ -73,6 +73,17 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
+    // P1-03: an Escritura keeps its creation-version Machote snapshot.
+    {
+      name: "chromium-document-template-snapshot",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-template-snapshot-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Public (unauthenticated) tests.
     // Must NOT use storageState so redirect assertions work correctly.
     {

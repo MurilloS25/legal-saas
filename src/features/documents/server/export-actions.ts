@@ -15,8 +15,8 @@ import {
   DocumentOptionSelectionsSchema,
   DocumentValuesSchema,
 } from "../model/document-schema";
-import { toVariableOutputTransform } from "@/features/templates/model/variable-autofill";
 import type { VariableTransformsMap } from "@/lib/editor/render";
+import { resolveDocumentTemplateSnapshot } from "../model/document-template-snapshot";
 
 export class DocumentExportError extends Error {
   constructor(readonly status: number) {
@@ -44,23 +44,13 @@ export async function prepareDocumentDocxExport(
 
   const { data: document, error: documentError } = await supabase
     .from("documents")
-    .select("id, title, template_id, field_values, option_selections, rendered_content")
+    .select("id, title, field_values, option_selections, rendered_content, template_snapshot")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   if (documentError) throwDataAccessError("load document export", documentError);
   if (!document) throw new DocumentExportError(404);
-
-  const { data: template, error: templateError } = await supabase
-    .from("templates")
-    .select("content_json")
-    .eq("id", document.template_id)
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
-
-  if (templateError) throwDataAccessError("load document export template", templateError);
-  if (!template) throw new DocumentExportError(422);
 
   const values = DocumentValuesSchema.safeParse(document.field_values ?? {});
   if (!values.success) throw new DocumentExportError(422);
@@ -70,17 +60,21 @@ export async function prepareDocumentDocxExport(
   );
   if (!optionSelections.success) throw new DocumentExportError(422);
 
-  const { data: templateFields, error: fieldsError } = await supabase
-    .from("template_fields")
-    .select("field_key, output_transform")
-    .eq("template_id", document.template_id)
-    .eq("workspace_id", workspaceId);
-  if (fieldsError) throwDataAccessError("load document export fields", fieldsError);
+  let snapshot;
+  try {
+    snapshot = resolveDocumentTemplateSnapshot(
+      document.template_snapshot,
+      document.rendered_content,
+    );
+  } catch {
+    throw new DocumentExportError(422);
+  }
 
   const transforms: VariableTransformsMap = {};
-  for (const field of templateFields ?? []) {
-    const transform = toVariableOutputTransform(field.output_transform);
-    if (transform !== "none") transforms[field.field_key] = transform;
+  for (const field of snapshot.fields) {
+    if (field.output_transform !== "none") {
+      transforms[field.field_key] = field.output_transform;
+    }
   }
 
   const formatting = await loadDocumentFormattingPreferences(supabase, workspaceId);
@@ -88,9 +82,8 @@ export async function prepareDocumentDocxExport(
   let result;
   try {
     result = await buildEscrituraDocx({
-      contentJson: template.content_json,
+      document: snapshot.document,
       fieldValues: values.data,
-      renderedContent: document.rendered_content,
       title: document.title,
       transforms,
       optionSelections: optionSelections.data,

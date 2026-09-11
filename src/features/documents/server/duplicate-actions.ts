@@ -15,10 +15,10 @@ export type DuplicateDocumentState = {
  * Duplica una escritura propia (borrador o finalizada) como un borrador
  * nuevo e independiente.
  *
- * Copia: machote de origen, contenido/valores de variables, selecciones de
- * Bloques de opciones, cliente principal y el contenido renderizado (se
- * recalcula igual que en creación, pero copiarlo es equivalente ya que el
- * machote y los valores son los mismos).
+ * Copia: referencia al machote de origen, snapshot estructurado, valores de
+ * variables, selecciones de Bloques de opciones, cliente principal y
+ * contenido renderizado. Así la copia representa exactamente la versión
+ * documental del original aunque el Machote haya cambiado después.
  *
  * Nunca copia: id, estado (siempre nace `draft`), fechas, historial de
  * actividad, metadata notarial (número de instrumento, fechas de
@@ -45,7 +45,7 @@ export async function duplicateDocumentAction(
   const { data: source, error: sourceError } = await supabase
     .from("documents")
     .select(
-      "title, template_id, client_id, field_values, option_selections, rendered_content",
+      "title, template_id, client_id, field_values, option_selections, rendered_content, template_snapshot",
     )
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
@@ -70,6 +70,7 @@ export async function duplicateDocumentAction(
       field_values: source.field_values,
       option_selections: source.option_selections,
       rendered_content: source.rendered_content,
+      template_snapshot: source.template_snapshot,
       // Nace desde el machote de origen, no del original que se duplica —
       // el trigger `documents_notarial_index_snapshot` (ver 20260822090000)
       // deriva `include_in_notarial_index` de `template_id` al insertar, sin
