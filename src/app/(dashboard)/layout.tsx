@@ -1,5 +1,6 @@
 import { requireWorkspace } from "@/lib/server/auth";
 import { AppShell } from "./_components/AppShell";
+import { NavigationGuardProvider } from "@/components/navigation/NavigationGuard";
 
 export default async function DashboardLayout({
   children,
@@ -15,8 +16,10 @@ export default async function DashboardLayout({
     .maybeSingle();
 
   return (
+    <NavigationGuardProvider>
     <AppShell userLabel={profile?.full_name ?? null} userEmail={user.email ?? null}>
       {children}
     </AppShell>
+    </NavigationGuardProvider>
   );
 }

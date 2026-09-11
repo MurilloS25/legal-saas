@@ -33,7 +33,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import { useSaveRevision } from "@/lib/forms/use-save-revision";
-import { useRouter } from "next/navigation";
 import {
   createTemplateWorkspaceAction,
   getTemplateIndexFieldOptionsAction,
@@ -68,7 +67,7 @@ import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { AiHelpDialog } from "./AiHelpDialog";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
 
 
 // ------------------------------------------------------------------ props
@@ -150,8 +149,6 @@ export function TemplateWorkspace(props: Props) {
   // que su dirty no se detecta solo). Se suma al `dirty` global de abajo.
   const [indexDirty, setIndexDirty] = useState(false);
   const [indexSaveError, setIndexSaveError] = useState<string | null>(null);
-  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const router = useRouter();
 
   function closeAiHelp() {
     setAiHelpOpen(false);
@@ -424,68 +421,7 @@ export function TemplateWorkspace(props: Props) {
 
   const globalDirty = dirty || indexDirty;
 
-  // Recargar/cerrar la pestaña con cambios sin guardar: el navegador exige
-  // su propio diálogo nativo aquí (ninguna UI personalizada puede
-  // interceptar `beforeunload`) — es la única protección real para este
-  // caso específico, distinta de la confirmación propia de abajo (que cubre
-  // salir DENTRO de la misma pestaña, p. ej. a otro módulo).
-  useEffect(() => {
-    if (!globalDirty) return;
-    function handleBeforeUnload(event: BeforeUnloadEvent) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [globalDirty]);
-
-  // Salir de VERDAD del workspace (breadcrumb "‹ Machotes", navbar/drawer
-  // superior a otro módulo, el logo — cualquier <a> real que navegue a otra
-  // ruta) con cambios sin guardar pide confirmación en vez de perderlos.
-  // Deliberadamente NO intercepta navegación interna del stepper (botones,
-  // no <a>, y de todos modos misma ruta vía `history.pushState`) ni clics
-  // dentro de esta misma página — solo un <a> cuyo destino es una ruta
-  // distinta. Interceptar a nivel de `document` (captura, no en el enlace
-  // del breadcrumb en particular) es lo que cubre también la navbar
-  // superior compartida (`AppShell`) sin tener que tocar ese componente
-  // compartido: el listener vive y se limpia enteramente en este workspace.
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
-  useEffect(() => {
-    if (!globalDirty) return;
-    function handleDocumentClick(event: MouseEvent) {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-      const anchor = (event.target as HTMLElement | null)?.closest?.(
-        "a[href]",
-      ) as HTMLAnchorElement | null;
-      if (!anchor || (anchor.target && anchor.target !== "_self")) return;
-      let url: URL;
-      try {
-        url = new URL(anchor.href, window.location.origin);
-      } catch {
-        return;
-      }
-      if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname) return;
-      event.preventDefault();
-      setPendingHref(url.pathname + url.search);
-      setLeaveConfirmOpen(true);
-    }
-    // `window.document`, no `document`: ese identificador ya está tomado
-    // por el documento TIPTAP desestructurado de `useTemplatePreview` más
-    // arriba, no por el DOM global.
-    window.document.addEventListener("click", handleDocumentClick, true);
-    return () =>
-      window.document.removeEventListener("click", handleDocumentClick, true);
-  }, [globalDirty]);
+  useUnsavedChanges(globalDirty);
 
   const saveStatusText =
     pending || indexSavePending
@@ -814,19 +750,6 @@ export function TemplateWorkspace(props: Props) {
 
       {aiHelpOpen && <AiHelpDialog onClose={closeAiHelp} />}
 
-      {leaveConfirmOpen && (
-        <ConfirmDialog
-          title="¿Salir sin guardar?"
-          description="Tienes cambios sin guardar en este machote. Si sales ahora, se perderán."
-          confirmLabel="Salir sin guardar"
-          tone="danger"
-          onConfirm={() => router.push(pendingHref ?? "/dashboard/templates")}
-          onClose={() => {
-            setLeaveConfirmOpen(false);
-            setPendingHref(null);
-          }}
-        />
-      )}
     </div>
     </>
   );

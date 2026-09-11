@@ -61,7 +61,7 @@ function hasValue(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim() !== "";
 }
 
-function overrideOrFallback(
+export function overrideOrFallback(
   override: string | null | undefined,
   fallback: string | null | undefined,
 ): string | null | undefined {

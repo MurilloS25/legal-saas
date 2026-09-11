@@ -16,6 +16,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { useNavigationGuard } from "@/components/navigation/NavigationGuard";
 import { logoutAction } from "../actions";
 import { ToastProvider } from "@/components/feedback/Toast";
 import {
@@ -67,6 +68,7 @@ function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { requestLeave } = useNavigationGuard();
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonId = useId();
   const menuId = useId();
@@ -137,7 +139,7 @@ function UserMenu({
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                router.push(href);
+                requestLeave(() => router.push(href));
               }}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-slate-700 hover:bg-slate-50"
             >
@@ -146,7 +148,7 @@ function UserMenu({
             </button>
           ))}
           <div className="my-1 border-t border-slate-100" />
-          <form action={logoutAction}>
+          <form action={logoutAction} onSubmit={(event) => { event.preventDefault(); requestLeave(logoutAction); }}>
             <button
               type="submit"
               role="menuitem"
@@ -260,6 +262,7 @@ function MobileDrawer({
   userEmail: string | null;
   onClose: () => void;
 }) {
+  const { requestLeave } = useNavigationGuard();
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -348,7 +351,7 @@ function MobileDrawer({
             </Link>
           ))}
 
-          <form action={logoutAction}>
+          <form action={logoutAction} onSubmit={(event) => { event.preventDefault(); requestLeave(logoutAction); }}>
             <button
               type="submit"
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-400 transition-colors hover:bg-red-500/10 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800"

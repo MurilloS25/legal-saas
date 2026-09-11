@@ -47,6 +47,11 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "chromium-release-navigation-confirmation",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-navigation-confirmation\.spec\.ts/,
+    },
+    {
       name: "chromium-release-save-races",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /release-save-races\.spec\.ts/,

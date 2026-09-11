@@ -414,6 +414,18 @@ Each phase must preserve behavior, security, accessibility, and relevant unit,
 RLS, build, and E2E coverage. A failed or oversized phase should be reduced,
 not solved by a repository-wide rewrite.
 
+## Unsaved workspace navigation
+
+The dashboard's `NavigationGuardProvider` owns the shared leave confirmation.
+Document, template, and notarial metadata editors register unsaved state with
+`useUnsavedChanges`. App-controlled imperative navigation and logout use
+`requestLeave`; same-origin links leaving the current pathname are captured
+centrally. Internal workspace steps, new-tab links, and downloads remain free.
+Reload/tab close use the browser's `beforeunload` confirmation. App Router
+does not expose a cancellable back/forward hook: same-document browser history
+traversal is not intercepted, and the History API is not patched. Future
+imperative exits from these editors must use the shared guard.
+
 ## What Must Remain Stable
 
 - Next.js App Router, Server Components, and Server Actions.
