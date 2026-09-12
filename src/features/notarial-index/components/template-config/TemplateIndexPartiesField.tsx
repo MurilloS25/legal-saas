@@ -1,11 +1,11 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
 import type { TemplateIndexConfigurationState } from "../../server/template-index-config-actions";
 import { CollapsibleFieldRow } from "../CollapsibleFieldRow";
-import type { IndexConfigurationField } from "./types";
+import type { TemplateIndexPartiesController } from "./useTemplateIndexParties";
+import type { TemplateIndexPartiesMode } from "./types";
 
-export type TemplateIndexPartiesMode = "pending" | "required" | "not_required";
+export type { TemplateIndexPartiesMode } from "./types";
 
 const PARTIES_MODE_OPTIONS: Array<{
   mode: TemplateIndexPartiesMode;
@@ -20,58 +20,42 @@ const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600";
 
 type Props = {
-  mode: TemplateIndexPartiesMode;
-  configured: boolean;
-  status: "configured" | "pending" | "optional";
-  selectedIds: string[];
+  controller: TemplateIndexPartiesController;
   open: boolean;
   onToggle: () => void;
-  onModeChange: (mode: TemplateIndexPartiesMode) => void;
   readOnly: boolean;
-  search: string;
-  onSearchChange: (value: string) => void;
-  onSearchKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
-  listboxId: string;
-  visibleFields: IndexConfigurationField[];
-  activeIndex: number;
-  onActiveIndexChange: (index: number) => void;
-  onToggleField: (id: string, checked: boolean) => void;
-  onMoveField: (id: string, direction: -1 | 1) => void;
-  separator: string;
-  onSeparatorChange: (value: string) => void;
-  fixedSuffix: string;
-  onFixedSuffixChange: (value: string) => void;
   errors: TemplateIndexConfigurationState["errors"];
-  previewIncomplete: boolean;
-  previewMessage: string;
 };
 
 export function TemplateIndexPartiesField({
-  mode,
-  configured,
-  status,
-  selectedIds,
+  controller,
   open,
   onToggle,
-  onModeChange,
   readOnly,
-  search,
-  onSearchChange,
-  onSearchKeyDown,
-  listboxId,
-  visibleFields,
-  activeIndex,
-  onActiveIndexChange,
-  onToggleField,
-  onMoveField,
-  separator,
-  onSeparatorChange,
-  fixedSuffix,
-  onFixedSuffixChange,
   errors,
-  previewIncomplete,
-  previewMessage,
 }: Props) {
+  const {
+    mode,
+    changeMode: onModeChange,
+    configured,
+    status,
+    selectedIds,
+    search,
+    changeSearch: onSearchChange,
+    handleSearchKeyDown: onSearchKeyDown,
+    listboxId,
+    visibleFields,
+    activeIndex,
+    setActiveIndex: onActiveIndexChange,
+    toggleField: onToggleField,
+    moveField: onMoveField,
+    separator,
+    setSeparator: onSeparatorChange,
+    fixedSuffix,
+    setFixedSuffix: onFixedSuffixChange,
+    previewIncomplete,
+    previewMessage,
+  } = controller;
   return (
     <CollapsibleFieldRow
       id="idx-parties"
