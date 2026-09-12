@@ -51,6 +51,9 @@ export function NotarialIndexWorkspace({
 
   const rangeStart = page.total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
   const rangeEnd = Math.min(query.page * query.pageSize, page.total);
+  const tablePopulationKey = new URLSearchParams(
+    notarialQueryToParams(query),
+  ).toString();
 
   return (
     <PageContainer>
@@ -141,10 +144,12 @@ export function NotarialIndexWorkspace({
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <NotarialIndexTable
+            key={tablePopulationKey}
             rows={page.rows}
             query={query}
             pageCount={page.pageCount}
             total={page.total}
+            canManage={canGenerate}
           />
 
           <TablePagination

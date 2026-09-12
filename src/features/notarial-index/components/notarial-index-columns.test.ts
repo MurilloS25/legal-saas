@@ -41,8 +41,8 @@ describe("notarial index table contract", () => {
 
   it("uses the fixed instrument number order", () => {
     expect(NOTARIAL_SORTABLE_COLUMN_IDS).toEqual(["instrument_number"]);
-    expect(notarialTableState(3)).toEqual({
-      pagination: { pageIndex: 2, pageSize: 10 },
+    expect(notarialTableState(3, 25)).toEqual({
+      pagination: { pageIndex: 2, pageSize: 25 },
       sorting: [{ id: "instrument_number", desc: false }],
     });
   });

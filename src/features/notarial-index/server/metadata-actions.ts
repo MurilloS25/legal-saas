@@ -8,6 +8,7 @@ import { parseNotarialFormData } from "../model/notarial-schema";
 import { generateConfiguredParties } from "./parties-generation";
 import { isNotarialComplete } from "../model/notarial";
 import { notarialSaveErrorMessage } from "./notarial-save-error";
+import { hasPermission } from "@/lib/server/permissions";
 
 export type NotarialMetadataState = {
   errors?: Partial<Record<string, string>>;
@@ -28,10 +29,13 @@ export async function saveNotarialMetadataAction(
   _prevState: NotarialMetadataState,
   formData: FormData,
 ): Promise<NotarialMetadataState> {
-  const { supabase, user, workspaceId } = await requireWorkspace();
+  const { supabase, user, workspaceId, role } = await requireWorkspace();
 
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
+  }
+  if (!hasPermission(role, "notarial_index.generate")) {
+    return { message: "No tienes permiso para editar los datos del Índice." };
   }
 
   const { data: document, error: documentError } = await supabase
@@ -175,6 +179,7 @@ export async function saveNotarialMetadataAction(
   }
 
   revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath("/dashboard/notarial-index");
 
   // El mismo guardado nunca debe leerse como "la Escritura ya quedó
   // agregada al Índice" si todavía faltan campos — el Índice se deriva de
