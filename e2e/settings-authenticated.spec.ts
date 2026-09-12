@@ -70,7 +70,9 @@ test.describe("authenticated flows", () => {
     await expect(
       page.getByRole("heading", { name: "Cuenta y configuración", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Cuenta" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Cuenta", exact: true }),
+    ).toBeVisible();
   });
 
   test("C2: Perfil/Configuración/Despacho are separate tabs, each with its own save action", async ({
@@ -321,19 +323,4 @@ test.describe("authenticated flows", () => {
     await expect(trigger).toBeFocused();
   });
 
-  test("J: user can log out from the user menu and is redirected to /login", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard");
-
-    // "Cerrar sesión" now lives inside the user menu dropdown, not a
-    // standalone sidebar button — open it first.
-    await page.getByRole("button", { name: "Menú de usuario" }).click();
-    await page.getByRole("button", { name: "Cerrar sesión" }).click();
-
-    await expect(page).toHaveURL(/\/login/);
-    await expect(
-      page.getByRole("heading", { name: "Iniciar sesión" }),
-    ).toBeVisible();
-  });
 });

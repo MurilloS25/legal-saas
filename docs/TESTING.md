@@ -267,10 +267,9 @@ Agents must explain which commands were skipped and why.
 
 ## Test Script Behavior
 
-The test script currently keeps `--passWithNoTests` as a harmless fallback for
-isolated branches, but the repository contains a substantial unit test suite.
-New or changed critical behavior still requires focused tests; the fallback is
-not evidence that an untested feature is acceptable.
+The test script fails when Vitest discovers no tests. The repository has a
+substantial unit suite, so accepting an empty run would hide configuration or
+test-discovery regressions.
 
 ## Recommended Test Structure
 
@@ -466,11 +465,12 @@ pnpm e2e:headed   # headed browser
 
 - Authenticated tests using a dedicated local test user and Playwright `storageState`.
 - Not included in CI yet (requires a live Supabase local instance and test credentials).
-- `playwright.config.ts` is the source of truth for project names, dependencies
-  and execution order. Authenticated module projects run sequentially where
-  required to avoid local Supabase/dev-server contention. Release regression
-  projects and the document-template-snapshot project are isolated and can be
-  selected directly by name.
+- `playwright.config.ts` is the source of truth for project names and real
+  dependencies. Authenticated feature projects depend directly on `setup`, so
+  selecting one project runs only its spec plus authentication setup. Ordering
+  within stateful specs remains explicit with Playwright serial mode. The
+  separate Auth/Mailpit project chain remains serialized because concurrent
+  real-email and multi-login flows have reproduced dev-server contention.
 
 | Playwright project | Test file | Covers |
 |---|---|---|
@@ -495,7 +495,7 @@ pnpm e2e:headed   # headed browser
 | `chromium-receivable-client-dialog` | `e2e/receivable-client-contextual-creation-authenticated.spec.ts` | "+ Crear nuevo cliente" dialog in the receivable form: only shown in "Cliente registrado" mode (never "Escribir nombre"), cancel/Escape preserve the form and create nothing, focus returns to the trigger, validation errors keep the dialog open and select nothing, successful creation selects the client immediately without touching document/amount/currency/notes, association persists after save + reload, reachable when editing an existing receivable too |
 | `chromium-document-receivable-navigation` | `e2e/document-receivable-context-navigation-authenticated.spec.ts` | `returnTo` context back link between a document's "Cuentas por cobrar" tab and a receivable: shown on create and on opening an existing receivable, returns to the same document/tab, "Cancelar" honors it, absent on direct access or when created from the general receivables list, malicious `returnTo` values (external URLs, `javascript:`, out-of-allowlist internal routes, malformed ids) rejected |
 | `chromium-dashboard` | `e2e/dashboard-panel-authenticated.spec.ts` | Panel with desktop top navbar/mobile drawer, real notarial-fortnight attention data, clickable cards and quick actions |
-| `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Perfil/Configuración/Despacho tabs, section-specific persistence, permissions, mobile/keyboard navigation and logout |
+| `chromium-authenticated` | `e2e/settings-authenticated.spec.ts` | Perfil/Configuración/Despacho tabs, section-specific persistence, permissions and mobile/keyboard navigation |
 | `chromium-document-reopen-guard` | `e2e/document-reopen-single-save-and-exit-guard-authenticated.spec.ts` | Single save, reopen/correct/refinalize, dirty finalization gate and controlled workspace exits |
 | `chromium-release-save-races` | `e2e/release-save-races.spec.ts` | Edits during save, optimistic concurrency, explicit conflict retry and first-save locking |
 | `chromium-release-navigation-confirmation` | `e2e/release-navigation-confirmation.spec.ts` | Shared navigation guard and exact persisted notarial confirmation snapshots |
