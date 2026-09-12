@@ -43,6 +43,8 @@ type Props = {
   | {
       mode: "edit";
       receivable: ReceivableRow;
+      /** Ruta contextual ya validada; se conserva al guardar o cancelar. */
+      returnTo?: string | null;
       /** Si la cuenta tiene cualquier pago histórico (activo o anulado):
        * monto, moneda, Cliente y Escritura quedan bloqueados en la UI.
        * Esto es solo la primera capa — el server action y el trigger de
@@ -73,7 +75,7 @@ export function ReceivableForm(props: Props) {
   const isDialog = props.mode === "dialog";
   const receivable = isEdit ? props.receivable : null;
   const defaults = !isEdit ? props.defaults : undefined;
-  const returnTo = props.mode === "create" ? (props.returnTo ?? null) : null;
+  const returnTo = props.mode === "dialog" ? null : (props.returnTo ?? null);
   const canWrite = isEdit ? props.canWrite : true;
   const financialFieldsLocked = (isEdit ? props.hasPaymentHistory : false) || !canWrite;
 

@@ -37,7 +37,12 @@ type Props = {
   currency: string;
   balanceDue: string;
 } & (
-  | { embedded?: false; documentId?: undefined; onRegistered?: undefined }
+  | {
+      embedded?: false;
+      documentId?: undefined;
+      onRegistered?: undefined;
+      returnTo?: string | null;
+    }
   | { embedded: true; documentId: string; onRegistered: () => void }
 );
 
@@ -151,6 +156,9 @@ export function RegisterPaymentDialog(props: Props) {
               </div>
 
               <form action={formAction} noValidate className="px-6 py-4">
+                {!props.embedded && props.returnTo && (
+                  <input type="hidden" name="returnTo" value={props.returnTo} />
+                )}
                 {state.message && (
                   <div
                     role="alert"

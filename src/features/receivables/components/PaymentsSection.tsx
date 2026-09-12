@@ -11,6 +11,7 @@ type Props = {
   payments: ReceivablePayment[];
   canRegisterPayments: boolean;
   canVoidPayments: boolean;
+  returnTo?: string | null;
 };
 
 export function PaymentsSection({
@@ -21,6 +22,7 @@ export function PaymentsSection({
   payments,
   canRegisterPayments,
   canVoidPayments,
+  returnTo,
 }: Props) {
   const isSettled = status === "paid" || Number(balanceDue) <= 0;
 
@@ -39,6 +41,7 @@ export function PaymentsSection({
               receivableId={receivableId}
               currency={currency}
               balanceDue={balanceDue}
+              returnTo={returnTo}
             />
           )}
         </div>
@@ -63,6 +66,7 @@ export function PaymentsSection({
             receivableId={receivableId}
             rows={payments}
             canVoid={canVoidPayments}
+            returnTo={returnTo}
           />
         </div>
       )}

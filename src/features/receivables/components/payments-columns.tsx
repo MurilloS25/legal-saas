@@ -25,6 +25,7 @@ export function formatPaymentDate(iso: string): string {
 export function createPaymentsColumns(
   receivableId: string,
   canVoid: boolean,
+  returnTo?: string | null,
 ): ColumnDef<ReceivablePayment>[] {
   return [
     {
@@ -111,6 +112,7 @@ export function createPaymentsColumns(
               receivableId={receivableId}
               paymentId={p.id}
               amountLabel={formatMoney(p.amount, p.currency)}
+              returnTo={returnTo}
             />
           </div>
         );

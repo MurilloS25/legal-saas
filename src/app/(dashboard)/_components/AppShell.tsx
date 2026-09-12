@@ -70,6 +70,7 @@ function UserMenu({
   const router = useRouter();
   const { requestLeave } = useNavigationGuard();
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const buttonId = useId();
   const menuId = useId();
 
@@ -85,7 +86,10 @@ function UserMenu({
     if (!open) return;
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        window.requestAnimationFrame(() => triggerRef.current?.focus());
+      }
     }
     function onPointerDown(e: PointerEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -103,10 +107,10 @@ function UserMenu({
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         id={buttonId}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
         aria-label="Menú de usuario"
@@ -123,7 +127,7 @@ function UserMenu({
       {open && (
         <div
           id={menuId}
-          role="menu"
+          data-navigation-popup
           aria-labelledby={buttonId}
           className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
@@ -136,7 +140,6 @@ function UserMenu({
           {USER_MENU_ITEMS.map(({ label, href, Icon }) => (
             <button
               key={href}
-              role="menuitem"
               onClick={() => {
                 setOpen(false);
                 requestLeave(() => router.push(href));
@@ -151,7 +154,6 @@ function UserMenu({
           <form action={logoutAction} onSubmit={(event) => { event.preventDefault(); requestLeave(logoutAction); }}>
             <button
               type="submit"
-              role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50"
             >
               <LogoutIcon className="size-4" />

@@ -113,6 +113,31 @@ test.describe("notarial inline review", () => {
     await expect(confirm).toBeEnabled();
   });
 
+  test("traps focus in confirmation and restores it after Escape", async ({
+    page,
+  }) => {
+    await page.goto(indexUrl());
+    await toggle(page, completeId).click();
+    const confirm = panel(page, completeId).getByRole("button", {
+      name: "Confirmar datos",
+    });
+    await confirm.click();
+
+    const dialog = page.getByRole("alertdialog", {
+      name: "¿Confirmar datos del Índice?",
+    });
+    const cancel = dialog.getByRole("button", { name: "Cancelar" });
+    await expect(cancel).toBeFocused();
+    await cancel.press("Shift+Tab");
+    await expect(
+      dialog.getByRole("button", { name: "Confirmar datos" }),
+    ).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(confirm).toBeFocused();
+  });
+
   test("saves inline and preserves period, filters, page and pageSize", async ({ page }) => {
     await page.goto(indexUrl());
     await toggle(page, editableId).click();
