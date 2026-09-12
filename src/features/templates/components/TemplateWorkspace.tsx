@@ -30,7 +30,7 @@
  * de ancho completo que tenía antes.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import { useSaveRevision } from "@/lib/forms/use-save-revision";
 import {
@@ -56,6 +56,7 @@ import {
   type TemplateWorkspaceSection,
 } from "./TemplateWorkspaceHeader";
 import { useTemplatePreview } from "../hooks/use-template-preview";
+import { useTemplateWorkspaceSection } from "../hooks/use-template-workspace-section";
 import {
   TemplateIndexConfigurationSection,
   type IndexConfigurationField,
@@ -68,6 +69,7 @@ import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { AiHelpDialog } from "./AiHelpDialog";
 import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
+import { TemplatePublishPanel } from "./TemplatePublishPanel";
 
 
 // ------------------------------------------------------------------ props
@@ -102,15 +104,6 @@ type Props = {
 
 const initialState: TemplateWorkspaceState = {};
 
-function resolveSection(raw: string | null): TemplateWorkspaceSection {
-  return raw === "document" ||
-    raw === "variables" ||
-    raw === "notarial" ||
-    raw === "publish"
-    ? raw
-    : "information";
-}
-
 // ------------------------------------------------------------------ component
 
 export function TemplateWorkspace(props: Props) {
@@ -134,7 +127,8 @@ export function TemplateWorkspace(props: Props) {
   // como una entrada normal de edición abren ahí (ver `resolveInitialSection`
   // en la página de edición para la única excepción explícita: preservar el
   // paso tras el redirect create → edit del primer guardado).
-  const [section, setSection] = useState<TemplateWorkspaceSection>(
+  const { section, goToSection } = useTemplateWorkspaceSection(
+    isEdit,
     isEdit ? (props.initialSection ?? "information") : "information",
   );
   const [previewExpanded, setPreviewExpanded] = useState(false);
@@ -164,39 +158,6 @@ export function TemplateWorkspace(props: Props) {
     setExpectedVersion(updatedAt);
   }
 
-  // Mantiene la URL sincronizada con la sección activa sin disparar una
-  // navegación real (evita remontar el editor). `popstate` cubre
-  // atrás/adelante del navegador. Activo en ambos modos: el stepper es
-  // navegable desde el modo creación también.
-  useEffect(() => {
-    function onPopState() {
-      const next = resolveSection(
-        new URLSearchParams(window.location.search).get("section"),
-      );
-      // "notarial" depende de que el machote ya exista — en modo creación,
-      // ignorar un intento de llegar ahí por URL en vez de exponer el
-      // formulario real (que necesita template_id).
-      setSection(next === "notarial" && !isEdit ? "document" : next);
-    }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [isEdit]);
-
-  const goToSection = useCallback(
-    (next: TemplateWorkspaceSection) => {
-      setSection(next);
-      if (typeof window === "undefined") return;
-      // "information" es el paso por defecto — se omite de la URL para que
-      // una entrada normal (sin `?section=`) aterrice ahí, igual que
-      // `resolveSection`/`resolveInitialSection` esperan.
-      const url =
-        next === "information"
-          ? window.location.pathname
-          : `${window.location.pathname}?section=${next}`;
-      window.history.pushState(null, "", url);
-    },
-    [],
-  );
 
   const action = isEdit
     ? updateTemplateWorkspaceAction.bind(null, template!.id)
@@ -600,79 +561,30 @@ export function TemplateWorkspace(props: Props) {
           />
         </div>
 
-        {/* ================= Publicar ================= */}
-        <div
-          id="template-panel-publish"
-          role="tabpanel"
-          aria-labelledby="template-tab-publish"
+        <TemplatePublishPanel
           hidden={section !== "publish"}
-        >
-          <div className="space-y-6">
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Resumen antes de publicar
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Publicar solo cambia el estado — no exige que las
-                  variables o el Índice Notarial estén completos.
-                </p>
-              </div>
-              <div className="px-6 py-5 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Nombre</span>
-                  <span className="font-medium text-slate-900">
-                    {name || "Sin nombre"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Variables configuradas</span>
-                  <span className="font-medium text-slate-900">
-                    {variables.length - variablesPendingCount} de {variables.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Índice notarial</span>
-                  <span className="font-medium text-slate-900">
-                    {isEdit
-                      ? indexComplete
-                        ? "Completo"
-                        : "Parcial u opcional"
-                      : "Disponible después de guardar"}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                <h2 className="text-sm font-semibold text-slate-900">Estado</h2>
-              </div>
-              <div className="px-6 py-5 max-w-xs">
-                <TemplateMetadataForm
-                  name={name}
-                  description={description}
-                  status={status}
-                  errors={state.errors}
-                  disabled={!canWrite}
-                  fieldset="publish"
-                  onNameChange={(value) => {
-                    setName(value);
-                    markDirty();
-                  }}
-                  onDescriptionChange={(value) => {
-                    setDescription(value);
-                    markDirty();
-                  }}
-                  onStatusChange={(value) => {
-                    setStatus(value);
-                    markDirty();
-                  }}
-                />
-              </div>
-            </section>
-          </div>
-        </div>
+          name={name}
+          description={description}
+          status={status}
+          variableCount={variables.length}
+          variablesPendingCount={variablesPendingCount}
+          isEdit={isEdit}
+          indexComplete={indexComplete}
+          canWrite={canWrite}
+          errors={state.errors}
+          onNameChange={(value) => {
+            setName(value);
+            markDirty();
+          }}
+          onDescriptionChange={(value) => {
+            setDescription(value);
+            markDirty();
+          }}
+          onStatusChange={(value) => {
+            setStatus(value);
+            markDirty();
+          }}
+        />
 
         {/* ================= Índice notarial =================
             Ahora dentro del mismo <form> que los demás pasos: ya no tiene

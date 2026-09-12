@@ -210,10 +210,16 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeDisabled();
 
-    // Deshace la carrera simulada y guarda con éxito — recién ahí
-    // Finalizar se habilita.
+    // Deshace la carrera simulada. El primer intento sigue detectando la
+    // versión nueva (la transición externa también cambió updated_at); solo
+    // el reintento explícito acepta esa versión y conserva la edición local.
     await setTestDocumentStatus(doc.id, "draft");
     await page.getByRole("button", { name: "Guardar" }).click();
+    const retry = page.getByRole("button", {
+      name: "Conservar mis cambios y reintentar",
+    });
+    await expect(retry).toBeVisible({ timeout: 15_000 });
+    await retry.click();
     await expect(saveStatus(page)).toHaveText("Guardado", { timeout: 15_000 });
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
