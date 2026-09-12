@@ -9,6 +9,7 @@ import type {
 } from "../../model/prefill";
 import type { NotarialMetadataState } from "../../server/metadata-actions";
 import { CollapsibleFieldRow } from "../CollapsibleFieldRow";
+import type { NotarialMetadataDraft } from "./useNotarialMetadataDraft";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
@@ -31,32 +32,7 @@ type Props = {
   metadata: NotarialMetadata | null;
   prefill: NotarialMetadataPrefill;
   actNamePreview: string | null;
-  instrument: string;
-  setInstrument: (value: string) => void;
-  instrumentConfigured: boolean;
-  authorizedAt: string;
-  authorizedDate: string;
-  setAuthorizedDate: (value: string) => void;
-  authorizedTime: string;
-  setAuthorizedTime: (value: string) => void;
-  authorizedAtConfigured: boolean;
-  actName: string;
-  setActName: (value: string) => void;
-  actNameConfigured: boolean;
-  protocolBook: string;
-  setProtocolBook: (value: string) => void;
-  protocolBookConfigured: boolean;
-  initialFolio: string;
-  setInitialFolio: (value: string) => void;
-  finalFolio: string;
-  setFinalFolio: (value: string) => void;
-  foliosConfigured: boolean;
-  parties: string;
-  setParties: (value: string) => void;
-  partiesFallback: string | null;
-  partiesConfigured: boolean;
-  notes: string;
-  setNotes: (value: string) => void;
+  draft: NotarialMetadataDraft;
   canEdit: boolean;
   isConfirmed: boolean;
   canResetParties: boolean;
@@ -71,37 +47,47 @@ export function NotarialMetadataFields({
   metadata,
   prefill,
   actNamePreview,
-  instrument,
-  setInstrument,
-  instrumentConfigured,
-  authorizedAt,
-  authorizedDate,
-  setAuthorizedDate,
-  authorizedTime,
-  setAuthorizedTime,
-  authorizedAtConfigured,
-  actName,
-  setActName,
-  actNameConfigured,
-  protocolBook,
-  setProtocolBook,
-  protocolBookConfigured,
-  initialFolio,
-  setInitialFolio,
-  finalFolio,
-  setFinalFolio,
-  foliosConfigured,
-  parties,
-  setParties,
-  partiesFallback,
-  partiesConfigured,
-  notes,
-  setNotes,
+  draft,
   canEdit,
   isConfirmed,
   canResetParties,
   pending,
 }: Props) {
+  const {
+    values: {
+      instrument,
+      authorizedDate,
+      authorizedTime,
+      actName,
+      protocolBook,
+      initialFolio,
+      finalFolio,
+      parties,
+      notes,
+    },
+    setters: {
+      setInstrument,
+      setAuthorizedDate,
+      setAuthorizedTime,
+      setActName,
+      setProtocolBook,
+      setInitialFolio,
+      setFinalFolio,
+      setParties,
+      setNotes,
+    },
+    authorizedAt,
+    partiesFallback,
+    status: {
+      instrumentConfigured,
+      authorizedAtConfigured,
+      actNameConfigured,
+      protocolBookConfigured,
+      foliosConfigured,
+      partiesConfigured,
+    },
+  } = draft;
+
   return (
     <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
       <CollapsibleFieldRow

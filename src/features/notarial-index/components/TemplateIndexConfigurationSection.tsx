@@ -3,14 +3,12 @@
 import {
   forwardRef,
   useEffect,
-  useId,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useToast } from "@/components/feedback/Toast";
-import { generateIndexParties } from "../model/parties";
 import type {
   InvalidIndexMapping,
   SimpleIndexMappingKey,
@@ -23,18 +21,15 @@ import {
 } from "../server/template-index-config-actions";
 import type { TemplateOptionBlockAttrs } from "@/lib/editor/types";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
-import {
-  TEMPLATE_INDEX_SIMPLE_FIELDS,
-  TemplateIndexSimpleFields,
-} from "./template-config/TemplateIndexSimpleFields";
-import {
-  TemplateIndexPartiesField,
-  type TemplateIndexPartiesMode,
-} from "./template-config/TemplateIndexPartiesField";
+import { TemplateIndexSimpleFields } from "./template-config/TemplateIndexSimpleFields";
+import { TemplateIndexPartiesField } from "./template-config/TemplateIndexPartiesField";
+import { useTemplateIndexParties } from "./template-config/useTemplateIndexParties";
+import { serializeTemplateIndexConfiguration } from "./template-config/serializeTemplateIndexConfiguration";
 import type {
   IndexConfigurationField,
   IndexConfigurationOptionBlock,
 } from "./template-config/types";
+import { TEMPLATE_INDEX_SIMPLE_FIELDS } from "./template-config/types";
 
 export type {
   IndexConfigurationField,
@@ -148,57 +143,14 @@ export const TemplateIndexConfigurationSection = forwardRef<
   const [savedInclusion, setSavedInclusion] = useState(includeByDefault);
   const inclusionDirty = inclusion !== savedInclusion;
 
-  const availableIds = useMemo(
-    () => new Set(fields.map((field) => field.id)),
-    [fields],
-  );
-  const [selectedIds, setSelectedIds] = useState(() =>
-    (configuration?.fields ?? [])
-      .map((field) => field.templateFieldId)
-      .filter((id) => availableIds.has(id)),
-  );
-  const [separator, setSeparator] = useState(
-    configuration?.partySeparator ?? " Y ",
-  );
-  const [fixedSuffix, setFixedSuffix] = useState(
-    configuration?.fixedSuffix ?? "",
-  );
-  const [allowEmpty, setAllowEmpty] = useState(
-    configuration?.allowEmpty ?? false,
-  );
-  // Tri-estado explícito de Partes — reemplaza el checkbox ambiguo
-  // "confirmo que no requiere Partes" (que solo aparecía cuando la
-  // selección ya estaba vacía, y no distinguía "no lo he decidido" de
-  // "confirmé que no aplica"). `allowEmpty`/`selectedIds` siguen siendo lo
-  // que de verdad se envía al guardar — `partiesMode` es solo la capa de
-  // UI que los mantiene sincronizados y decide qué se muestra. A nivel de
-  // datos, "pending" y "required" con 0 variables seleccionadas son
-  // indistinguibles después de recargar (mismo payload: sin variables,
-  // `allow_empty = false`) — es una distinción de intención dentro de la
-  // sesión, no algo que el modelo persistido necesite representar aparte.
-  const [partiesMode, setPartiesMode] = useState<TemplateIndexPartiesMode>(() => {
-    if ((configuration?.fields.length ?? 0) > 0) return "required";
-    return configuration?.allowEmpty ? "not_required" : "pending";
-  });
-  function handlePartiesModeChange(mode: TemplateIndexPartiesMode) {
-    setPartiesMode(mode);
-    if (mode === "not_required") {
-      setSelectedIds([]);
-      setAllowEmpty(true);
-    } else if (mode === "pending") {
-      setSelectedIds([]);
-      setAllowEmpty(false);
-    } else {
-      setAllowEmpty(false);
-    }
-  }
-  const [partiesSearch, setPartiesSearch] = useState("");
-  // Índice resaltado por teclado dentro de `visibleFields` — patrón ARIA
-  // combobox+listbox (mismo que `ClientCombobox`), adaptado a multi-select:
-  // Enter alterna (no reemplaza) la variable resaltada, así que el
-  // reordenamiento con ↑/↓ y la selección múltiple siguen funcionando.
-  const [partiesActiveIndex, setPartiesActiveIndex] = useState(0);
-  const partiesListboxId = useId();
+  const parties = useTemplateIndexParties(fields, configuration);
+  const {
+    selectedIds,
+    separator,
+    fixedSuffix,
+    allowEmpty,
+    mode: partiesMode,
+  } = parties;
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   // Los 6 selects simples eran no-controlados (`defaultValue`) porque su
   // valor solo importaba al enviar el formulario. La presentación
@@ -261,21 +213,6 @@ export const TemplateIndexConfigurationSection = forwardRef<
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  // Una variable configurada en la misma sesión (todavía sin guardar cuando
-  // se cargó esta pantalla) llega en `fields` con un id sintético
-  // `local:<clave>` (ver `TemplateWorkspace`) — se puede elegir para
-  // Partes/campos simples igual que cualquier otra, pero el RPC necesita el
-  // `id` real de `template_fields`. `resolveFieldId` lo traduce contra la
-  // lista fresca que trae `freshFields`, pedida justo después de guardar el
-  // machote — para entonces esa variable ya tiene un id real.
-  function resolveFieldId(
-    candidateId: string,
-    freshFieldsByKey: Map<string, string>,
-  ): string | null {
-    if (!candidateId.startsWith("local:")) return candidateId;
-    return freshFieldsByKey.get(candidateId.slice("local:".length)) ?? null;
-  }
-
   useImperativeHandle(
     ref,
     () => ({
@@ -295,74 +232,23 @@ export const TemplateIndexConfigurationSection = forwardRef<
         let errorMessage: string | undefined;
 
         if (mappingDirty) {
-          const freshFieldsByKey = new Map(
-            freshFields.map((field) => [field.fieldKey, field.id]),
-          );
-
-          const resolvedSelectedIds: string[] = [];
-          for (const id of selectedIds) {
-            const resolved = resolveFieldId(id, freshFieldsByKey);
-            if (!resolved) {
-              const message =
-                "Una de las variables seleccionadas para Partes todavía no " +
-                "terminó de guardarse. Vuelve a intentar.";
-              setState({ message });
-              return { success: false, message };
-            }
-            resolvedSelectedIds.push(resolved);
+          const serialized = serializeTemplateIndexConfiguration({
+            freshFields,
+            selectedIds,
+            simpleFieldValues,
+            separator,
+            fixedSuffix,
+            allowEmpty,
+          });
+          if (!serialized.success) {
+            setState({ message: serialized.message });
+            return { success: false, message: serialized.message };
           }
-
-          const resolvedSimpleFieldValues: Record<SimpleIndexMappingKey, string> =
-            { ...simpleFieldValues };
-          for (const { key } of TEMPLATE_INDEX_SIMPLE_FIELDS) {
-            const raw = simpleFieldValues[key];
-            if (key === "authorized_time") {
-              if (raw.startsWith("field:")) {
-                const resolved = resolveFieldId(
-                  raw.slice("field:".length),
-                  freshFieldsByKey,
-                );
-                if (!resolved) {
-                  const message =
-                    "La variable elegida para Hora de autorización todavía " +
-                    "no terminó de guardarse. Vuelve a intentar.";
-                  setState({ message });
-                  return { success: false, message };
-                }
-                resolvedSimpleFieldValues[key] = `field:${resolved}`;
-              }
-              continue;
-            }
-            if (!raw) continue;
-            const resolved = resolveFieldId(raw, freshFieldsByKey);
-            if (!resolved) {
-              const message =
-                "Una de las variables mapeadas todavía no terminó de " +
-                "guardarse. Vuelve a intentar.";
-              setState({ message });
-              return { success: false, message };
-            }
-            resolvedSimpleFieldValues[key] = resolved;
-          }
-
           setPending(true);
-          const formData = new FormData();
-          formData.set("party_separator", separator);
-          formData.set("fixed_suffix", fixedSuffix);
-          if (allowEmpty) formData.set("allow_empty", "on");
-          for (const id of resolvedSelectedIds) {
-            formData.append("selected_field", id);
-          }
-          for (const { key } of TEMPLATE_INDEX_SIMPLE_FIELDS) {
-            const name =
-              key === "authorized_time" ? "authorized_time_source" : `${key}_field_id`;
-            formData.set(name, resolvedSimpleFieldValues[key]);
-          }
-
           const result = await saveTemplateIndexConfigurationAction(
             templateId,
             initialState,
-            formData,
+            serialized.formData,
           );
           setPending(false);
 
@@ -372,14 +258,20 @@ export const TemplateIndexConfigurationSection = forwardRef<
             // `fieldsById` (ya construido sobre `freshFields`, con ids
             // reales) no encontraría esas claves, y la selección se vería
             // "configurada" en el resumen pero vacía en la vista previa.
-            setSelectedIds(current => current === selectedIds ? resolvedSelectedIds : current);
-            setSimpleFieldValues(current => current === simpleFieldValues ? resolvedSimpleFieldValues : current);
+            parties.setSelectedIds((current) =>
+              current === selectedIds ? serialized.resolvedSelectedIds : current,
+            );
+            setSimpleFieldValues((current) =>
+              current === simpleFieldValues
+                ? serialized.resolvedSimpleFieldValues
+                : current,
+            );
             setSnapshot({
-              selectedIds: resolvedSelectedIds,
+              selectedIds: serialized.resolvedSelectedIds,
               separator,
               fixedSuffix,
               allowEmpty,
-              simpleFieldValues: resolvedSimpleFieldValues,
+              simpleFieldValues: serialized.resolvedSimpleFieldValues,
               partiesMode,
             });
           } else {
@@ -446,66 +338,6 @@ export const TemplateIndexConfigurationSection = forwardRef<
     () => new Map(optionBlocks.map((block) => [block.blockId, block])),
     [optionBlocks],
   );
-  const preview = generateIndexParties({
-    fields: selectedIds.map((id, order) => ({
-      templateFieldId: id,
-      order,
-      value: fieldsById.get(id)?.label ?? "",
-    })),
-    separator,
-    fixedSuffix,
-  });
-  const previewIncomplete = configuration != null && !configuration.isComplete;
-  const previewMessage =
-    selectedIds.length === 0
-      ? "Aún no se han configurado Partes."
-      : previewIncomplete
-        ? "La configuración está incompleta. Revisa las variables señaladas."
-        : preview || "Aún no se han configurado Partes.";
-
-  function toggleField(id: string, checked: boolean) {
-    setSelectedIds((current) =>
-      checked
-        ? [...current, id]
-        : current.filter((candidate) => candidate !== id),
-    );
-  }
-
-  function moveField(id: string, direction: -1 | 1) {
-    setSelectedIds((current) => {
-      const index = current.indexOf(id);
-      const target = index + direction;
-      if (index < 0 || target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
-
-  function handlePartiesSearchKeyDown(
-    event: React.KeyboardEvent<HTMLInputElement>,
-  ) {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setPartiesActiveIndex((current) =>
-        Math.min(current + 1, visibleFields.length - 1),
-      );
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setPartiesActiveIndex((current) => Math.max(current - 1, 0));
-    } else if (event.key === "Enter") {
-      const field = visibleFields[partiesActiveIndex];
-      if (!field) return;
-      event.preventDefault();
-      toggleField(field.id, !selectedIds.includes(field.id));
-    } else if (event.key === "Escape") {
-      if (partiesSearch !== "") {
-        event.preventDefault();
-        setPartiesSearch("");
-      }
-    }
-  }
-
   function simpleFieldMeta(key: SimpleIndexMappingKey): string {
     const raw = simpleFieldValues[key];
     if (!raw) return "Sin configurar";
@@ -524,58 +356,15 @@ export const TemplateIndexConfigurationSection = forwardRef<
     return field ? `Variable · ${field.label}` : "Sin configurar";
   }
 
-  const orderedFields = [
-    ...selectedIds.flatMap((id) => {
-      const field = fieldsById.get(id);
-      return field ? [field] : [];
-    }),
-    ...fields.filter((field) => !selectedIds.includes(field.id)),
-  ];
-
-  // La búsqueda solo oculta candidatos sin seleccionar: un campo ya elegido
-  // permanece visible para poder reordenarlo o quitarlo aunque no coincida
-  // con el texto buscado.
-  const normalizedSearch = partiesSearch.trim().toLocaleLowerCase("es-CR");
-  const visibleFields = orderedFields.filter((field) => {
-    if (selectedIds.includes(field.id)) return true;
-    if (normalizedSearch === "") return true;
-    return (
-      field.label.toLocaleLowerCase("es-CR").includes(normalizedSearch) ||
-      field.fieldKey.toLocaleLowerCase("es-CR").includes(normalizedSearch)
-    );
-  });
-  // Filtrar (o vaciar la selección) puede dejar `partiesActiveIndex`
-  // apuntando fuera de rango — se ajusta durante el render, mismo patrón
-  // que el resto de este componente (ver auto-expand de errores arriba).
-  const clampedPartiesActiveIndex = Math.min(
-    partiesActiveIndex,
-    Math.max(visibleFields.length - 1, 0),
-  );
-  if (clampedPartiesActiveIndex !== partiesActiveIndex) {
-    setPartiesActiveIndex(clampedPartiesActiveIndex);
-  }
-
   const simpleConfiguredCount = TEMPLATE_INDEX_SIMPLE_FIELDS.filter(
     ({ key }) => simpleFieldValues[key] !== "",
   ).length;
-  const partiesConfigured = selectedIds.length > 0;
-  // Tri-estado: "Pendiente de definir" y "Requiere partes" sin ninguna
-  // variable mapeada todavía cuentan como pendientes; "Requiere partes"
-  // con al menos una variable, o "No requiere partes", cuentan como
-  // configurados — la única fila con status "optional" es "No requiere
-  // partes" (semánticamente configurada, pero sin datos que mapear).
-  const partiesStatus: "configured" | "pending" | "optional" =
-    partiesMode === "not_required"
-      ? "optional"
-      : partiesConfigured
-        ? "configured"
-        : "pending";
-  const partiesCountsAsConfigured = partiesStatus !== "pending";
+  const partiesCountsAsConfigured = parties.status !== "pending";
   const configuredCount = simpleConfiguredCount + (partiesCountsAsConfigured ? 1 : 0);
   const pendingCount =
     TEMPLATE_INDEX_SIMPLE_FIELDS.length -
     simpleConfiguredCount +
-    (partiesStatus === "pending" ? 1 : 0);
+    (parties.status === "pending" ? 1 : 0);
 
   const hasWarning = !!(configuration && !configuration.isComplete);
   const warningMessage = hasWarning
@@ -691,33 +480,11 @@ export const TemplateIndexConfigurationSection = forwardRef<
             onSaveOptionBlockTimeMapping={onSaveOptionBlockTimeMapping}
           />
           <TemplateIndexPartiesField
-            mode={partiesMode}
-            configured={partiesConfigured}
-            status={partiesStatus}
-            selectedIds={selectedIds}
+            controller={parties}
             open={openRowId === "parties"}
             onToggle={() => toggleRow("parties")}
-            onModeChange={handlePartiesModeChange}
             readOnly={readOnly}
-            search={partiesSearch}
-            onSearchChange={(value) => {
-              setPartiesSearch(value);
-              setPartiesActiveIndex(0);
-            }}
-            onSearchKeyDown={handlePartiesSearchKeyDown}
-            listboxId={partiesListboxId}
-            visibleFields={visibleFields}
-            activeIndex={clampedPartiesActiveIndex}
-            onActiveIndexChange={setPartiesActiveIndex}
-            onToggleField={toggleField}
-            onMoveField={moveField}
-            separator={separator}
-            onSeparatorChange={setSeparator}
-            fixedSuffix={fixedSuffix}
-            onFixedSuffixChange={setFixedSuffix}
             errors={state.errors}
-            previewIncomplete={previewIncomplete}
-            previewMessage={previewMessage}
           />
         </div>
 

@@ -6,20 +6,9 @@ import type {
   IndexConfigurationField,
   IndexConfigurationOptionBlock,
 } from "./types";
+import { TEMPLATE_INDEX_SIMPLE_FIELDS } from "./types";
 import { CollapsibleFieldRow } from "../CollapsibleFieldRow";
 import { OptionBlockTimeMappingEditor } from "../OptionBlockTimeMappingEditor";
-
-export const TEMPLATE_INDEX_SIMPLE_FIELDS: Array<{
-  key: SimpleIndexMappingKey;
-  label: string;
-}> = [
-  { key: "instrument_number", label: "Número de instrumento" },
-  { key: "authorized_date", label: "Fecha de autorización" },
-  { key: "authorized_time", label: "Hora de autorización" },
-  { key: "protocol_book", label: "Tomo" },
-  { key: "initial_folio", label: "Folio inicial" },
-  { key: "final_folio", label: "Folio final" },
-];
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600";
