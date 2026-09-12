@@ -10,12 +10,14 @@ type Props = {
   receivableId: string;
   paymentId: string;
   amountLabel: string;
+  returnTo?: string | null;
 };
 
 export function VoidPaymentButton({
   receivableId,
   paymentId,
   amountLabel,
+  returnTo,
 }: Props) {
   const [open, setOpen] = useState(false);
   const bound = voidPaymentAction.bind(null, receivableId, paymentId);
@@ -51,6 +53,9 @@ export function VoidPaymentButton({
               action={formAction}
               className="w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl"
             >
+              {returnTo && (
+                <input type="hidden" name="returnTo" value={returnTo} />
+              )}
               <div className="px-6 pt-6 pb-4">
                 <h2
                   id="void-payment-title"

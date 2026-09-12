@@ -42,7 +42,7 @@ for (const kind of ["documents", "templates"] as const) {
       await cancel();
       for (const name of ["Perfil", "Configuración", "Despacho", "Cerrar sesión"]) {
         await page.getByRole("button", { name: "Menú de usuario" }).click();
-        await page.getByRole("menuitem", { name, exact: true }).click();
+        await page.getByRole("button", { name, exact: true }).click();
         await cancel();
       }
       await page.getByRole("tab", { name: kind === "documents" ? "Cobro" : "Documento", exact: true }).click();
@@ -63,11 +63,11 @@ for (const kind of ["documents", "templates"] as const) {
       await page.getByRole("button", { name: "Guardar", exact: true }).click();
       await expect(page.locator('p[role="status"]', { hasText: /^Guardado$/ })).toBeVisible();
       await page.getByRole("button", { name: "Menú de usuario" }).click();
-      await page.getByRole("menuitem", { name: "Perfil", exact: true }).click();
+      await page.getByRole("button", { name: "Perfil", exact: true }).click();
       await expect(page).toHaveURL(/settings\?tab=profile/);
       await page.goto(path); await input.fill("Salir con cambios");
       await page.getByRole("button", { name: "Menú de usuario" }).click();
-      await page.getByRole("menuitem", { name: "Cerrar sesión", exact: true }).click();
+      await page.getByRole("button", { name: "Cerrar sesión", exact: true }).click();
       await page.getByRole("button", { name: "Salir sin guardar", exact: true }).click();
       await expect(page).toHaveURL(/\/login$/);
     } finally { await data.cleanup(); }

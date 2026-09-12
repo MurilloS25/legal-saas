@@ -261,7 +261,10 @@ export async function updateReceivableAction(
 
   revalidatePath(`/dashboard/receivables/${id}`);
   revalidatePath("/dashboard/receivables");
-  redirect(`/dashboard/receivables/${id}`);
+  const returnTo = parseDocumentReceivablesReturnTo(
+    formData.get("returnTo") as string | null,
+  );
+  redirect(appendReturnTo(`/dashboard/receivables/${id}`, returnTo));
 }
 
 // ------------------------------------------------------------------ delete

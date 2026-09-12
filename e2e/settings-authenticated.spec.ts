@@ -303,17 +303,22 @@ test.describe("authenticated flows", () => {
     await page.goto("/dashboard");
 
     const trigger = page.getByRole("button", { name: "Menú de usuario" });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await trigger.click();
 
-    const menu = page.getByRole("menu");
-    await expect(menu).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Perfil" })).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Configuración" })).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Despacho" })).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Cerrar sesión" })).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Perfil" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Configuración" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Despacho" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cerrar sesión" })).toBeVisible();
+
+    await trigger.press("Tab");
+    await expect(page.getByRole("button", { name: "Perfil" })).toBeFocused();
 
     await page.keyboard.press("Escape");
-    await expect(menu).not.toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(trigger).toBeFocused();
   });
 
   test("J: user can log out from the user menu and is redirected to /login", async ({
@@ -324,7 +329,7 @@ test.describe("authenticated flows", () => {
     // "Cerrar sesión" now lives inside the user menu dropdown, not a
     // standalone sidebar button — open it first.
     await page.getByRole("button", { name: "Menú de usuario" }).click();
-    await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
+    await page.getByRole("button", { name: "Cerrar sesión" }).click();
 
     await expect(page).toHaveURL(/\/login/);
     await expect(

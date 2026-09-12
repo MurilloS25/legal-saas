@@ -28,6 +28,10 @@ import {
   type ReceivableState,
 } from "@/features/receivables";
 import { useToast } from "@/components/feedback/Toast";
+import {
+  appendReturnTo,
+  buildDocumentReceivablesReturnTo,
+} from "@/lib/navigation/context-return";
 
 type Props = {
   documentId: string;
@@ -199,7 +203,10 @@ function ReceivableSummaryCard({
           />
         )}
         <Link
-          href={`/dashboard/receivables/${receivable.id}`}
+          href={appendReturnTo(
+            `/dashboard/receivables/${receivable.id}`,
+            buildDocumentReceivablesReturnTo(documentId),
+          )}
           className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
         >
           Ver cuenta completa

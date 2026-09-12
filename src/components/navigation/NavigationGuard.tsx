@@ -24,7 +24,9 @@ export function NavigationGuardProvider({ children }: { children: React.ReactNod
   const requestLeave = useCallback((action: LeaveAction) => {
     if (blockers.current.size === 0) { startTransition(action); return; }
     trigger.current = document.activeElement as HTMLElement | null;
-    const popup = trigger.current?.closest('[role="menu"], [role="dialog"]');
+    const popup = trigger.current?.closest(
+      '[data-navigation-popup], [role="dialog"]',
+    );
     const labelId = popup?.getAttribute("aria-labelledby");
     const opener = labelId ? document.getElementById(labelId) :
       popup?.id ? document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(popup.id)}"]`) : null;

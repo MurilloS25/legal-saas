@@ -409,6 +409,14 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await expect(
       summary.getByRole("link", { name: "Ver cuenta completa" }),
     ).toBeVisible();
+    await expect(
+      summary.getByRole("link", { name: "Ver cuenta completa" }),
+    ).toHaveAttribute(
+      "href",
+      new RegExp(
+        `returnTo=${encodeURIComponent(`${documentUrl.pathname}?section=cobro`)}`,
+      ),
+    );
 
     // Con pago registrado, la cuenta queda financieramente inmutable — el
     // documento ya no puede eliminarse mientras la cuenta exista (regla de
