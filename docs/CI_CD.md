@@ -71,15 +71,14 @@ pnpm build
 
 ## Testing In CI
 
-The unit-test script currently uses:
+The unit-test script uses:
 
 ```bash
-vitest run --passWithNoTests
+vitest run
 ```
 
-The repository has substantive Vitest coverage. `--passWithNoTests` remains a
-script compatibility flag and must not be interpreted as permission to omit
-tests for critical logic.
+The repository has substantive Vitest coverage. A run with no discovered tests
+fails so an accidental empty suite cannot pass CI silently.
 
 ## Dependabot
 
