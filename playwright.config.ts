@@ -656,6 +656,17 @@ export default defineConfig({
       testMatch: /table-pagination-authenticated\.spec\.ts/,
       dependencies: ["setup"],
     },
+
+    // Inline review and confirmation lifecycle from the notarial index.
+    {
+      name: "chromium-notarial-inline-review",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-inline-review-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
   ],
   webServer: {
     command: "pnpm dev",
