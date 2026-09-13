@@ -16,7 +16,7 @@ export type ConfiguredPartyField = {
 };
 
 export type PartiesConfigurationView = {
-  isComplete: boolean;
+  mappingsValid: boolean;
   partySeparator: string;
   fixedSuffix: string | null;
   fields: ReadonlyArray<{ templateFieldId: string; order: number }>;
@@ -61,7 +61,7 @@ export function generateConfiguredPartiesPreview(
   availableFields: readonly ConfiguredPartyField[],
   fieldValues: Record<string, unknown>,
 ): string | null {
-  if (!configuration?.isComplete) return null;
+  if (!configuration?.mappingsValid) return null;
   const fieldsById = new Map(availableFields.map((field) => [field.id, field]));
   if (
     configuration.fields.some(

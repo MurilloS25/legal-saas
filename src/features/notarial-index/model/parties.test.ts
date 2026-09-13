@@ -61,7 +61,7 @@ describe("generateConfiguredPartiesPreview", () => {
     expect(
       generateConfiguredPartiesPreview(
         {
-          isComplete: true,
+          mappingsValid: true,
           partySeparator: " Y ",
           fixedSuffix: null,
           fields: [{ templateFieldId: "seller", order: 0 }],
@@ -74,7 +74,7 @@ describe("generateConfiguredPartiesPreview", () => {
 
   it("returns null for incomplete or stale configurations", () => {
     const configuration = {
-      isComplete: true,
+      mappingsValid: true,
       partySeparator: " Y ",
       fixedSuffix: null,
       fields: [{ templateFieldId: "missing", order: 0 }],
@@ -82,7 +82,7 @@ describe("generateConfiguredPartiesPreview", () => {
     expect(generateConfiguredPartiesPreview(configuration, [], {})).toBeNull();
     expect(
       generateConfiguredPartiesPreview(
-        { ...configuration, isComplete: false },
+        { ...configuration, mappingsValid: false },
         [{ id: "missing", fieldKey: "party.name" }],
         { "party.name": "Ana" },
       ),

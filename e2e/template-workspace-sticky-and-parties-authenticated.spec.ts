@@ -167,6 +167,15 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("tab", { name: "Publicar", exact: true }).click();
+    await expect(
+      page
+        .getByRole("heading", { name: "Resumen antes de publicar" })
+        .locator("..")
+        .locator("..")
+        .getByText("Parcial u opcional", { exact: true }),
+    ).toBeVisible();
   });
 
   test("G/H/I: choosing Requiere partes reveals the mapping UI, stays Pendiente while incomplete, and becomes Configurado once mapped", async ({
@@ -265,5 +274,14 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
     await expect(
       section.locator("#idx-parties-trigger"),
     ).toContainText("Confirmado");
+
+    await page.getByRole("tab", { name: "Publicar", exact: true }).click();
+    await expect(
+      page
+        .getByRole("heading", { name: "Resumen antes de publicar" })
+        .locator("..")
+        .locator("..")
+        .getByText("Completo", { exact: true }),
+    ).toBeVisible();
   });
 });

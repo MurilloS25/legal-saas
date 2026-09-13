@@ -41,7 +41,7 @@ const configuration: TemplateIndexConfiguration = {
   partySeparator: " Y ",
   fixedSuffix: null,
   allowEmpty: false,
-  isComplete: true,
+  mappingsValid: true,
   fields: [{ templateFieldId: fieldIds.seller, order: 0 }],
 };
 

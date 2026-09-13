@@ -177,6 +177,9 @@ export const TemplateIndexConfigurationSection = forwardRef<
   // manuales. El RPC (`saveTemplateIndexConfigurationAction`) sigue siendo
   // exactamente el mismo; solo cambia quién lo invoca y cuándo.
   const [state, setState] = useState<TemplateIndexConfigurationState>(initialState);
+  const [mappingsValid, setMappingsValid] = useState(
+    configuration?.mappingsValid ?? false,
+  );
   const [pending, setPending] = useState(false);
 
   // Línea base contra la que se compara para decidir si hay mapeos sin
@@ -212,7 +215,6 @@ export const TemplateIndexConfigurationSection = forwardRef<
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
-
   useImperativeHandle(
     ref,
     () => ({
@@ -223,10 +225,9 @@ export const TemplateIndexConfigurationSection = forwardRef<
         // Dos escrituras independientes que comparten este único punto de
         // entrada — cada una solo corre si de verdad tiene cambios. Sin
         // esto, tocar solo el toggle de inclusión (machote sin ningún
-        // mapeo todavía) forzaría también el RPC de mapeo, que hoy exige
-        // decidir Partes (seleccionar variables o confirmar vacío) para
-        // poder guardar — ver limitación conocida sobre el estado
-        // "Pendiente" de Partes.
+        // mapeo todavía) escribiría también una configuración vacía que el
+        // usuario no cambió. Partes pendiente sí es guardable; simplemente
+        // no cuenta como una decisión resuelta.
         let mappingOk = true;
         let inclusionOk = true;
         let errorMessage: string | undefined;
@@ -253,6 +254,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
           setPending(false);
 
           if (result.success) {
+            setMappingsValid(true);
             // Reemplaza cualquier id sintético `local:<clave>` por el id
             // real recién resuelto — si no, en el siguiente render
             // `fieldsById` (ya construido sobre `freshFields`, con ids
@@ -366,7 +368,7 @@ export const TemplateIndexConfigurationSection = forwardRef<
     simpleConfiguredCount +
     (parties.status === "pending" ? 1 : 0);
 
-  const hasWarning = !!(configuration && !configuration.isComplete);
+  const hasWarning = !mappingsValid && configuration !== null;
   const warningMessage = hasWarning
     ? `La configuración necesita revisión. Se eliminaron campos asociados a: ${
         configuration!.invalidMappings.map((key) => INVALID_LABELS[key]).join(", ") ||

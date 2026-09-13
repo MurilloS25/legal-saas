@@ -30,6 +30,7 @@ import {
 import {
   NotarialMetadataSection,
   generateConfiguredPartiesPreview,
+  isTemplateIndexConfigurationResolved,
   resolveNotarialMetadataPrefill,
 } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
@@ -183,7 +184,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           canManageReceivables={canManageReceivables}
           notarialMetadata={notarialMetadata}
           notarialPrefill={notarialPrefill}
-          canResetParties={indexConfiguration?.isComplete === true}
+          canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
           actNamePreview={template?.name ?? null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
@@ -394,7 +395,7 @@ function NoTemplateFallback({
           prefill={notarialPrefill}
           readOnly
           canEdit={canEdit}
-          canResetParties={indexConfiguration?.isComplete === true}
+          canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
           actNamePreview={null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
