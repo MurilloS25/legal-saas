@@ -59,6 +59,7 @@ import { useTemplatePreview } from "../hooks/use-template-preview";
 import { useTemplateWorkspaceSection } from "../hooks/use-template-workspace-section";
 import {
   TemplateIndexConfigurationSection,
+  isTemplateIndexConfigurationResolved,
   type IndexConfigurationField,
   type TemplateIndexConfiguration,
   type TemplateIndexConfigurationHandle,
@@ -234,7 +235,9 @@ export function TemplateWorkspace(props: Props) {
   // están configuradas". Sin filas que evaluar, el paso no cuenta como
   // completo (evita el falso check al abrir un machote nuevo vacío).
   const variablesComplete = variableRows.length > 0 && variablesPendingCount === 0;
-  const indexComplete = isEdit ? (props.indexConfiguration?.isComplete ?? false) : false;
+  const indexComplete = isEdit
+    ? isTemplateIndexConfigurationResolved(props.indexConfiguration)
+    : false;
   // El Índice depende de template_id — no puede configurarse antes del
   // primer guardado, sin importar qué tan completos estén los demás pasos.
   const indexLocked = !isEdit;

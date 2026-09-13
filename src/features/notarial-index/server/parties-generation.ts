@@ -3,6 +3,7 @@ import "server-only";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { generateConfiguredPartiesPreview } from "../model/parties";
+import { isTemplateIndexConfigurationResolved } from "../model/template-index-configuration";
 import { queryTemplateIndexConfiguration } from "./template-index-config-queries";
 
 type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
@@ -23,7 +24,9 @@ export async function generateConfiguredParties(
     templateId,
   );
   if (!configuration) return { status: "missing", value: null };
-  if (!configuration.isComplete) return { status: "incomplete", value: null };
+  if (!isTemplateIndexConfigurationResolved(configuration)) {
+    return { status: "incomplete", value: null };
+  }
 
   const selectedIds = configuration.fields.map(
     (field) => field.templateFieldId,

@@ -3,6 +3,7 @@
 import { useId, useMemo, useState, type KeyboardEvent } from "react";
 import { generateIndexParties } from "../../model/parties";
 import type { TemplateIndexConfiguration } from "../../model/template-index-configuration";
+import { getTemplateIndexPartiesState } from "../../model/template-index-configuration";
 import type {
   IndexConfigurationField,
   TemplateIndexPartiesMode,
@@ -31,8 +32,9 @@ export function useTemplateIndexParties(
     configuration?.allowEmpty ?? false,
   );
   const [mode, setMode] = useState<TemplateIndexPartiesMode>(() => {
-    if ((configuration?.fields.length ?? 0) > 0) return "required";
-    return configuration?.allowEmpty ? "not_required" : "pending";
+    return configuration
+      ? getTemplateIndexPartiesState(configuration)
+      : "pending";
   });
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -132,7 +134,7 @@ export function useTemplateIndexParties(
     separator,
     fixedSuffix,
   });
-  const previewIncomplete = configuration != null && !configuration.isComplete;
+  const previewIncomplete = configuration != null && !configuration.mappingsValid;
   const previewMessage =
     selectedIds.length === 0
       ? "Aún no se han configurado Partes."

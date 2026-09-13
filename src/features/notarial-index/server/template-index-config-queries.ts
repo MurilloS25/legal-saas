@@ -46,7 +46,9 @@ export async function queryTemplateIndexConfiguration(
     partySeparator: configuration.party_separator,
     fixedSuffix: configuration.fixed_suffix,
     allowEmpty: configuration.allow_empty,
-    isComplete: configuration.is_complete,
+    // The persisted column means mapping integrity, not that all optional
+    // index decisions have been resolved.
+    mappingsValid: configuration.is_complete,
     simpleFields: {
       instrument_number: configuration.instrument_number_field_id,
       authorized_date: configuration.authorized_date_field_id,
