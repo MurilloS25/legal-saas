@@ -239,6 +239,9 @@ test.describe("notarial index metadata", () => {
     await inlineInput.fill("Persona Uno Actualizada");
     await inlineInput.blur();
     await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.locator('p[role="status"]').filter({ hasText: /^Guardado$/ }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // El guardado deja al usuario en "Completar" — Finalizar vive en el
     // encabezado del workspace, alcanzable sin cambiar de paso.

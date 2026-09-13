@@ -636,6 +636,9 @@ test.describe("template notarial index configuration", () => {
       });
     }).toPass({ timeout: 20_000 });
     await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.locator('p[role="status"]').filter({ hasText: /^Guardado$/ }),
+    ).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page

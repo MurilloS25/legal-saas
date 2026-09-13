@@ -59,13 +59,11 @@
  * exclusivo del contenido de Completar, no los subsume.
  */
 
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
-import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
+import type { VariableTransformsMap } from "@/lib/editor/render";
 import { extractActiveDocumentVariables } from "@/lib/editor/variables";
 import type { FillableTemplateField } from "@/features/templates";
-import type { CreatedClient } from "@/features/clients";
 import type { DocumentClientOption } from "../model/role-autofill";
 import { groupVariablesByRole } from "../model/role-autofill";
 import {
@@ -83,12 +81,12 @@ import {
 import { useDocumentDirtyState } from "../hooks/use-document-dirty-state";
 import { useDocumentLayout } from "../hooks/use-document-layout";
 import { useDocumentPreview } from "../hooks/use-document-preview";
+import { useDocumentWorkspaceSection } from "../hooks/use-document-workspace-section";
+import { useDocumentDraftFields } from "../hooks/use-document-draft-fields";
 import { DocumentContextBar } from "./DocumentContextBar";
-import { DocumentMobileViewToggle } from "./DocumentMobileViewToggle";
-import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
 import { DocumentSaveControls } from "./DocumentSaveControls";
 import { DocumentStatusControls } from "./DocumentStatusControls";
-import { PendingFieldsDialog, type PendingField } from "./PendingFieldsDialog";
+import type { PendingField } from "./PendingFieldsDialog";
 import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
 import {
   DocumentWorkspaceHeader,
@@ -96,19 +94,14 @@ import {
 } from "./DocumentWorkspaceHeader";
 import { useToast } from "@/components/feedback/Toast";
 import { stripSearchParams } from "@/lib/navigation/strip-search-params";
-import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
 import type { NotarialMetadata } from "@/features/notarial-index/model/notarial";
 import type { NotarialMetadataPrefill } from "@/features/notarial-index/model/prefill";
 import { NotarialMetadataSection } from "@/features/notarial-index";
 import type { ReceivableEntry } from "@/features/receivables";
-import { FieldError } from "@/components/forms/FieldError";
 import { DocumentReceivableStep } from "./DocumentReceivableStep";
-
-const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+import { DocumentCompletarPanel } from "./DocumentCompletarPanel";
 
 type SharedProps = {
   document: TemplateDocument;
@@ -162,21 +155,6 @@ type Props = SharedProps &
 
 const initialState: DocumentDraftState = {};
 
-function resolveSection(
-  raw: string | null,
-  persisted: boolean,
-  notarialUnlocked: boolean,
-): DocumentWorkspaceSection {
-  if (raw === "notarial") return notarialUnlocked ? "notarial" : "completar";
-  // "revisar" y "finalizar" ya no son pasos propios — su contenido vive
-  // ahora en "completar" (revisión del documento + Finalizar, ambos
-  // alcanzables desde ahí). Un enlace viejo con esos valores aterriza en
-  // "completar" en vez de perderse en un paso inexistente.
-  if (raw === "revisar" || raw === "finalizar") return "completar";
-  if (raw === "cobro" && !persisted) return "completar";
-  return raw === "cobro" ? raw : "completar";
-}
-
 export function DocumentComposer(props: Props) {
   const { document, fields, templateName, clients, canFinalize } = props;
   const isEdit = props.mode === "edit";
@@ -201,72 +179,48 @@ export function DocumentComposer(props: Props) {
     ? updateDocumentDraftAction.bind(null, props.draft.id)
     : createDocumentDraftAction.bind(null, props.templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
-  const { dirty, markDirty, startSave } = useDocumentDirtyState(state);
+  const {
+    dirty,
+    markDirty,
+    expectedVersion,
+    acceptConflictVersion,
+    startSave,
+  } = useDocumentDirtyState(state, draft?.updated_at ?? "", pending);
   const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
-  const [expectedVersion, setExpectedVersion] = useState(draft?.updated_at ?? "");
-  const [lastVersionState, setLastVersionState] = useState(state);
-  if (lastVersionState !== state) {
-    setLastVersionState(state);
-    if (state.success && state.updatedAt) setExpectedVersion(state.updatedAt);
-  }
   const { mobileView, setMobileView } = useDocumentLayout();
 
-  const [section, setSection] = useState<DocumentWorkspaceSection>(
+  const { section, goToSection } = useDocumentWorkspaceSection(
+    isEdit,
+    notarialUnlocked,
     isEdit ? props.initialSection : "completar",
   );
   const [previewExpanded, setPreviewExpanded] = useState(false);
 
-  // `useSearchParams` refleja la URL actual sin importar cómo cambió — back/
-  // forward del navegador, pushState propio (`goToSection`) o un `<Link>`
-  // real de otro componente (ej. "Completar datos del índice" en
-  // `DocumentStatusControls`). Un simple listener de `popstate` no cubre
-  // este último caso: la navegación de un `<Link>` de Next no dispara
-  // `popstate`, así que la sección quedaba desincronizada de la URL. Se
-  // ajusta durante el render (comparando contra el último valor de
-  // searchParams ya procesado) en vez de en un efecto, para no disparar un
-  // render en cascada — mismo patrón que el auto-expand de errores en
-  // `TemplateIndexConfigurationSection`.
-  const searchParams = useSearchParams();
-  const resolvedSection = resolveSection(
-    searchParams.get("section"),
-    isEdit,
-    notarialUnlocked,
-  );
-  const [lastSearchParams, setLastSearchParams] = useState(searchParams);
-  if (searchParams !== lastSearchParams) {
-    setLastSearchParams(searchParams);
-    if (resolvedSection !== section) setSection(resolvedSection);
-  }
-
-  const goToSection = useCallback((next: DocumentWorkspaceSection) => {
-    setSection(next);
-    if (typeof window === "undefined") return;
-    const url =
-      next === "completar"
-        ? window.location.pathname
-        : `${window.location.pathname}?section=${next}`;
-    window.history.pushState(null, "", url);
-  }, []);
-
-  const [title, setTitle] = useState(
-    isEdit ? props.draft.title : props.defaultTitle,
-  );
-  const [submittedTitle, setSubmittedTitle] = useState(title);
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    for (const field of fields) {
-      initial[field.field_key] = draft?.field_values[field.field_key] ?? "";
-    }
-    return initial;
+  const {
+    title,
+    values,
+    clientId,
+    clientOptions,
+    editingTarget,
+    optionSelections,
+    changeTitle,
+    changeClient,
+    changeField,
+    applyRoleAutofill,
+    handleClientCreated,
+    handleClientRegistered,
+    selectVariant,
+    startEditingField,
+    stopEditingField,
+  } = useDocumentDraftFields({
+    fields,
+    clients,
+    initialClientId: props.initialClientId,
+    initialTitle: isEdit ? props.draft.title : props.defaultTitle,
+    draft,
+    markDirty,
   });
-  const [clientId, setClientId] = useState(props.initialClientId ?? "");
-  const [clientOptions, setClientOptions] = useState(clients);
-  const [editingTarget, setEditingTarget] = useState<
-    { nodeId: string; variableKey: string } | undefined
-  >();
-  const [optionSelections, setOptionSelections] = useState<OptionSelectionsMap>(
-    () => draft?.option_selections ?? {},
-  );
+  const [submittedTitle, setSubmittedTitle] = useState(title);
   const { showToast } = useToast();
 
   // "Completar" muestra ✓ solo cuando fue confirmado por un guardado
@@ -286,19 +240,6 @@ export function DocumentComposer(props: Props) {
   // haber creado una cuenta, es correcto que este acuse desaparezca — es
   // progreso de navegación, no estado de negocio.
   const [cobroAcknowledged, setCobroAcknowledged] = useState(false);
-
-  // El cliente creado desde el diálogo contextual del chip "Cliente
-  // principal" queda seleccionado de inmediato. El de un chip de Parte
-  // (ver DocumentContextBar) nunca llega aquí — solo se registra en la
-  // lista compartida, sin tocar `clientId`.
-  function handleClientCreated(client: CreatedClient) {
-    setClientOptions((current) => [...current, client]);
-    setClientId(client.id);
-    markDirty();
-  }
-  function handleClientRegistered(client: CreatedClient) {
-    setClientOptions((current) => [...current, client]);
-  }
 
   const transforms = useMemo<VariableTransformsMap>(() => {
     const map: VariableTransformsMap = {};
@@ -365,11 +306,6 @@ export function DocumentComposer(props: Props) {
 
   const roleGroups = useMemo(() => groupVariablesByRole(fields), [fields]);
 
-  function applyRoleAutofill(fieldValues: Record<string, string>) {
-    setValues((current) => ({ ...current, ...fieldValues }));
-    markDirty();
-  }
-
   const fieldsByKey = useMemo(
     () => new Map(fields.map((field) => [field.field_key, field])),
     [fields],
@@ -396,7 +332,7 @@ export function DocumentComposer(props: Props) {
       .flatMap((run) => (run.kind === "optionBlock" ? run.runs : [run]))
       .find((run) => run.kind === "variable" && run.key === key);
     if (occurrence?.kind === "variable") {
-      setEditingTarget({ nodeId: occurrence.nodeId, variableKey: key });
+      startEditingField(occurrence.nodeId, key);
     }
     setMobileView("document");
     goToSection("completar");
@@ -447,34 +383,6 @@ export function DocumentComposer(props: Props) {
   // pero sin confirmar, o en Revisión requerida tras reabrir, no muestran ✓.
   const completedNotarial = isEdit && !!props.notarialMetadata?.notarial_confirmed_at;
 
-  function changeTitle(value: string) {
-    setTitle(value);
-    markDirty();
-  }
-
-  function changeClient(value: string) {
-    setClientId(value);
-    markDirty();
-  }
-
-  function changeField(key: string, value: string) {
-    setValues((current) => ({ ...current, [key]: value }));
-    markDirty();
-  }
-
-  function startEditingField(nodeId: string, variableKey: string) {
-    setEditingTarget({ nodeId, variableKey });
-  }
-
-  function stopEditingField() {
-    setEditingTarget(undefined);
-  }
-
-  function selectVariant(blockId: string, variantId: string) {
-    setOptionSelections((current) => ({ ...current, [blockId]: variantId }));
-    markDirty();
-  }
-
   const documentSheet = (
     <DocumentSheet
       model={model}
@@ -502,74 +410,6 @@ export function DocumentComposer(props: Props) {
       onClientRegistered={handleClientRegistered}
       onApplyRoleAutofill={applyRoleAutofill}
     />
-  );
-
-  const completarPrimary = (
-    <section aria-label="Datos de la Escritura" className="space-y-5">
-      {!readOnly && contextBar}
-      <div>
-        <label htmlFor="composer-title" className={labelClass}>
-          Título de la escritura
-          <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
-        </label>
-        <input
-          id="composer-title"
-          name="title"
-          type="text"
-          required
-          value={title}
-          disabled={readOnly}
-          onChange={(event) => changeTitle(event.target.value)}
-          className={inputClass}
-          aria-invalid={!!visibleTitleError}
-          aria-describedby={visibleTitleError ? "composer-title-error" : undefined}
-        />
-        <FieldError id="composer-title-error" message={visibleTitleError} />
-      </div>
-
-      {totalCount > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-1.5">Progreso</h3>
-          <p role="status" className="text-xs font-medium text-slate-600">
-            {completedCount} de {totalCount} campos completos
-          </p>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-            <div
-              className="h-full rounded-full bg-accent-600 transition-all"
-              style={{ width: `${Math.round((completedCount / totalCount) * 100)}%` }}
-            />
-          </div>
-          <div className="mt-2">
-            <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
-          </div>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={goToNextPending}
-              disabled={pendingFields.length === 0}
-              className="mt-2 w-full rounded-lg border border-accent-300 bg-accent-50 px-3.5 py-2.5 text-sm font-medium text-accent-800 transition-colors hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente pendiente →
-            </button>
-          )}
-        </div>
-      )}
-
-      {totalCount === 0 && (
-        <p className="text-sm text-slate-500">
-          Este machote no tiene variables: el documento es texto fijo y solo
-          necesita un título.
-        </p>
-      )}
-
-      {readOnly && (
-        <p role="status" className="text-xs text-slate-500">
-          {isEdit && canEdit
-            ? "Esta escritura está finalizada (solo lectura). Reábrela para editarla de nuevo."
-            : "Tu rol no permite editar escrituras. La ves en modo lectura."}
-        </p>
-      )}
-    </section>
   );
 
   return (
@@ -637,7 +477,7 @@ export function DocumentComposer(props: Props) {
                 </a>
                 <button type="submit" disabled={pending} className="underline disabled:opacity-50" onClick={() => {
                   if (expectedUpdatedAtRef.current && state.conflictUpdatedAt) {
-                    setExpectedVersion(state.conflictUpdatedAt);
+                    acceptConflictVersion(state.conflictUpdatedAt);
                     expectedUpdatedAtRef.current.value = state.conflictUpdatedAt;
                   }
                 }}>
@@ -657,36 +497,33 @@ export function DocumentComposer(props: Props) {
           </div>
         )}
 
-        <div
-          id="document-panel-completar"
-          role="tabpanel"
-          aria-labelledby="document-step-completar"
+        <DocumentCompletarPanel
           hidden={section !== "completar"}
-        >
-          <DocumentMobileViewToggle value={mobileView} onChange={setMobileView} />
-          <ResizableSplitPane
-            secondaryTitle="Datos de la Escritura"
-            onExpand={() => setPreviewExpanded(true)}
-            primaryClassName={mobileView === "data" ? "hidden xl:block" : ""}
-            secondaryClassName={mobileView === "document" ? "hidden xl:block" : ""}
-            defaultSecondaryPercent={35}
-            primary={
-              <DocumentPreviewPanel
-                dirty={dirty}
-                mobileView="document"
-                model={model}
-                templateName={templateName}
-                values={readOnly ? undefined : values}
-                editingNodeId={readOnly ? undefined : editingTarget?.nodeId}
-                onStartEdit={readOnly ? undefined : startEditingField}
-                onChangeValue={readOnly ? undefined : changeField}
-                onStopEdit={readOnly ? undefined : stopEditingField}
-                onSelectVariant={readOnly ? undefined : selectVariant}
-              />
-            }
-            secondary={completarPrimary}
-          />
-        </div>
+          readOnly={readOnly}
+          canEdit={canEdit}
+          isEdit={isEdit}
+          contextBar={contextBar}
+          title={title}
+          titleError={visibleTitleError}
+          onTitleChange={changeTitle}
+          completedCount={completedCount}
+          totalCount={totalCount}
+          pendingFields={pendingFields}
+          onGoToField={goToField}
+          onGoToNextPending={goToNextPending}
+          dirty={dirty}
+          mobileView={mobileView}
+          onMobileViewChange={setMobileView}
+          onExpand={() => setPreviewExpanded(true)}
+          model={model}
+          templateName={templateName}
+          values={readOnly ? undefined : values}
+          editingNodeId={readOnly ? undefined : editingTarget?.nodeId}
+          onStartEdit={readOnly ? undefined : startEditingField}
+          onChangeValue={readOnly ? undefined : changeField}
+          onStopEdit={readOnly ? undefined : stopEditingField}
+          onSelectVariant={readOnly ? undefined : selectVariant}
+        />
       </form>
 
       <ExpandableDocumentPanel
