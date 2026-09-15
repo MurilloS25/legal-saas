@@ -98,13 +98,14 @@ aplicar nada. Resumen:
 - **Realtime:** no habilitado para ninguna tabla (confirmado, cero
   referencias a publicaciones en las migraciones).
 - **Storage:** no usado (cero buckets, cero políticas de `storage.objects`).
-- Dos observaciones menores, no bloqueantes, documentadas pero no
-  corregidas en esta tarea (no había hallazgo real que forzara una
-  migración correctiva):
-  1. `document_metadata`/`notarial_records`/la primera versión de
-     `receivables` (todas de la migración inicial) son andamiaje sin uso
-     real por el código de la aplicación — correctamente protegidas por
-     RLS, solo superficie sin usar.
+- Dos observaciones menores documentadas en ese despliegue:
+  1. `document_metadata`/`notarial_records` y la primera versión de
+     `receivables` nacieron como andamiaje sin uso real. `receivables` fue
+     reemplazada por su modelo operativo y la migración posterior
+     `20260915040113_remove_legacy_notarial_tables.sql` elimina las otras dos
+     con un guard que exige que estén vacías. Hasta que esa migración se
+     promueva coordinadamente, el esquema Cloud anterior todavía puede
+     conservar las tablas legacy.
   2. Un puñado de funciones trigger (`record_document_activity`,
      `record_receivable_activity`, `sync_receivable_client_name_snapshot`,
      `enforce_receivable_payment_consistency`) confían en el RLS de la
