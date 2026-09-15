@@ -9,11 +9,7 @@ export type {
   ConfiguredTemplateField,
   FillableTemplateField,
 } from "./model/fillable-fields";
-export {
-  extractTemplateVariables,
-  findMissingTemplateFields,
-  findUnusedTemplateFields,
-} from "./model/variables";
+export { extractTemplateVariables } from "./model/variables";
 export {
   findUnresolvedVariables,
   renderTemplateContent,
