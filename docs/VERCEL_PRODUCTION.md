@@ -43,8 +43,8 @@ conserva abajo como historial; el HEAD actual conocido de `main` en Git es
 ## Auditoría de variables de entorno (Fase 3)
 
 Se auditó cada referencia a `process.env` en `src/` antes de configurar
-nada en Vercel. Resultado — exactamente 3 archivos, 2 nombres de
-variable, ambas ya usadas de forma consistente en todo el código:
+nada en Vercel. En ese momento el resultado fue exactamente 3 archivos y
+2 nombres de variable:
 
 ```text
 src/lib/supabase/client.ts
@@ -52,7 +52,8 @@ src/lib/supabase/server.ts
 src/proxy.ts
 ```
 
-Las tres consumen:
+`client.ts` se retiró posteriormente al confirmarse que no tenía consumidores.
+En el momento de la auditoría, los tres archivos consumían:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL               (requerida)
@@ -60,10 +61,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   (preferida, el código la intenta primero
 NEXT_PUBLIC_SUPABASE_ANON_KEY          (fallback legacy, solo si la anterior no está)
 ```
 
-**`SUPABASE_SERVICE_ROLE_KEY`:** no se encontró ni una sola referencia
-en `src/` (solo aparece en `.env.example`/`docs/`/`RULES.md` como
-documentación de qué NO usar en cliente). No se configuró en Vercel —
-el código no la necesita.
+**`SUPABASE_SERVICE_ROLE_KEY`:** en esa auditoría no se encontró ninguna
+referencia en `src/` y no se configuró en Vercel.
 
 Solo se configuró `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (no también
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`): el código ya prioriza la publishable
