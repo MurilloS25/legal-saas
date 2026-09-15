@@ -21,9 +21,8 @@ The database target is Supabase Postgres with Supabase Auth and Row Level Securi
 - Persistent draft text is sensitive user-owned data and must be protected by RLS, validation, and no-content logging rules.
 - The first migration focuses on independent lawyers and physical-person clients.
 - Company clients, legal representatives, audit events, and independent notes are deferred.
-- The database stores only data required for lawyer profile settings, clients, templates, persistent draft escrituras, optional document metadata, notarial index preparation, and basic receivables.
-- `document_metadata` is not created automatically every time a Word document is generated.
-- `document_metadata` is created only when the user chooses to save information for notarial index preparation and/or accounts receivable.
+- The database stores only data required for lawyer profile settings, clients, templates, persistent draft escrituras, notarial index preparation, and basic receivables.
+- The initial schema's unused `document_metadata` and `notarial_records` scaffolding was removed by `20260915040113_remove_legacy_notarial_tables.sql`; the operational models are `documents` and `document_notarial_metadata`.
 - Accounts receivable is intentionally basic. It includes payment records and
   payment voiding/activity, but not formal accounting, tax calculation or
   electronic invoicing.
@@ -57,7 +56,7 @@ The database must avoid storing:
 
 ## First Migration Scope
 
-Candidate tables for the first migration:
+Historical tables created by the first migration:
 
 - `lawyer_profiles`
 - `document_settings`
@@ -65,8 +64,10 @@ Candidate tables for the first migration:
 - `templates`
 - `template_fields`
 - `document_metadata`
-- `document_notarial_metadata`
+- `notarial_records`
 - `receivables`
+
+`document_metadata` and `notarial_records` were never consumed by application code and were later removed. `documents` and `document_notarial_metadata` are the current operational tables.
 
 Explicitly excluded from the first migration:
 
@@ -222,7 +223,6 @@ updated_at
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
-- May be referenced by `document_metadata`.
 - Referenced by `receivables`.
 
 Sensitive data:
@@ -279,7 +279,6 @@ Relationships:
 - `owner_id` references `auth.users(id)`.
 - Has many `template_fields`.
 - Has at most one `template_index_configurations` row per owner and template.
-- May be referenced by `document_metadata`.
 
 Sensitive data:
 
@@ -524,76 +523,27 @@ Pending questions:
 - Whether future non-draft statuses are needed.
 - Whether future draft archival or soft delete is needed.
 
-### `document_metadata`
+### Legacy `document_metadata` and `notarial_records` (removed)
 
-Purpose:
+Historical purpose:
 
-Stores minimal metadata about a document workflow only when the user chooses to save information for index preparation and/or receivables.
+The initial migration created `document_metadata` as optional document-workflow metadata and `notarial_records` as its notarial-index child. Neither table was ever consumed by application code or populated by the supported product workflow.
 
-Decision:
+Final decision:
 
-- Do not create `document_metadata` automatically every time a Word document is generated.
-- Create metadata only when the user decides to save information for index and/or billing.
-
-Candidate fields:
-
-```txt
-id
-owner_id
-template_id
-client_id nullable
-title
-document_type
-created_for_index
-created_for_receivable
-generated_at
-created_at
-updated_at
-```
-
-Initial allowed `document_type` values:
-
-```txt
-escritura
-nota
-otro
-```
-
-Relationships:
-
-- `owner_id` references `auth.users(id)`.
-- `template_id` references `templates(id)`.
-- `client_id` optionally references `clients(id)`.
-- May have one `document_notarial_metadata` row.
-- May be referenced by `receivables`.
-
-Sensitive data:
-
-- Contains legal workflow metadata and should be treated as sensitive.
-- Does not store generated Word files.
-- Does not store PDFs.
-- Does not store full escritura text.
-- Does not store a storage path for a generated document.
-
-Ownership rule:
-
-- The owner is the lawyer who manages the document metadata.
-
-RLS need:
-
-- Required. Users can only access their own document metadata.
-
-Pending questions:
-
-- Decide whether additional document types are needed after initial template workflows are tested.
+- `documents` owns the persisted Escritura, including its template/client links, title, editable values and stable template snapshot.
+- `document_notarial_metadata` owns the structured 1:1 notarial metadata used by the Índice.
+- `receivables.document_id` links a Cobro directly to its Escritura.
+- `20260915040113_remove_legacy_notarial_tables.sql` removes both legacy tables only after an explicit empty-table guard succeeds.
+- The historical definitions remain in the initial migration; they are not part of the current schema.
 
 ### `document_notarial_metadata`
 
 Purpose:
 
 Stores structured metadata required to help prepare a notarial index. This
-implemented 1:1 table fulfills the responsibility originally proposed as
-`notarial_records`; a second table is intentionally not created.
+implemented 1:1 table replaced the unused `notarial_records` scaffolding from
+the initial migration.
 
 The application prepares metadata only and does not submit official notarial indexes.
 
@@ -710,7 +660,7 @@ Candidate fields:
 id
 owner_id
 client_id
-document_metadata_id nullable
+document_id nullable
 description
 amount
 currency
@@ -737,7 +687,7 @@ Relationships:
 
 - `owner_id` references `auth.users(id)`.
 - `client_id` references `clients(id)`.
-- `document_metadata_id` optionally references `document_metadata(id)`.
+- `document_id` optionally references `documents(id)`.
 
 Sensitive data:
 
@@ -760,7 +710,6 @@ Decisions:
 Pending questions:
 
 - Confirm supported currencies for MVP.
-- Decide if `document_metadata_id` becomes required after workflows are tested.
 
 ## Deferred: Notes
 
@@ -822,14 +771,11 @@ auth.users
   ├─ lawyer_profiles
   ├─ document_settings
   ├─ clients
-  │   ├─ document_metadata
   │   └─ receivables
   ├─ templates
   │   ├─ template_fields
-  │   ├─ documents
-  │   └─ document_metadata
+  │   └─ documents
   ├─ documents
-  ├─ document_metadata
   │   ├─ document_notarial_metadata
   │   └─ receivables
   └─ receivables
@@ -876,7 +822,6 @@ RLS is required for every user-owned table:
 - `template_index_configurations`
 - `template_index_configuration_fields`
 - `documents`
-- `document_metadata`
 - `document_notarial_metadata`
 - `receivables`
 
@@ -915,9 +860,9 @@ status), and a `workspace_id` column on every table above (plus
 becomes `is_workspace_member(workspace_id, [roles])` instead of a raw
 `owner_id = auth.uid()` comparison, so a workspace membership can be
 suspended independently of Supabase Auth. `document_metadata` and
-`notarial_records` did **not** get `workspace_id` — they are unused
-scaffolding from the first migration, never referenced by application
-code.
+`notarial_records` did **not** get `workspace_id` because they were unused
+scaffolding from the first migration; they were later removed by
+`20260915040113_remove_legacy_notarial_tables.sql`.
 
 At that historical checkpoint the application implemented one functional role
 (`propietario`), no invitations, and `workspace_id` was a
@@ -981,13 +926,9 @@ Potential indexes:
 owner_id
 template_id
 client_id
-document_metadata_id
 status
 created_at
 generated_at
-period_month
-period_year
-period_half
 ```
 
 Indexes should be added based on real query needs.

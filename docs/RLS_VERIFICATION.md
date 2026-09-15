@@ -20,9 +20,12 @@ The current verification covers the initial MVP tables:
 - `clients`
 - `templates`
 - `template_fields`
-- `document_metadata`
-- `notarial_records`
 - `receivables`
+
+The initial migration also created `document_metadata` and `notarial_records`.
+They were unused scaffolding and were removed from the current schema by
+`20260915040113_remove_legacy_notarial_tables.sql`, so this current-state suite
+no longer creates fixtures or asserts policies for them.
 
 It verifies that:
 

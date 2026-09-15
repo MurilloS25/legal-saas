@@ -126,63 +126,6 @@ export type Database = {
           },
         ]
       }
-      document_metadata: {
-        Row: {
-          client_id: string | null
-          created_at: string
-          created_for_index: boolean
-          created_for_receivable: boolean
-          document_type: string
-          generated_at: string | null
-          id: string
-          owner_id: string
-          template_id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          client_id?: string | null
-          created_at?: string
-          created_for_index?: boolean
-          created_for_receivable?: boolean
-          document_type: string
-          generated_at?: string | null
-          id?: string
-          owner_id: string
-          template_id: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          client_id?: string | null
-          created_at?: string
-          created_for_index?: boolean
-          created_for_receivable?: boolean
-          document_type?: string
-          generated_at?: string | null
-          id?: string
-          owner_id?: string
-          template_id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "document_metadata_client_owner_fk"
-            columns: ["client_id", "owner_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id", "owner_id"]
-          },
-          {
-            foreignKeyName: "document_metadata_template_owner_fk"
-            columns: ["template_id", "owner_id"]
-            isOneToOne: false
-            referencedRelation: "templates"
-            referencedColumns: ["id", "owner_id"]
-          },
-        ]
-      }
       document_notarial_metadata: {
         Row: {
           act_name_override: string | null
@@ -506,71 +449,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      notarial_records: {
-        Row: {
-          act_or_contract: string
-          created_at: string
-          deed_date: string
-          deed_number: string
-          deed_time: string
-          document_metadata_id: string
-          final_folio: string
-          id: string
-          initial_folio: string
-          owner_id: string
-          parties: string
-          period_half: string
-          period_month: number
-          period_year: number
-          updated_at: string
-          volume: string
-        }
-        Insert: {
-          act_or_contract: string
-          created_at?: string
-          deed_date: string
-          deed_number: string
-          deed_time: string
-          document_metadata_id: string
-          final_folio: string
-          id?: string
-          initial_folio: string
-          owner_id: string
-          parties: string
-          period_half: string
-          period_month: number
-          period_year: number
-          updated_at?: string
-          volume: string
-        }
-        Update: {
-          act_or_contract?: string
-          created_at?: string
-          deed_date?: string
-          deed_number?: string
-          deed_time?: string
-          document_metadata_id?: string
-          final_folio?: string
-          id?: string
-          initial_folio?: string
-          owner_id?: string
-          parties?: string
-          period_half?: string
-          period_month?: number
-          period_year?: number
-          updated_at?: string
-          volume?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notarial_records_document_metadata_owner_fk"
-            columns: ["document_metadata_id", "owner_id"]
-            isOneToOne: false
-            referencedRelation: "document_metadata"
-            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
