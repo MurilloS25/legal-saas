@@ -59,11 +59,10 @@ Feature modules contain reusable UI, models, queries and Server Actions and
 expose intentional public entry points. Route-private components remain
 colocated when they are specific to one route, such as the settings workspace.
 
-The existing `src/domain`, `src/application`, and `src/infrastructure`
-directories contain placeholders and do not represent the implemented
-architecture. `src/features` is retained and redefined as the destination for
-feature modules. The unused placeholders will be removed in a later structural
-PR, not in this documentation change.
+The former `src/domain`, `src/application`, and `src/infrastructure`
+placeholder trees were removed because they did not represent the implemented
+architecture. `src/features` remains the destination for feature modules; new
+directories are created only when concrete code requires them.
 
 ## Target Source Layout
 
@@ -377,19 +376,12 @@ If TanStack Table is introduced, it may own controlled visual table state. If
 TanStack Query is introduced, query keys must mirror already normalized,
 applied filters; query keys are not an independent filter store.
 
-## Empty Placeholder Directories
+## Removed Placeholder Directories
 
-The destination of the current placeholders is:
-
-- `src/features`: retain and populate incrementally.
-- `src/domain`: deprecate as a mandatory global layer.
-- `src/application`: deprecate as a mandatory global layer.
-- `src/infrastructure`: deprecate as a mandatory global layer; retain a
-  concrete subdirectory only if a real external adapter needs it.
-- `src/infrastructure/repositories`: do not use for generic repositories.
-
-No placeholder is removed in this documentation PR. Remove unused `.gitkeep`
-files in the first structural refactor after the target architecture is merged.
+The unused `src/domain`, `src/application`, and `src/infrastructure` trees were
+removed after the feature-based architecture was adopted. Do not recreate
+empty architectural layers or generic repository placeholders. Add a concrete
+directory only when implemented code has a real responsibility there.
 
 ## Pull Request Rules For Refactors
 

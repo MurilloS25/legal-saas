@@ -146,16 +146,6 @@ async function transitionDocument(
   return { success: true };
 }
 
-export async function markDocumentReadyAction(
-  documentId: string,
-  _prev: DocumentStatusState,
-  _formData: FormData,
-): Promise<DocumentStatusState> {
-  void _prev;
-  void _formData;
-  return transitionDocument(documentId, "mark_ready");
-}
-
 export async function returnDocumentToDraftAction(
   documentId: string,
   _prev: DocumentStatusState,
