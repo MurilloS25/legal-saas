@@ -10,6 +10,11 @@ import {
   updateTestTemplateContent,
   uniqueName,
 } from "./support/factories";
+import {
+  createDisposableUser,
+  deleteUser,
+  restUpdate,
+} from "./support/supabase-admin";
 
 // Serial: comparten machote y borradores del mismo usuario.
 test.describe.configure({ mode: "serial" });
@@ -25,6 +30,9 @@ const fieldLabel = "Nombre del comprador";
 
 let completeDocId = "";
 let pendingDocId = "";
+let readerUserId = "";
+const readerEmail = `${uniqueName("docx", "reader")}@example.test`;
+const readerPassword = "Segura!DePrueba9";
 
 /** Verifica que el buffer es un .docx OOXML válido (ZIP con sus partes). */
 async function assertValidDocx(buffer: Buffer): Promise<void> {
@@ -73,8 +81,21 @@ async function goToCompletar(page: Page) {
 }
 
 test.describe("document docx download", () => {
+  test.beforeAll(async () => {
+    readerUserId = await createDisposableUser(readerEmail, readerPassword);
+    await restUpdate(
+      "workspace_members",
+      `workspace_id=eq.${readerUserId}&user_id=eq.${readerUserId}`,
+      { status: "revoked" },
+    );
+  });
+
   test.afterAll(async () => {
-    await runCleanup(registry, "docx");
+    try {
+      await runCleanup(registry, "docx");
+    } finally {
+      if (readerUserId) await deleteUser(readerUserId);
+    }
   });
 
   test("A: seed a template and two persisted drafts", async () => {
@@ -290,6 +311,27 @@ test.describe("document docx download", () => {
   test("I: an invalid id returns 404", async ({ page }) => {
     const response = await page.request.get("/api/documents/not-a-uuid/docx");
     expect(response.status()).toBe(404);
+  });
+
+  test("I2: an authenticated user without an active Workspace receives 403", async ({
+    browser,
+    baseURL,
+  }) => {
+    const reader = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const readerPage = await reader.newPage();
+    await readerPage.goto(`${baseURL}/login`);
+    await readerPage.getByLabel("Correo electrónico").fill(readerEmail);
+    await readerPage.getByLabel("Contraseña").fill(readerPassword);
+    await readerPage.getByRole("button", { name: "Ingresar" }).click();
+    await readerPage.waitForURL(/\/workspace-unavailable/, { timeout: 15_000 });
+
+    const response = await reader.request.get(
+      `${baseURL}/api/documents/${completeDocId}/docx`,
+    );
+    expect(response.status()).toBe(403);
+    await reader.close();
   });
 
   test("J: anonymous requests are rejected", async ({ browser, baseURL }) => {
