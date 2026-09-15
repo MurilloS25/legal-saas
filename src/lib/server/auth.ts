@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -32,9 +33,20 @@ export async function requireUser() {
 
 /** Auth context for Route Handlers. APIs must map this error to HTTP. */
 export async function requireApiUser() {
-  const context = await getServerAuth();
-  if (!context.user) throw new UnauthorizedError();
-  return { supabase: context.supabase, user: context.user };
+  // Route Handlers need to distinguish the normal absence of a session
+  // from an operational Auth failure. Supabase reports the first case as
+  // AuthSessionMissingError; the Server Component helper above deliberately
+  // keeps its redirect-oriented behavior separate.
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (isAuthSessionMissingError(error)) throw new UnauthorizedError();
+  if (error) throwDataAccessError("authenticate API user", error);
+  if (!user) throw new UnauthorizedError();
+  return { supabase, user };
 }
 
 /**

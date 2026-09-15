@@ -1,6 +1,59 @@
-import { describe, expect, it, vi } from "vitest";
-import { DataAccessError } from "./errors";
-import { getWorkspaceAccess } from "./auth";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthSessionMissingError } from "@supabase/supabase-js";
+
+const { createClientMock } = vi.hoisted(() => ({
+  createClientMock: vi.fn(),
+}));
+
+vi.mock("server-only", () => ({}));
+vi.mock("react", () => ({ cache: (callback: unknown) => callback }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: createClientMock,
+}));
+
+import { getWorkspaceAccess, requireApiUser } from "./auth";
+import {
+  DataAccessError,
+  UnauthorizedError,
+} from "./errors";
+
+describe("requireApiUser", () => {
+  beforeEach(() => {
+    createClientMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps Supabase's missing-session result to UnauthorizedError", async () => {
+    createClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: new AuthSessionMissingError(),
+        }),
+      },
+    });
+
+    await expect(requireApiUser()).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it("keeps real authentication provider failures operational", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    createClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { code: "auth_provider_unavailable" },
+        }),
+      },
+    });
+
+    await expect(requireApiUser()).rejects.toBeInstanceOf(DataAccessError);
+  });
+});
 
 function workspaceClient(result: {
   data: Array<{ workspace_id: string; role: string; status: string }> | null;
