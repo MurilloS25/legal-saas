@@ -1,6 +1,12 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { LandingPage } from "./_components/LandingPage";
 
-// Root redirects to the dashboard; the proxy handles unauthenticated visitors.
+export const metadata: Metadata = {
+  title: "LexCR — Gestión legal y notarial",
+  description:
+    "Organiza clientes, machotes, escrituras, índice notarial y cuentas por cobrar desde un mismo espacio de trabajo.",
+};
+
 export default function Home() {
-  redirect("/dashboard");
+  return <LandingPage />;
 }

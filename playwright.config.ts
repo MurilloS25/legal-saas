@@ -106,6 +106,26 @@ export default defineConfig({
       testMatch: /auth-smoke\.spec\.ts/,
     },
 
+    // Public landing without storageState: proves `/` stays public while the
+    // dashboard remains protected by the existing proxy.
+    {
+      name: "chromium-landing-public",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /landing-public\.spec\.ts/,
+    },
+
+    // The same landing remains available with a session and provides a direct
+    // path into the authenticated panel.
+    {
+      name: "chromium-landing-authenticated",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /landing-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Auth hardening (login, logout, session persistence, revoked user,
     // password recovery). Self-contained in terms of DATA — each test
     // creates and deletes its own disposable user via the Admin API, so it
