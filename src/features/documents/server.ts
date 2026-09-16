@@ -6,7 +6,6 @@ export {
   listDocumentsByClient,
 } from "./server/detail-queries";
 export type {
-  ClientDocumentRow,
   DocumentListRow,
   DocumentRow,
 } from "./server/detail-queries";
