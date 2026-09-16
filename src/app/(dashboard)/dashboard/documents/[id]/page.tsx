@@ -37,6 +37,7 @@ import {
 import { ReceivableMiniList } from "@/features/receivables";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { isResourceId } from "@/lib/validation/resource-id";
 
 export const metadata = {
   title: "Escritura — LexCR",
@@ -55,6 +56,8 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   const { id } = await params;
   const { saved, section: requestedSection, lifecycle } = await searchParams;
   const { role } = await requireWorkspace();
+  if (!isResourceId(id)) notFound();
+
   const canEdit = hasPermission(role, "documents.edit");
   const canFinalize = hasPermission(role, "documents.finalize");
   const canDuplicate = hasPermission(role, "documents.create");

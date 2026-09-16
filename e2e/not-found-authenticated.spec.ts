@@ -6,6 +6,19 @@ const missingRoutes = [
   "/dashboard/algo-que-no-existe",
 ];
 
+const invalidResourceRoutes = [
+  "/dashboard/clients/neww",
+  "/dashboard/documents/not-a-uuid",
+  "/dashboard/documents/new/not-a-uuid",
+  "/dashboard/templates/not-a-uuid",
+  "/dashboard/templates/not-a-uuid/fill",
+  "/dashboard/receivables/not-a-uuid",
+];
+
+const missingResourceRoutes = [
+  "/dashboard/clients/00000000-0000-0000-0000-000000000000",
+];
+
 test.describe("custom global 404", () => {
   for (const route of missingRoutes) {
     test(`shows the LexCR not-found page for ${route}`, async ({ page }) => {
@@ -18,6 +31,32 @@ test.describe("custom global 404", () => {
       await expect(page.getByText("404", { exact: true })).toBeVisible();
       await expect(
         page.getByRole("link", { name: "Volver al panel" }),
+      ).toBeVisible();
+    });
+  }
+
+  for (const route of invalidResourceRoutes) {
+    test(`rejects an invalid resource id before database access for ${route}`, async ({
+      page,
+    }) => {
+      const response = await page.goto(route);
+
+      expect(response?.status()).toBe(404);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Página no encontrada" }),
+      ).toBeVisible();
+    });
+  }
+
+  for (const route of missingResourceRoutes) {
+    test(`shows not found for a valid but missing resource at ${route}`, async ({
+      page,
+    }) => {
+      const response = await page.goto(route);
+
+      expect(response?.status()).toBe(404);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Página no encontrada" }),
       ).toBeVisible();
     });
   }

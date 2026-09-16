@@ -11,6 +11,7 @@ import { ClientReceivablesSection } from "@/features/receivables";
 import { listReceivablesByClient } from "@/features/receivables/server";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { isResourceId } from "@/lib/validation/resource-id";
 
 export const metadata = {
   title: "Cliente — LexCR",
@@ -23,6 +24,8 @@ type Props = {
 export default async function ClientDetailPage({ params }: Props) {
   const { role } = await requireWorkspace();
   const { id } = await params;
+  if (!isResourceId(id)) notFound();
+
   const client = await getClientById(id);
   if (!client) notFound();
 

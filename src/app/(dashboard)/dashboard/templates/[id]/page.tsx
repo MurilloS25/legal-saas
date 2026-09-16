@@ -13,6 +13,7 @@ import {
 } from "@/features/templates/domain";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { isResourceId } from "@/lib/validation/resource-id";
 
 export const metadata = {
   title: "Machote — LexCR",
@@ -41,6 +42,8 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
   const { id } = await params;
   const { created, section } = await searchParams;
   const { role } = await requireWorkspace();
+  if (!isResourceId(id)) notFound();
+
   const canWrite = hasPermission(role, "templates.write");
   const canCreateDocuments = hasPermission(role, "documents.create");
   const template = await getTemplateById(id);
