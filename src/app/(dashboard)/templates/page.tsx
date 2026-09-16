@@ -32,13 +32,13 @@ export default async function TemplatesPage({ searchParams }: Props) {
   const pageHref = (targetPage: number) => {
     const params = templatesQueryToParams({ page: targetPage, pageSize: query.pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/templates?${qs}` : "/dashboard/templates";
+    return qs ? `/templates?${qs}` : "/templates";
   };
 
   const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
     const params = templatesQueryToParams({ page: 1, pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/templates?${qs}` : "/dashboard/templates";
+    return qs ? `/templates?${qs}` : "/templates";
   });
 
   if (page.total > 0 && query.page > page.pageCount) {
@@ -60,7 +60,7 @@ export default async function TemplatesPage({ searchParams }: Props) {
         </div>
         {canWrite && (
           <Link
-            href="/dashboard/templates/new"
+            href="/templates/new"
             className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
           >
             <svg
@@ -114,7 +114,7 @@ export default async function TemplatesPage({ searchParams }: Props) {
           </p>
           {canWrite && (
             <Link
-              href="/dashboard/templates/new"
+              href="/templates/new"
               className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
             >
               Crear machote

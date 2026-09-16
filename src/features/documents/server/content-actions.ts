@@ -151,12 +151,12 @@ export async function createDocumentDraftAction(
     return { message: "No fue posible guardar el borrador. Intenta de nuevo." };
   }
 
-  revalidatePath("/dashboard/documents");
+  revalidatePath("/documents");
   // "Completar" es el único paso editable antes de que la Escritura exista
   // y también donde vive el resto del workspace (revisión del documento,
   // Finalizar) desde que "Revisar y finalizar" se retiró como paso propio
   // — así que la transición create → edit permanece ahí, sin `section`.
-  redirect(`/dashboard/documents/${data.id}?saved=1`);
+  redirect(`/documents/${data.id}?saved=1`);
 }
 
 // ------------------------------------------------------------------ update draft
@@ -258,8 +258,8 @@ export async function updateDocumentDraftAction(
     };
   }
 
-  revalidatePath("/dashboard/documents");
-  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath("/documents");
+  revalidatePath(`/documents/${documentId}`);
   return { success: true, updatedAt: updated.updated_at };
 }
 
@@ -308,6 +308,6 @@ export async function deleteDocumentDraftAction(
     return { message: "No se pudo eliminar el borrador. Intenta de nuevo." };
   }
 
-  revalidatePath("/dashboard/documents");
+  revalidatePath("/documents");
   return { success: true };
 }

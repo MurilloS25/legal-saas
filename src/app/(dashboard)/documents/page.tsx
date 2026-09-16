@@ -59,19 +59,19 @@ export default async function DocumentsPage({ searchParams }: Props) {
   const pageHref = (targetPage: number) => {
     const params = documentsQueryToParams({ ...query, page: targetPage });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/documents?${qs}` : "/dashboard/documents";
+    return qs ? `/documents?${qs}` : "/documents";
   };
 
   const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
     const params = documentsQueryToParams({ ...query, page: 1, pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/documents?${qs}` : "/dashboard/documents";
+    return qs ? `/documents?${qs}` : "/documents";
   });
   const clearFiltersParams = documentsQueryToParams({ pageSize: query.pageSize });
   const clearFiltersQs = new URLSearchParams(clearFiltersParams).toString();
   const clearFiltersHref = clearFiltersQs
-    ? `/dashboard/documents?${clearFiltersQs}`
-    : "/dashboard/documents";
+    ? `/documents?${clearFiltersQs}`
+    : "/documents";
 
   if (page.total > 0 && query.page > page.pageCount) {
     redirect(pageHref(page.pageCount));
@@ -93,7 +93,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
           </p>
         </div>
         {canCreate && (
-          <Link href="/dashboard/documents/new" className={newDocumentButtonClass}>
+          <Link href="/documents/new" className={newDocumentButtonClass}>
             Nueva escritura
           </Link>
         )}
@@ -143,7 +143,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
               datos. El borrador quedará guardado para continuar después.
             </p>
             {canCreate && (
-              <Link href="/dashboard/documents/new" className={newDocumentButtonClass}>
+              <Link href="/documents/new" className={newDocumentButtonClass}>
                 Crear primera escritura
               </Link>
             )}

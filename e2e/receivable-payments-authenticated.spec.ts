@@ -17,7 +17,7 @@ const concept = uniqueName("payments", "concepto");
 let receivableId = "";
 
 async function openReceivable(page: Page) {
-  await page.goto(`/dashboard/receivables/${receivableId}?section=payments`);
+  await page.goto(`/receivables/${receivableId}?section=payments`);
   await expect(
     page.getByRole("heading", { name: concept, exact: true }),
   ).toBeVisible();
@@ -100,7 +100,7 @@ test.describe("receivable payments", () => {
     await dialog.getByRole("button", { name: "Registrar pago" }).click();
 
     await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments&paid=1$/,
+      /\/receivables\/[0-9a-f-]{36}\?section=payments&paid=1$/,
       { timeout: 15_000 },
     );
     // El diálogo se cierra solo al redirigir tras el envío exitoso.
@@ -155,7 +155,7 @@ test.describe("receivable payments", () => {
     await dialog.getByRole("button", { name: "Registrar pago" }).click();
 
     await expect(page).toHaveURL(
-      /\/dashboard\/receivables\/[0-9a-f-]{36}\?section=payments&paid=1$/,
+      /\/receivables\/[0-9a-f-]{36}\?section=payments&paid=1$/,
       { timeout: 15_000 },
     );
     await expect(page.getByText("Pagada", { exact: true })).toBeVisible({

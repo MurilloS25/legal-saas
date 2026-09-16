@@ -79,7 +79,7 @@ test.describe("document ↔ client relationship", () => {
   test("B: client detail shows the empty escrituras state and a new action", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/clients/${clientId}`);
+    await page.goto(`/clients/${clientId}`);
     await expect(
       page.getByRole("heading", { name: "Escrituras", exact: true }),
     ).toBeVisible();
@@ -94,11 +94,11 @@ test.describe("document ↔ client relationship", () => {
   test("C: starting from the client preselects it through the flow", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/clients/${clientId}`);
+    await page.goto(`/clients/${clientId}`);
     await page.getByRole("link", { name: "Nueva escritura" }).click();
 
     // El picker conserva el cliente y lo muestra.
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\?client=/, {
+    await expect(page).toHaveURL(/\/documents\/new\?client=/, {
       timeout: 15_000,
     });
     await expect(page.getByText(`Cliente principal:`)).toBeVisible();
@@ -110,7 +110,7 @@ test.describe("document ↔ client relationship", () => {
       .filter({ hasText: templateName })
       .getByRole("link", { name: "Usar este machote" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+\?client=/, {
+    await expect(page).toHaveURL(/\/documents\/new\/[^/]+\?client=/, {
       timeout: 15_000,
     });
 
@@ -127,7 +127,7 @@ test.describe("document ↔ client relationship", () => {
     await fillInlineField(page, "comprador.nombre", "Cliente Prueba");
     await page.getByRole("button", { name: "Crear escritura" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
     });
     await expect(
@@ -142,7 +142,7 @@ test.describe("document ↔ client relationship", () => {
   test("D: the associated escritura appears in the client detail", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/clients/${clientId}`);
+    await page.goto(`/clients/${clientId}`);
     const row = page.locator("tbody tr").filter({ hasText: draftTitle });
     await expect(row).toBeVisible();
     await expect(row.getByText("Borrador", { exact: true })).toBeVisible();
@@ -150,7 +150,7 @@ test.describe("document ↔ client relationship", () => {
   });
 
   test("E: the documents list shows the associated client", async ({ page }) => {
-    await page.goto("/dashboard/documents");
+    await page.goto("/documents");
     const row = page.locator("tbody tr").filter({ hasText: draftTitle });
     await expect(row).toBeVisible();
     await expect(row.getByText(clientName)).toBeVisible();
@@ -159,13 +159,13 @@ test.describe("document ↔ client relationship", () => {
   test("F: the association can be removed from the composer", async ({
     page,
   }) => {
-    await page.goto("/dashboard/documents");
+    await page.goto("/documents");
     await page
       .locator("tbody tr")
       .filter({ hasText: draftTitle })
       .getByRole("link", { name: "Continuar" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
 
@@ -195,13 +195,13 @@ test.describe("document ↔ client relationship", () => {
     page,
   }) => {
     const secondTitle = `${templateName} — Con cliente`;
-    await page.goto("/dashboard/documents/new");
+    await page.goto("/documents/new");
     await page
       .locator("li")
       .filter({ hasText: templateName })
       .getByRole("link", { name: "Usar este machote" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/new\/[^/]+/, {
       timeout: 15_000,
     });
 

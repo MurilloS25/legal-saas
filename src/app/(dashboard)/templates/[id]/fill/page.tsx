@@ -8,5 +8,5 @@ type Props = {
 // para no romper enlaces existentes y redirige al flujo compartido.
 export default async function FillTemplatePage({ params }: Props) {
   const { id } = await params;
-  redirect(`/dashboard/documents/new/${id}`);
+  redirect(`/documents/new/${id}`);
 }

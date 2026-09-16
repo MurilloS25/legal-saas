@@ -33,13 +33,13 @@ export default async function ClientsPage({ searchParams }: Props) {
   const pageHref = (targetPage: number) => {
     const params = clientsQueryToParams({ page: targetPage, pageSize: query.pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/clients?${qs}` : "/dashboard/clients";
+    return qs ? `/clients?${qs}` : "/clients";
   };
 
   const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
     const params = clientsQueryToParams({ page: 1, pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/clients?${qs}` : "/dashboard/clients";
+    return qs ? `/clients?${qs}` : "/clients";
   });
 
   if (page.total > 0 && query.page > page.pageCount) {

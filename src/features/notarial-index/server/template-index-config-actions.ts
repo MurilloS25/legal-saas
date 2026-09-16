@@ -80,8 +80,8 @@ export async function saveTemplateIndexConfigurationAction(
     return { message: knownMessage };
   }
 
-  revalidatePath(`/dashboard/templates/${templateId}`);
-  revalidatePath("/dashboard/documents", "layout");
+  revalidatePath(`/templates/${templateId}`);
+  revalidatePath("/documents", "layout");
   return { success: true };
 }
 
@@ -128,6 +128,6 @@ export async function setTemplateNotarialIndexDefaultAction(
     };
   }
 
-  revalidatePath(`/dashboard/templates/${templateId}`);
+  revalidatePath(`/templates/${templateId}`);
   return { success: true, includeByDefault, updatedAt: updatedAt ?? undefined };
 }

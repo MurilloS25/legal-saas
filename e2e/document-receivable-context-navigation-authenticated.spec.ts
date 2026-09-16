@@ -60,14 +60,14 @@ test.describe("document ↔ receivable context navigation", () => {
   // operaciones contextuales en modal que nunca navegan fuera de la
   // Escritura (ver `document-stepper-create-authenticated.spec.ts`, que
   // cubre el modal de creación end-to-end). Este spec conserva la
-  // cobertura de la ruta directa `/dashboard/receivables/...?returnTo=...`
+  // cobertura de la ruta directa `/receivables/...?returnTo=...`
   // (F, G, H) y agrega la del resumen contextual con una cuenta que ya
   // existe.
 
   test("B: el paso Cobro muestra el resumen de la cuenta existente — sin la tabla ni el enlace 'Nueva cuenta' del flujo viejo — y 'Ver cuenta completa' navega de forma explícita a Cuentas por cobrar", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    await page.goto(`/documents/${documentId}?section=cobro`);
 
     const cobroSection = page.getByRole("region", {
       name: "Cuentas por cobrar de la escritura",
@@ -89,12 +89,16 @@ test.describe("document ↔ receivable context navigation", () => {
     const viewLink = cobroSection.getByRole("link", {
       name: "Ver cuenta completa",
     });
-    const returnTo = `/dashboard/documents/${documentId}?section=cobro`;
+    const returnTo = `/documents/${documentId}?section=cobro`;
     await expect(viewLink).toHaveAttribute(
       "href",
-      `/dashboard/receivables/${existingReceivableId}?returnTo=${encodeURIComponent(returnTo)}`,
+      `/receivables/${existingReceivableId}?returnTo=${encodeURIComponent(returnTo)}`,
     );
     await viewLink.click();
+    await expect(page).toHaveURL(
+      new RegExp(`/receivables/${existingReceivableId}\\?returnTo=`),
+      { timeout: 15_000 },
+    );
     await expect(page.getByRole("link", { name: "Volver a la Escritura" })).toHaveAttribute(
       "href",
       returnTo,
@@ -104,7 +108,7 @@ test.describe("document ↔ receivable context navigation", () => {
   test("C: 'Registrar pago' desde Cobro abre un modal y nunca abandona la Escritura", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    await page.goto(`/documents/${documentId}?section=cobro`);
     const cobroSection = page.getByRole("region", {
       name: "Cuentas por cobrar de la escritura",
     });
@@ -119,15 +123,15 @@ test.describe("document ↔ receivable context navigation", () => {
 
     // Cancelar no navega — sigue en la misma Escritura, mismo paso.
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
+      new RegExp(`/documents/${documentId}\\?section=cobro`),
     );
   });
 
   test("D: editar, pagar y anular conservan el retorno contextual", async ({
     page,
   }) => {
-    const returnTo = `/dashboard/documents/${documentId}?section=cobro`;
-    const detailUrl = `/dashboard/receivables/${existingReceivableId}?returnTo=${encodeURIComponent(returnTo)}`;
+    const returnTo = `/documents/${documentId}?section=cobro`;
+    const detailUrl = `/receivables/${existingReceivableId}?returnTo=${encodeURIComponent(returnTo)}`;
     await page.goto(detailUrl);
 
     await page
@@ -168,7 +172,7 @@ test.describe("document ↔ receivable context navigation", () => {
   test("F: opening a receivable directly (no context) shows no back link", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/receivables/${existingReceivableId}`);
+    await page.goto(`/receivables/${existingReceivableId}`);
 
     await expect(
       page.getByRole("link", { name: "Volver a la Escritura" }),
@@ -178,14 +182,14 @@ test.describe("document ↔ receivable context navigation", () => {
   test("G: creating from the general receivables list keeps the original flow (no back link)", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     await expect(
       page.getByRole("link", { name: "Volver a la Escritura" }),
     ).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Cancelar" })).toHaveAttribute(
       "href",
-      "/dashboard/receivables",
+      "/receivables",
     );
   });
 
@@ -196,24 +200,24 @@ test.describe("document ↔ receivable context navigation", () => {
       "https://example.com",
       "//example.com",
       "javascript:alert(1)",
-      "/dashboard/settings",
-      "/dashboard/documents/not-a-uuid?section=cobro",
+      "/settings",
+      "/documents/not-a-uuid?section=cobro",
     ];
 
     for (const value of malicious) {
       await page.goto(
-        `/dashboard/receivables/new?returnTo=${encodeURIComponent(value)}`,
+        `/receivables/new?returnTo=${encodeURIComponent(value)}`,
       );
       await expect(
         page.getByRole("link", { name: "Volver a la Escritura" }),
       ).toHaveCount(0);
       await expect(
         page.getByRole("link", { name: "Cancelar" }),
-      ).toHaveAttribute("href", "/dashboard/receivables");
+      ).toHaveAttribute("href", "/receivables");
     }
 
     await page.goto(
-      `/dashboard/receivables/${existingReceivableId}?returnTo=${encodeURIComponent("https://example.com")}`,
+      `/receivables/${existingReceivableId}?returnTo=${encodeURIComponent("https://example.com")}`,
     );
     await expect(
       page.getByRole("link", { name: "Volver a la Escritura" }),

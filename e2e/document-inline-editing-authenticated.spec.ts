@@ -132,7 +132,7 @@ test.describe("document inline field editing", () => {
   test("B: clicking a pending variable inline turns it into an editable input synced with the panel", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     const inlineName = inlineVariable(page, "comprador.nombre").first();
     await expect(inlineName).toBeVisible();
@@ -162,7 +162,7 @@ test.describe("document inline field editing", () => {
   test("B2: editing the last repeated occurrence updates every occurrence immediately", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await inlineVariable(page, "comprador.nombre").nth(2).click();
     const input = documentRegion(page).locator(
       'input[data-variable-key="comprador.nombre"]',
@@ -185,7 +185,7 @@ test.describe("document inline field editing", () => {
   test("C: the inline field shows the raw value while editing and the transformed value once blurred", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await inlineVariable(page, "comprador.cedula").click();
 
     const inlineInput = documentRegion(page).locator(
@@ -213,7 +213,7 @@ test.describe("document inline field editing", () => {
   test("D: Tab moves focus to the next variable in document order without saving automatically", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await inlineVariable(page, "comprador.nombre").first().click();
     const nameInput = documentRegion(page).locator(
       'input[data-variable-key="comprador.nombre"]',
@@ -235,7 +235,7 @@ test.describe("document inline field editing", () => {
   test("E: saving and reloading persists inline-edited values in both the document and the panel", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await inlineVariable(page, "comprador.nombre").nth(1).click();
     await documentRegion(page)
       .locator('input[data-variable-key="comprador.nombre"]')
@@ -253,7 +253,7 @@ test.describe("document inline field editing", () => {
       .blur();
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     documentUrl = page.url();

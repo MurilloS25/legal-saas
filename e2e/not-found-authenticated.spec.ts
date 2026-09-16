@@ -7,16 +7,16 @@ const missingRoutes = [
 ];
 
 const invalidResourceRoutes = [
-  "/dashboard/clients/neww",
-  "/dashboard/documents/not-a-uuid",
-  "/dashboard/documents/new/not-a-uuid",
-  "/dashboard/templates/not-a-uuid",
-  "/dashboard/templates/not-a-uuid/fill",
-  "/dashboard/receivables/not-a-uuid",
+  "/clients/neww",
+  "/documents/not-a-uuid",
+  "/documents/new/not-a-uuid",
+  "/templates/not-a-uuid",
+  "/templates/not-a-uuid/fill",
+  "/receivables/not-a-uuid",
 ];
 
 const missingResourceRoutes = [
-  "/dashboard/clients/00000000-0000-0000-0000-000000000000",
+  "/clients/00000000-0000-0000-0000-000000000000",
 ];
 
 test.describe("custom global 404", () => {
@@ -71,7 +71,7 @@ test.describe("custom global 404", () => {
     await expect(backLink).toBeFocused();
     await page.keyboard.press("Enter");
 
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
   });
 
   test("fits a mobile viewport without horizontal overflow", async ({

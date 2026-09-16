@@ -80,6 +80,6 @@ export async function duplicateDocumentAction(
     return { message: "No fue posible duplicar la escritura. Intenta de nuevo." };
   }
 
-  revalidatePath("/dashboard/documents");
-  redirect(`/dashboard/documents/${copy.id}?lifecycle=duplicated`);
+  revalidatePath("/documents");
+  redirect(`/documents/${copy.id}?lifecycle=duplicated`);
 }

@@ -107,8 +107,8 @@ export async function confirmNotarialMetadataAction(
     };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
   return { success: true, version: updated.version };
 }
 
@@ -167,7 +167,7 @@ export async function startNotarialCorrectionAction(
     };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
   return { success: true, version: updated.version };
 }

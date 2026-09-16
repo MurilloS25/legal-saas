@@ -63,7 +63,7 @@ export function ProfileSetupPrompt() {
         para que el sistema pueda personalizar tus machotes.
       </p>
       <Link
-        href="/dashboard/settings"
+        href="/settings"
         className="inline-block rounded-lg bg-accent-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
       >
         Configurar ahora →
@@ -124,7 +124,7 @@ export function DashboardSummaryGrid({
   return (
     <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Link
-        href="/dashboard/receivables"
+        href="/receivables"
         aria-label={`Cuentas por cobrar${overdueCount > 0 ? `, ${overdueCount} vencida${plural(overdueCount, "", "s")}` : ""}`}
         className={`${cardClass} lg:col-span-2`}
       >
@@ -167,7 +167,7 @@ export function DashboardSummaryGrid({
         </p>
       </Link>
 
-      <Link href="/dashboard/notarial-index" className={cardClass}>
+      <Link href="/notarial-index" className={cardClass}>
         <span className={cardIconChipClass}>
           <BookmarkIcon className="size-[18px]" />
         </span>
@@ -190,14 +190,14 @@ export function DashboardSummaryGrid({
         </p>
       </Link>
 
-      <SummaryLink href="/dashboard/clients" title="Clientes" Icon={UsersIcon}>
+      <SummaryLink href="/clients" title="Clientes" Icon={UsersIcon}>
         {clientCount} {plural(clientCount, "registrado", "registrados")}
       </SummaryLink>
-      <SummaryLink href="/dashboard/templates" title="Machotes" Icon={StackIcon}>
+      <SummaryLink href="/templates" title="Machotes" Icon={StackIcon}>
         {templateCount} total · {activeTemplates} {" "}
         {plural(activeTemplates, "activo", "activos")}
       </SummaryLink>
-      <SummaryLink href="/dashboard/documents" title="Escrituras" Icon={ScrollIcon}>
+      <SummaryLink href="/documents" title="Escrituras" Icon={ScrollIcon}>
         {documentCount} total · {draftDocuments} {" "}
         {plural(draftDocuments, "borrador", "borradores")}
       </SummaryLink>

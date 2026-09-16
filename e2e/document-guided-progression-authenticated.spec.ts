@@ -103,7 +103,7 @@ test.describe("document guided progression", () => {
       rendered_content: "ESCRITURA. Comparece {{parte.nombre}}.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
@@ -149,7 +149,7 @@ test.describe("document guided progression", () => {
       rendered_content: "ESCRITURA sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
@@ -190,7 +190,7 @@ test.describe("document guided progression", () => {
     });
     const firstTitle = `${uniqueName("document-guided-progression", "escritura-c")} v2`;
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
 
     // Edita en Completar sin guardar y navega a Cobro — el cambio local no
     // se pierde ni exige guardar antes de moverse. El dock de Guardar
@@ -242,7 +242,7 @@ test.describe("document guided progression", () => {
       rendered_content: "ESCRITURA. Comparece {{parte.nombre}}.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     // Finalizar vive en "Completar" (el paso por defecto) — alcanzable de
     // inmediato, sin navegar a ningún otro paso.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
@@ -280,7 +280,7 @@ test.describe("document guided progression", () => {
       rendered_content: "ESCRITURA sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}?section=cobro`);
+    await page.goto(`/documents/${doc.id}?section=cobro`);
     await expect(cobroSection(page)).toBeVisible();
     await expect(
       cobroSection(page).getByRole("button", { name: "Continuar sin cobro" }),
@@ -323,7 +323,7 @@ test.describe("document guided progression", () => {
     });
     const title = uniqueName("document-guided-progression", "escritura-f");
 
-    await page.goto(`/dashboard/documents/new/${template.id}`);
+    await page.goto(`/documents/new/${template.id}`);
     await page.getByLabel("Título de la escritura").fill(title);
     await fillFieldLive(page, "parte.nombre", "Persona F");
     await page.getByRole("button", { name: /^Cliente principal/ }).click();
@@ -336,7 +336,7 @@ test.describe("document guided progression", () => {
     // deja al usuario en "Completar" (el paso por defecto — ya no existe
     // "Revisar y finalizar" a donde aterrizar).
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);

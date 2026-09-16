@@ -103,7 +103,7 @@ test.describe("dashboard panel", () => {
     ).toBeVisible();
 
     await notarialCard.click();
-    await expect(page).toHaveURL(/\/dashboard\/notarial-index$/);
+    await expect(page).toHaveURL(/\/notarial-index$/);
   });
 
   test("E: 'Necesita tu atención' shows the real overdue receivable, not a generic 'urgente' label", async ({
@@ -117,7 +117,7 @@ test.describe("dashboard panel", () => {
     await expect(attention.getByText(/urgente/i)).toHaveCount(0);
 
     await attention.getByRole("link", { name: "Ver cuentas por cobrar" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/receivables$/);
+    await expect(page).toHaveURL(/\/receivables$/);
   });
 
   test("F: the Clientes card is fully clickable, not just its link text", async ({
@@ -134,7 +134,7 @@ test.describe("dashboard panel", () => {
     expect(box).not.toBeNull();
     await page.mouse.click(box!.x + 12, box!.y + 12);
 
-    await expect(page).toHaveURL(/\/dashboard\/clients$/);
+    await expect(page).toHaveURL(/\/clients$/);
   });
 
   test("G: quick actions share the same clickable card treatment and each link works", async ({
@@ -143,9 +143,9 @@ test.describe("dashboard panel", () => {
     await page.goto("/dashboard");
 
     const actions: Array<[string, RegExp]> = [
-      ["Nuevo cliente", /\/dashboard\/clients\/new$/],
-      ["Nuevo machote", /\/dashboard\/templates\/new$/],
-      ["Nueva cuenta", /\/dashboard\/receivables\/new$/],
+      ["Nuevo cliente", /\/clients\/new$/],
+      ["Nuevo machote", /\/templates\/new$/],
+      ["Nueva cuenta", /\/receivables\/new$/],
     ];
 
     for (const [label, urlPattern] of actions) {

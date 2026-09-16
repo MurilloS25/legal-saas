@@ -43,7 +43,7 @@ test("release A: assistant saves owner document; owner finalizes assistant docum
     await restInsert("lawyer_profiles", { owner_id: owner, workspace_id: owner, full_name: "Despacho original" });
 
     await login(page, assistantEmail);
-    await page.goto(`/dashboard/documents/${ownDoc.id}`);
+    await page.goto(`/documents/${ownDoc.id}`);
     await page.getByLabel("Título de la escritura").fill("Guardada por asistente");
     await page.getByRole("button", { name: "Guardar", exact: true }).click();
     await expect.poll(async () => (await restSelect<{ title: string }>("documents", `id=eq.${ownDoc.id}&select=title`))[0]?.title).toBe("Guardada por asistente");
@@ -51,7 +51,7 @@ test("release A: assistant saves owner document; owner finalizes assistant docum
     await expect(page.getByLabel("Título de la escritura")).toHaveValue("Guardada por asistente");
 
     await login(page, ownerEmail);
-    await page.goto(`/dashboard/documents/${assistantDoc.id}`);
+    await page.goto(`/documents/${assistantDoc.id}`);
     await page.getByRole("button", { name: "Finalizar escritura", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Finalizar escritura", exact: true }).click();
     await expect.poll(async () => (await restSelect<{ status: string }>("documents", `id=eq.${assistantDoc.id}&select=status`))[0]?.status).toBe("final");
@@ -60,7 +60,7 @@ test("release A: assistant saves owner document; owner finalizes assistant docum
     expect((await restSelect<{ owner_id: string }>("documents", `id=eq.${assistantDoc.id}&select=owner_id`))[0]?.owner_id).toBe(assistant);
 
     await login(page, adminEmail);
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
     await page.getByLabel("Nombre completo").fill("Despacho editado por administrador");
     await page.getByRole("button", { name: "Guardar cambios", exact: true }).click();
     await expect.poll(async () => (await restSelect<{ full_name: string }>("lawyer_profiles", `workspace_id=eq.${owner}&select=full_name`))[0]?.full_name).toBe("Despacho editado por administrador");

@@ -332,6 +332,13 @@ code. See `docs/DOCX_EXPORT.md`.
 
 ## Current Workspace Flows
 
+Authenticated application routes share the existing `(dashboard)` route-group
+layout. The group name is organizational and does not appear in URLs. `/dashboard`
+is the overview only; feature workspaces use the canonical top-level paths
+`/clients`, `/templates`, `/documents`, `/notarial-index`, `/receivables`, and
+`/settings`. Compatibility redirects keep former `/dashboard/<module>` bookmarks
+working while preserving nested IDs and query parameters.
+
 - The dashboard shell uses a desktop top navbar and a mobile drawer. Account
   actions open Perfil, Configuración or Despacho; team management is part of
   Despacho and remains permission-gated.

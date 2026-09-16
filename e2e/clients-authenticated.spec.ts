@@ -16,10 +16,10 @@ async function openClientFromList(page: Page, name: string) {
   await expect(clientLink).toBeVisible();
 
   const href = await clientLink.getAttribute("href");
-  expect(href).toMatch(/^\/dashboard\/clients\/[^/]+$/);
+  expect(href).toMatch(/^\/clients\/[^/]+$/);
 
   await page.goto(href!);
-  await expect(page).toHaveURL(/\/dashboard\/clients\/[^/]+$/);
+  await expect(page).toHaveURL(/\/clients\/[^/]+$/);
 }
 
 test.describe("clients module", () => {
@@ -33,7 +33,7 @@ test.describe("clients module", () => {
       .getByRole("link", { name: "Clientes", exact: true })
       .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/clients/, {
+    await expect(page).toHaveURL(/\/clients/, {
       timeout: 15_000,
     });
     await expect(
@@ -45,14 +45,14 @@ test.describe("clients module", () => {
   });
 
   test("B: new client page is reachable", async ({ page }) => {
-    await page.goto("/dashboard/clients");
+    await page.goto("/clients");
 
     await page
       .getByRole("link", { name: /Nuevo cliente|Agregar cliente/ })
       .first()
       .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/clients\/new$/, {
+    await expect(page).toHaveURL(/\/clients\/new$/, {
       timeout: 15_000,
     });
     await expect(
@@ -64,7 +64,7 @@ test.describe("clients module", () => {
     // Use a unique name so previous test runs don't cause strict-mode violations.
     createdClientName = `Test Client E2E ${Date.now()}`;
 
-    await page.goto("/dashboard/clients/new");
+    await page.goto("/clients/new");
 
     await page.getByLabel("Nombre completo").fill(createdClientName);
     // identification_type defaults to cedula_fisica — no change needed
@@ -76,8 +76,8 @@ test.describe("clients module", () => {
 
     await page.getByRole("button", { name: "Crear cliente" }).click();
 
-    // After successful create the action redirects to /dashboard/clients (the list).
-    await expect(page).toHaveURL(/\/dashboard\/clients$/, {
+    // After successful create the action redirects to /clients (the list).
+    await expect(page).toHaveURL(/\/clients$/, {
       timeout: 15_000,
     });
     // Toast fires from `ClientLifecycleToast` after mount, reading `?event=created`
@@ -91,13 +91,13 @@ test.describe("clients module", () => {
   });
 
   test("D: created client appears in the list", async ({ page }) => {
-    await page.goto("/dashboard/clients");
+    await page.goto("/clients");
 
     await expect(page.getByText(createdClientName).first()).toBeVisible();
   });
 
   test("E: user can edit an existing client", async ({ page }) => {
-    await page.goto("/dashboard/clients");
+    await page.goto("/clients");
 
     await openClientFromList(page, createdClientName);
 
@@ -106,7 +106,7 @@ test.describe("clients module", () => {
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     // After save the action redirects back to the client list.
-    await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/clients$/, { timeout: 15_000 });
     await expect(
       page.getByRole("status").getByText("Cliente actualizado.", {
         exact: true,
@@ -115,7 +115,7 @@ test.describe("clients module", () => {
   });
 
   test("F: edited client name persists after page reload", async ({ page }) => {
-    await page.goto("/dashboard/clients");
+    await page.goto("/clients");
     await openClientFromList(page, editedClientName);
 
     await page.reload();
@@ -127,7 +127,7 @@ test.describe("clients module", () => {
   test("F2: identification number is stored and displayed without dashes or spaces", async ({
     page,
   }) => {
-    await page.goto("/dashboard/clients");
+    await page.goto("/clients");
     await openClientFromList(page, editedClientName);
 
     // Entered as "0-0001-0001" in test C — persists normalized.
@@ -138,7 +138,7 @@ test.describe("clients module", () => {
   });
 
   test("G: user can delete a client from the detail page", async ({ page }) => {
-    await page.goto("/dashboard/clients");
+    await page.goto("/clients");
     await openClientFromList(page, editedClientName);
 
     // Open delete confirmation dialog — trash icon in the card header
@@ -152,8 +152,8 @@ test.describe("clients module", () => {
     // Confirm deletion (exact: true avoids matching the trash-icon trigger button)
     await page.getByRole("button", { name: "Eliminar", exact: true }).click();
 
-    // After delete the action redirects back to /dashboard/clients
-    await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 10_000 });
+    // After delete the action redirects back to /clients
+    await expect(page).toHaveURL(/\/clients$/, { timeout: 10_000 });
     await expect(page.getByText(editedClientName)).not.toBeVisible();
   });
 });

@@ -83,7 +83,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
       label: "Vendedor",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}?section=variables`);
+    await page.goto(`/templates/${template.id}?section=variables`);
     await expect(saveButton(page)).toBeInViewport();
 
     // Índice es una sección considerablemente más larga (seis campos
@@ -103,7 +103,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
       content: "ESCRITURA de prueba.",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}`);
+    await page.goto(`/templates/${template.id}`);
     await expect(saveStatus(page)).toHaveText("Guardado");
     await page.getByLabel("Descripción (opcional)").fill("Cambio de prueba");
     await expect(saveStatus(page)).toHaveText("Sin guardar");
@@ -122,7 +122,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
     });
 
     await page.setViewportSize({ width: 390, height: 720 });
-    await page.goto(`/dashboard/templates/${template.id}?section=notarial`);
+    await page.goto(`/templates/${template.id}?section=notarial`);
     await expect(configurationSection(page)).toBeVisible();
     await expect(saveButton(page)).toBeInViewport();
 
@@ -148,7 +148,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
       label: "Parte",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}?section=notarial`);
+    await page.goto(`/templates/${template.id}?section=notarial`);
     const section = configurationSection(page);
     await openConfigIndexRow(page, "parties");
     await expect(
@@ -190,7 +190,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
       label: "Parte",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}?section=notarial`);
+    await page.goto(`/templates/${template.id}?section=notarial`);
     const section = configurationSection(page);
     await openConfigIndexRow(page, "parties");
 
@@ -219,7 +219,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
       content: "ESCRITURA de prueba.",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}?section=notarial`);
+    await page.goto(`/templates/${template.id}?section=notarial`);
     const section = configurationSection(page);
     await openConfigIndexRow(page, "parties");
     await expect(saveStatus(page)).toHaveText("Guardado");
@@ -245,7 +245,7 @@ test.describe("template workspace: sticky save bar and Partes tri-state", () => 
       content: "ESCRITURA de prueba.",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}?section=notarial`);
+    await page.goto(`/templates/${template.id}?section=notarial`);
     const section = configurationSection(page);
     await openConfigIndexRow(page, "parties");
 

@@ -27,7 +27,7 @@ export function createReceivableMiniColumns(
       cell: ({ row }) => (
         <Link
           href={appendReturnTo(
-            `/dashboard/receivables/${row.original.id}`,
+            `/receivables/${row.original.id}`,
             returnTo ?? null,
           )}
           className="text-sm font-medium text-slate-900 hover:text-accent-700 focus:outline-none focus:underline transition-colors"
@@ -76,7 +76,7 @@ export function createReceivableMiniColumns(
         <div className="flex items-center justify-end">
           <Link
             href={appendReturnTo(
-              `/dashboard/receivables/${row.original.id}`,
+              `/receivables/${row.original.id}`,
               returnTo ?? null,
             )}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"

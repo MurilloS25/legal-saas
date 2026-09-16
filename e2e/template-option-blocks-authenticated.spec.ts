@@ -75,7 +75,7 @@ test.describe("template option blocks", () => {
       name: templateName,
       content: "ESCRITURA de prueba.",
     });
-    templateUrl = `/dashboard/templates/${template.id}`;
+    templateUrl = `/templates/${template.id}`;
     void page;
   });
 

@@ -26,7 +26,7 @@ let receivableId = "";
 let paymentId = "";
 
 async function openReceivable(page: Page, id: string) {
-  await page.goto(`/dashboard/receivables/${id}`);
+  await page.goto(`/receivables/${id}`);
   await expect(page.getByLabel("Monto total")).toBeVisible();
 }
 
@@ -71,7 +71,7 @@ test.describe("receivable financial immutability", () => {
     await page.getByLabel("Monto total").fill("120000.00");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
     await expect(
@@ -111,7 +111,7 @@ test.describe("receivable financial immutability", () => {
     await page.getByLabel("Notas internas").fill("Recordatorio de seguimiento");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
     await expect(
@@ -194,7 +194,7 @@ test.describe("receivable financial immutability", () => {
     await page.getByLabel("Cliente", { exact: true }).selectOption(clientIdB);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
     await expect(page.getByText(clientNameB).first()).toBeVisible();

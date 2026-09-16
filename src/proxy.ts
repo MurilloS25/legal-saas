@@ -7,10 +7,15 @@ const supabaseKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Add new protected route prefixes here as features are implemented.
-// Only /dashboard exists for now. Future examples:
-//   "/clients", "/templates", "/settings", "/receivables", "/notarial-index"
-const PRIVATE_ROUTE_PREFIXES = ["/dashboard"];
+const PRIVATE_ROUTE_PREFIXES = [
+  "/dashboard",
+  "/clients",
+  "/templates",
+  "/documents",
+  "/notarial-index",
+  "/receivables",
+  "/settings",
+];
 
 // Public auth routes — authenticated users are redirected away from these.
 // /update-password is deliberately NOT here: its own page (Server
@@ -60,8 +65,8 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const isPrivateRoute = PRIVATE_ROUTE_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix),
+  const isPrivateRoute = PRIVATE_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
   );
 
   const isAuthRoute = AUTH_ROUTES.some(

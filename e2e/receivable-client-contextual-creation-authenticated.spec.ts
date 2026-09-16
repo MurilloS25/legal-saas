@@ -23,7 +23,7 @@ test.describe("create a client from the receivable form", () => {
   test("A: the dialog only appears in 'Cliente registrado' mode, not 'Escribir nombre'", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     // El modo por defecto es "Cliente registrado".
     await expect(
@@ -44,7 +44,7 @@ test.describe("create a client from the receivable form", () => {
   test("B: cancelling the dialog preserves the rest of the form and creates nothing", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     const concept = uniqueName("receivable-client-dialog", "concepto-cancelado");
     await page.getByLabel("Concepto").fill(concept);
@@ -68,7 +68,7 @@ test.describe("create a client from the receivable form", () => {
   test("C: an invalid submission keeps the dialog open and selects nothing", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
@@ -86,7 +86,7 @@ test.describe("create a client from the receivable form", () => {
   test("D: creating a client selects it immediately and preserves the rest of the form (document, amount, dates, notes)", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     const concept = uniqueName("receivable-client-dialog", "concepto-creado");
     const notes = "Notas que deben sobrevivir a la creación del cliente";
@@ -124,7 +124,7 @@ test.describe("create a client from the receivable form", () => {
     );
 
     await page.getByRole("button", { name: "Crear cuenta" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "receivables", "concept", concept);
@@ -148,7 +148,7 @@ test.describe("create a client from the receivable form", () => {
       concept: uniqueName("receivable-client-dialog", "concepto-editar"),
     });
 
-    await page.goto(`/dashboard/receivables/${receivable.id}`);
+    await page.goto(`/receivables/${receivable.id}`);
 
     await expect(
       page.getByRole("button", { name: "+ Crear nuevo cliente" }),

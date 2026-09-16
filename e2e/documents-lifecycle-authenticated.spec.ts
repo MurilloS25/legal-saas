@@ -25,7 +25,7 @@ let pendingId = "";
 let historicalReadyId = "";
 
 async function open(page: Page, id: string) {
-  await page.goto(`/dashboard/documents/${id}`);
+  await page.goto(`/documents/${id}`);
   // "Datos de la Escritura" siempre está visible (incluso en móvil, donde
   // "Documento" arranca oculto detrás del toggle data/document).
   await expect(
@@ -247,7 +247,7 @@ test.describe("document lifecycle statuses", () => {
   });
 
   test("H: the workspace can filter by status", async ({ page }) => {
-    await page.goto("/dashboard/documents?status=final");
+    await page.goto("/documents?status=final");
     await expect(
       page.locator("tbody tr").filter({ hasText: finalTitle }),
     ).toBeVisible();
@@ -260,7 +260,7 @@ test.describe("document lifecycle statuses", () => {
   test("I: a finalized document shows Ver (not Continuar) in the list, and no delete action", async ({
     page,
   }) => {
-    await page.goto("/dashboard/documents?status=final");
+    await page.goto("/documents?status=final");
     const row = page.locator("tbody tr").filter({ hasText: finalTitle });
     await expect(row.getByRole("link", { name: "Ver" })).toBeVisible();
     // Una escritura finalizada no puede eliminarse sin reabrirla primero.

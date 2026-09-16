@@ -136,7 +136,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
 
   const receivablesNewHref = canManageReceivables
     ? appendReturnTo(
-        `/dashboard/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
+        `/receivables/new?client=${document.client_id ?? ""}&document=${document.id}`,
         buildDocumentReceivablesReturnTo(document.id),
       )
     : undefined;
@@ -331,12 +331,12 @@ function NoTemplateFallback({
       : requestedSection === "notarial" && notarialUnlocked
         ? "notarial"
         : "document";
-  const base = `/dashboard/documents/${document.id}`;
+  const base = `/documents/${document.id}`;
 
   return (
     <div>
       <Link
-        href="/dashboard/documents"
+        href="/documents"
         className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
       >
         ‹ Volver a Escrituras

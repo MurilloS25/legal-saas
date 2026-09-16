@@ -53,7 +53,7 @@ export function SettingsTabs({ userEmail, canManage, initialProfile, initialSett
             <button
               key={s.key}
               type="button"
-              onClick={() => router.push(`/dashboard/settings?tab=${s.key}`)}
+              onClick={() => router.push(`/settings?tab=${s.key}`)}
               aria-current={active ? "page" : undefined}
               className={`flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-[13px] font-medium transition-colors lg:w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${
                 active ? "bg-accent-50 text-accent-800" : "text-slate-600 hover:bg-slate-100"

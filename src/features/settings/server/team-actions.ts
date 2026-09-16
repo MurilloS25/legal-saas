@@ -100,8 +100,7 @@ export async function inviteMemberAction(
     };
   }
 
-  revalidatePath("/dashboard/team");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
   return {
     success: true,
     message: emailSent
@@ -145,8 +144,7 @@ export async function changeMemberRoleAction(
     return { message: "No fue posible cambiar el rol de este miembro." };
   }
 
-  revalidatePath("/dashboard/team");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
   return {};
 }
 
@@ -173,8 +171,7 @@ export async function suspendMemberAction(
     return { message: "No fue posible suspender a este miembro." };
   }
 
-  revalidatePath("/dashboard/team");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
   return {};
 }
 
@@ -201,8 +198,7 @@ export async function reactivateMemberAction(
     return { message: "No fue posible reactivar a este miembro." };
   }
 
-  revalidatePath("/dashboard/team");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
   return {};
 }
 
@@ -235,7 +231,6 @@ export async function removeMemberAction(
     return { message: "No fue posible remover a este miembro." };
   }
 
-  revalidatePath("/dashboard/team");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
   return {};
 }

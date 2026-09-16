@@ -10,7 +10,7 @@ const VALID_ID = "8a25f803-4f2f-4fe4-83f4-0cedc24903f4";
 describe("buildDocumentReceivablesReturnTo", () => {
   it("builds the canonical return path for a document", () => {
     expect(buildDocumentReceivablesReturnTo(VALID_ID)).toBe(
-      `/dashboard/documents/${VALID_ID}?section=cobro`,
+      `/documents/${VALID_ID}?section=cobro`,
     );
   });
 });
@@ -36,7 +36,7 @@ describe("parseDocumentReceivablesReturnTo", () => {
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        `http://evil.example.com/dashboard/documents/${VALID_ID}?section=cobro`,
+        `http://evil.example.com/documents/${VALID_ID}?section=cobro`,
       ),
     ).toBeNull();
   });
@@ -50,14 +50,14 @@ describe("parseDocumentReceivablesReturnTo", () => {
   });
 
   it("rejects internal routes outside the allowed pattern", () => {
-    expect(parseDocumentReceivablesReturnTo("/dashboard/settings")).toBeNull();
-    expect(parseDocumentReceivablesReturnTo("/dashboard/clients")).toBeNull();
+    expect(parseDocumentReceivablesReturnTo("/settings")).toBeNull();
+    expect(parseDocumentReceivablesReturnTo("/clients")).toBeNull();
     expect(
-      parseDocumentReceivablesReturnTo(`/dashboard/documents/${VALID_ID}`),
+      parseDocumentReceivablesReturnTo(`/documents/${VALID_ID}`),
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID}?section=document`,
+        `/documents/${VALID_ID}?section=document`,
       ),
     ).toBeNull();
   });
@@ -65,12 +65,12 @@ describe("parseDocumentReceivablesReturnTo", () => {
   it("rejects a malformed document id", () => {
     expect(
       parseDocumentReceivablesReturnTo(
-        "/dashboard/documents/invalid?section=cobro",
+        "/documents/invalid?section=cobro",
       ),
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        "/dashboard/documents/../../etc/passwd?section=cobro",
+        "/documents/../../etc/passwd?section=cobro",
       ),
     ).toBeNull();
   });
@@ -78,12 +78,12 @@ describe("parseDocumentReceivablesReturnTo", () => {
   it("rejects trailing garbage appended after the valid pattern", () => {
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID}?section=cobro&extra=1`,
+        `/documents/${VALID_ID}?section=cobro&extra=1`,
       ),
     ).toBeNull();
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID}?section=cobroX`,
+        `/documents/${VALID_ID}?section=cobroX`,
       ),
     ).toBeNull();
   });
@@ -91,14 +91,14 @@ describe("parseDocumentReceivablesReturnTo", () => {
   it("is case-insensitive on the UUID but not on the route shape", () => {
     expect(
       parseDocumentReceivablesReturnTo(
-        `/dashboard/documents/${VALID_ID.toUpperCase()}?section=cobro`,
+        `/documents/${VALID_ID.toUpperCase()}?section=cobro`,
       ),
     ).toBe(
-      `/dashboard/documents/${VALID_ID.toUpperCase()}?section=cobro`,
+      `/documents/${VALID_ID.toUpperCase()}?section=cobro`,
     );
     expect(
       parseDocumentReceivablesReturnTo(
-        `/Dashboard/documents/${VALID_ID}?section=cobro`,
+        `/Documents/${VALID_ID}?section=cobro`,
       ),
     ).toBeNull();
   });
@@ -107,23 +107,23 @@ describe("parseDocumentReceivablesReturnTo", () => {
 describe("appendReturnTo", () => {
   it("appends an encoded returnTo to an href without a query string", () => {
     const returnTo = buildDocumentReceivablesReturnTo(VALID_ID);
-    expect(appendReturnTo("/dashboard/receivables/new", returnTo)).toBe(
-      `/dashboard/receivables/new?returnTo=${encodeURIComponent(returnTo)}`,
+    expect(appendReturnTo("/receivables/new", returnTo)).toBe(
+      `/receivables/new?returnTo=${encodeURIComponent(returnTo)}`,
     );
   });
 
   it("appends an encoded returnTo to an href that already has a query string", () => {
     const returnTo = buildDocumentReceivablesReturnTo(VALID_ID);
     expect(
-      appendReturnTo(`/dashboard/receivables/${VALID_ID}?created=1`, returnTo),
+      appendReturnTo(`/receivables/${VALID_ID}?created=1`, returnTo),
     ).toBe(
-      `/dashboard/receivables/${VALID_ID}?created=1&returnTo=${encodeURIComponent(returnTo)}`,
+      `/receivables/${VALID_ID}?created=1&returnTo=${encodeURIComponent(returnTo)}`,
     );
   });
 
   it("leaves the href unchanged when returnTo is null", () => {
-    expect(appendReturnTo("/dashboard/receivables/new", null)).toBe(
-      "/dashboard/receivables/new",
+    expect(appendReturnTo("/receivables/new", null)).toBe(
+      "/receivables/new",
     );
   });
 });

@@ -113,7 +113,7 @@ Descargar Word, Historial and Duplicar remain available as document utilities.
 Dirty-state and navigation guards preserve local edits, and saves/finalization
 use optimistic concurrency.
 
-The `/dashboard/documents` workspace supports server-side search (title, client, template), filters (status, client, template), sort, and pagination, all reflected in shareable query params.
+The `/documents` workspace supports server-side search (title, client, template), filters (status, client, template), sort, and pagination, all reflected in shareable query params.
 
 Each escritura has a read-only activity history (`document_activity`) shown in its detail: creation, title/client/status changes, finalization/reopening, and Word generation. Events are written server-side only — document mutations record them atomically via a trigger, Word generation via a `SECURITY DEFINER` RPC — never from arbitrary client input, and never surface UUIDs or raw content. Events are immutable (no update/delete) and cascade-deleted with their escritura. It is designed as reusable infrastructure for future modules (notarial index, receivables, notes, versioning).
 

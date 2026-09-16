@@ -55,7 +55,7 @@ async function docxText(buffer: Buffer): Promise<string> {
 }
 
 async function openComposer(page: Page, docId: string) {
-  await page.goto(`/dashboard/documents/${docId}`);
+  await page.goto(`/documents/${docId}`);
   await expect(
     page.getByRole("region", { name: "Datos de la Escritura" }),
   ).toBeVisible();

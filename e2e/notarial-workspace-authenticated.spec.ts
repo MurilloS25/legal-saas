@@ -51,7 +51,7 @@ async function seedFinal(
 
 async function search(page: Page, term: string, extra = "") {
   await page.goto(
-    `/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${encodeURIComponent(term)}${extra}`,
+    `/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${encodeURIComponent(term)}${extra}`,
   );
   await expect(
     page.getByRole("heading", { name: "Índice notarial", exact: true }),
@@ -61,7 +61,7 @@ async function search(page: Page, term: string, extra = "") {
 function rowFor(page: Page, docId: string): Locator {
   return page
     .locator("tr")
-    .filter({ has: page.locator(`a[href="/dashboard/documents/${docId}"]`) });
+    .filter({ has: page.locator(`a[href="/documents/${docId}"]`) });
 }
 
 test.describe("notarial index workspace", () => {
@@ -203,7 +203,7 @@ test.describe("notarial index workspace", () => {
     // Una quincena DISTINTA a la provisional: ya no deben aparecer — a
     // diferencia del comportamiento antiguo (omnipresente por NULL).
     await page.goto(
-      `/dashboard/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
+      `/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
     );
     await expect(rowFor(page, missingId)).toHaveCount(0);
     await expect(rowFor(page, noDateId)).toHaveCount(0);
@@ -212,7 +212,7 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, completeId)).toHaveCount(0);
 
     await page.goto(
-      `/dashboard/notarial-index?year=2020&month=1&half=FIRST_HALF&search=${token}`,
+      `/notarial-index?year=2020&month=1&half=FIRST_HALF&search=${token}`,
     );
     await expect(rowFor(page, missingId)).toHaveCount(0);
     await expect(rowFor(page, noDateId)).toHaveCount(0);
@@ -300,7 +300,7 @@ test.describe("notarial index workspace", () => {
     // ni la provisional): ya no es localizable ahí, a diferencia del
     // comportamiento antiguo (omnipresente por NULL).
     await page.goto(
-      `/dashboard/notarial-index?year=2019&month=12&half=SECOND_HALF&search=${token}&completeness=missing`,
+      `/notarial-index?year=2019&month=12&half=SECOND_HALF&search=${token}&completeness=missing`,
     );
     await expect(rowFor(page, missingId)).toHaveCount(0);
   });
@@ -332,7 +332,7 @@ test.describe("notarial index workspace", () => {
     await expect(rowFor(page, completeId)).toBeVisible();
     await expect(rowFor(page, secondHalfId)).toHaveCount(0);
     await page.goto(
-      `/dashboard/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
+      `/notarial-index?year=2026&month=7&half=SECOND_HALF&search=${token}`,
     );
     await expect(rowFor(page, completeId)).toHaveCount(0);
     await expect(rowFor(page, secondHalfId)).toBeVisible();
@@ -348,7 +348,7 @@ test.describe("notarial index workspace", () => {
     page,
   }) => {
     await page.goto(
-      "/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&completeness=complete&page=2",
+      "/notarial-index?year=2026&month=7&half=FIRST_HALF&completeness=complete&page=2",
     );
     await expect(page.getByLabel("Buscar")).toBeVisible();
 
@@ -416,7 +416,7 @@ test.describe("notarial index workspace", () => {
 
   test("K: invalid query params are handled safely", async ({ page }) => {
     await page.goto(
-      "/dashboard/notarial-index?year=bad&month=99&half=hack&completeness=x&page=-1",
+      "/notarial-index?year=bad&month=99&half=hack&completeness=x&page=-1",
     );
     await expect(
       page.getByRole("heading", { name: "Índice notarial", exact: true }),
@@ -429,14 +429,14 @@ test.describe("notarial index workspace", () => {
       .getByRole("navigation", { name: "Navegación principal" })
       .getByRole("link", { name: "Índice Notarial" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/notarial-index/, {
+    await expect(page).toHaveURL(/\/notarial-index/, {
       timeout: 15_000,
     });
   });
 
   test("M: the toolbar is usable on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF");
+    await page.goto("/notarial-index?year=2026&month=7&half=FIRST_HALF");
     await expect(page.getByLabel("Año")).toBeVisible();
     await expect(page.getByLabel("Mes")).toBeVisible();
     await expect(page.getByLabel("Quincena")).toBeVisible();
@@ -470,7 +470,7 @@ test.describe("notarial index workspace", () => {
     // julio. Agosto (misma quincena) no tiene ninguna fila completa con
     // este token.
     await page.goto(
-      `/dashboard/notarial-index?year=2026&month=8&half=FIRST_HALF&search=${encodeURIComponent(token)}&completeness=complete`,
+      `/notarial-index?year=2026&month=8&half=FIRST_HALF&search=${encodeURIComponent(token)}&completeness=complete`,
     );
     await expect(
       page.getByRole("heading", { name: "Índice notarial", exact: true }),

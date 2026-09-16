@@ -20,7 +20,7 @@ let clientId = "";
 let documentId = "";
 
 async function gotoWorkspace(page: Page, params = "") {
-  await page.goto(`/dashboard/receivables${params}`);
+  await page.goto(`/receivables${params}`);
   await expect(
     page.getByRole("heading", { name: "Cuentas por cobrar", exact: true }),
   ).toBeVisible();
@@ -160,7 +160,7 @@ test.describe("receivables workspace", () => {
   });
 
   test("H: the client detail lists its receivables", async ({ page }) => {
-    await page.goto(`/dashboard/clients/${clientId}`);
+    await page.goto(`/clients/${clientId}`);
     const section = page.getByRole("region", {
       name: "Cuentas por cobrar del cliente",
     });
@@ -171,7 +171,7 @@ test.describe("receivables workspace", () => {
   test("I: starting a receivable from the client detail preserves the client context", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/clients/${clientId}`);
+    await page.goto(`/clients/${clientId}`);
     const section = page.getByRole("region", {
       name: "Cuentas por cobrar del cliente",
     });
@@ -179,7 +179,7 @@ test.describe("receivables workspace", () => {
     await section.getByRole("link", { name: "Nueva cuenta" }).click();
 
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/receivables/new\\?client=${clientId}$`),
+      new RegExp(`/receivables/new\\?client=${clientId}$`),
       { timeout: 15_000 },
     );
     await expect(page.getByLabel("Cliente", { exact: true })).toHaveValue(

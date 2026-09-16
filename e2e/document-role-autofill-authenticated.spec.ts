@@ -171,7 +171,7 @@ test.describe("document role autofill", () => {
   test("B: the searchable selector completes only the matching role's fields, with the transform reflected in preview", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await expect(roleChip(page, "Comprador")).toBeVisible();
     await expect(roleChip(page, "Vendedor")).toBeVisible();
 
@@ -241,7 +241,7 @@ test.describe("document role autofill", () => {
     );
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     documentUrl = page.url();

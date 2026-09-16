@@ -30,7 +30,7 @@ const filledValue = "Cliente de Prueba Uno";
 const editedValue = "Cliente Editado 007 (cero inicial: 012)";
 
 async function openDocumentsHome(page: Page) {
-  await page.goto("/dashboard/documents");
+  await page.goto("/documents");
   await expect(
     page.getByRole("heading", { name: "Escrituras", exact: true }),
   ).toBeVisible();
@@ -104,7 +104,7 @@ test.describe("document composer workspace", () => {
     });
 
     // Sanity check: the seeded template is visible in the picker.
-    await page.goto("/dashboard/documents/new");
+    await page.goto("/documents/new");
     await expect(
       page.locator("li").filter({ hasText: templateName }),
     ).toBeVisible();
@@ -129,7 +129,7 @@ test.describe("document composer workspace", () => {
       .getByRole("link", { name: /Nueva escritura|Crear primera escritura/ })
       .first()
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new$/, {
+    await expect(page).toHaveURL(/\/documents\/new$/, {
       timeout: 15_000,
     });
 
@@ -139,7 +139,7 @@ test.describe("document composer workspace", () => {
       .filter({ hasText: templateName })
       .getByRole("link", { name: "Usar este machote" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
+    await expect(page).toHaveURL(/\/documents\/new\/[^/]+$/, {
       timeout: 15_000,
     });
 
@@ -169,7 +169,7 @@ test.describe("document composer workspace", () => {
     await page.getByRole("button", { name: "Crear escritura" }).click();
 
     // Saving redirects to the edit view with a confirmation.
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
     });
     draftPath = new URL(page.url()).pathname;
@@ -252,7 +252,7 @@ test.describe("document composer workspace", () => {
     await draftRow(page, draftTitle)
       .getByRole("link", { name: "Continuar" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
 
@@ -294,7 +294,7 @@ test.describe("document composer workspace", () => {
     await expect(row).toBeVisible();
 
     await row.getByRole("link", { name: "Continuar" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
     await page.reload();
@@ -341,7 +341,7 @@ test.describe("document composer workspace", () => {
     page,
   }) => {
     await page.goto(
-      "/dashboard/documents/00000000-0000-0000-0000-000000000000",
+      "/documents/00000000-0000-0000-0000-000000000000",
     );
 
     await expect(page.getByText("404")).toBeVisible();
@@ -357,12 +357,12 @@ test.describe("document composer workspace", () => {
       status: "draft",
     });
 
-    await page.goto("/dashboard/documents/new");
+    await page.goto("/documents/new");
     await expect(page.locator("li").filter({ hasText: draftName })).toHaveCount(0);
 
     // Bypassing the picker via a direct URL is also blocked (defense in
     // depth: the restriction isn't just a UI filter).
-    await page.goto(`/dashboard/documents/new/${draftTemplate.id}`);
+    await page.goto(`/documents/new/${draftTemplate.id}`);
     await expect(
       page.getByText("Este machote no está activo"),
     ).toBeVisible();
@@ -381,7 +381,7 @@ test.describe("document composer workspace", () => {
       status: "draft",
     });
 
-    await page.goto(`/dashboard/templates/${draftTemplate.id}`);
+    await page.goto(`/templates/${draftTemplate.id}`);
     await expect(
       page.getByRole("link", { name: "Crear escritura" }),
     ).toHaveCount(0);
@@ -402,7 +402,7 @@ test.describe("document composer workspace", () => {
       content: "PODER ESPECIAL. Otorgado por {{poderdante.nombre}} en {{lugar}}.",
     });
 
-    await page.goto(`/dashboard/documents/new/${bareTemplate.id}`);
+    await page.goto(`/documents/new/${bareTemplate.id}`);
 
     await expect(
       page.getByText(/no tiene campos definidos/),
@@ -411,7 +411,7 @@ test.describe("document composer workspace", () => {
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
     });
     await expect(
@@ -475,7 +475,7 @@ test.describe("document composer workspace", () => {
       },
     });
 
-    await page.goto(`/dashboard/documents/new/${structuredTemplate.id}`);
+    await page.goto(`/documents/new/${structuredTemplate.id}`);
 
     const sheet = documentRegion(page);
     await expect(
@@ -521,7 +521,7 @@ test.describe("document composer workspace", () => {
       "Acta con {{dato.uno}}.",
     );
 
-    await page.goto(`/dashboard/documents/${historyDraft.id}`);
+    await page.goto(`/documents/${historyDraft.id}`);
     await expect(fieldValue(page, "dato.dos")).toHaveValue("Valor Dos");
 
     // Guardar con un cambio no borra el valor histórico.
@@ -536,7 +536,7 @@ test.describe("document composer workspace", () => {
       historyTemplate.id,
       "Acta con {{dato.uno}} y {{dato.dos}}.",
     );
-    await page.goto(`/dashboard/documents/${historyDraft.id}`);
+    await page.goto(`/documents/${historyDraft.id}`);
     await expect(fieldValue(page, "dato.dos")).toHaveValue("Valor Dos");
   });
 

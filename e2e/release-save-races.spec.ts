@@ -34,7 +34,7 @@ async function holdSave(page: Page, requestNumber = 1) {
   const gate = new Promise<void>(resolve => { release = resolve; });
   let held = false;
   let requests = 0;
-  await page.route("**/dashboard/**", async route => {
+  await page.route(/\/(?:documents|templates)\//, async route => {
     if (route.request().method() === "POST" && route.request().headers()["next-action"] && ++requests === requestNumber) {
       held = true;
       await gate;
@@ -51,7 +51,7 @@ for (const kind of ["documents", "templates"] as const) {
     try {
       const row = kind === "documents" ? data.document : data.template;
       const column = kind === "documents" ? "title" : "name";
-      await page.goto(`/dashboard/${kind}/${row.id}`);
+      await page.goto(`/${kind}/${row.id}`);
       const input = page.getByLabel(kind === "documents" ? "Título de la escritura" : "Nombre del machote");
       await expect(async () => {
         await input.fill("Edición A");
@@ -87,7 +87,7 @@ test("documents: stale tab preserves edits and can save after explicit conflict 
   const data = await fixture(page);
   const other = await context.newPage();
   try {
-    const path = `/dashboard/documents/${data.document.id}`;
+    const path = `/documents/${data.document.id}`;
     await page.goto(path); await other.goto(path);
     await page.getByLabel("Título de la escritura").fill("Edición A");
     await other.getByLabel("Título de la escritura").fill("Edición B");
@@ -107,7 +107,7 @@ test("templates: index inclusion edited during its save remains pending", async 
   const data = await fixture(page);
   let release: (() => void) | undefined;
   try {
-    await page.goto(`/dashboard/templates/${data.template.id}?section=notarial`);
+    await page.goto(`/templates/${data.template.id}?section=notarial`);
     const toggle = page.getByLabel("Incluir en Índice Notarial");
     await toggle.uncheck();
     // The first action loads fresh fields; the second persists the toggle.
@@ -130,7 +130,7 @@ test("templates: editor changes during save survive the response", async ({ page
   const data = await fixture(page);
   let release: (() => void) | undefined;
   try {
-    await page.goto(`/dashboard/templates/${data.template.id}?section=document`);
+    await page.goto(`/templates/${data.template.id}?section=document`);
     const editor = page.getByRole("textbox", { name: "Contenido del machote" });
     await editor.fill("Contenido A");
     const held = await holdSave(page); release = held.release;
@@ -153,7 +153,7 @@ for (const kind of ["documents", "templates"] as const) {
     const data = await fixture(page);
     let release: (() => void) | undefined;
     try {
-      await page.goto(kind === "documents" ? `/dashboard/documents/new/${data.template.id}` : "/dashboard/templates/new");
+      await page.goto(kind === "documents" ? `/documents/new/${data.template.id}` : "/templates/new");
       const input = page.getByLabel(kind === "documents" ? "Título de la escritura" : "Nombre del machote");
       await input.fill("Creación A");
       if (kind === "templates") {
@@ -168,7 +168,7 @@ for (const kind of ["documents", "templates"] as const) {
       await page.keyboard.type("B");
       await expect(input).toHaveValue("Creación A");
       held.release();
-      await expect(page).toHaveURL(new RegExp(`/dashboard/${kind}/[0-9a-f-]{36}(?:\\?|$)`));
+      await expect(page).toHaveURL(new RegExp(`/${kind}/[0-9a-f-]{36}(?:\\?|$)`));
       await expect(page.getByRole("heading", { name: "Creación A", exact: true })).toBeVisible();
     } finally { release?.(); await data.cleanup(); }
   });
@@ -184,7 +184,7 @@ test("templates: mapping selections made during save are retained", async ({ pag
         workspace_id: data.owner, field_key: key, label, field_type: "text", required: false,
       });
     }
-    await page.goto(`/dashboard/templates/${data.template.id}?section=notarial`);
+    await page.goto(`/templates/${data.template.id}?section=notarial`);
     await page.getByRole("button", { name: /^Partes/ }).click();
     await page.getByRole("radio", { name: "Requiere partes", exact: true }).click();
     await page.getByRole("checkbox", { name: /^Parte A/ }).check();

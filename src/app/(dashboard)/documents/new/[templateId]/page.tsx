@@ -28,7 +28,7 @@ type Props = {
 export default async function NewDocumentPage({ params, searchParams }: Props) {
   const { role } = await requireWorkspace();
   if (!hasPermission(role, "documents.create")) {
-    redirect("/dashboard/documents");
+    redirect("/documents");
   }
   const { templateId } = await params;
   if (!isResourceId(templateId)) notFound();
@@ -43,7 +43,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
       <PageContainer>
         <nav aria-label="Breadcrumb" className="mb-6">
           <Link
-            href="/dashboard/documents/new"
+            href="/documents/new"
             className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
           >
             Nueva escritura
@@ -58,7 +58,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
             se pueden crear escrituras a partir de machotes activos.
           </p>
           <Link
-            href="/dashboard/documents/new"
+            href="/documents/new"
             className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
             Elegir otro machote
@@ -104,7 +104,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
-          href="/dashboard/documents/new"
+          href="/documents/new"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
         >
           <svg
@@ -140,7 +140,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
           Algunas variables del machote no tienen un campo configurado y se
           muestran con su clave. Puedes llenarlas igual, o{" "}
           <Link
-            href={`/dashboard/templates/${template.id}`}
+            href={`/templates/${template.id}`}
             className="font-medium text-accent-700 underline hover:text-accent-800"
           >
             configurar el machote

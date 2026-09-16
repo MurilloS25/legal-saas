@@ -78,7 +78,7 @@ test.describe("template variables workspace", () => {
       label: configuredLabel,
       required: true,
     });
-    templateUrl = `/dashboard/templates/${template.id}`;
+    templateUrl = `/templates/${template.id}`;
 
     await openWorkspace(page);
 

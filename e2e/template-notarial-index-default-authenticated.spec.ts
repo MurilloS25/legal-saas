@@ -72,13 +72,13 @@ async function fillFieldLive(page: Page, key: string, value: string) {
  * hardcodeado a `true` en modo creación, sin importar el default real del
  * Machote — ver DocumentComposer.tsx). */
 async function openCreatePage(page: Page, templateName: string): Promise<void> {
-  await page.goto("/dashboard/documents/new");
+  await page.goto("/documents/new");
   await page
     .locator("li")
     .filter({ hasText: templateName })
     .getByRole("link", { name: "Usar este machote" })
     .click();
-  await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
+  await expect(page).toHaveURL(/\/documents\/new\/[^/]+$/, {
     timeout: 15_000,
   });
 }
@@ -90,13 +90,13 @@ async function createDocumentFromTemplate(
   title: string,
   partyName: string,
 ): Promise<string> {
-  await page.goto("/dashboard/documents/new");
+  await page.goto("/documents/new");
   await page
     .locator("li")
     .filter({ hasText: templateName })
     .getByRole("link", { name: "Usar este machote" })
     .click();
-  await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
+  await expect(page).toHaveURL(/\/documents\/new\/[^/]+$/, {
     timeout: 15_000,
   });
 
@@ -106,7 +106,7 @@ async function createDocumentFromTemplate(
   // escritura", no "Guardar" (esa solo aparece tras existir en DB) — ver
   // DocumentSaveControls.tsx.
   await page.getByRole("button", { name: "Crear escritura" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
+  await expect(page).toHaveURL(/\/documents\/(?!new)[^/?]+/, {
     timeout: 30_000,
   });
   await registerCreatedViaUi(registry, "documents", "title", title);
@@ -214,7 +214,7 @@ test.describe("template notarial index default", () => {
   test("C2: Cobro's continue button always reads the same label, and never strands the user on a locked Índice before finalizing", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docFromOffId}?section=cobro`);
+    await page.goto(`/documents/${docFromOffId}?section=cobro`);
     const cobro = page.getByRole("region", { name: "Cuentas por cobrar de la escritura" });
     await expect(cobro).toBeVisible();
     const continueButton = cobro.getByRole("button", { name: "Finalizar flujo" });
@@ -228,7 +228,7 @@ test.describe("template notarial index default", () => {
   test("D: finalize dialog shows no checkbox, only static status text matching the current value", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docFromOnId}`);
+    await page.goto(`/documents/${docFromOnId}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialogOn = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(dialogOn.getByRole("checkbox")).toHaveCount(0);
@@ -246,7 +246,7 @@ test.describe("template notarial index default", () => {
     await stepper(page).getByRole("tab", { name: "Índice", exact: true }).click();
     await expect(notarialSection(page)).toBeVisible();
 
-    await page.goto(`/dashboard/documents/${docFromOffId}`);
+    await page.goto(`/documents/${docFromOffId}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialogOff = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(dialogOff.getByRole("checkbox")).toHaveCount(0);
@@ -260,12 +260,12 @@ test.describe("template notarial index default", () => {
   test("E: excluded finalized document shows the compact card, not the detailed form", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docFromOffId}`);
+    await page.goto(`/documents/${docFromOffId}`);
     // El paso "Índice" sigue en la navegación normal, aunque esté excluida.
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
     ).toBeVisible();
-    await page.goto(`/dashboard/documents/${docFromOffId}?section=notarial`);
+    await page.goto(`/documents/${docFromOffId}?section=notarial`);
     await expect(
       page.getByText("No pertenece al Índice Notarial", { exact: true }),
     ).toBeVisible();
@@ -282,7 +282,7 @@ test.describe("template notarial index default", () => {
   test("F: including from the compact card restores the full section and the step reappears", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docFromOffId}?section=notarial`);
+    await page.goto(`/documents/${docFromOffId}?section=notarial`);
     await page.getByRole("button", { name: "Incluir en el Índice" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Incluir esta Escritura en el Índice Notarial?" })
@@ -309,7 +309,7 @@ test.describe("template notarial index default", () => {
   test("G: excluding while standing on Índice stays on Índice, showing the compact card immediately", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${docFromOffId}?section=notarial`);
+    await page.goto(`/documents/${docFromOffId}?section=notarial`);
     await expect(notarialSection(page)).toBeVisible();
     await notarialSection(page).getByLabel("Incluir en el Índice Notarial").click();
     await page
@@ -328,7 +328,7 @@ test.describe("template notarial index default", () => {
   test("H: changing the template default later does not retroactively change existing documents", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/templates/${templateOnId}?section=notarial`);
+    await page.goto(`/templates/${templateOnId}?section=notarial`);
 
     const templateSection = templateIndexSection(page);
     const toggle = templateSection.getByLabel("Incluir en Índice Notarial");
@@ -344,14 +344,14 @@ test.describe("template notarial index default", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     // docFromOnId ya existía antes de este cambio — sigue incluida.
-    await page.goto(`/dashboard/documents/${docFromOnId}`);
+    await page.goto(`/documents/${docFromOnId}`);
     await expect(stepper(page).getByRole("tab")).toHaveCount(3);
     await expect(
       stepper(page).getByRole("tab", { name: "Índice", exact: true }),
     ).toBeVisible();
 
     // Restaurar para no afectar otras corridas.
-    await page.goto(`/dashboard/templates/${templateOnId}?section=notarial`);
+    await page.goto(`/templates/${templateOnId}?section=notarial`);
     const restoreToggle = templateIndexSection(page).getByLabel(
       "Incluir en Índice Notarial",
     );

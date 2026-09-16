@@ -206,7 +206,7 @@ Después de que cada persona acepte su invitación, conviene verificar
 (desde la propia aplicación, ya logueada como esa persona):
 - que se creó su fila en `lawyer_profiles` (si el flujo de la app la
   crea automáticamente al primer login, o si requiere completarse a mano
-  en `/dashboard/settings`);
+  en `/settings`);
 - que el `owner_id` es correcto;
 - que no hay datos de otro usuario visibles.
 

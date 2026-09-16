@@ -79,7 +79,7 @@ test.describe("team management", () => {
       // "Mi equipo" ahora vive dentro de Despacho (menú de usuario), no en
       // su propia ruta de navegación — /dashboard/team redirige ahí.
       await page.goto("/dashboard/team");
-      await expect(page).toHaveURL(/\/dashboard\/settings\?tab=workspace$/);
+      await expect(page).toHaveURL(/\/settings\?tab=workspace$/);
       await expect(
         page.getByRole("heading", { name: "Equipo", level: 2 }),
       ).toBeVisible();
@@ -150,7 +150,7 @@ test.describe("team management", () => {
       const asAdminPage = await adminContext.newPage();
       await loginAndExpectDashboard(asAdminPage, memberEmail, PASSWORD);
       await asAdminPage.goto("/dashboard/team");
-      await expect(asAdminPage).toHaveURL(/\/dashboard\/settings\?tab=workspace$/);
+      await expect(asAdminPage).toHaveURL(/\/settings\?tab=workspace$/);
       await expect(
         asAdminPage.getByRole("heading", { name: "Equipo", level: 2 }),
       ).toBeVisible();
@@ -182,7 +182,7 @@ test.describe("team management", () => {
       // No tiene acceso a los datos del Workspace del que fue suspendido:
       // navegar directo a una ruta de negocio también rebota aquí, nunca
       // muestra datos ajenos ni cae en /login.
-      await suspendedPage.goto("/dashboard/receivables");
+      await suspendedPage.goto("/receivables");
       await expect(suspendedPage).toHaveURL(/\/workspace-unavailable$/);
 
       // La pantalla permite cerrar sesión.
