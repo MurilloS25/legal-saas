@@ -5,6 +5,15 @@ conectado al proyecto `lexcr-production` de Supabase Cloud. No contiene
 secretos: ni tokens, ni contraseñas, ni claves — solo nombres y
 configuración pública.
 
+## Estado conocido vigente
+
+Última reconciliación documental: **2026-09-11**. El proyecto y la URL
+Production existen y `main` es la rama productiva. Esta reconciliación no
+consultó ni modificó Vercel Production, por lo que el deployment exacto debe
+revalidarse en Vercel antes de un release. El último deployment verificado se
+conserva abajo como historial; el HEAD actual conocido de `main` en Git es
+`0c0b355ec9a47aed23ebfabc623ebcd731e2dc3f`.
+
 ## Proyecto
 
 | Campo | Valor |
@@ -34,8 +43,8 @@ configuración pública.
 ## Auditoría de variables de entorno (Fase 3)
 
 Se auditó cada referencia a `process.env` en `src/` antes de configurar
-nada en Vercel. Resultado — exactamente 3 archivos, 2 nombres de
-variable, ambas ya usadas de forma consistente en todo el código:
+nada en Vercel. En ese momento el resultado fue exactamente 3 archivos y
+2 nombres de variable:
 
 ```text
 src/lib/supabase/client.ts
@@ -43,7 +52,8 @@ src/lib/supabase/server.ts
 src/proxy.ts
 ```
 
-Las tres consumen:
+`client.ts` se retiró posteriormente al confirmarse que no tenía consumidores.
+En el momento de la auditoría, los tres archivos consumían:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL               (requerida)
@@ -51,10 +61,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   (preferida, el código la intenta primero
 NEXT_PUBLIC_SUPABASE_ANON_KEY          (fallback legacy, solo si la anterior no está)
 ```
 
-**`SUPABASE_SERVICE_ROLE_KEY`:** no se encontró ni una sola referencia
-en `src/` (solo aparece en `.env.example`/`docs/`/`RULES.md` como
-documentación de qué NO usar en cliente). No se configuró en Vercel —
-el código no la necesita.
+**`SUPABASE_SERVICE_ROLE_KEY`:** en esa auditoría no se encontró ninguna
+referencia en `src/` y no se configuró en Vercel.
 
 Solo se configuró `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (no también
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`): el código ya prioriza la publishable
@@ -78,9 +86,9 @@ un proyecto Vercel existente, así que no se pudo verificar el scope
 más abajo (la conexión a Supabase funciona en producción, lo que
 requiere que ambas estén presentes ahí).
 
-## Deployment
+## Historial: deployment verificado el 2026-07-22
 
-- **Commit desplegado:** `24cd5d66c3005e089f835b8cb77b27ba4e9e33d4` (rama `main`) — el mismo commit verificado como idéntico a `develop` al cierre de la tarea de iteraciones finales.
+- **Commit desplegado en esa verificación:** `24cd5d66c3005e089f835b8cb77b27ba4e9e33d4` (rama `main`). No se debe asumir que sigue siendo el deployment activo sin consultar Vercel.
 - **Estado:** `READY`, target `production`.
 - **Origen:** `import` (integración Git), no un deploy de archivos sueltos.
 - **Runtime:** funciones Lambda de Next.js (App Router), sin advertencias críticas en logs de build ni de runtime.
@@ -96,21 +104,23 @@ Instrucciones exactas dadas al usuario:
 **Authentication → URL Configuration** (proyecto `lexcr-production`):
 
 1. **Site URL:** cambiar a `https://lexcr.vercel.app` (exacta, sin barra final duplicada).
-2. **Redirect URLs:** agregar únicamente:
+2. **Redirect URLs necesarias para los flujos actuales:**
    ```text
    https://lexcr.vercel.app/auth/confirm
+   https://lexcr.vercel.app/accept-invite
+   https://lexcr.vercel.app/reset-password
+   https://lexcr.vercel.app/update-password
    ```
-   Es el único endpoint de auth que existe en el código
-   (`src/app/auth/confirm/route.ts`) — no hay ruta de reseteo de
-   contraseña ni callback OAuth en la aplicación. No se agregó ningún
-   comodín (`https://**`, `*`) ni rutas inventadas.
+   `/auth/confirm` conserva el callback defensivo con redirect interno seguro;
+   invitación y recuperación usan páginas intermedias cuyo GET no consume el
+   token. No hay callback OAuth ni comodines de redirect.
 3. Mantener las URLs locales de desarrollo (`http://127.0.0.1:3000` o
    equivalente) si el equipo sigue desarrollando localmente — no se
    eliminan por rutina.
 4. **Signup:** confirmar de nuevo `Allow new user signups: OFF`.
 5. **Provider:** confirmar `Email: ON`, resto de proveedores `OFF`.
 
-## Fase 9 — Redeploy
+## Historial: decisión de redeploy de la configuración inicial
 
 No se modificó ninguna variable de entorno después del deployment
 inicial en esta tarea, así que no correspondió un redeploy adicional.
@@ -118,7 +128,7 @@ Si el Site URL de Supabase se actualiza (paso anterior) sin tocar
 código ni variables de Vercel, **no** se requiere redeploy — el cambio
 vive del lado de Supabase, no en el build de Vercel.
 
-## Validación productiva realizada sin contraseñas
+## Historial: validación productiva realizada sin contraseñas
 
 Hecho en esta tarea, contra `https://lexcr.vercel.app`, sin usar
 ninguna cuenta real:
@@ -136,7 +146,7 @@ ninguna cuenta real:
 | Logs de runtime (`get_runtime_logs`, última hora) | Limpios: solo accesos HTTP estructurados (200/304/307), sin trazas de error, sin contenido sensible |
 | Errores de runtime (`get_runtime_errors`, 24h) | Cero |
 
-## Pasos manuales pendientes (requieren cuenta autorizada real)
+## Runbook de validación manual (requiere cuenta autorizada real)
 
 No se pudieron ejecutar en esta tarea — requieren una contraseña real,
 que nunca se maneja desde este entorno. Ejecutar con un usuario
@@ -233,11 +243,11 @@ tarea (no hubo fallo).
    sí (a menos que el código tenga alguna referencia hardcodeada al
    dominio anterior, lo cual no es el caso aquí).
 
-## Pendientes
+## Verificaciones pendientes antes del próximo release
 
-- Confirmar que el usuario completó la configuración de Site
-  URL/Redirect URLs en Supabase Auth (instrucciones arriba) — no
-  verificable desde este entorno.
+- Revalidar Site URL, las cuatro redirect URLs, política de contraseña y
+  plantillas de correo en Supabase Auth.
+- Confirmar el deployment activo y sus variables Production en Vercel.
 - Ejecutar los pasos manuales de la sección anterior con una cuenta
   autorizada real (login, sesión, logout, smoke test).
 - Prueba de aislamiento A/B — pendiente hasta que exista una segunda

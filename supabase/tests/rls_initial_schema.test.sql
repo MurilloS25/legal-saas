@@ -2,7 +2,7 @@ begin;
 
 set search_path = public, extensions;
 
-select plan(33);
+select plan(31);
 
 create schema rls_test;
 grant usage on schema rls_test to public;
@@ -189,60 +189,6 @@ values (
   1
 );
 
-insert into public.document_metadata (
-  id,
-  owner_id,
-  template_id,
-  client_id,
-  title,
-  document_type,
-  created_for_index,
-  generated_at
-)
-values (
-  '22222222-0000-0000-0000-000000000006',
-  '22222222-2222-2222-2222-222222222222',
-  '22222222-0000-0000-0000-000000000004',
-  '22222222-0000-0000-0000-000000000003',
-  'Fake Metadata B',
-  'escritura',
-  true,
-  now()
-);
-
-insert into public.notarial_records (
-  id,
-  owner_id,
-  document_metadata_id,
-  volume,
-  initial_folio,
-  final_folio,
-  deed_number,
-  deed_date,
-  deed_time,
-  act_or_contract,
-  parties,
-  period_half,
-  period_month,
-  period_year
-)
-values (
-  '22222222-0000-0000-0000-000000000007',
-  '22222222-2222-2222-2222-222222222222',
-  '22222222-0000-0000-0000-000000000006',
-  '1',
-  '10',
-  '11',
-  '20',
-  date '2026-05-20',
-  time '10:00',
-  'Fake contract B',
-  'Fake parties B',
-  'second',
-  5,
-  2026
-);
-
 insert into public.receivables (
   id,
   owner_id,
@@ -417,70 +363,6 @@ select ok(
     )
   $$),
   'User A can create a child field under their own template'
-);
-
-select ok(
-  rls_test.statement_succeeds($$
-    insert into public.document_metadata (
-      id,
-      owner_id,
-      template_id,
-      client_id,
-      title,
-      document_type,
-      created_for_index,
-      generated_at
-    )
-    values (
-      '11111111-0000-0000-0000-000000000006',
-      '11111111-1111-1111-1111-111111111111',
-      '11111111-0000-0000-0000-000000000004',
-      '11111111-0000-0000-0000-000000000003',
-      'Fake Metadata A',
-      'escritura',
-      true,
-      now()
-    )
-  $$),
-  'User A can create metadata under their own template and client'
-);
-
-select ok(
-  rls_test.statement_succeeds($$
-    insert into public.notarial_records (
-      id,
-      owner_id,
-      document_metadata_id,
-      volume,
-      initial_folio,
-      final_folio,
-      deed_number,
-      deed_date,
-      deed_time,
-      act_or_contract,
-      parties,
-      period_half,
-      period_month,
-      period_year
-    )
-    values (
-      '11111111-0000-0000-0000-000000000007',
-      '11111111-1111-1111-1111-111111111111',
-      '11111111-0000-0000-0000-000000000006',
-      '1',
-      '1',
-      '2',
-      '10',
-      date '2026-05-20',
-      time '09:00',
-      'Fake contract A',
-      'Fake parties A',
-      'second',
-      5,
-      2026
-    )
-  $$),
-  'User A can create a notarial record under their own metadata'
 );
 
 select ok(

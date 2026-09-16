@@ -136,6 +136,10 @@ export function TemplateWorkspaceHeader({
 
   return (
     <header className="mb-6">
+      {/* Sin manejador de click propio: la confirmación de salida con
+          cambios sin guardar la intercepta `TemplateWorkspace` a nivel de
+          documento (cubre este enlace y también la navbar/drawer
+          compartidos), no un handler local en este único enlace. */}
       <Link
         href="/dashboard/templates"
         className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"

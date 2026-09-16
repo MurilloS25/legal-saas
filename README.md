@@ -2,7 +2,7 @@
 
 MVP foundation for a legal productivity SaaS for independent lawyers in Costa Rica.
 
-The product helps lawyers manage reusable legal document templates ("machotes"), persistent draft escrituras, and structured metadata for clients, notarial index preparation, and accounts receivable. The MVP may store user-owned draft text snapshots while a lawyer is preparing an escritura, but it must not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
+The product helps notarial workspaces manage reusable legal document templates ("machotes"), persistent escrituras, clients, notarial index preparation, and accounts receivable. An Escritura stores validated values, its last rendered text, and the minimal structured Machote snapshot needed to reopen and export the version from which it was created. The application must not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 
 ## Stack
 
@@ -63,14 +63,14 @@ pnpm build
 
 ## Current Status
 
-The local MVP currently includes Auth, lawyer settings, clients, reusable templates, persistent draft escrituras, in-memory Word export, document lifecycle and activity, internal notarial index preparation, accounts receivable, payments, RLS, and E2E coverage. Production deployment remains deferred.
+The MVP currently includes private-pilot Auth, Workspaces with four roles (`propietario`, `administrador`, `asistente`, `solo_lectura`), profile/document/workspace settings, clients, reusable templates, persistent escrituras, in-memory Word export, document lifecycle and activity, internal notarial index preparation, accounts receivable, payments, RLS, and focused E2E coverage. Vercel Production and Supabase Cloud exist; their dated operational state is documented separately and changes require explicit authorization.
 
 ## Non-Negotiables
 
 - Do not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
-- Treat persistent draft text (`field_values` and `rendered_content`) as sensitive user-owned data: protect it with RLS, avoid logs, and store only what is needed for the draft workflow.
+- Treat persistent Escritura data (`field_values`, `rendered_content`, and `template_snapshot`) as sensitive workspace data: protect it with RLS, avoid logs, and store only what is needed for the approved workflow.
 - Do not expose Supabase service role keys to client-side code.
-- Enforce per-user authorization with Supabase RLS before handling real user data.
+- Enforce Workspace membership and role authorization with Supabase RLS before handling real user data.
 - Keep security, accessibility, and data minimization visible in every feature review.
 
 ## Architecture
@@ -82,5 +82,5 @@ default.
 
 ## TODO
 
-- Apply the documented modular-by-feature refactor incrementally.
-- Add Vercel project and production environment configuration when explicitly approved.
+- Continue enforcing existing `src/features` boundaries as modules evolve.
+- Keep Production runbooks and migration state current after explicitly authorized releases.

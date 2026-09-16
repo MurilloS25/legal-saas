@@ -17,16 +17,25 @@
  * sin guardar, tanto antes como después del primer guardado. Solo "Índice"
  * está bloqueado antes de que el machote exista (depende de `template_id`);
  * el resto de los pasos opera sobre estado local puro y es igual de
- * funcional en ambos modos. La configuración del índice notarial vive en un
- * `<form>` propio, hermano del formulario de documento/variables, para
- * evitar formularios anidados.
+ * funcional en ambos modos. Los cinco pasos, incluido Índice, viven dentro
+ * del mismo `<form>` — Índice ya no tiene su propio `<form>`/Server Action
+ * (su guardado corre por `TemplateIndexConfigurationHandle`, invocado
+ * directamente), así que no hay riesgo de formularios anidados.
+ *
+ * El control de Guardar (`TemplateSaveControls`) es el último hijo de ese
+ * mismo `<form>`, pero visualmente es un dock flotante (`position: fixed`,
+ * vía `WorkspaceActionDock`) — el mismo patrón aprobado en el workspace de
+ * Escrituras (`DocumentSaveControls`): persistente durante el scroll desde
+ * cualquier paso, sin importar cuál esté oculto, en vez de la franja sticky
+ * de ancho completo que tenía antes.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
-import { flushSync } from "react-dom";
+import { useSaveRevision } from "@/lib/forms/use-save-revision";
 import {
   createTemplateWorkspaceAction,
+  getTemplateIndexFieldOptionsAction,
   updateTemplateWorkspaceAction,
   type TemplateWorkspaceState,
 } from "../server/template-actions";
@@ -47,38 +56,22 @@ import {
   type TemplateWorkspaceSection,
 } from "./TemplateWorkspaceHeader";
 import { useTemplatePreview } from "../hooks/use-template-preview";
+import { useTemplateWorkspaceSection } from "../hooks/use-template-workspace-section";
 import {
   TemplateIndexConfigurationSection,
+  isTemplateIndexConfigurationResolved,
   type IndexConfigurationField,
   type TemplateIndexConfiguration,
+  type TemplateIndexConfigurationHandle,
 } from "@/features/notarial-index";
 import { useToast } from "@/components/feedback/Toast";
 import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { AiHelpDialog } from "./AiHelpDialog";
+import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
+import { TemplatePublishPanel } from "./TemplatePublishPanel";
 
-// Orden fijo del flujo guiado — "Guardar y continuar" siempre avanza al
-// siguiente paso de esta lista, sin importar desde cuál se guardó. Vive
-// aquí (no en un módulo compartido) porque solo este componente decide
-// navegación tras un guardado en modo edición; `template-actions.ts`
-// mantiene su propia copia mínima para el redirect del primer guardado.
-const TEMPLATE_STEP_ORDER: TemplateWorkspaceSection[] = [
-  "information",
-  "document",
-  "variables",
-  "notarial",
-  "publish",
-];
-
-function nextTemplateSection(
-  current: TemplateWorkspaceSection,
-): TemplateWorkspaceSection {
-  const index = TEMPLATE_STEP_ORDER.indexOf(current);
-  return index >= 0 && index < TEMPLATE_STEP_ORDER.length - 1
-    ? TEMPLATE_STEP_ORDER[index + 1]
-    : current;
-}
 
 // ------------------------------------------------------------------ props
 
@@ -112,15 +105,6 @@ type Props = {
 
 const initialState: TemplateWorkspaceState = {};
 
-function resolveSection(raw: string | null): TemplateWorkspaceSection {
-  return raw === "document" ||
-    raw === "variables" ||
-    raw === "notarial" ||
-    raw === "publish"
-    ? raw
-    : "information";
-}
-
 // ------------------------------------------------------------------ component
 
 export function TemplateWorkspace(props: Props) {
@@ -137,21 +121,29 @@ export function TemplateWorkspace(props: Props) {
   const [variables, setVariables] = useState<TemplateWorkspaceVariable[]>(
     props.initialVariables,
   );
-  const [dirty, setDirty] = useState(false);
+  const { dirty, markDirty, captureRevision, completeSave } = useSaveRevision();
+  const submittedRevision = useRef(0);
   const [mobileView, setMobileView] = useState<TemplateMobileView>("edit");
   // "Información" es el primer paso definido — tanto una escritura nueva
   // como una entrada normal de edición abren ahí (ver `resolveInitialSection`
   // en la página de edición para la única excepción explícita: preservar el
   // paso tras el redirect create → edit del primer guardado).
-  const [section, setSection] = useState<TemplateWorkspaceSection>(
+  const { section, goToSection } = useTemplateWorkspaceSection(
+    isEdit,
     isEdit ? (props.initialSection ?? "information") : "information",
   );
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [aiHelpOpen, setAiHelpOpen] = useState(false);
-  const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
+  const [expectedVersion, setExpectedVersion] = useState(template?.updated_at ?? "");
   const editorRef = useRef<TemplateEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const aiHelpButtonRef = useRef<HTMLButtonElement>(null);
+  const indexRef = useRef<TemplateIndexConfigurationHandle>(null);
+  // Mapeos del Índice sin guardar — reportado por
+  // `TemplateIndexConfigurationSection` (no vive en un `<form>` propio, así
+  // que su dirty no se detecta solo). Se suma al `dirty` global de abajo.
+  const [indexDirty, setIndexDirty] = useState(false);
+  const [indexSaveError, setIndexSaveError] = useState<string | null>(null);
 
   function closeAiHelp() {
     setAiHelpOpen(false);
@@ -164,49 +156,19 @@ export function TemplateWorkspace(props: Props) {
   // `updated_at` viejo, y el siguiente guardado del Machote se rechaza como
   // conflicto optimista contra el propio usuario (nadie más lo tocó).
   function handleNotarialIndexDefaultSaved(updatedAt: string) {
-    if (expectedUpdatedAtRef.current) {
-      expectedUpdatedAtRef.current.value = updatedAt;
-    }
+    setExpectedVersion(updatedAt);
   }
 
-  // Mantiene la URL sincronizada con la sección activa sin disparar una
-  // navegación real (evita remontar el editor). `popstate` cubre
-  // atrás/adelante del navegador. Activo en ambos modos: el stepper es
-  // navegable desde el modo creación también.
-  useEffect(() => {
-    function onPopState() {
-      const next = resolveSection(
-        new URLSearchParams(window.location.search).get("section"),
-      );
-      // "notarial" depende de que el machote ya exista — en modo creación,
-      // ignorar un intento de llegar ahí por URL en vez de exponer el
-      // formulario real (que necesita template_id).
-      setSection(next === "notarial" && !isEdit ? "document" : next);
-    }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [isEdit]);
-
-  const goToSection = useCallback(
-    (next: TemplateWorkspaceSection) => {
-      setSection(next);
-      if (typeof window === "undefined") return;
-      // "information" es el paso por defecto — se omite de la URL para que
-      // una entrada normal (sin `?section=`) aterrice ahí, igual que
-      // `resolveSection`/`resolveInitialSection` esperan.
-      const url =
-        next === "information"
-          ? window.location.pathname
-          : `${window.location.pathname}?section=${next}`;
-      window.history.pushState(null, "", url);
-    },
-    [],
-  );
 
   const action = isEdit
     ? updateTemplateWorkspaceAction.bind(null, template!.id)
     : createTemplateWorkspaceAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [lastVersionState, setLastVersionState] = useState(state);
+  if (lastVersionState !== state) {
+    setLastVersionState(state);
+    if (state.success && state.updatedAt) setExpectedVersion(state.updatedAt);
+  }
   const { showToast } = useToast();
 
   const { contentKeys, document, model: previewModel } =
@@ -237,6 +199,28 @@ export function TemplateWorkspace(props: Props) {
     );
   }
 
+  // Candidatos para los selectores del Índice (Partes, campos simples):
+  // las `template_fields` persistidas (con `id` real) más cualquier
+  // variable configurada en esta misma sesión que todavía no tiene una —
+  // con un id sintético `local:<clave>` que
+  // `TemplateIndexConfigurationHandle.save` traduce al id real (pidiendo
+  // una lista fresca) recién después de guardar el machote. Sin esto, una
+  // variable recién pegada y configurada no podría elegirse como Partes
+  // hasta recargar la página.
+  const indexFieldCandidates = useMemo(() => {
+    const persisted = isEdit ? props.indexFields : [];
+    const byKey = new Set(persisted.map((field) => field.fieldKey));
+    const localOnly = variables
+      .filter((variable) => !byKey.has(variable.field_key))
+      .map((variable) => ({
+        id: `local:${variable.field_key}`,
+        fieldKey: variable.field_key,
+        label: variable.label || variable.field_key,
+      }));
+    return [...persisted, ...localOnly];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, variables]);
+
   // Señales de completitud reales para el stepper — no hay ningún paso
   // "bloqueado" en Machotes (todo es libremente navegable), pero sí
   // marcamos "complete" cuando hay una condición derivable, igual que ya
@@ -251,7 +235,9 @@ export function TemplateWorkspace(props: Props) {
   // están configuradas". Sin filas que evaluar, el paso no cuenta como
   // completo (evita el falso check al abrir un machote nuevo vacío).
   const variablesComplete = variableRows.length > 0 && variablesPendingCount === 0;
-  const indexComplete = isEdit ? (props.indexConfiguration?.isComplete ?? false) : false;
+  const indexComplete = isEdit
+    ? isTemplateIndexConfigurationResolved(props.indexConfiguration)
+    : false;
   // El Índice depende de template_id — no puede configurarse antes del
   // primer guardado, sin importar qué tan completos estén los demás pasos.
   const indexLocked = !isEdit;
@@ -272,41 +258,73 @@ export function TemplateWorkspace(props: Props) {
     notarial: isEdit && indexComplete,
     publish: isEdit && status === "active",
   }));
-  // "advance" solo lo activa el botón principal "Guardar y continuar" —
-  // "Guardar variable" (autoguardado de Variables) reutiliza el mismo
-  // formulario/acción pero nunca debe navegar de paso.
-  const saveIntentRef = useRef<"advance" | "stay">("stay");
+  // Guardado único: un solo botón "Guardar" persiste todo — Información,
+  // Documento, Variables e Índice — sin navegar de paso como efecto
+  // colateral (navegar entre secciones es libre, no requiere guardar antes
+  // ni después; ver el stepper). Índice usa un RPC separado internamente
+  // (`TemplateIndexConfigurationHandle.save`), pero solo se dispara cuando
+  // el machote base ya se guardó con éxito — su RPC necesita el `id` real
+  // de cualquier variable creada en esta misma sesión, que recién existe
+  // después de ese guardado (ver `getTemplateIndexFieldOptionsAction`).
+  const [indexSavePending, setIndexSavePending] = useState(false);
 
-  // Un guardado exitoso limpia el estado de cambios sin guardar, recalcula
-  // qué pasos quedan confirmados con los valores recién guardados, muestra
-  // el toast de confirmación, y avanza al siguiente paso solo si el
-  // guardado vino del botón principal.
+  async function finishIndexSave() {
+    if (!isEdit || !indexRef.current?.isDirty()) return true;
+    setIndexSaveError(null);
+    setIndexSavePending(true);
+    try {
+      const freshFields = await getTemplateIndexFieldOptionsAction(template!.id);
+      const result = await indexRef.current.save(freshFields);
+      if (!result.success) {
+        setIndexSaveError(
+          result.message ?? "No fue posible guardar la configuración del Índice.",
+        );
+        return false;
+      }
+      return true;
+    } finally {
+      setIndexSavePending(false);
+    }
+  }
+
+  // Un guardado exitoso del machote base recalcula qué pasos quedan
+  // confirmados, y encadena el guardado del Índice si tenía mapeos sin
+  // guardar — NO se muestra "Guardado" ni se limpia el dirty global hasta
+  // que ambas partes terminan bien (ver `finishIndexSave`): un guardado
+  // parcial nunca debe verse como éxito completo.
   const lastSuccess = useRef<TemplateWorkspaceState | null>(null);
   useEffect(() => {
-    if (state.success && lastSuccess.current !== state) {
-      lastSuccess.current = state;
-      setDirty(false);
-      if (state.updatedAt && expectedUpdatedAtRef.current) {
-        expectedUpdatedAtRef.current.value = state.updatedAt;
-      }
-      setSavedOnceValid({
-        information: informationComplete,
-        document: true,
-        variables: variablesComplete,
-        notarial: indexComplete,
-        publish: status === "active",
-      });
-      showToast("Machote guardado.");
-      if (saveIntentRef.current === "advance") {
-        goToSection(nextTemplateSection(section));
-      }
-      saveIntentRef.current = "stay";
-    }
+    if (!state.success || lastSuccess.current === state) return;
+    lastSuccess.current = state;
+    setSavedOnceValid({
+      information: informationComplete,
+      document: true,
+      variables: variablesComplete,
+      notarial: indexComplete,
+      publish: status === "active",
+    });
+
+    void (async () => {
+      const savedRevision = submittedRevision.current;
+      const indexOk = await finishIndexSave();
+      completeSave(savedRevision);
+      if (indexOk) showToast("Machote guardado.");
+    })();
     // Deliberadamente solo [state]: se leen los valores más recientes de
     // los demás closures (informationComplete, section, etc.), pero el
     // efecto solo debe reaccionar a un guardado nuevo, no a cada tecleo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
+
+  // Solo el Índice tiene cambios (nada más en el machote base): evita
+  // reenviar el formulario principal sin cambios reales — se guarda
+  // directo, sin pasar por el submit nativo ni por el efecto de arriba.
+  async function handleSaveClick(event: React.MouseEvent<HTMLButtonElement>) {
+    if (dirty || !isEdit || !indexRef.current?.isDirty()) return;
+    event.preventDefault();
+    const indexOk = await finishIndexSave();
+    if (indexOk) showToast("Machote guardado.");
+  }
 
   // El primer guardado en modo creación llega vía redirect del Server
   // Action (`?created=1`), no vía `useActionState` — el `state` de este
@@ -341,10 +359,6 @@ export function TemplateWorkspace(props: Props) {
   const completedIndex = savedOnceValid.notarial && indexComplete;
   const completedPublish = savedOnceValid.publish && status === "active";
 
-  function markDirty() {
-    if (!dirty) setDirty(true);
-  }
-
   /**
    * Único punto de entrada para cambios desde la pestaña Variables. El nodo
    * Tiptap de cada variable guarda su propia copia de `label` (para poder
@@ -369,37 +383,23 @@ export function TemplateWorkspace(props: Props) {
     markDirty();
   }
 
-  /**
-   * "Guardar variable" en modo edición: persiste de inmediato, sin esperar
-   * a "Guardar cambios". `flushSync` fuerza el commit de `setVariables`
-   * antes de leer el DOM, para que el input oculto `variables` ya refleje
-   * el nuevo valor cuando `requestSubmit` arma el envío — si no, el submit
-   * podría ir con el valor anterior (una carrera entre el render y el
-   * envío). Reutiliza el mismo action/RPC que "Guardar cambios", así que
-   * la protección de concurrencia optimista (`expected_updated_at`) aplica
-   * igual aquí.
-   */
-  function saveVariableNow(next: TemplateWorkspaceVariable[]) {
-    saveIntentRef.current = "stay";
-    flushSync(() => {
-      handleVariablesChange(next);
-    });
-    formRef.current?.requestSubmit();
-  }
+  const globalDirty = dirty || indexDirty;
 
-  /** Handler del botón principal — la única acción que debe avanzar de paso. */
-  function handleSaveAndContinueClick() {
-    saveIntentRef.current = "advance";
-  }
+  useUnsavedChanges(globalDirty);
 
-  const saveStatusText = pending
-    ? "Guardando…"
-    : dirty
-      ? "Cambios sin guardar"
-      : "Guardado";
+  const saveStatusText =
+    pending || indexSavePending
+      ? "Guardando…"
+      : indexSaveError
+        ? "Error al guardar"
+        : globalDirty
+          ? "Cambios sin guardar"
+          : "Guardado";
 
   return (
-    <div>
+    <>
+      {!isEdit && pending && <p role="status" className="mb-3 text-sm text-slate-600">Guardando… Espera antes de continuar editando.</p>}
+    <div inert={!isEdit && pending}>
       <TemplateWorkspaceHeader
         name={name}
         status={status}
@@ -415,7 +415,10 @@ export function TemplateWorkspace(props: Props) {
         actions={props.mode === "edit" ? props.headerActions : undefined}
       />
 
-      <form ref={formRef} action={formAction} noValidate>
+      <form ref={formRef} action={formAction} noValidate onSubmit={(event) => {
+        if (pending || indexSavePending) { event.preventDefault(); return; }
+        submittedRevision.current = captureRevision();
+      }}>
         {/* Datos serializados que acompañan al submit. */}
         <input
           type="hidden"
@@ -430,12 +433,9 @@ export function TemplateWorkspace(props: Props) {
         <input type="hidden" name="section" value={section} />
         {isEdit && (
           <input
-            ref={expectedUpdatedAtRef}
             type="hidden"
             name="expected_updated_at"
-            defaultValue={
-              props.mode === "edit" ? props.template.updated_at : ""
-            }
+            value={expectedVersion}
           />
         )}
 
@@ -553,100 +553,106 @@ export function TemplateWorkspace(props: Props) {
           aria-labelledby="template-tab-variables"
           hidden={section !== "variables"}
         >
+          {/* Sin `onSaveVariable`: "Guardar variable" ya no persiste de
+              inmediato — solo actualiza el estado local (como cualquier
+              otro cambio) y el botón "Guardar" único se encarga. */}
           <TemplateVariablesPanel
             variables={variables}
             contentKeys={contentKeys}
             onChange={handleVariablesChange}
-            onSaveVariable={isEdit ? saveVariableNow : undefined}
             readOnly={!canWrite}
           />
         </div>
 
-        {/* ================= Publicar ================= */}
-        <div
-          id="template-panel-publish"
-          role="tabpanel"
-          aria-labelledby="template-tab-publish"
+        <TemplatePublishPanel
           hidden={section !== "publish"}
-        >
-          <div className="space-y-6">
-            <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Resumen antes de publicar
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Publicar solo cambia el estado — no exige que las
-                  variables o el Índice Notarial estén completos.
-                </p>
-              </div>
-              <div className="px-6 py-5 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Nombre</span>
-                  <span className="font-medium text-slate-900">
-                    {name || "Sin nombre"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Variables configuradas</span>
-                  <span className="font-medium text-slate-900">
-                    {variables.length - variablesPendingCount} de {variables.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Índice notarial</span>
-                  <span className="font-medium text-slate-900">
-                    {isEdit
-                      ? indexComplete
-                        ? "Completo"
-                        : "Parcial u opcional"
-                      : "Disponible después de guardar"}
-                  </span>
-                </div>
-              </div>
-            </section>
+          name={name}
+          description={description}
+          status={status}
+          variableCount={variables.length}
+          variablesPendingCount={variablesPendingCount}
+          isEdit={isEdit}
+          indexComplete={indexComplete}
+          canWrite={canWrite}
+          errors={state.errors}
+          onNameChange={(value) => {
+            setName(value);
+            markDirty();
+          }}
+          onDescriptionChange={(value) => {
+            setDescription(value);
+            markDirty();
+          }}
+          onStatusChange={(value) => {
+            setStatus(value);
+            markDirty();
+          }}
+        />
 
+        {/* ================= Índice notarial =================
+            Ahora dentro del mismo <form> que los demás pasos: ya no tiene
+            su propio elemento <form> (el guardado único invoca su handle
+            imperativo directamente, ver arriba), así que anidarlo aquí no
+            es un <form> dentro de otro — solo un panel más ocultado por
+            CSS igual que el resto. Moverlo adentro es lo que permite que
+            la barra de Guardar (sticky, más abajo) se anote al final del
+            contenido REAL de cada paso, incluida Índice — si quedara fuera
+            del <form>, la barra "flotaría" pegada al principio de la
+            página al ver Índice, porque el <form> (con todos los demás
+            pasos ocultos) colapsaría a una altura mínima. Bloqueado hasta
+            el primer guardado — depende de template_id. */}
+        <div
+          id="template-panel-notarial"
+          role="tabpanel"
+          aria-labelledby="template-tab-notarial"
+          hidden={section !== "notarial"}
+        >
+          {isEdit ? (
+            <TemplateIndexConfigurationSection
+              ref={indexRef}
+              templateId={props.template.id}
+              configuration={props.indexConfiguration}
+              readOnly={!canWrite}
+              fields={indexFieldCandidates}
+              optionBlocks={optionBlockSummaries}
+              includeByDefault={props.template.include_in_notarial_index_by_default}
+              onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
+              onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
+                editorRef.current?.updateOptionBlockStructuredOutput(
+                  blockId,
+                  structuredOutput,
+                )
+              }
+              onDirtyChange={setIndexDirty}
+            />
+          ) : (
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-                <h2 className="text-sm font-semibold text-slate-900">Estado</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Índice</h2>
               </div>
-              <div className="px-6 py-5 max-w-xs">
-                <TemplateMetadataForm
-                  name={name}
-                  description={description}
-                  status={status}
-                  errors={state.errors}
-                  disabled={!canWrite}
-                  fieldset="publish"
-                  onNameChange={(value) => {
-                    setName(value);
-                    markDirty();
-                  }}
-                  onDescriptionChange={(value) => {
-                    setDescription(value);
-                    markDirty();
-                  }}
-                  onStatusChange={(value) => {
-                    setStatus(value);
-                    markDirty();
-                  }}
-                />
+              <div className="px-6 py-8 text-center text-sm text-slate-500">
+                Disponible después de guardar el machote por primera vez.
+                Guarda desde cualquier otro paso para desbloquearlo.
               </div>
             </section>
-          </div>
+          )}
         </div>
 
-        {section !== "notarial" && (
-          <TemplateSaveControls
-            dirty={dirty}
-            pending={pending}
-            saved={!!state.success}
-            isEdit={isEdit}
-            canWrite={canWrite}
-            hasNextStep={nextTemplateSection(section) !== section}
-            onSaveClick={handleSaveAndContinueClick}
-          />
-        )}
+        {/* Dock flotante de Guardar: única zona estable de guardado del
+            machote completo, visible desde cualquier paso — incluida
+            Índice, que ya no tiene su propio botón. Último hijo del
+            <form>, pero `position: fixed` (vía `WorkspaceActionDock`) lo
+            mantiene siempre alcanzable durante el scroll, sin importar qué
+            paso esté visible. */}
+        <TemplateSaveControls
+          dirty={globalDirty}
+          pending={pending || indexSavePending}
+          saved={!!state.success && !indexSaveError}
+          isEdit={isEdit}
+          canWrite={canWrite}
+          errorMessage={indexSaveError ?? undefined}
+          onSaveClick={handleSaveClick}
+        />
       </form>
 
       <ExpandableDocumentPanel
@@ -659,44 +665,7 @@ export function TemplateWorkspace(props: Props) {
 
       {aiHelpOpen && <AiHelpDialog onClose={closeAiHelp} />}
 
-      {/* ================= Índice notarial =================
-          Hermano del <form> de arriba, no descendiente: tiene su propio
-          <form> con su propia Server Action y no puede anidarse dentro.
-          Bloqueado hasta el primer guardado — depende de template_id. */}
-      <div
-        id="template-panel-notarial"
-        role="tabpanel"
-        aria-labelledby="template-tab-notarial"
-        hidden={section !== "notarial"}
-      >
-        {isEdit ? (
-          <TemplateIndexConfigurationSection
-            templateId={props.template.id}
-            configuration={props.indexConfiguration}
-            readOnly={!canWrite}
-            fields={props.indexFields}
-            optionBlocks={optionBlockSummaries}
-            includeByDefault={props.template.include_in_notarial_index_by_default}
-            onIncludeByDefaultSaved={handleNotarialIndexDefaultSaved}
-            onSaveOptionBlockTimeMapping={(blockId, structuredOutput) =>
-              editorRef.current?.updateOptionBlockStructuredOutput(
-                blockId,
-                structuredOutput,
-              )
-            }
-          />
-        ) : (
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-              <h2 className="text-sm font-semibold text-slate-900">Índice</h2>
-            </div>
-            <div className="px-6 py-8 text-center text-sm text-slate-500">
-              Disponible después de guardar el machote por primera vez.
-              Guarda desde cualquier otro paso para desbloquearlo.
-            </div>
-          </section>
-        )}
-      </div>
     </div>
+    </>
   );
 }

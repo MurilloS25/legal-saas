@@ -9,12 +9,7 @@
 -- is the actual enforcement point and must hold even if that check is
 -- bypassed (direct REST/PostgREST call).
 --
--- Note: `documents_update_workspace`'s `with check (owner_id = auth.uid()
--- ...)` means, independent of this fix, only a document's own owner can
--- ever successfully UPDATE it (role alone doesn't let an administrador edit
--- a document owned by someone else) — a pre-existing structural property of
--- this policy, unrelated to reopen/finalize and out of scope here. Each
--- role scenario below therefore reopens its OWN document.
+-- Cross-creator collaboration is covered by release_security_rls_lifecycle.test.sql.
 
 begin;
 
@@ -132,8 +127,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'e1111111-d000-0000-0000-000000000001', 'e1111111-1111-1111-1111-111111111111',
   'e1111111-1111-1111-1111-111111111111', 'e1111111-0000-0000-0000-000000000001',
-  'Doc propietario', 'final', '{}'::jsonb, ''
+  'Doc propietario', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','e1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='e1111111-d000-0000-0000-000000000001';
+reset role;
+select set_config('request.jwt.claim.sub','e1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+
 
 select ok(
   rls_reopen_test.statement_succeeds($$
@@ -155,8 +159,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'e1111111-d000-0000-0000-000000000002', 'e2222222-2222-2222-2222-222222222222',
   'e1111111-1111-1111-1111-111111111111', 'e1111111-0000-0000-0000-000000000001',
-  'Doc admin', 'final', '{}'::jsonb, ''
+  'Doc admin', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','e1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='e1111111-d000-0000-0000-000000000002';
+reset role;
+select set_config('request.jwt.claim.sub','e2222222-2222-2222-2222-222222222222',true);
+set local role authenticated;
+
 
 select ok(
   rls_reopen_test.statement_succeeds($$
@@ -179,8 +192,17 @@ insert into public.documents (id, owner_id, workspace_id, template_id, title, st
 values (
   'e1111111-d000-0000-0000-000000000003', 'e3333333-3333-3333-3333-333333333333',
   'e1111111-1111-1111-1111-111111111111', 'e1111111-0000-0000-0000-000000000001',
-  'Doc asistente', 'final', '{}'::jsonb, ''
+  'Doc asistente', 'draft', '{}'::jsonb, ''
 );
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','e1111111-1111-1111-1111-111111111111',true);
+set local role authenticated;
+update public.documents set status='final' where id='e1111111-d000-0000-0000-000000000003';
+reset role;
+select set_config('request.jwt.claim.sub','e3333333-3333-3333-3333-333333333333',true);
+set local role authenticated;
+
 
 select ok(
   rls_reopen_test.statement_fails($$
@@ -199,16 +221,12 @@ reset role;
 select set_config('request.jwt.claim.sub', 'e4444444-4444-4444-4444-444444444444', true);
 set local role authenticated;
 
--- La fila SÍ es visible para solo_lectura (`using` solo exige membresía,
--- sin filtro de rol), así que el rechazo llega como violación de RLS en el
--- `with check` (error explícito), no como un update silencioso de 0 filas.
-select ok(
-  rls_reopen_test.statement_fails($$
+-- Read-only rows are excluded by the UPDATE USING policy.
+select is(rls_reopen_test.statement_row_count($q$
     update public.documents set status = 'draft'
     where id = 'e1111111-d000-0000-0000-000000000001'
-  $$),
-  '4) Solo_lectura NO puede reabrir (rechazado por RLS, sin rol de escritura)'
-);
+  $q$),0::bigint,
+  '4) Solo_lectura cannot reopen (no writable rows)');
 
 reset role;
 

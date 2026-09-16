@@ -18,6 +18,7 @@ const registry = new CleanupRegistry();
 
 const clientName = uniqueName("doc-receivable-nav", "cliente");
 const documentTitle = uniqueName("doc-receivable-nav", "escritura");
+const receivableConcept = uniqueName("doc-receivable-nav", "concepto-existente");
 let clientId = "";
 let documentId = "";
 let existingReceivableId = "";
@@ -48,7 +49,7 @@ test.describe("document ↔ receivable context navigation", () => {
     const receivable = await createTestReceivable(registry, {
       client_id: clientId,
       document_id: documentId,
-      concept: uniqueName("doc-receivable-nav", "concepto-existente"),
+      concept: receivableConcept,
     });
     existingReceivableId = receivable.id;
   });
@@ -88,13 +89,15 @@ test.describe("document ↔ receivable context navigation", () => {
     const viewLink = cobroSection.getByRole("link", {
       name: "Ver cuenta completa",
     });
+    const returnTo = `/dashboard/documents/${documentId}?section=cobro`;
     await expect(viewLink).toHaveAttribute(
       "href",
-      `/dashboard/receivables/${existingReceivableId}`,
+      `/dashboard/receivables/${existingReceivableId}?returnTo=${encodeURIComponent(returnTo)}`,
     );
     await viewLink.click();
-    await expect(page).toHaveURL(
-      new RegExp(`/dashboard/receivables/${existingReceivableId}$`),
+    await expect(page.getByRole("link", { name: "Volver a la Escritura" })).toHaveAttribute(
+      "href",
+      returnTo,
     );
   });
 
@@ -118,6 +121,48 @@ test.describe("document ↔ receivable context navigation", () => {
     await expect(page).toHaveURL(
       new RegExp(`/dashboard/documents/${documentId}\\?section=cobro`),
     );
+  });
+
+  test("D: editar, pagar y anular conservan el retorno contextual", async ({
+    page,
+  }) => {
+    const returnTo = `/dashboard/documents/${documentId}?section=cobro`;
+    const detailUrl = `/dashboard/receivables/${existingReceivableId}?returnTo=${encodeURIComponent(returnTo)}`;
+    await page.goto(detailUrl);
+
+    await page
+      .getByRole("textbox", { name: "Concepto", exact: true })
+      .fill(`${receivableConcept} editado`);
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(page.getByRole("link", { name: "Volver a la Escritura" })).toHaveAttribute(
+      "href",
+      returnTo,
+    );
+    expect(new URL(page.url()).searchParams.get("returnTo")).toBe(returnTo);
+
+    await page.getByRole("tab", { name: "Pagos" }).click();
+    expect(new URL(page.url()).searchParams.get("returnTo")).toBe(returnTo);
+    const paymentDialog = page.getByRole("dialog", { name: "Registrar pago" });
+    await page.getByRole("button", { name: "Registrar pago" }).click();
+    await paymentDialog.getByLabel(/Monto del pago/).fill("1000");
+    await paymentDialog.getByRole("button", { name: "Registrar pago" }).click();
+    await expect(page.getByText("Pago registrado.", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    expect(new URL(page.url()).searchParams.get("returnTo")).toBe(returnTo);
+
+    const paymentRow = page.getByRole("row").filter({ hasText: "₡1.000,00 CRC" });
+    await paymentRow.getByRole("button", { name: "Anular" }).click();
+    const voidDialog = page.getByRole("alertdialog");
+    await voidDialog.getByLabel(/Motivo de la anulación/).fill("Prueba de retorno");
+    await voidDialog.getByRole("button", { name: "Anular pago" }).click();
+    await expect(page.getByText("Anulado", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    expect(new URL(page.url()).searchParams.get("returnTo")).toBe(returnTo);
+
+    await page.getByRole("link", { name: "Volver a la Escritura" }).click();
+    await expect(page).toHaveURL(returnTo);
   });
 
   test("F: opening a receivable directly (no context) shows no back link", async ({

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkspaceAccess } from "@/lib/server/auth";
 import { workspaceUnavailableLogoutAction } from "./actions";
+import { DataAccessError } from "@/lib/server/errors";
 
 // Server Component: nunca confía en cómo llegó aquí (¿redirect de
 // requireWorkspace()? ¿enlace guardado?) — vuelve a resolver el estado por
@@ -13,11 +14,27 @@ export default async function WorkspaceUnavailablePage() {
   const supabase = await createClient();
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.error(
+      `[data-access] authenticate workspace access failed (${userError.code ?? "unknown"})`,
+    );
+    return <WorkspaceAccessLoadError />;
+  }
 
   if (!user) redirect("/login");
 
-  const access = await getWorkspaceAccess(supabase, user.id);
+  let access;
+  try {
+    access = await getWorkspaceAccess(supabase, user.id);
+  } catch (error) {
+    if (error instanceof DataAccessError) {
+      return <WorkspaceAccessLoadError />;
+    }
+    throw error;
+  }
 
   if (access.kind === "active") redirect("/dashboard");
   if (access.kind === "invited") redirect("/accept-invite");
@@ -57,6 +74,22 @@ export default async function WorkspaceUnavailablePage() {
             Cerrar sesión
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceAccessLoadError() {
+  return (
+    <div className="w-full max-w-md">
+      <div className="rounded-2xl border border-red-200 bg-white px-8 py-10 text-center shadow-sm">
+        <h1 className="text-xl font-semibold text-slate-900">
+          No fue posible verificar su espacio de trabajo
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500">
+          No se interpretó este problema como una cuenta sin acceso. Intente
+          nuevamente cuando el servicio esté disponible.
+        </p>
       </div>
     </div>
   );

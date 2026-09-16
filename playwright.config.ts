@@ -46,11 +46,43 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    // Auth setup — logs in and saves storageState.
-    // Runs before chromium-authenticated but not before chromium-public.
+    {
+      name: "chromium-release-validation-auth",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-validation-auth\.spec\.ts/,
+    },
+    {
+      name: "chromium-release-navigation-confirmation",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-navigation-confirmation\.spec\.ts/,
+    },
+    {
+      name: "chromium-release-save-races",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-save-races\.spec\.ts/,
+    },
+    {
+      name: "chromium-release-security",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /release-security-collaboration\.spec\.ts/,
+    },
+    // Auth setup — logs in once and saves storageState for each authenticated
+    // module project. Those projects depend directly on setup so selecting one
+    // never pulls unrelated feature suites into a directed run.
     {
       name: "setup",
       testMatch: /auth\.setup\.ts/,
+    },
+
+    // P1-03: an Escritura keeps its creation-version Machote snapshot.
+    {
+      name: "chromium-document-template-snapshot",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-template-snapshot-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
     },
 
     // Public (unauthenticated) tests.
@@ -136,6 +168,10 @@ export default defineConfig({
       dependencies: ["chromium-notary-identity-actor-audit"],
     },
 
+    // Authenticated feature projects below share only the generated auth state.
+    // Each depends directly on setup; ordering inside a stateful spec remains
+    // explicit through test.describe.configure({ mode: "serial" }).
+
     // Clients module — authenticated.
     {
       name: "chromium-clients",
@@ -155,7 +191,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /templates-authenticated\.spec\.ts/,
-      dependencies: ["chromium-clients"],
+      dependencies: ["setup"],
     },
 
     // Template fields module — authenticated.
@@ -166,7 +202,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-fields-authenticated\.spec\.ts/,
-      dependencies: ["chromium-templates"],
+      dependencies: ["setup"],
     },
 
     // Pasted/typed template variable detection — authenticated.
@@ -177,7 +213,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-pasted-variables-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-fields"],
+      dependencies: ["setup"],
     },
 
     // Milestone feedback after the first template save — authenticated.
@@ -188,7 +224,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-milestone-feedback-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-pasted-variables"],
+      dependencies: ["setup"],
     },
 
     // Option blocks configuration in templates — authenticated.
@@ -199,7 +235,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-option-blocks-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-milestone"],
+      dependencies: ["setup"],
     },
 
     // Ayuda para crear un machote con una herramienta de IA externa (botón +
@@ -211,7 +247,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-ai-help-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-option-blocks"],
+      dependencies: ["setup"],
     },
 
     // Stepper always visible from template creation (Información/Documento/
@@ -223,11 +259,11 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-stepper-create-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-ai-help"],
+      dependencies: ["setup"],
     },
 
-    // Guided-flow progression in Machotes: auto-advance on save, toast
-    // confirmation, validation blocks advancing — authenticated.
+    // Guided-flow progression in Machotes: one persistent save action,
+    // completion markers, toast feedback and free step navigation.
     {
       name: "chromium-template-guided-progression",
       use: {
@@ -235,7 +271,19 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-guided-progression-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-stepper-create"],
+      dependencies: ["setup"],
+    },
+
+    // Sticky Guardar bar + tri-estado de Partes (Pendiente/Requiere/No
+    // requiere) en el workspace de Machotes — authenticated.
+    {
+      name: "chromium-template-sticky-and-parties",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-workspace-sticky-and-parties-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
     },
 
     // Documents (Escrituras) workspace — authenticated.
@@ -246,11 +294,11 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-guided-progression"],
+      dependencies: ["setup"],
     },
 
-    // Stepper always visible from document creation (Completar/Revisar/
-    // Cobro/Finalizar/Índice) — authenticated.
+    // Stepper visible from document creation (Completar/Cobro/Índice) —
+    // authenticated.
     {
       name: "chromium-document-stepper-create",
       use: {
@@ -258,13 +306,11 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-stepper-create-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents"],
+      dependencies: ["setup"],
     },
 
-    // Guided-flow progression in Escrituras: auto-advance on save, the
-    // Finalizar → Cobro redirect regression test, Cobro's explicit
-    // "Continuar" resolution, and validation blocking advance —
-    // authenticated.
+    // Guided-flow progression in Escrituras: one persistent save action,
+    // completion markers, optional Cobro resolution and Index navigation.
     {
       name: "chromium-document-guided-progression",
       use: {
@@ -272,7 +318,19 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-guided-progression-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-stepper-create"],
+      dependencies: ["setup"],
+    },
+
+    // Guardado único: reopen sin navegación forzada y navigation guard
+    // (salida real del workspace de Escrituras) — authenticated.
+    {
+      name: "chromium-document-reopen-guard",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-reopen-single-save-and-exit-guard-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
     },
 
     // Inline editing of variables directly in the document sheet — authenticated.
@@ -283,7 +341,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-inline-editing-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-guided-progression"],
+      dependencies: ["setup"],
     },
 
     // Using option blocks (variant selection) in documents — authenticated.
@@ -294,7 +352,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-option-blocks-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-inline-editing"],
+      dependencies: ["setup"],
     },
 
     // Simplified document data sidebar (progress + "Siguiente pendiente") —
@@ -306,7 +364,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-data-sidebar-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-option-blocks"],
+      dependencies: ["setup"],
     },
 
     // Document DOCX download — authenticated.
@@ -317,7 +375,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-docx-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-data-sidebar"],
+      dependencies: ["setup"],
     },
 
     // Document ↔ client relationship — authenticated.
@@ -328,7 +386,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-client-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-docx"],
+      dependencies: ["setup"],
     },
 
     // Contextual client creation from the document workspace — authenticated.
@@ -339,7 +397,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-client-contextual-creation-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-client"],
+      dependencies: ["setup"],
     },
 
     // Role-based autofill from a registered client — authenticated.
@@ -350,7 +408,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-role-autofill-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-client-dialog"],
+      dependencies: ["setup"],
     },
 
     // Documents workspace (search/filter/sort) — authenticated.
@@ -361,7 +419,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-role-autofill"],
+      dependencies: ["setup"],
     },
 
     // Document lifecycle statuses — authenticated.
@@ -372,7 +430,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-lifecycle-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-workspace"],
+      dependencies: ["setup"],
     },
 
     // Duplicating documents (draft and finalized) as new drafts — authenticated.
@@ -383,7 +441,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-duplication-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-lifecycle"],
+      dependencies: ["setup"],
     },
 
     // Milestone feedback after the first draft save and after finalizing —
@@ -395,7 +453,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-milestone-feedback-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-duplication"],
+      dependencies: ["setup"],
     },
 
     // Document activity history — authenticated.
@@ -406,7 +464,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /documents-activity-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-milestone"],
+      dependencies: ["setup"],
     },
 
     // Notarial index metadata — authenticated.
@@ -417,7 +475,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-metadata-authenticated\.spec\.ts/,
-      dependencies: ["chromium-documents-activity"],
+      dependencies: ["setup"],
     },
 
     // Reusable Parties configuration per template — authenticated.
@@ -428,7 +486,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-template-config-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-metadata"],
+      dependencies: ["setup"],
     },
 
     // Notarial index workspace — authenticated.
@@ -439,7 +497,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-template-config"],
+      dependencies: ["setup"],
     },
 
     // Notarial index DOCX export — authenticated.
@@ -450,7 +508,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-docx-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-workspace"],
+      dependencies: ["setup"],
     },
 
     // Notarial index inclusion (include_in_notarial_index) — authenticated.
@@ -461,7 +519,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-index-inclusion-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-export"],
+      dependencies: ["setup"],
     },
 
     // Notarial index confirmation lifecycle — authenticated.
@@ -472,7 +530,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /notarial-index-confirmation-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-index-inclusion"],
+      dependencies: ["setup"],
     },
 
     // Template default for notarial index inclusion, snapshotted onto new
@@ -484,7 +542,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /template-notarial-index-default-authenticated\.spec\.ts/,
-      dependencies: ["chromium-notarial-index-confirmation"],
+      dependencies: ["setup"],
     },
 
     // Receivables (Cuentas por cobrar) — authenticated.
@@ -495,7 +553,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivables-authenticated\.spec\.ts/,
-      dependencies: ["chromium-template-notarial-index-default"],
+      dependencies: ["setup"],
     },
 
     // Milestone feedback after creating a receivable — authenticated.
@@ -506,7 +564,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivable-milestone-feedback-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables"],
+      dependencies: ["setup"],
     },
 
     // Receivable payments — authenticated.
@@ -517,7 +575,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivable-payments-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivable-milestone"],
+      dependencies: ["setup"],
     },
 
     // Financial immutability of receivables once payment history exists —
@@ -529,7 +587,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivable-financial-immutability-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivable-payments"],
+      dependencies: ["setup"],
     },
 
     // Receivables workspace (filters, totals) — authenticated.
@@ -540,7 +598,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivables-workspace-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivable-financial-immutability"],
+      dependencies: ["setup"],
     },
 
     // Contextual client creation from the receivable form — authenticated.
@@ -551,7 +609,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /receivable-client-contextual-creation-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivables-workspace"],
+      dependencies: ["setup"],
     },
 
     // Context navigation between a document and its receivables (returnTo
@@ -563,7 +621,7 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /document-receivable-context-navigation-authenticated\.spec\.ts/,
-      dependencies: ["chromium-receivable-client-dialog"],
+      dependencies: ["setup"],
     },
 
     // Dashboard Panel + sidebar shell — authenticated.
@@ -574,11 +632,10 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /dashboard-panel-authenticated\.spec\.ts/,
-      dependencies: ["chromium-document-receivable-navigation"],
+      dependencies: ["setup"],
     },
 
-    // Authenticated tests (settings) — must run last because test F logs
-    // the user out, which would invalidate the shared session.
+    // Account and workspace settings — authenticated.
     {
       name: "chromium-authenticated",
       use: {
@@ -586,7 +643,30 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       testMatch: /settings-authenticated\.spec\.ts/,
-      dependencies: ["chromium-dashboard"],
+      dependencies: ["setup"],
+    },
+
+    // Shared server-side table pagination — authenticated and independently
+    // selectable for directed validation.
+    {
+      name: "chromium-table-pagination",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /table-pagination-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Inline review and confirmation lifecycle from the notarial index.
+    {
+      name: "chromium-notarial-inline-review",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-inline-review-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
     },
   ],
   webServer: {

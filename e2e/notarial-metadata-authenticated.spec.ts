@@ -217,7 +217,6 @@ test.describe("notarial index metadata", () => {
   }) => {
     await open(page, workingId, "document");
 
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "¿Reabrir la escritura?" })
@@ -227,10 +226,8 @@ test.describe("notarial index metadata", () => {
       page.getByText("Borrador", { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Reabrir redirige de verdad y aterriza en "Revisar y finalizar" (deshace
-    // la finalización, no avanza) — la edición inline vive en "Completar",
-    // hay que volver ahí explícitamente.
-    await page.getByRole("tab", { name: "Completar", exact: true }).click();
+    // Reabrir redirige de verdad y aterriza en "Completar" (el paso por
+    // defecto) — la edición inline ya está justo ahí.
     await page
       .getByRole("region", { name: "Documento", exact: true })
       .locator('[data-variable-key="parte.nombre"]')
@@ -241,12 +238,13 @@ test.describe("notarial index metadata", () => {
       .locator('input[data-variable-key="parte.nombre"]');
     await inlineInput.fill("Persona Uno Actualizada");
     await inlineInput.blur();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.locator('p[role="status"]').filter({ hasText: /^Guardado$/ }),
+    ).toBeVisible({ timeout: 15_000 });
 
-    // El guardado ya avanza a "Revisar y finalizar" — este clic queda como
-    // no-op idempotente, explícito para no depender de a dónde nos dejó el
-    // guardado.
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // El guardado deja al usuario en "Completar" — Finalizar vive en el
+    // encabezado del workspace, alcanzable sin cambiar de paso.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog", { name: "Finalizar escritura" })
@@ -353,7 +351,7 @@ test.describe("notarial index metadata", () => {
 
     // workingId quedó completo (sin confirmar) en el test B/E de esta misma
     // corrida serial — completo ya no implica ✓.
-    await page.goto(`/dashboard/documents/${workingId}?section=revisar`);
+    await page.goto(`/dashboard/documents/${workingId}?section=cobro`);
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
 
     await page.goto(`/dashboard/documents/${workingId}?section=notarial`);
@@ -371,12 +369,12 @@ test.describe("notarial index metadata", () => {
     // El paso activo nunca muestra su propio ✓ (convención ya existente del
     // stepper, ver otros pasos) — hay que mirar "Índice" desde un paso
     // distinto para que su check, si corresponde, sea visible.
-    await page.goto(`/dashboard/documents/${workingId}?section=revisar`);
+    await page.goto(`/dashboard/documents/${workingId}?section=cobro`);
     await expect(indiceTab.getByText("✓", { exact: true })).toBeVisible();
 
     // partialId solo tiene el número de instrumento configurado (test G) —
     // sigue incompleto (y sin confirmar), así que el paso no debe mostrar ✓.
-    await page.goto(`/dashboard/documents/${partialId}?section=revisar`);
+    await page.goto(`/dashboard/documents/${partialId}?section=cobro`);
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
   });
 

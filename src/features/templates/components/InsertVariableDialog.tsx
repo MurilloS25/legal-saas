@@ -5,6 +5,10 @@ import { FieldError } from "@/components/forms/FieldError";
 import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 import { FIELD_KEY_PATTERN } from "../model/template-fields";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
+import {
+  VariableConfigFields,
+  type VariableConfigValue,
+} from "./VariableConfigFields";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500";
@@ -12,7 +16,7 @@ const inputClass =
 type Props = {
   variables: TemplateWorkspaceVariable[];
   onInsertExisting: (variable: TemplateWorkspaceVariable) => void;
-  onInsertNew: (key: string, label: string) => void;
+  onInsertNew: (variable: VariableConfigValue & { field_key: string }) => void;
   onClose: () => void;
 };
 
@@ -25,36 +29,43 @@ export function InsertVariableDialog({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
   const keyId = useId();
-  const labelId = useId();
+  const fieldsIdPrefix = useId();
   const [key, setKey] = useState("");
-  const [label, setLabel] = useState("");
-  const [error, setError] = useState<string | undefined>();
+  const [value, setValue] = useState<VariableConfigValue>({
+    label: "",
+    required: false,
+    output_transform: "none",
+  });
+  const [keyError, setKeyError] = useState<string | undefined>();
+  const [labelError, setLabelError] = useState<string | undefined>();
 
   function insertNew() {
+    setKeyError(undefined);
+    setLabelError(undefined);
     const trimmedKey = key.trim();
-    const trimmedLabel = label.trim();
+    const trimmedLabel = value.label.trim();
 
     if (
       trimmedKey === "" ||
       trimmedKey.length > TEMPLATE_DOC_LIMITS.maxVariableKeyLength ||
       !FIELD_KEY_PATTERN.test(trimmedKey)
     ) {
-      setError(
+      setKeyError(
         "Usa minúsculas, números, guion bajo y puntos simples. Ej: comprador.nombre",
       );
       return;
     }
-    if (trimmedLabel === "") {
-      setError("La etiqueta de la variable es requerida.");
-      return;
-    }
     if (variables.some((variable) => variable.field_key === trimmedKey)) {
-      setError(
+      setKeyError(
         "Esa variable ya está configurada; selecciónala de la lista superior.",
       );
       return;
     }
-    onInsertNew(trimmedKey, trimmedLabel);
+    if (trimmedLabel === "") {
+      setLabelError("La etiqueta de la variable es requerida.");
+      return;
+    }
+    onInsertNew({ field_key: trimmedKey, ...value, label: trimmedLabel });
   }
 
   return (
@@ -142,23 +153,6 @@ export function InsertVariableDialog({
               <div className="space-y-3">
                 <div>
                   <label
-                    htmlFor={labelId}
-                    className="block text-sm font-medium text-slate-700 mb-1.5"
-                  >
-                    Etiqueta
-                  </label>
-                  <input
-                    id={labelId}
-                    type="text"
-                    value={label}
-                    onChange={(event) => setLabel(event.target.value)}
-                    className={inputClass}
-                    placeholder="Ej: Nombre del comprador"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label
                     htmlFor={keyId}
                     className="block text-sm font-medium text-slate-700 mb-1.5"
                   >
@@ -171,11 +165,18 @@ export function InsertVariableDialog({
                     onChange={(event) => setKey(event.target.value)}
                     className={inputClass + " font-mono text-xs"}
                     placeholder="Ej: comprador.nombre"
-                    aria-describedby={error ? `${keyId}-error` : undefined}
-                    aria-invalid={!!error}
+                    aria-describedby={keyError ? `${keyId}-error` : undefined}
+                    aria-invalid={!!keyError}
+                    autoFocus
                   />
-                  <FieldError id={`${keyId}-error`} message={error} />
+                  <FieldError id={`${keyId}-error`} message={keyError} />
                 </div>
+                <VariableConfigFields
+                  idPrefix={fieldsIdPrefix}
+                  value={value}
+                  onChange={setValue}
+                  labelError={labelError}
+                />
               </div>
             </div>
           </div>

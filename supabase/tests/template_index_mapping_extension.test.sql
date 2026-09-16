@@ -1,7 +1,7 @@
 begin;
 
 set search_path = public, extensions;
-select plan(16);
+select plan(25);
 
 create schema template_mapping_test;
 grant usage on schema template_mapping_test to public;
@@ -101,6 +101,67 @@ select ok((select not is_complete from public.template_index_configurations),
 select ok((select 'instrument_number' = any(invalid_mappings)
   from public.template_index_configurations),
   'The invalid destination is retained for a precise warning');
+
+-- Tri-estado de Partes (Pendiente / Requiere / No requiere): antes de este
+-- cambio, guardar con `p_party_fields = []` y `p_allow_empty = false`
+-- fallaba con `empty_index_fields_not_confirmed` — imposible representar
+-- "Pendiente de definir". A nivel de RPC, "Pendiente" y "Requiere partes
+-- pero sin mapear todavía" son el MISMO payload (fields=[], allow_empty
+-- false): la distinción de intención es puramente de UI, dentro de una
+-- sesión — el modelo persistido nunca necesitó una tercera columna.
+select ok(template_mapping_test.statement_succeeds($$
+  select public.save_template_index_mapping(
+    'a1111111-0000-0000-0000-000000000001',
+    '{"instrument_number":null,"authorized_date":null,"authorized_time":null,"protocol_book":null,"initial_folio":null,"final_folio":null}',
+    ' Y ', null, false, '[]'
+  )
+$$), 'Partes pendiente (vacío, sin confirmar) ahora se puede guardar');
+select is((select allow_empty from public.template_index_configurations),
+  false, 'Pendiente se distingue de "no requiere" por allow_empty = false');
+select is((select count(*) from public.template_index_configuration_fields),
+  0::bigint, 'Pendiente no deja ningún campo de Partes mapeado');
+
+select ok(template_mapping_test.statement_succeeds($$
+  select public.save_template_index_mapping(
+    'a1111111-0000-0000-0000-000000000001',
+    '{"instrument_number":null,"authorized_date":null,"authorized_time":null,"protocol_book":null,"initial_folio":null,"final_folio":null}',
+    ' Y ', null, true, '[]'
+  )
+$$), '"No requiere partes" (vacío, confirmado) sigue guardando como antes');
+select is((select allow_empty from public.template_index_configurations),
+  true, '"No requiere" se distingue de "pendiente" por allow_empty = true');
+
+-- "Requiere partes" con mapeo real sigue funcionando exactamente igual
+-- (mismo camino que la primera prueba de éxito de este archivo) — no se
+-- tocó ninguna validación sobre payloads no vacíos.
+select ok(template_mapping_test.statement_succeeds($$
+  select public.save_template_index_mapping(
+    'a1111111-0000-0000-0000-000000000001',
+    '{"instrument_number":null,"authorized_date":null,"authorized_time":null,"protocol_book":null,"initial_folio":null,"final_folio":null}',
+    ' Y ', null, false,
+    '[{"template_field_id":"a1111111-f000-0000-0000-000000000003","sort_order":0}]'
+  )
+$$), 'Requiere partes con mapeo real se guarda igual que antes');
+select is((select count(*) from public.template_index_configuration_fields),
+  1::bigint, 'El mapeo de Partes queda registrado');
+
+-- El resto de las validaciones sigue intacto aun con Partes en pendiente —
+-- la relajación es específica al chequeo de vacío-no-confirmado, no una
+-- relajación general.
+select ok(template_mapping_test.statement_fails($$
+  select public.save_template_index_mapping(
+    'a1111111-0000-0000-0000-000000000001',
+    '{"instrument_number":null,"authorized_date":null,"authorized_time":null,"protocol_book":null,"initial_folio":null,"final_folio":null}',
+    '   ', null, false, '[]'
+  )
+$$), 'Un separador en blanco sigue siendo inválido incluso con Partes pendiente');
+select ok(template_mapping_test.statement_fails($$
+  select public.save_template_index_mapping(
+    'a1111111-0000-0000-0000-000000000001',
+    '{"instrument_number":"a1111111-f000-0000-0000-000000000003","authorized_date":"a1111111-f000-0000-0000-000000000003","authorized_time":null,"protocol_book":null,"initial_folio":null,"final_folio":null}',
+    ' Y ', null, false, '[]'
+  )
+$$), 'Un campo simple duplicado sigue siendo inválido incluso con Partes pendiente');
 
 reset role;
 select set_config('request.jwt.claim.sub','a2222222-2222-2222-2222-222222222222', true);

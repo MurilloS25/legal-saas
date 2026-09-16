@@ -4,6 +4,22 @@ Este documento describe el entorno productivo de Supabase Cloud para el
 piloto privado de LexCR. No contiene secretos: ni tokens, ni contraseñas,
 ni claves — solo nombres y configuración pública.
 
+## Estado conocido vigente
+
+Última reconciliación documental: **2026-09-11**. No se consultó ni modificó
+Cloud durante esta reconciliación.
+
+- Proyecto Cloud y conexión con Vercel: existentes.
+- Último conteo confirmado en Cloud: **39 migrations**.
+- Supabase local: **41 migrations**.
+- Pendientes deliberadas para un release coordinado con el código:
+  `20260910012002_release_security_rls_lifecycle.sql` y
+  `20260911170653_document_template_snapshot.sql`.
+- No ejecutar `supabase db push`, `apply_migration` ni cambios del Dashboard
+  sin autorización explícita. Antes de un release se debe volver a consultar
+  el estado real; este documento no convierte el último dato conocido en una
+  verificación en vivo.
+
 ## Proyecto
 
 | Campo | Valor |
@@ -27,7 +43,13 @@ Existe además un proyecto anterior, no relacionado y sin usar
 (`MurilloS25's Project`, region `us-east-2`, creado 2025-09-19, estado
 `INACTIVE`) — no se tocó ni se reutilizó.
 
-## CLI y flujo usado
+## Historial: despliegue inicial de 20 migrations (2026-07-22)
+
+Las secciones hasta "Seguridad — Security Advisor" registran el despliegue
+inicial. Sus conteos y observaciones describen ese momento y no sustituyen el
+estado conocido vigente de arriba.
+
+### CLI y flujo usado
 
 - CLI: `supabase` v2.100.1 (via `pnpm exec supabase`), disponible pero
   **sin sesión iniciada** en este entorno (`supabase login` requiere un
@@ -46,14 +68,14 @@ Existe además un proyecto anterior, no relacionado y sin usar
     (ver más abajo) antes de aplicar nada, y cada migración se verificó
     individualmente contra la base real conforme se aplicaba.
 
-Si en el futuro se prefiere usar el CLI directamente:
+Si un release futuro autoriza explícitamente el CLI:
 ```bash
 supabase login
 supabase link --project-ref iicsltjlnmawkobqnhpi
 supabase db push
 ```
 
-## Auditoría previa (Fase 3-4)
+### Auditoría previa (Fase 3-4)
 
 Se auditaron las 20 migraciones (`supabase/migrations/*.sql`) antes de
 aplicar nada. Resumen:
@@ -76,13 +98,14 @@ aplicar nada. Resumen:
 - **Realtime:** no habilitado para ninguna tabla (confirmado, cero
   referencias a publicaciones en las migraciones).
 - **Storage:** no usado (cero buckets, cero políticas de `storage.objects`).
-- Dos observaciones menores, no bloqueantes, documentadas pero no
-  corregidas en esta tarea (no había hallazgo real que forzara una
-  migración correctiva):
-  1. `document_metadata`/`notarial_records`/la primera versión de
-     `receivables` (todas de la migración inicial) son andamiaje sin uso
-     real por el código de la aplicación — correctamente protegidas por
-     RLS, solo superficie sin usar.
+- Dos observaciones menores documentadas en ese despliegue:
+  1. `document_metadata`/`notarial_records` y la primera versión de
+     `receivables` nacieron como andamiaje sin uso real. `receivables` fue
+     reemplazada por su modelo operativo y la migración posterior
+     `20260915040113_remove_legacy_notarial_tables.sql` elimina las otras dos
+     con un guard que exige que estén vacías. Hasta que esa migración se
+     promueva coordinadamente, el esquema Cloud anterior todavía puede
+     conservar las tablas legacy.
   2. Un puñado de funciones trigger (`record_document_activity`,
      `record_receivable_activity`, `sync_receivable_client_name_snapshot`,
      `enforce_receivable_payment_consistency`) confían en el RLS de la
@@ -91,7 +114,7 @@ aplicar nada. Resumen:
      `enforce_notarial_metadata_editable`. Seguro hoy porque el RLS de
      base está correcto, pero inconsistente en estilo.
 
-## Migraciones aplicadas
+### Migraciones aplicadas en el despliegue inicial
 
 Las 20 migraciones se aplicaron una por una, en orden, sin errores:
 
@@ -119,7 +142,7 @@ Las 20 migraciones se aplicaron una por una, en orden, sin errores:
 Verificado después del push: 16 tablas en `public`, todas con
 `rls_enabled = true`, todas con **0 filas** (sin datos de negocio).
 
-## Seguridad — Security Advisor
+### Seguridad — Security Advisor en el despliegue inicial
 
 `get_advisors(type=security)` tras aplicar todas las migraciones:
 **7 hallazgos, todos `WARN`, cero `ERROR`/BLOCKER/HIGH.**
@@ -201,12 +224,9 @@ reales que probar; no se marcó como completada.
 **Fecha de conexión:** 2026-07-22.
 
 - **URL productiva:** `https://lexcr.vercel.app` (proyecto Vercel `lexcr`).
-- **Site URL en Supabase Auth (Authentication → URL Configuration):**
-  pendiente de que el usuario la configure a `https://lexcr.vercel.app`
-  — ningún tool disponible en este entorno puede leer/escribir
-  configuración de Auth (mismo motivo que el signup/proveedor
-  documentado arriba). Ver `docs/VERCEL_PRODUCTION.md` para las
-  instrucciones exactas dadas al usuario.
+- **Site URL en Supabase Auth:** el valor objetivo es
+  `https://lexcr.vercel.app`. Su estado actual no fue revalidado en la última
+  reconciliación; comprobarlo en el Dashboard antes de un release Auth.
 - **Redirect URLs necesarias:** `https://lexcr.vercel.app/auth/confirm`
   (endpoint de auth único que existe en el código,
   `src/app/auth/confirm/route.ts` — desde el fix de tokens de un solo uso
@@ -238,7 +258,7 @@ reales que probar; no se marcó como completada.
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL              -> https://iicsltjlnmawkobqnhpi.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY         -> clave "anon"/"publishable" del proyecto (ver Fase 14)
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY  -> clave pública del proyecto
 ```
 
 Reglas:
@@ -250,8 +270,8 @@ Reglas:
 - La contraseña de la base de datos no se usa en la aplicación — no se
   guarda en ningún archivo del repo.
 - No se creó `.env.production` versionado.
-- No se copió ninguna clave a Vercel todavía (Vercel no se tocó en esta
-  tarea, según alcance).
+- Las variables Production existen según el último estado documentado en
+  `docs/VERCEL_PRODUCTION.md`; Preview no recibe credenciales de Production.
 
 ## Backup y operación (para cuando haya datos reales)
 
@@ -297,13 +317,36 @@ Documentado por adelantado; no se ejecutó ningún backup/restore real
   gratuito vigentes en el dashboard del proyecto (verificar ahí para
   cifras actualizadas, cambian con el tiempo).
 
-## Pendientes para Vercel (fase futura, no iniciada)
+## Pendientes de producción / SMTP y branding de correo
 
-- Configurar `Site URL` y redirect URLs productivos en Supabase Auth
-  una vez exista el dominio de Vercel.
-- Configurar las variables de entorno documentadas arriba en el
-  proyecto de Vercel.
-- Deploy inicial y verificación end-to-end contra `lexcr-production`.
+**Estado confirmado el 2026-09-15:** Supabase Cloud continúa sin SMTP
+personalizado. En el plan y configuración actuales, las plantillas
+personalizadas de invitación y recuperación no pueden activarse hasta
+configurar un proveedor SMTP propio. El dominio y el nombre definitivo del
+producto siguen pendientes de decisión; no se debe inventar un remitente,
+dominio o proveedor temporal.
 
-Nada de esto se tocó en esta tarea, según alcance explícito ("No
-desplegar Vercel").
+Impacto conocido:
+
+- Las invitaciones por correo no se consideran validadas para producción.
+- La recuperación por correo no se considera validada para producción.
+- Los flujos del producto que no envían correo no dependen de esta decisión.
+
+La resolución futura debe definir y validar, en conjunto:
+
+- dominio y registros DNS necesarios;
+- proveedor SMTP productivo;
+- dirección `sender/from` y nombre visible del remitente;
+- plantillas Invite y Recovery;
+- una prueba real y controlada de entrega, incluyendo inbox/spam y enlaces.
+
+No guardar credenciales SMTP ni otros secretos en esta documentación o en
+Git.
+
+## Verificaciones pendientes antes del próximo release
+
+- Revalidar Site URL, redirect URLs y política de contraseña en Supabase
+  Auth; resolver el pendiente SMTP/branding anterior antes de considerar
+  validado el email transaccional.
+- Revalidar el conteo Cloud antes de aplicar las migrations 40 y 41.
+- Coordinar schema y aplicación; no desplegar una de esas partes aisladamente.

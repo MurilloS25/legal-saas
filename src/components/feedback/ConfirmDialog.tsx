@@ -37,9 +37,15 @@ export function ConfirmDialog({
   const titleId = useId();
   const descId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>("button")?.focus();
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    cancelRef.current?.focus();
+    return () => {
+      returnFocusRef.current?.focus();
+    };
   }, []);
 
   return (
@@ -95,6 +101,7 @@ export function ConfirmDialog({
           </div>
           <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
             <button
+              ref={cancelRef}
               type="button"
               onClick={onClose}
               disabled={pending}

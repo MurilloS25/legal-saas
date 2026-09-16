@@ -76,9 +76,12 @@ test.describe("team management", () => {
 
     try {
       await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
+      // "Mi equipo" ahora vive dentro de Despacho (menú de usuario), no en
+      // su propia ruta de navegación — /dashboard/team redirige ahí.
       await page.goto("/dashboard/team");
+      await expect(page).toHaveURL(/\/dashboard\/settings\?tab=workspace$/);
       await expect(
-        page.getByRole("heading", { name: "Mi equipo" }),
+        page.getByRole("heading", { name: "Equipo", level: 2 }),
       ).toBeVisible();
 
       const sentAfter = new Date();
@@ -147,8 +150,9 @@ test.describe("team management", () => {
       const asAdminPage = await adminContext.newPage();
       await loginAndExpectDashboard(asAdminPage, memberEmail, PASSWORD);
       await asAdminPage.goto("/dashboard/team");
+      await expect(asAdminPage).toHaveURL(/\/dashboard\/settings\?tab=workspace$/);
       await expect(
-        asAdminPage.getByRole("heading", { name: "Mi equipo" }),
+        asAdminPage.getByRole("heading", { name: "Equipo", level: 2 }),
       ).toBeVisible();
       await adminContext.close();
 
@@ -290,9 +294,9 @@ test.describe("team management", () => {
       await loginAndExpectDashboard(page, ownerAEmail, PASSWORD);
       await page.goto("/dashboard/team");
       await expect(page.getByText("Miembros (1)")).toBeVisible();
-      // El email del propietario también aparece en el sidebar (usuario
-      // logueado) y en el menú móvil — .first() basta para confirmar que
-      // la fila de "Mi equipo" lo muestra.
+      // El email del propietario también aparece como miembro de su propio
+      // Workspace (fila con rol "Propietario") — .first() basta para
+      // confirmar que la tabla de Equipo lo muestra.
       await expect(page.getByText(ownerAEmail).first()).toBeVisible();
       await expect(page.getByText(ownerBEmail)).not.toBeVisible();
     } finally {

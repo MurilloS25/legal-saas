@@ -3,37 +3,67 @@
 /**
  * Workspace unificado de una Escritura — creación y edición.
  *
- * El contenido se organiza en cuatro pasos navegables (Completar / Revisar
- * y finalizar / Cobro / Índice) mediante `DocumentWorkspaceHeader`,
- * visibles desde que se inicia una Escritura nueva: no existe un flujo
- * alternativo de una sola página para el modo creación. Los cuatro
- * permanecen siempre montados — solo se ocultan con CSS — así que cambiar
- * de paso nunca descarta cambios sin guardar en Completar (comparte estado
- * con "Revisar y finalizar": `values`, `clientId`, `dirty`), tanto antes
- * como después del primer guardado.
+ * El contenido se organiza en tres pasos navegables (Completar / Cobro /
+ * Índice) mediante `DocumentWorkspaceHeader`, visibles desde que se inicia
+ * una Escritura nueva: no existe un flujo alternativo de una sola página
+ * para el modo creación. Los tres permanecen siempre montados — solo se
+ * ocultan con CSS — así que cambiar de paso nunca descarta cambios sin
+ * guardar, tanto antes como después del primer guardado.
  *
- * "Revisar y finalizar" fusiona lo que antes eran dos pasos separados
- * ("Revisar" y "Finalizar"): el paso de solo revisar el documento quedaba
- * vacío salvo por un botón, así que la finalización ocurre en el mismo
- * lugar donde se está viendo la escritura que se aprueba, no en una
- * pantalla aparte. La revisión (contenido + pendientes) opera sobre estado
- * local puro y es alcanzable antes de guardar; los controles de
- * finalización (`DocumentStatusControls`, descargar DOCX) requieren que la
- * Escritura ya exista.
+ * "Revisar y finalizar" existió como paso propio en una iteración anterior
+ * y se retiró: mostraba prácticamente el mismo documento que ya se ve en
+ * "Completar" (vista previa en vivo, expandible a pantalla completa vía
+ * `ResizableSplitPane`), y solo agregaba navegación sin una fase realmente
+ * distinta.
+ *
+ * Jerarquía de acciones: Reabrir y las utilitarias (Descargar Word/
+ * Historial/Duplicar, todas con jerarquía visual secundaria) viven en
+ * `DocumentWorkspaceHeader` porque son alcanzables sin importar el paso
+ * activo — Reabrir porque una Escritura finalizada es de solo lectura en
+ * todos los pasos, y las utilitarias porque no están ligadas a ningún
+ * paso en particular (un menú "Más acciones" agrupándolas se probó y se
+ * descartó: Descargar Word/Historial son demasiado frecuentes para
+ * esconder, y sin ellas el menú no aportaba nada).
+ * Finalizar/Volver a borrador (`DocumentStatusControls`, rama draft/ready)
+ * viven integradas al dock flotante de Guardar (`DocumentSaveControls`,
+ * cuarto refinamiento) — un solo montaje, hermano de los tres paneles
+ * (Completar/Cobro/Índice), `position: fixed` respecto al viewport, así
+ * que ambas acciones son alcanzables sin importar el paso activo NI el
+ * scroll, mientras la Escritura sea editable. No repite el control por
+ * cada paso ni lo confina a "Completar": ambas son acciones del documento
+ * en edición, no del contenido particular de un paso.
+ *
+ * Guardado único: un solo botón "Guardar" (`DocumentSaveControls`, dock
+ * compacto y flotante — no una franja de ancho completo ni un elemento
+ * fijo solo dentro de "Completar") persiste título, valores, cliente y
+ * selecciones de Bloques de opciones en un solo submit, enviando el
+ * `<form>` de Completar vía el atributo HTML `form` aunque el botón ya no
+ * sea su descendiente DOM. Guardar nunca avanza de paso ni cambia el
+ * lifecycle: eso es responsabilidad exclusiva de `DocumentStatusControls`,
+ * que sigue bloqueado mientras haya cambios sin guardar. Esto resuelve el
+ * caso central de reabrir una Escritura finalizada y corregir un dato sin
+ * tener que navegar a ningún otro lado primero — Reabrir ya deja al
+ * usuario en "Completar", editable, con Guardar y Finalizar alcanzables
+ * de inmediato, en el mismo dock.
  *
  * "Cobro" requiere que la Escritura ya exista (depende de `documentId`) y
- * queda bloqueado hasta entonces; "Índice" además requiere que esté
- * finalizada, igual que siempre. Índice vive fuera del `<form>` principal
- * porque tiene su propio `<form>`/Server Action (no puede anidarse).
+ * queda bloqueado hasta entonces. "Índice" también requiere persistencia,
+ * pero además permanece SIEMPRE visible en el stepper una vez que existe
+ * — a diferencia de antes, ya no desaparece cuando la Escritura está
+ * excluida del Índice Notarial (ver `DocumentWorkspaceHeader`): esa
+ * exclusión decide si aparece en el listado general, no si el usuario
+ * puede acceder al paso para consultar/cambiar la decisión. Sigue
+ * bloqueado hasta que la Escritura esté finalizada. Ambos mantienen su
+ * propio guardado independiente (fuera de este `<form>`, cada uno con su
+ * propio `<form>`/Server Action) — el guardado único de este PR es
+ * exclusivo del contenido de Completar, no los subsume.
  */
 
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
-import type { OptionSelectionsMap, VariableTransformsMap } from "@/lib/editor/render";
+import type { VariableTransformsMap } from "@/lib/editor/render";
 import { extractActiveDocumentVariables } from "@/lib/editor/variables";
 import type { FillableTemplateField } from "@/features/templates";
-import type { CreatedClient } from "@/features/clients";
 import type { DocumentClientOption } from "../model/role-autofill";
 import { groupVariablesByRole } from "../model/role-autofill";
 import {
@@ -51,19 +81,19 @@ import {
 import { useDocumentDirtyState } from "../hooks/use-document-dirty-state";
 import { useDocumentLayout } from "../hooks/use-document-layout";
 import { useDocumentPreview } from "../hooks/use-document-preview";
+import { useDocumentWorkspaceSection } from "../hooks/use-document-workspace-section";
+import { useDocumentDraftFields } from "../hooks/use-document-draft-fields";
 import { DocumentContextBar } from "./DocumentContextBar";
-import { DocumentMobileViewToggle } from "./DocumentMobileViewToggle";
-import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
+import { DocumentSaveControls } from "./DocumentSaveControls";
 import { DocumentStatusControls } from "./DocumentStatusControls";
-import { DownloadDocxButton } from "./DownloadDocxButton";
-import { PendingFieldsDialog, type PendingField } from "./PendingFieldsDialog";
+import type { PendingField } from "./PendingFieldsDialog";
+import { useUnsavedChanges } from "@/components/navigation/NavigationGuard";
 import {
   DocumentWorkspaceHeader,
   type DocumentWorkspaceSection,
 } from "./DocumentWorkspaceHeader";
 import { useToast } from "@/components/feedback/Toast";
 import { stripSearchParams } from "@/lib/navigation/strip-search-params";
-import { ResizableSplitPane } from "@/components/document/ResizableSplitPane";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
 import type { NotarialMetadata } from "@/features/notarial-index/model/notarial";
@@ -71,30 +101,7 @@ import type { NotarialMetadataPrefill } from "@/features/notarial-index/model/pr
 import { NotarialMetadataSection } from "@/features/notarial-index";
 import type { ReceivableEntry } from "@/features/receivables";
 import { DocumentReceivableStep } from "./DocumentReceivableStep";
-
-const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
-
-// Orden fijo del flujo guiado — usado para saber a qué paso avanza
-// "Guardar y continuar" (Completar → Revisar y finalizar) en modo edición.
-// El primer guardado (create → edit) avanza por el mismo criterio desde
-// `content-actions.ts`, que mantiene su propia copia mínima del destino.
-const DOCUMENT_STEP_ORDER: DocumentWorkspaceSection[] = [
-  "completar",
-  "revisar",
-  "cobro",
-  "notarial",
-];
-
-function nextDocumentSection(
-  current: DocumentWorkspaceSection,
-): DocumentWorkspaceSection {
-  const index = DOCUMENT_STEP_ORDER.indexOf(current);
-  return index >= 0 && index < DOCUMENT_STEP_ORDER.length - 1
-    ? DOCUMENT_STEP_ORDER[index + 1]
-    : current;
-}
+import { DocumentCompletarPanel } from "./DocumentCompletarPanel";
 
 type SharedProps = {
   document: TemplateDocument;
@@ -141,24 +148,12 @@ type Props = SharedProps &
         /** notarial_index.generate — confirmar/corregir datos del Índice. */
         canConfirmNotarial: boolean;
         notarialConfirmedByName: string | null;
+        /** Escritura anterior al snapshot estructurado: conserva texto histórico plano. */
+        legacyTemplateSnapshot?: boolean;
       }
   );
 
 const initialState: DocumentDraftState = {};
-
-function resolveSection(
-  raw: string | null,
-  persisted: boolean,
-  notarialUnlocked: boolean,
-): DocumentWorkspaceSection {
-  if (raw === "notarial") return notarialUnlocked ? "notarial" : "completar";
-  // "finalizar" ya no es un paso propio — su contenido vive ahora en
-  // "revisar" ("Revisar y finalizar"). Un enlace viejo con ese valor
-  // aterriza ahí en vez de perderse en el paso por defecto.
-  if (raw === "finalizar") return persisted ? "revisar" : "completar";
-  if (raw === "cobro" && !persisted) return "completar";
-  return raw === "revisar" || raw === "cobro" ? raw : "completar";
-}
 
 export function DocumentComposer(props: Props) {
   const { document, fields, templateName, clients, canFinalize } = props;
@@ -184,64 +179,48 @@ export function DocumentComposer(props: Props) {
     ? updateDocumentDraftAction.bind(null, props.draft.id)
     : createDocumentDraftAction.bind(null, props.templateId);
   const [state, formAction, pending] = useActionState(action, initialState);
-  const { dirty, markDirty } = useDocumentDirtyState(state);
+  const {
+    dirty,
+    markDirty,
+    expectedVersion,
+    acceptConflictVersion,
+    startSave,
+  } = useDocumentDirtyState(state, draft?.updated_at ?? "", pending);
+  const expectedUpdatedAtRef = useRef<HTMLInputElement>(null);
   const { mobileView, setMobileView } = useDocumentLayout();
 
-  const [section, setSection] = useState<DocumentWorkspaceSection>(
+  const { section, goToSection } = useDocumentWorkspaceSection(
+    isEdit,
+    notarialUnlocked,
     isEdit ? props.initialSection : "completar",
   );
   const [previewExpanded, setPreviewExpanded] = useState(false);
 
-  // `useSearchParams` refleja la URL actual sin importar cómo cambió — back/
-  // forward del navegador, pushState propio (`goToSection`) o un `<Link>`
-  // real de otro componente (ej. "Completar datos del índice" en
-  // `DocumentStatusControls`). Un simple listener de `popstate` no cubre
-  // este último caso: la navegación de un `<Link>` de Next no dispara
-  // `popstate`, así que la sección quedaba desincronizada de la URL. Se
-  // ajusta durante el render (comparando contra el último valor de
-  // searchParams ya procesado) en vez de en un efecto, para no disparar un
-  // render en cascada — mismo patrón que el auto-expand de errores en
-  // `TemplateIndexConfigurationSection`.
-  const searchParams = useSearchParams();
-  const resolvedSection = resolveSection(
-    searchParams.get("section"),
-    isEdit,
-    notarialUnlocked,
-  );
-  const [lastSearchParams, setLastSearchParams] = useState(searchParams);
-  if (searchParams !== lastSearchParams) {
-    setLastSearchParams(searchParams);
-    if (resolvedSection !== section) setSection(resolvedSection);
-  }
-
-  const goToSection = useCallback((next: DocumentWorkspaceSection) => {
-    setSection(next);
-    if (typeof window === "undefined") return;
-    const url =
-      next === "completar"
-        ? window.location.pathname
-        : `${window.location.pathname}?section=${next}`;
-    window.history.pushState(null, "", url);
-  }, []);
-
-  const [title, setTitle] = useState(
-    isEdit ? props.draft.title : props.defaultTitle,
-  );
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    for (const field of fields) {
-      initial[field.field_key] = draft?.field_values[field.field_key] ?? "";
-    }
-    return initial;
+  const {
+    title,
+    values,
+    clientId,
+    clientOptions,
+    editingTarget,
+    optionSelections,
+    changeTitle,
+    changeClient,
+    changeField,
+    applyRoleAutofill,
+    handleClientCreated,
+    handleClientRegistered,
+    selectVariant,
+    startEditingField,
+    stopEditingField,
+  } = useDocumentDraftFields({
+    fields,
+    clients,
+    initialClientId: props.initialClientId,
+    initialTitle: isEdit ? props.draft.title : props.defaultTitle,
+    draft,
+    markDirty,
   });
-  const [clientId, setClientId] = useState(props.initialClientId ?? "");
-  const [clientOptions, setClientOptions] = useState(clients);
-  const [editingTarget, setEditingTarget] = useState<
-    { nodeId: string; variableKey: string } | undefined
-  >();
-  const [optionSelections, setOptionSelections] = useState<OptionSelectionsMap>(
-    () => draft?.option_selections ?? {},
-  );
+  const [submittedTitle, setSubmittedTitle] = useState(title);
   const { showToast } = useToast();
 
   // "Completar" muestra ✓ solo cuando fue confirmado por un guardado
@@ -262,19 +241,6 @@ export function DocumentComposer(props: Props) {
   // progreso de navegación, no estado de negocio.
   const [cobroAcknowledged, setCobroAcknowledged] = useState(false);
 
-  // El cliente creado desde el diálogo contextual del chip "Cliente
-  // principal" queda seleccionado de inmediato. El de un chip de Parte
-  // (ver DocumentContextBar) nunca llega aquí — solo se registra en la
-  // lista compartida, sin tocar `clientId`.
-  function handleClientCreated(client: CreatedClient) {
-    setClientOptions((current) => [...current, client]);
-    setClientId(client.id);
-    markDirty();
-  }
-  function handleClientRegistered(client: CreatedClient) {
-    setClientOptions((current) => [...current, client]);
-  }
-
   const transforms = useMemo<VariableTransformsMap>(() => {
     const map: VariableTransformsMap = {};
     for (const field of fields) {
@@ -294,29 +260,20 @@ export function DocumentComposer(props: Props) {
     draft?.option_selections,
   );
 
-  // Un guardado exitoso (siempre disparado por "Guardar y continuar", el
-  // único submit del formulario compartido) confirma "Completar", muestra
-  // el toast de confirmación, y avanza a "Revisar y finalizar" — pero solo
-  // si el guardado ocurrió estando en "Completar" (evita reaccionar a un
-  // eco de un `state` ya procesado al cambiar de paso).
+  // Un guardado exitoso confirma "Completar" y muestra el toast — nunca
+  // avanza de paso: Guardar solo persiste (ver comentario de módulo).
+  // Reachable desde Completar o Revisar por igual, ya que el único
+  // `<form>` cubre ambos pasos.
   const lastProcessedState = useRef<DocumentDraftState | null>(null);
   useEffect(() => {
     if (state.success && lastProcessedState.current !== state) {
       lastProcessedState.current = state;
       setCompletarSavedOnceValid(title.trim() !== "");
       showToast("Escritura guardada.");
-      if (section === "completar") {
-        // `goToSection` sincroniza con un sistema externo (la URL, vía
-        // `history.pushState`) en reacción a que el Server Action ya
-        // confirmó el guardado — exactamente el caso que un efecto debe
-        // cubrir, no estado derivado que debiera calcularse en el render.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        goToSection(nextDocumentSection("completar"));
-      }
     }
-    // Deliberadamente solo [state]: se lee el valor más reciente de title/
-    // section en cada disparo, pero el efecto solo debe reaccionar a un
-    // guardado nuevo, no a cada tecleo.
+    // Deliberadamente solo [state]: se lee el valor más reciente de title
+    // en cada disparo, pero el efecto solo debe reaccionar a un guardado
+    // nuevo, no a cada tecleo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
@@ -349,11 +306,6 @@ export function DocumentComposer(props: Props) {
 
   const roleGroups = useMemo(() => groupVariablesByRole(fields), [fields]);
 
-  function applyRoleAutofill(fieldValues: Record<string, string>) {
-    setValues((current) => ({ ...current, ...fieldValues }));
-    markDirty();
-  }
-
   const fieldsByKey = useMemo(
     () => new Map(fields.map((field) => [field.field_key, field])),
     [fields],
@@ -380,7 +332,7 @@ export function DocumentComposer(props: Props) {
       .flatMap((run) => (run.kind === "optionBlock" ? run.runs : [run]))
       .find((run) => run.kind === "variable" && run.key === key);
     if (occurrence?.kind === "variable") {
-      setEditingTarget({ nodeId: occurrence.nodeId, variableKey: key });
+      startEditingField(occurrence.nodeId, key);
     }
     setMobileView("document");
     goToSection("completar");
@@ -400,15 +352,28 @@ export function DocumentComposer(props: Props) {
     }
   }
 
+  useUnsavedChanges(dirty);
+
+  // No descarta `dirty` en error: el usuario nunca pierde sus cambios
+  // locales por un guardado fallido, y "Error al guardar" se distingue de
+  // "Cambios sin guardar" en vez de quedar enmascarado por él.
+  const saveErrorMessage =
+    !pending && !state.success && state.message ? state.message : undefined;
   const saveStatusText = pending
     ? "Guardando…"
-    : dirty
-      ? "Cambios sin guardar"
-      : state.success || isEdit
-        ? "Guardado"
-        : "Sin guardar";
+    : saveErrorMessage
+      ? "Error al guardar"
+      : dirty
+        ? "Cambios sin guardar"
+        : state.success || isEdit
+          ? "Guardado"
+          : "Sin guardar";
 
   const completedCompletar = completarSavedOnceValid && title.trim() !== "";
+  const visibleTitleError =
+    state.titleError && submittedTitle === title
+      ? state.titleError
+      : undefined;
   const completedCobro =
     isEdit && ((props.receivables.length > 0) || cobroAcknowledged);
   // El check del stepper representa "datos confirmados", no solo
@@ -417,34 +382,6 @@ export function DocumentComposer(props: Props) {
   // 20260818140000_notarial_index_confirmation_lifecycle.sql). Completos
   // pero sin confirmar, o en Revisión requerida tras reabrir, no muestran ✓.
   const completedNotarial = isEdit && !!props.notarialMetadata?.notarial_confirmed_at;
-
-  function changeTitle(value: string) {
-    setTitle(value);
-    markDirty();
-  }
-
-  function changeClient(value: string) {
-    setClientId(value);
-    markDirty();
-  }
-
-  function changeField(key: string, value: string) {
-    setValues((current) => ({ ...current, [key]: value }));
-    markDirty();
-  }
-
-  function startEditingField(nodeId: string, variableKey: string) {
-    setEditingTarget({ nodeId, variableKey });
-  }
-
-  function stopEditingField() {
-    setEditingTarget(undefined);
-  }
-
-  function selectVariant(blockId: string, variantId: string) {
-    setOptionSelections((current) => ({ ...current, [blockId]: variantId }));
-    markDirty();
-  }
 
   const documentSheet = (
     <DocumentSheet
@@ -475,87 +412,10 @@ export function DocumentComposer(props: Props) {
     />
   );
 
-  const completarPrimary = (
-    <section aria-label="Datos de la Escritura" className="space-y-5">
-      {!readOnly && contextBar}
-      <div>
-        <label htmlFor="composer-title" className={labelClass}>
-          Título de la escritura
-          <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
-        </label>
-        <input
-          id="composer-title"
-          name="title"
-          type="text"
-          required
-          value={title}
-          disabled={readOnly}
-          onChange={(event) => changeTitle(event.target.value)}
-          className={inputClass}
-        />
-      </div>
-
-      {totalCount > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-1.5">Progreso</h3>
-          <p role="status" className="text-xs font-medium text-slate-600">
-            {completedCount} de {totalCount} campos completos
-          </p>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-            <div
-              className="h-full rounded-full bg-accent-600 transition-all"
-              style={{ width: `${Math.round((completedCount / totalCount) * 100)}%` }}
-            />
-          </div>
-          <div className="mt-2">
-            <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
-          </div>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={goToNextPending}
-              disabled={pendingFields.length === 0}
-              className="mt-2 w-full rounded-lg border border-accent-300 bg-accent-50 px-3.5 py-2.5 text-sm font-medium text-accent-800 transition-colors hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente pendiente →
-            </button>
-          )}
-        </div>
-      )}
-
-      {totalCount === 0 && (
-        <p className="text-sm text-slate-500">
-          Este machote no tiene variables: el documento es texto fijo y solo
-          necesita un título.
-        </p>
-      )}
-
-      {readOnly && (
-        <p role="status" className="text-xs text-slate-500">
-          {isEdit && canEdit
-            ? "Esta escritura está finalizada (solo lectura). Reábrela para editarla de nuevo."
-            : "Tu rol no permite editar escrituras. La ves en modo lectura."}
-        </p>
-      )}
-      {!readOnly && (
-        <div>
-          <p className={`text-xs ${dirty && !pending ? "text-amber-700 font-medium" : "text-slate-500"}`}>
-            {saveStatusText}
-          </p>
-          <button
-            type="submit"
-            disabled={pending}
-            className="mt-2 w-full rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {pending ? "Guardando…" : "Guardar y continuar"}
-          </button>
-        </div>
-      )}
-    </section>
-  );
-
   return (
-    <div>
+    <>
+      {!isEdit && pending && <p role="status" className="mb-3 text-sm text-slate-600">Guardando… Espera antes de continuar editando.</p>}
+    <div inert={!isEdit && pending}>
       <DocumentWorkspaceHeader
         documentId={isEdit ? props.draft.id : undefined}
         title={title}
@@ -568,13 +428,30 @@ export function DocumentComposer(props: Props) {
         onSectionChange={goToSection}
         activity={isEdit ? props.activity : undefined}
         canDuplicate={isEdit ? props.canDuplicate : false}
-        includeInNotarialIndex={includeInNotarialIndex}
         completarComplete={completedCompletar}
         cobroComplete={completedCobro}
         notarialComplete={completedNotarial}
+        dirty={dirty}
+        persistedPendingVariableCount={persistedPendingCount}
       />
 
-      <form action={formAction} noValidate>
+      {isEdit && props.legacyTemplateSnapshot && (
+        <div
+          role="status"
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Esta escritura fue creada antes del snapshot estructurado. Se conserva
+          su última vista guardada; la estructura histórica de variables y
+          bloques no puede recuperarse.
+        </div>
+      )}
+
+      <form id="document-completar-form" action={formAction} noValidate onSubmit={(event) => {
+        if (pending) { event.preventDefault(); return; }
+        setSubmittedTitle(title);
+        startSave();
+      }}>
+        {isEdit && <input ref={expectedUpdatedAtRef} type="hidden" name="expected_updated_at" value={expectedVersion} />}
         {fields.map((field) => (
           <input
             key={field.field_key}
@@ -593,6 +470,21 @@ export function DocumentComposer(props: Props) {
         {state.message && (
           <div role="alert" className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {state.message}
+            {isEdit && state.conflictUpdatedAt && (
+              <div className="mt-3 flex flex-wrap gap-4">
+                <a href={`/dashboard/documents/${props.draft.id}`} target="_blank" rel="noopener noreferrer" className="underline">
+                  Revisar versión guardada (nueva pestaña)
+                </a>
+                <button type="submit" disabled={pending} className="underline disabled:opacity-50" onClick={() => {
+                  if (expectedUpdatedAtRef.current && state.conflictUpdatedAt) {
+                    acceptConflictVersion(state.conflictUpdatedAt);
+                    expectedUpdatedAtRef.current.value = state.conflictUpdatedAt;
+                  }
+                }}>
+                  Conservar mis cambios y reintentar
+                </button>
+              </div>
+            )}
           </div>
         )}
         {state.errors && Object.keys(state.errors).length > 0 && (
@@ -605,113 +497,33 @@ export function DocumentComposer(props: Props) {
           </div>
         )}
 
-        <div
-          id="document-panel-completar"
-          role="tabpanel"
-          aria-labelledby="document-step-completar"
+        <DocumentCompletarPanel
           hidden={section !== "completar"}
-        >
-          <DocumentMobileViewToggle value={mobileView} onChange={setMobileView} />
-          <ResizableSplitPane
-            secondaryTitle="Datos de la Escritura"
-            onExpand={() => setPreviewExpanded(true)}
-            primaryClassName={mobileView === "data" ? "hidden xl:block" : ""}
-            secondaryClassName={mobileView === "document" ? "hidden xl:block" : ""}
-            defaultSecondaryPercent={35}
-            primary={
-              <DocumentPreviewPanel
-                dirty={dirty}
-                mobileView="document"
-                model={model}
-                templateName={templateName}
-                values={readOnly ? undefined : values}
-                editingNodeId={readOnly ? undefined : editingTarget?.nodeId}
-                onStartEdit={readOnly ? undefined : startEditingField}
-                onChangeValue={readOnly ? undefined : changeField}
-                onStopEdit={readOnly ? undefined : stopEditingField}
-                onSelectVariant={readOnly ? undefined : selectVariant}
-              />
-            }
-            secondary={completarPrimary}
-          />
-        </div>
-
-        <div
-          id="document-panel-revisar"
-          role="tabpanel"
-          aria-labelledby="document-step-revisar"
-          hidden={section !== "revisar"}
-        >
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-b border-slate-100 bg-slate-50/60 sticky top-0 z-10">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Revisión del documento</h2>
-                <p className="text-xs text-slate-500">Vista de solo lectura, tal como quedará la escritura.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => goToSection("completar")}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewExpanded(true)}
-                  title="Ver en pantalla completa"
-                  aria-label="Ver en pantalla completa"
-                  className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
-                >
-                  ⤢
-                </button>
-              </div>
-            </div>
-            <div className="p-4 max-h-[70vh] overflow-y-auto">{documentSheet}</div>
-
-            {/* Estado + acciones finales — franja compacta dentro de la
-                misma card, en vez de una segunda card grande separada solo
-                para dos botones. Requiere que la Escritura ya exista. */}
-            <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4">
-              {isEdit ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-slate-600">
-                    {dirty
-                      ? "Hay cambios sin guardar en Completar. Guárdalos antes de cambiar el estado."
-                      : totalCount > 0
-                        ? `${completedCount} de ${totalCount} campos completos.`
-                        : "Este machote no tiene variables."}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <DownloadDocxButton
-                      documentId={props.draft.id}
-                      disabled={dirty}
-                      pendingVariableCount={persistedPendingCount}
-                      variant="compact"
-                    />
-                    <DocumentStatusControls
-                      key={status}
-                      documentId={props.draft.id}
-                      status={status}
-                      dirty={dirty}
-                      canFinalize={canFinalize}
-                      notarialDataConfirmed={!!props.notarialMetadata?.notarial_confirmed_at}
-                      includeInNotarialIndex={includeInNotarialIndex}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  Finalizar y descargar estarán disponibles después de
-                  guardar la escritura por primera vez.
-                </p>
-              )}
-            </div>
-          </section>
-          <div className="mt-4">
-            <PendingFieldsDialog pendingFields={pendingFields} onGoToField={goToField} />
-          </div>
-        </div>
+          readOnly={readOnly}
+          canEdit={canEdit}
+          isEdit={isEdit}
+          contextBar={contextBar}
+          title={title}
+          titleError={visibleTitleError}
+          onTitleChange={changeTitle}
+          completedCount={completedCount}
+          totalCount={totalCount}
+          pendingFields={pendingFields}
+          onGoToField={goToField}
+          onGoToNextPending={goToNextPending}
+          dirty={dirty}
+          mobileView={mobileView}
+          onMobileViewChange={setMobileView}
+          onExpand={() => setPreviewExpanded(true)}
+          model={model}
+          templateName={templateName}
+          values={readOnly ? undefined : values}
+          editingNodeId={readOnly ? undefined : editingTarget?.nodeId}
+          onStartEdit={readOnly ? undefined : startEditingField}
+          onChangeValue={readOnly ? undefined : changeField}
+          onStopEdit={readOnly ? undefined : stopEditingField}
+          onSelectVariant={readOnly ? undefined : selectVariant}
+        />
       </form>
 
       <ExpandableDocumentPanel
@@ -736,13 +548,16 @@ export function DocumentComposer(props: Props) {
             clientOptions={clientOptions}
             defaultClientId={clientId || undefined}
             canManage={props.canManageReceivables}
-            includeInNotarialIndex={includeInNotarialIndex}
             onContinue={() => {
               setCobroAcknowledged(true);
-              // Excluida: "Índice" no es un paso siguiente real (oculto del
-              // stepper) — cierra el flujo volviendo a "Revisar y finalizar"
-              // en vez de navegar a un paso que el usuario no verá.
-              goToSection(includeInNotarialIndex ? "notarial" : "revisar");
+              // "Índice" ya no desaparece del stepper por estar excluida
+              // (ver DocumentWorkspaceHeader) — siempre es el siguiente
+              // paso real cuando está desbloqueado (Escritura finalizada).
+              // Si todavía no lo está, `resolveSection` (más abajo) revierte
+              // este cambio de vuelta a "Completar" en el siguiente render
+              // — el mismo guardarraíl que protege un enlace directo a
+              // `?section=notarial` en una Escritura sin finalizar.
+              goToSection("notarial");
             }}
           />
         ) : (
@@ -756,7 +571,7 @@ export function DocumentComposer(props: Props) {
         aria-labelledby="document-step-notarial"
         hidden={section !== "notarial"}
       >
-        {isEdit ? (
+        {isEdit && notarialUnlocked ? (
           <NotarialMetadataSection
             documentId={props.draft.id}
             metadata={props.notarialMetadata}
@@ -771,33 +586,77 @@ export function DocumentComposer(props: Props) {
             canChangeInclusion={props.canConfirmNotarial}
             canConfirm={props.canConfirmNotarial}
             confirmedByName={props.notarialConfirmedByName}
-            onExcludedFromIndex={() => {
-              // Excluir mientras se está parado en "Índice" saca el paso de
-              // la fila normal del stepper — navegar al paso anterior
-              // válido en vez de dejar un paso inexistente seleccionado.
-              if (section === "notarial") goToSection("cobro");
-            }}
           />
         ) : (
-          <LockedStepPlaceholder title="Índice" />
+          <LockedStepPlaceholder
+            title="Índice"
+            description={
+              isEdit
+                ? "Disponible después de finalizar la escritura."
+                : undefined
+            }
+          />
         )}
       </div>
+
+      {/* Dock flotante de lifecycle — un solo montaje, hermano de los tres
+          paneles (no dentro de "Completar"): visible sin importar el paso
+          activo mientras la Escritura tenga algo que ofrecer ahí, para
+          poder Guardar/Reabrir desde Cobro/Índice sin volver a Completar
+          primero. Integra Finalizar/Volver a borrador (rama draft/ready)
+          o Reabrir (rama final) de `DocumentStatusControls`, según
+          `status` — las utilitarias (Descargar Word/Historial/Duplicar)
+          viven en `DocumentWorkspaceHeader` en cambio, fijas ahí sin
+          importar el estado. */}
+      <DocumentSaveControls
+        formId="document-completar-form"
+        status={status}
+        dirty={dirty}
+        pending={pending}
+        saved={!!state.success && !saveErrorMessage}
+        isEdit={isEdit}
+        canEdit={canEdit}
+        canFinalize={canFinalize}
+        errorMessage={saveErrorMessage}
+        actions={
+          isEdit ? (
+            <DocumentStatusControls
+              key={status}
+              documentId={props.draft.id}
+              status={status}
+              dirty={dirty || pending}
+              canFinalize={canFinalize}
+              notarialDataConfirmed={completedNotarial}
+              includeInNotarialIndex={includeInNotarialIndex}
+            />
+          ) : undefined
+        }
+      />
+
     </div>
+    </>
   );
 }
 
 // ------------------------------------------------------------------ locked step
 
 /** Placeholder para un paso que depende de que la Escritura ya exista. */
-function LockedStepPlaceholder({ title }: { title: string }) {
+function LockedStepPlaceholder({
+  title,
+  description,
+}: {
+  title: string;
+  /** Motivo del bloqueo cuando no es el default (persistencia). */
+  description?: string;
+}) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/60">
         <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
       </div>
       <div className="px-6 py-8 text-center text-sm text-slate-500">
-        Disponible después de guardar la escritura por primera vez. Guarda
-        desde Completar para desbloquearlo.
+        {description ??
+          "Disponible después de guardar la escritura por primera vez. Guarda desde Completar para desbloquearlo."}
       </div>
     </section>
   );

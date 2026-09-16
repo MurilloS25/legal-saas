@@ -1,16 +1,25 @@
 import "server-only";
 
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ForbiddenError, UnauthorizedError } from "@/lib/server/errors";
+import {
+  DataAccessError,
+  ForbiddenError,
+  UnauthorizedError,
+  throwDataAccessError,
+} from "@/lib/server/errors";
 import type { WorkspaceRole } from "@/lib/server/permissions";
 
 const getServerAuth = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  if (error) throwDataAccessError("authenticate user", error);
 
   return { supabase, user };
 });
@@ -24,9 +33,20 @@ export async function requireUser() {
 
 /** Auth context for Route Handlers. APIs must map this error to HTTP. */
 export async function requireApiUser() {
-  const context = await getServerAuth();
-  if (!context.user) throw new UnauthorizedError();
-  return { supabase: context.supabase, user: context.user };
+  // Route Handlers need to distinguish the normal absence of a session
+  // from an operational Auth failure. Supabase reports the first case as
+  // AuthSessionMissingError; the Server Component helper above deliberately
+  // keeps its redirect-oriented behavior separate.
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (isAuthSessionMissingError(error)) throw new UnauthorizedError();
+  if (error) throwDataAccessError("authenticate API user", error);
+  if (!user) throw new UnauthorizedError();
+  return { supabase, user };
 }
 
 /**
@@ -73,10 +93,12 @@ export const getWorkspaceAccess = cache(
     supabase: Awaited<ReturnType<typeof createClient>>,
     userId: string,
   ): Promise<WorkspaceAccessState> => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("workspace_members")
       .select("workspace_id, role, status")
       .eq("user_id", userId);
+
+    if (error) throwDataAccessError("load workspace access", error);
 
     const rows = data ?? [];
 
@@ -132,8 +154,18 @@ export const getWorkspaceAccess = cache(
  * a resolver el estado por su cuenta.
  */
 export async function requireWorkspace() {
-  const { supabase, user } = await requireUser();
-  const access = await getWorkspaceAccess(supabase, user.id);
+  let context: Awaited<ReturnType<typeof requireUser>>;
+  let access: WorkspaceAccessState;
+  try {
+    context = await requireUser();
+    access = await getWorkspaceAccess(context.supabase, context.user.id);
+  } catch (error) {
+    if (error instanceof DataAccessError) {
+      redirect("/workspace-unavailable?reason=load-error");
+    }
+    throw error;
+  }
+  const { supabase, user } = context;
 
   if (access.kind === "active") {
     return {

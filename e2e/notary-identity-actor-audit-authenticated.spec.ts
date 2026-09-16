@@ -76,7 +76,7 @@ test.describe("notary identity and actor audit", () => {
     try {
       // ---- propietario modifica perfil (identidad notarial del Workspace)
       await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
-      await page.goto("/dashboard/settings");
+      await page.goto("/dashboard/settings?tab=workspace");
       await page.getByLabel("Nombre completo").fill("Lic. Notaria de Prueba");
       await page.getByLabel("Código profesional").fill("NP-9999");
       await page.getByRole("button", { name: "Guardar cambios" }).click();
@@ -159,8 +159,8 @@ test.describe("notary identity and actor audit", () => {
       documentId = documentPath.split("/").pop() ?? null;
 
       // ---- el asistente no puede modificar la identidad notarial: el
-      // formulario de Configuración le llega en modo lectura.
-      await assistantPage.goto("/dashboard/settings");
+      // formulario de Despacho (perfil profesional) le llega en modo lectura.
+      await assistantPage.goto("/dashboard/settings?tab=workspace");
       await expect(
         assistantPage.getByText(
           "Solo el propietario o un administrador pueden editar esta",

@@ -180,7 +180,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
    * porque no existe hasta que ese test corre. */
   let cobroReceivableId: string | undefined;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ browser }) => {
     ownerId = await createDisposableUser(ownerEmail, PASSWORD);
     assistantId = await createDisposableUser(assistantEmail, PASSWORD);
     readerId = await createDisposableUser(readerEmail, PASSWORD);
@@ -251,11 +251,18 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       template_id: templateId,
       client_id: clientId,
       title: "Escritura gating profundo (reabrir directo)",
-      status: "final",
+      status: "draft",
       field_values: {},
       rendered_content: "Contenido de prueba.",
     });
     reopenTargetDocumentId = reopenTargetDocument.id;
+    const fixturePage = await browser.newPage();
+    try {
+      await loginAndExpectDashboard(fixturePage, ownerEmail, PASSWORD);
+      expect((await directPatchDocumentStatus(fixturePage, reopenTargetDocumentId, "final")).ok).toBe(true);
+    } finally {
+      await fixturePage.close();
+    }
 
     const receivable = await restInsert<{ id: string }>("receivables", {
       owner_id: ownerId,
@@ -318,7 +325,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByRole("button", { name: "Insertar variable" }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).not.toBeVisible();
 
     // Solicitud manipulada: reactiva el campo "Nombre" a mano vía DOM (como
@@ -350,7 +357,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Negrita" })).toBeEnabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).toBeVisible();
   });
 
@@ -367,16 +374,17 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).not.toBeVisible();
+    // Duplicar vive directo en el encabezado — su ausencia aquí es por
+    // permiso (documents.create), no por estar oculto tras un disclosure.
     await expect(
       page.getByRole("button", { name: "Duplicar" }),
     ).not.toBeVisible();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar vive integrado a la barra de Guardar dentro de "Completar".
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
-    await page.getByRole("tab", { name: "Completar" }).click();
 
     // Solicitud manipulada: reactiva el título y fuerza el envío del form
     // principal del compositor.
@@ -402,12 +410,12 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).not.toBeVisible();
     await expect(page.getByLabel("Título de la escritura")).toBeEnabled();
     await expect(
-      page.getByRole("button", { name: /^Guardar y continuar$/ }),
+      page.getByRole("button", { name: /^Guardar$/ }),
     ).toBeVisible();
     // asistente sí puede duplicar (documents.create) pero no finalizar
     // (documents.finalize es solo propietario/administrador).
     await expect(page.getByRole("button", { name: "Duplicar" })).toBeVisible();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar vive integrado a la barra de Guardar dentro de "Completar".
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).not.toBeVisible();
@@ -418,7 +426,8 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   }) => {
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // Finalizar vive en "Completar" (paso por defecto); Reabrir vive en el
+    // encabezado del workspace.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
@@ -428,7 +437,6 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       timeout: 15_000,
     });
     // Finalizar redirige de verdad y avanza el paso a "Cobro".
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByText("Finalizada es de solo lectura"),
     ).toBeVisible();
@@ -438,13 +446,14 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(page.getByText("Finalizada es de solo lectura")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).not.toBeVisible();
 
-    await page.getByRole("link", { name: "Completar datos del índice" }).click();
+    // El enlace superior directo al Índice se retiró (redundante con el
+    // stepper) — el tab "Índice" es ahora la única vía.
+    await page.getByRole("tab", { name: "Índice", exact: true }).click();
     await expect(page).toHaveURL(/section=notarial/);
     await expect(
       page.getByText("Tu rol no permite editar los datos del índice"),
@@ -455,7 +464,6 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
     await page.goto(`/dashboard/documents/${secondDocumentId}`);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).not.toBeVisible();

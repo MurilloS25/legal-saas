@@ -106,6 +106,7 @@ export async function inviteMemberAction(
   }
 
   revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/settings");
   return {
     success: true,
     message: emailSent
@@ -154,6 +155,7 @@ export async function changeMemberRoleAction(
   }
 
   revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/settings");
   return {};
 }
 
@@ -181,6 +183,7 @@ export async function suspendMemberAction(
   }
 
   revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/settings");
   return {};
 }
 
@@ -208,6 +211,7 @@ export async function reactivateMemberAction(
   }
 
   revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/settings");
   return {};
 }
 
@@ -241,5 +245,6 @@ export async function removeMemberAction(
   }
 
   revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/settings");
   return {};
 }

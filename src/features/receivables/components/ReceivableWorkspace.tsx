@@ -36,6 +36,7 @@ import {
 } from "./ReceivableWorkspaceHeader";
 import { useToast } from "@/components/feedback/Toast";
 import { stripSearchParams } from "@/lib/navigation/strip-search-params";
+import { appendReturnTo } from "@/lib/navigation/context-return";
 
 type Props = {
   entry: ReceivableEntry;
@@ -139,12 +140,13 @@ export function ReceivableWorkspace({
   const goToSection = useCallback((next: ReceivableWorkspaceSection) => {
     setSection(next);
     if (typeof window === "undefined") return;
-    const url =
+    const base =
       next === "account"
         ? window.location.pathname
         : `${window.location.pathname}?section=${next}`;
+    const url = appendReturnTo(base, returnTo ?? null);
     window.history.pushState(null, "", url);
-  }, []);
+  }, [returnTo]);
 
   return (
     <div>
@@ -213,6 +215,7 @@ export function ReceivableWorkspace({
           documents={documents}
           hasPaymentHistory={payments.length > 0}
           canWrite={canWrite}
+          returnTo={returnTo}
         />
       </div>
 
@@ -231,6 +234,7 @@ export function ReceivableWorkspace({
           payments={payments}
           canRegisterPayments={canRegisterPayments}
           canVoidPayments={canVoidPayments}
+          returnTo={returnTo}
         />
       </div>
     </div>

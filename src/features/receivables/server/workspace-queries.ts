@@ -3,7 +3,6 @@ import "server-only";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
-  RECEIVABLES_PAGE_SIZE,
   searchHasNoSafeTerm,
   sanitizeSearchTermForPostgrest,
   sortColumnFor,
@@ -64,14 +63,14 @@ export async function listReceivablesWorkspace(
   if (countError) throwDataAccessError("count receivables workspace", countError);
 
   const totalCount = count ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / RECEIVABLES_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(totalCount / query.pageSize));
   const totals = await getReceivablesSummary(query);
   if (totalCount > 0 && query.page > pageCount) {
     return { rows: [], totalCount, page: query.page, pageCount, totals };
   }
 
-  const from = (query.page - 1) * RECEIVABLES_PAGE_SIZE;
-  const to = from + RECEIVABLES_PAGE_SIZE - 1;
+  const from = (query.page - 1) * query.pageSize;
+  const to = from + query.pageSize - 1;
   let builder = supabase
     .from("receivable_entries")
     .select(ENTRY_COLUMNS)

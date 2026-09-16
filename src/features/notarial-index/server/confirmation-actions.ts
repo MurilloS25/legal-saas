@@ -10,6 +10,7 @@ import { isNotarialComplete } from "../model/notarial";
 export type NotarialConfirmationActionState = {
   message?: string;
   success?: boolean;
+  version?: number;
 };
 
 /**
@@ -68,6 +69,9 @@ export async function confirmNotarialMetadataAction(
   if (!existing) {
     return { message: "Guarda primero los datos del índice." };
   }
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1 || existing.version !== expectedVersion) {
+    return { message: "Los datos cambiaron en otra sesión. Recarga la página antes de confirmar." };
+  }
   if (existing.notarial_confirmed_at) {
     return { message: "Estos datos ya fueron confirmados." };
   }
@@ -88,7 +92,7 @@ export async function confirmNotarialMetadataAction(
     .eq("workspace_id", workspaceId)
     .eq("version", expectedVersion)
     .is("notarial_confirmed_at", null)
-    .select("id")
+    .select("id, version")
     .maybeSingle();
 
   if (error) {
@@ -105,7 +109,7 @@ export async function confirmNotarialMetadataAction(
 
   revalidatePath(`/dashboard/documents/${documentId}`);
   revalidatePath("/dashboard/notarial-index");
-  return { success: true };
+  return { success: true, version: updated.version };
 }
 
 export async function startNotarialCorrectionAction(
@@ -148,7 +152,7 @@ export async function startNotarialCorrectionAction(
     .eq("workspace_id", workspaceId)
     .eq("version", expectedVersion)
     .not("notarial_confirmed_at", "is", null)
-    .select("id")
+    .select("id, version")
     .maybeSingle();
 
   if (error) {
@@ -165,5 +169,5 @@ export async function startNotarialCorrectionAction(
 
   revalidatePath(`/dashboard/documents/${documentId}`);
   revalidatePath("/dashboard/notarial-index");
-  return { success: true };
+  return { success: true, version: updated.version };
 }

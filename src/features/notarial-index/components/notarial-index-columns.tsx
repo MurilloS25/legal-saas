@@ -5,7 +5,7 @@ import type {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
-import { NOTARIAL_PAGE_SIZE } from "../model/query";
+import type { PageSizeOption } from "@/lib/pagination";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
 import { formatCostaRicaDate, formatCostaRicaTime } from "../model/datetime";
 import { notarialConfirmationState, NOTARIAL_CONFIRMATION_STATE_LABEL } from "../model/notarial";
@@ -49,11 +49,12 @@ export const NOTARIAL_MANUAL_TABLE_OPTIONS = {
 
 export function notarialTableState(
   page: number,
+  pageSize: PageSizeOption,
 ): { pagination: PaginationState; sorting: SortingState } {
   return {
     pagination: {
       pageIndex: Math.max(0, page - 1),
-      pageSize: NOTARIAL_PAGE_SIZE,
+      pageSize,
     },
     sorting: [{ id: "instrument_number", desc: false }],
   };

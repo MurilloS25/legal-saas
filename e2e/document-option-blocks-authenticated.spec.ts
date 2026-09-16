@@ -171,7 +171,7 @@ test.describe("document option blocks", () => {
       .locator('input[data-variable-key="vehiculo.vin"]')
       .blur();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Crear escritura" }).click();
     await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
@@ -183,9 +183,8 @@ test.describe("document option blocks", () => {
       `${templateName} — Borrador`,
     );
 
-    // El redirect del primer guardado conserva `section=revisar`, así que
-    // `reload()` también recarga en ese paso — volver a "Completar" para ver
-    // la hoja documental.
+    // El primer guardado ya deja al usuario en "Completar" (no navega) —
+    // recargar preserva ese mismo paso.
     await page.reload();
     await page.getByRole("tab", { name: "Completar", exact: true }).click();
     await expect(documentRegion(page).getByText("CHASIS", { exact: true })).toBeVisible();
@@ -201,7 +200,8 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // "Descargar Word" vive directo en el encabezado del workspace —
+    // alcanzable sin importar el paso activo.
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
     const download = await downloadPromise;
@@ -218,14 +218,14 @@ test.describe("document option blocks", () => {
     page,
   }) => {
     await page.goto(documentUrl);
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+    // `documentUrl` aterriza en "Completar" (paso por defecto) — Finalizar
+    // vive ahí; Reabrir vive en el encabezado del workspace (global).
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Finalizar escritura" })
       .click();
     // Finalizar redirige de verdad y avanza el paso a "Cobro".
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).toBeVisible({ timeout: 15_000 });
@@ -238,13 +238,11 @@ test.describe("document option blocks", () => {
     ).toHaveCount(0);
     await expect(documentRegion(page).getByText("CHASIS", { exact: true })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Reabrir escritura" })
       .click();
-    await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
     await expect(
       page.getByRole("button", { name: "Finalizar escritura" }),
     ).toBeVisible({ timeout: 15_000 });

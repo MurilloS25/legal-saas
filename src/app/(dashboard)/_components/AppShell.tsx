@@ -1,78 +1,55 @@
 "use client";
 
 /**
- * Shell del panel: barra de navegación + contenido.
+ * Shell del panel: navbar superior + contenido.
  *
- * El sidebar usa un azul tinta propio (`ink-*`) distinto del blanco del
- * resto de la app, con un único acento (`accent-*`) — una variante más
- * clara del mismo azul — como hilo conductor entre el sidebar y el
- * contenido. No hay teal ni verde brillante en ningún estado decorativo;
- * verde/ámbar/rojo quedan reservados para estados semánticos reales.
+ * Reemplaza el sidebar lateral por una barra superior (patrón aprobado en el
+ * prototipo LexCR) porque con 6 áreas reales cabe cómoda en una sola línea.
+ * Reutiliza los mismos tokens del sidebar anterior (`ink-*`/`accent-*`, ver
+ * DESIGN.md) — no se introduce una paleta nueva, solo un layout nuevo.
  *
- * Colapsable en escritorio (icon rail, se recuerda en localStorage) y
- * deslizante en móvil.
+ * Desktop: navbar horizontal con menú de usuario (Perfil/Configuración/
+ * Despacho/Cerrar sesión). Móvil: hamburguesa + drawer lateral, igual
+ * mecanismo de transición que el sidebar anterior.
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useId, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
+import { useNavigationGuard } from "@/components/navigation/NavigationGuard";
 import { logoutAction } from "../actions";
 import { ToastProvider } from "@/components/feedback/Toast";
 import {
   BookmarkIcon,
-  ChevronLeftIcon,
+  BuildingIcon,
+  ChevronDownIcon,
   CompassIcon,
   GearIcon,
   LogoutIcon,
   MenuIcon,
   ScrollIcon,
   StackIcon,
-  TeamIcon,
   UsersIcon,
   WalletIcon,
   XIcon,
 } from "./icons";
 
-const COLLAPSE_STORAGE_KEY = "lexcr.sidebar.collapsed";
-
-// Estado colapsado leído de localStorage a través de `useSyncExternalStore`:
-// evita el patrón "leer en un efecto y hacer setState" (dispara un render en
-// cascada) y, sobre todo, evita un mismatch de hidratación — el snapshot de
-// servidor siempre es "expandido", igual que el primer render del cliente.
-const collapseListeners = new Set<() => void>();
-
-function subscribeCollapsed(callback: () => void) {
-  collapseListeners.add(callback);
-  return () => collapseListeners.delete(callback);
-}
-
-function getCollapsedSnapshot() {
-  return window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === "1";
-}
-
-function getCollapsedServerSnapshot() {
-  return false;
-}
-
-function setCollapsedStorage(next: boolean) {
-  window.localStorage.setItem(COLLAPSE_STORAGE_KEY, next ? "1" : "0");
-  collapseListeners.forEach((callback) => callback());
-}
-
 // ------------------------------------------------------------------ nav config
 
-const BASE_LINKS = [
+const NAV_LINKS = [
   { label: "Panel", href: "/dashboard", Icon: CompassIcon },
   { label: "Clientes", href: "/dashboard/clients", Icon: UsersIcon },
   { label: "Machotes", href: "/dashboard/templates", Icon: StackIcon },
   { label: "Escrituras", href: "/dashboard/documents", Icon: ScrollIcon },
-  { label: "Cuentas por cobrar", href: "/dashboard/receivables", Icon: WalletIcon },
   { label: "Índice Notarial", href: "/dashboard/notarial-index", Icon: BookmarkIcon },
+  { label: "Cuentas por cobrar", href: "/dashboard/receivables", Icon: WalletIcon },
 ] as const;
 
-const TEAM_LINK = { label: "Mi equipo", href: "/dashboard/team", Icon: TeamIcon } as const;
-
-const SETTINGS_LINK = { label: "Configuración", href: "/dashboard/settings", Icon: GearIcon } as const;
+const USER_MENU_ITEMS = [
+  { label: "Perfil", href: "/dashboard/settings?tab=profile", Icon: UsersIcon },
+  { label: "Configuración", href: "/dashboard/settings?tab=document", Icon: GearIcon },
+  { label: "Despacho", href: "/dashboard/settings?tab=workspace", Icon: BuildingIcon },
+] as const;
 
 function isLinkActive(pathname: string, href: string): boolean {
   return href === "/dashboard"
@@ -80,96 +57,23 @@ function isLinkActive(pathname: string, href: string): boolean {
     : pathname === href || pathname.startsWith(href + "/");
 }
 
-// ------------------------------------------------------------------ SidebarNav
+// ------------------------------------------------------------------ UserMenu
 
-function SidebarNav({
-  pathname,
-  collapsed,
-  showTeamLink,
-  onNavigate,
-}: {
-  pathname: string;
-  collapsed: boolean;
-  showTeamLink: boolean;
-  onNavigate?: () => void;
-}) {
-  const links = showTeamLink
-    ? [...BASE_LINKS, TEAM_LINK, SETTINGS_LINK]
-    : [...BASE_LINKS, SETTINGS_LINK];
-
-  return (
-    <>
-      {links.map(({ label, href, Icon }) => {
-        const isActive = isLinkActive(pathname, href);
-
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={onNavigate}
-            title={collapsed ? label : undefined}
-            className={`group relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800 ${
-              collapsed ? "justify-center px-0" : "px-3"
-            } ${
-              isActive
-                ? "bg-ink-600 text-white"
-                : "text-ink-200/90 hover:bg-ink-700 hover:text-white"
-            }`}
-            aria-current={isActive ? "page" : undefined}
-          >
-            <span
-              aria-hidden="true"
-              className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-400 transition-opacity ${
-                isActive ? "opacity-100" : "opacity-0"
-              }`}
-            />
-            <Icon
-              className={`size-[18px] shrink-0 ${isActive ? "text-accent-400" : "text-ink-400 group-hover:text-ink-200"}`}
-            />
-            <span
-              className={`whitespace-nowrap transition-all duration-150 ${
-                collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-              }`}
-            >
-              {label}
-            </span>
-
-            {collapsed && (
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 group-hover:block"
-              >
-                {label}
-              </span>
-            )}
-          </Link>
-        );
-      })}
-    </>
-  );
-}
-
-// ------------------------------------------------------------------ SidebarInner
-
-function SidebarInner({
-  pathname,
-  collapsed,
+function UserMenu({
   userLabel,
   userEmail,
-  showTeamLink,
-  onNavigate,
-  onToggleCollapsed,
 }: {
-  pathname: string;
-  collapsed: boolean;
   userLabel: string | null;
   userEmail: string | null;
-  showTeamLink: boolean;
-  onNavigate?: () => void;
-  /** Presente solo en el sidebar de escritorio (el móvil no colapsa). */
-  onToggleCollapsed?: () => void;
 }) {
-  const tooltipId = useId();
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { requestLeave } = useNavigationGuard();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const buttonId = useId();
+  const menuId = useId();
+
   const initials = (userLabel ?? userEmail ?? "?")
     .trim()
     .split(/\s+/)
@@ -178,112 +82,86 @@ function SidebarInner({
     .join("")
     .toUpperCase();
 
+  useEffect(() => {
+    if (!open) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        window.requestAnimationFrame(() => triggerRef.current?.focus());
+      }
+    }
+    function onPointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
+
   return (
-    <div className="flex h-full flex-col text-ink-200">
-      {/* Brand + toggle */}
-      <div
-        className={`flex shrink-0 items-center gap-2 border-b border-white/10 py-5 ${
-          collapsed ? "justify-center px-2" : "justify-between px-5"
-        }`}
+    <div ref={containerRef} className="relative">
+      <button
+        ref={triggerRef}
+        id={buttonId}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls={menuId}
+        aria-label="Menú de usuario"
+        className="flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800"
       >
-        {collapsed ? (
-          <span
-            aria-hidden="true"
-            className="select-none text-sm font-black tracking-tight text-white"
-          >
-            Lx
-          </span>
-        ) : (
-          <div className="min-w-0 select-none">
-            <p className="truncate text-[15px] font-bold tracking-tight text-white">
-              LexCR
-            </p>
-            <p className="truncate text-[11px] text-ink-400">
-              Gestión Notarial
-            </p>
-          </div>
-        )}
-
-        {onToggleCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-pressed={collapsed}
-            aria-describedby={tooltipId}
-            className="group/toggle relative flex size-7 shrink-0 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink-700 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800"
-          >
-            <ChevronLeftIcon
-              className={`size-4 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}
-            />
-            <span
-              id={tooltipId}
-              role="tooltip"
-              className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg ring-1 ring-white/10 transition-opacity group-hover/toggle:opacity-100 group-focus-visible/toggle:opacity-100"
-            >
-              {collapsed ? "Expandir menú" : "Contraer menú"}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav
-        className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-4 ${collapsed ? "px-2.5" : "px-3"}`}
-        aria-label="Navegación principal"
-      >
-        <SidebarNav
-          pathname={pathname}
-          collapsed={collapsed}
-          showTeamLink={showTeamLink}
-          onNavigate={onNavigate}
+        <span className="flex size-7 items-center justify-center rounded-full bg-ink-700 text-[11px] font-semibold text-white ring-1 ring-white/10">
+          {initials || "?"}
+        </span>
+        <ChevronDownIcon
+          className={`size-3.5 text-ink-400 transition-transform ${open ? "rotate-180" : ""}`}
         />
-      </nav>
+      </button>
 
-      {/* User + logout */}
-      <div
-        className={`shrink-0 space-y-3 border-t border-white/10 py-4 ${
-          collapsed ? "px-2.5" : "px-3"
-        }`}
-      >
+      {open && (
         <div
-          className={`group/profile relative flex items-center gap-2.5 rounded-lg ${collapsed ? "justify-center" : "px-1"}`}
+          id={menuId}
+          data-navigation-popup
+          aria-labelledby={buttonId}
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[11px] font-semibold text-ink-200 ring-1 ring-white/10">
-            {initials || "?"}
+          <div className="border-b border-slate-100 px-3.5 py-2.5">
+            <p className="truncate text-[13px] font-medium text-slate-900">
+              {userLabel ?? "Sin perfil"}
+            </p>
+            <p className="truncate text-[11.5px] text-slate-500">{userEmail}</p>
           </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-white">
-                {userLabel ?? "Sin perfil"}
-              </p>
-              <p className="truncate text-[11px] text-ink-400">
-                {userEmail}
-              </p>
-            </div>
-          )}
-          {collapsed && (
-            <span
-              role="tooltip"
-              className="pointer-events-none absolute left-full ml-3 hidden max-w-[12rem] truncate rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 group-hover/profile:block"
+          {USER_MENU_ITEMS.map(({ label, href, Icon }) => (
+            <button
+              key={href}
+              onClick={() => {
+                setOpen(false);
+                requestLeave(() => router.push(href));
+              }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-slate-700 hover:bg-slate-50"
             >
-              {userLabel ?? userEmail ?? "Sin perfil"}
-            </span>
-          )}
+              <Icon className="size-4 text-slate-400" />
+              {label}
+            </button>
+          ))}
+          <div className="my-1 border-t border-slate-100" />
+          <form action={logoutAction} onSubmit={(event) => { event.preventDefault(); requestLeave(logoutAction); }}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50"
+            >
+              <LogoutIcon className="size-4" />
+              Cerrar sesión
+            </button>
+          </form>
         </div>
-
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            title={collapsed ? "Cerrar sesión" : undefined}
-            className={`flex w-full items-center gap-3 rounded-lg py-2 text-sm font-medium text-ink-400 transition-colors hover:bg-red-500/10 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800 ${
-              collapsed ? "justify-center px-0" : "px-3"
-            }`}
-          >
-            <LogoutIcon className="size-[18px] shrink-0" />
-            {!collapsed && <span>Cerrar sesión</span>}
-          </button>
-        </form>
-      </div>
+      )}
     </div>
   );
 }
@@ -294,97 +172,197 @@ type Props = {
   children: React.ReactNode;
   userLabel: string | null;
   userEmail: string | null;
-  showTeamLink: boolean;
 };
 
-export function AppShell({ children, userLabel, userEmail, showTeamLink }: Props) {
+export function AppShell({ children, userLabel, userEmail }: Props) {
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const collapsed = useSyncExternalStore(
-    subscribeCollapsed,
-    getCollapsedSnapshot,
-    getCollapsedServerSnapshot,
-  );
-
-  function toggleCollapsed() {
-    setCollapsedStorage(!collapsed);
-  }
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
-      {/* Desktop sidebar — sticky, colapsable */}
-      <aside
-        style={{ width: collapsed ? 80 : 260 }}
-        className="relative hidden min-w-0 shrink-0 flex-col overflow-hidden bg-ink-800 transition-[width] duration-200 ease-in-out lg:sticky lg:top-0 lg:flex lg:h-screen"
-      >
-        <SidebarInner
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-40 border-b border-black/10 bg-ink-800">
+        <div className="mx-auto flex h-14 max-w-screen-2xl items-center gap-6 px-4 sm:px-6 lg:px-10">
+          <Link
+            href="/dashboard"
+            className="shrink-0 select-none text-[15px] font-bold tracking-tight text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 rounded-sm"
+          >
+            LexCR
+          </Link>
+
+          <nav
+            className="hidden min-w-0 flex-1 items-center gap-1 lg:flex"
+            aria-label="Navegación principal"
+          >
+            {NAV_LINKS.map(({ label, href, Icon }) => {
+              const active = isLinkActive(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800 ${
+                    active ? "text-white" : "text-ink-200/90 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <Icon className={`size-[15px] ${active ? "text-accent-400" : ""}`} />
+                  {label}
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-3 -bottom-[9px] h-[2px] rounded-full bg-accent-400"
+                    />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-3">
+            <div className="hidden sm:block">
+              <UserMenu userLabel={userLabel} userEmail={userEmail} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="rounded-md p-1.5 text-white/80 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 lg:hidden"
+              aria-label="Abrir navegación"
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav-drawer"
+            >
+              <MenuIcon className="size-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {mobileOpen && (
+        <MobileDrawer
           pathname={pathname}
-          collapsed={collapsed}
           userLabel={userLabel}
           userEmail={userEmail}
-          showTeamLink={showTeamLink}
-          onToggleCollapsed={toggleCollapsed}
-        />
-      </aside>
-
-      {/* Mobile: backdrop overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-ink-900/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
+          onClose={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Mobile: slide-in sidebar */}
-      <aside
-        id="mobile-sidebar"
-        className={`fixed inset-y-0 left-0 z-30 w-72 bg-ink-800 transition-transform duration-200 ease-in-out lg:hidden ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+      <main>
+        <ToastProvider>{children}</ToastProvider>
+      </main>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ MobileDrawer
+
+function MobileDrawer({
+  pathname,
+  userLabel,
+  userEmail,
+  onClose,
+}: {
+  pathname: string;
+  userLabel: string | null;
+  userEmail: string | null;
+  onClose: () => void;
+}) {
+  const { requestLeave } = useNavigationGuard();
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const initials = (userLabel ?? userEmail ?? "?")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <div
+        className="absolute inset-0 bg-ink-900/50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        id="mobile-nav-drawer"
+        role="dialog"
+        aria-modal="true"
         aria-label="Menú de navegación"
+        className="absolute inset-y-0 left-0 flex w-72 flex-col bg-ink-800 shadow-xl"
       >
-        <div className="absolute top-3 right-3 z-10">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4">
+          <span className="select-none text-[15px] font-bold tracking-tight text-white">
+            LexCR
+          </span>
           <button
-            onClick={() => setSidebarOpen(false)}
-            className="rounded-md p-1.5 text-ink-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
+            onClick={onClose}
             aria-label="Cerrar menú de navegación"
+            className="rounded-md p-1.5 text-ink-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
           >
             <XIcon className="size-5" />
           </button>
         </div>
-        <SidebarInner
-          pathname={pathname}
-          collapsed={false}
-          userLabel={userLabel}
-          userEmail={userEmail}
-          showTeamLink={showTeamLink}
-          onNavigate={() => setSidebarOpen(false)}
-        />
-      </aside>
 
-      {/* Main area */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar */}
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-md p-1.5 text-slate-500 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-            aria-label="Abrir menú de navegación"
-            aria-expanded={sidebarOpen}
-            aria-controls="mobile-sidebar"
-          >
-            <MenuIcon className="size-5" />
-          </button>
-          <span className="select-none text-base font-bold text-slate-900">
-            LexCR
-          </span>
-        </header>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
+          {NAV_LINKS.map(({ label, href, Icon }) => {
+            const active = isLinkActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={onClose}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800 ${
+                  active ? "bg-ink-600 text-white" : "text-ink-200/90 hover:bg-ink-700 hover:text-white"
+                }`}
+              >
+                <Icon className={`size-[18px] ${active ? "text-accent-400" : "text-ink-400"}`} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
 
-        {/* Page content */}
-        <main className="flex-1">
-          <ToastProvider>{children}</ToastProvider>
-        </main>
+        <div className="shrink-0 space-y-1 border-t border-white/10 px-3 py-4">
+          <div className="flex items-center gap-2.5 px-1 pb-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink-700 text-[11px] font-semibold text-ink-200 ring-1 ring-white/10">
+              {initials || "?"}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-white">
+                {userLabel ?? "Sin perfil"}
+              </p>
+              <p className="truncate text-[11px] text-ink-400">{userEmail}</p>
+            </div>
+          </div>
+
+          {USER_MENU_ITEMS.map(({ label, href, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={onClose}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-200/90 hover:bg-ink-700 hover:text-white"
+            >
+              <Icon className="size-[18px] text-ink-400" />
+              {label}
+            </Link>
+          ))}
+
+          <form action={logoutAction} onSubmit={(event) => { event.preventDefault(); requestLeave(logoutAction); }}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-400 transition-colors hover:bg-red-500/10 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-ink-800"
+            >
+              <LogoutIcon className="size-[18px] shrink-0" />
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -7,11 +7,11 @@ import {
   TemplatesTable,
   parseTemplatesQuery,
   templatesQueryToParams,
-  TEMPLATES_PAGE_SIZE,
   type RawTemplatesQuery,
 } from "@/features/templates";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { buildPageSizeOptions, type PageSizeOption } from "@/lib/pagination";
 
 export const metadata = {
   title: "Machotes — LexCR",
@@ -30,17 +30,23 @@ export default async function TemplatesPage({ searchParams }: Props) {
   const page = await listTemplatesPage(query);
 
   const pageHref = (targetPage: number) => {
-    const params = templatesQueryToParams({ page: targetPage });
+    const params = templatesQueryToParams({ page: targetPage, pageSize: query.pageSize });
     const qs = new URLSearchParams(params).toString();
     return qs ? `/dashboard/templates?${qs}` : "/dashboard/templates";
   };
+
+  const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
+    const params = templatesQueryToParams({ page: 1, pageSize });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/dashboard/templates?${qs}` : "/dashboard/templates";
+  });
 
   if (page.total > 0 && query.page > page.pageCount) {
     redirect(pageHref(page.pageCount));
   }
 
-  const rangeStart = page.total === 0 ? 0 : (query.page - 1) * TEMPLATES_PAGE_SIZE + 1;
-  const rangeEnd = Math.min(query.page * TEMPLATES_PAGE_SIZE, page.total);
+  const rangeStart = page.total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
+  const rangeEnd = Math.min(query.page * query.pageSize, page.total);
 
   return (
     <PageContainer>
@@ -125,6 +131,8 @@ export default async function TemplatesPage({ searchParams }: Props) {
             pageCount={page.pageCount}
             countLabel={`${rangeStart}–${rangeEnd} de ${page.total}`}
             pageHref={pageHref}
+            pageSize={query.pageSize}
+            pageSizeOptions={pageSizeOptions}
           />
         </div>
       )}

@@ -5,10 +5,24 @@
  * con compatibilidad para el estado histórico `ready` y confirmaciones
  * accesibles. No se puede cambiar de estado con cambios locales sin guardar.
  * Finalizar se valida en servidor (bloquea si hay variables pendientes).
+ *
+ * Un solo componente para las dos ramas de estado, ambas integradas al
+ * mismo dock flotante (`DocumentSaveControls`) — nunca montadas a la vez,
+ * porque son mutuamente excluyentes según `status`: "draft"/"ready"
+ * (Finalizar/Volver a borrador) cuando es editable, "final" (Reabrir)
+ * cuando no. Ya no ofrece un enlace directo al paso "Índice": el stepper
+ * ya lo cubre, así que agregar uno aquí solo duplicaba navegación.
+ *
+ * El aviso "Finalizada es de solo lectura..." ya no vive aquí — es
+ * información sobre el documento, no parte de un control de acción, así
+ * que se movió al encabezado del workspace (`DocumentWorkspaceHeader`),
+ * separada de cualquier botón. El motivo de un disabled por `dirty` se
+ * explica con `title` (tooltip accesible nativo) en el propio botón, no
+ * con una línea de texto permanente — esa línea hacía crecer el dock
+ * flotante justo en el estado dirty, el más frecuente durante la edición.
  */
 
 import { startTransition, useActionState, useRef, useState } from "react";
-import Link from "next/link";
 import {
   markDocumentFinalAction,
   reopenDocumentAction,
@@ -34,8 +48,10 @@ type Props = {
   notarialDataConfirmed: boolean;
   /** documents.include_in_notarial_index — heredado del Machote al crear
    * (o corregido individualmente desde el paso Índice). Finalizar ya no
-   * decide este valor; solo lo muestra. */
-  includeInNotarialIndex: boolean;
+   * decide este valor; solo lo muestra en su diálogo de confirmación
+   * (rama draft/ready). Irrelevante para la rama final (Reabrir) — opcional
+   * para esa llamada. */
+  includeInNotarialIndex?: boolean;
 };
 
 type DialogKind = "final" | "reopen" | "draft" | null;
@@ -52,7 +68,7 @@ export function DocumentStatusControls({
   dirty,
   canFinalize,
   notarialDataConfirmed,
-  includeInNotarialIndex,
+  includeInNotarialIndex = true,
 }: Props) {
   const [toDraft, toDraftAction, toDraftPending] = useActionState(
     returnDocumentToDraftAction.bind(null, documentId),
@@ -93,6 +109,7 @@ export function DocumentStatusControls({
   }
 
   function submitFinal() {
+    if (dirty || anyPending) return;
     submitAction(finalAction);
   }
 
@@ -109,6 +126,7 @@ export function DocumentStatusControls({
           type="button"
           disabled={dirty || anyPending}
           onClick={() => setDialog("final")}
+          title={dirty ? "Guarda los cambios antes de finalizar." : undefined}
           className={primaryButtonClass}
         >
           Finalizar escritura
@@ -128,6 +146,7 @@ export function DocumentStatusControls({
                 type="button"
                 disabled={dirty || anyPending}
                 onClick={() => setDialog("final")}
+                title={dirty ? "Guarda los cambios antes de finalizar." : undefined}
                 className={primaryButtonClass}
               >
                 Finalizar escritura
@@ -136,6 +155,7 @@ export function DocumentStatusControls({
                 type="button"
                 disabled={dirty || anyPending}
                 onClick={() => setDialog("draft")}
+                title={dirty ? "Guarda los cambios antes de continuar." : undefined}
                 className={secondaryButtonClass}
               >
                 Volver a borrador
@@ -145,36 +165,16 @@ export function DocumentStatusControls({
         </>
       )}
 
-      {status === "final" && (
-        <>
-          <p className="w-full text-right text-xs text-slate-500">
-            Finalizada es de solo lectura. No significa firmada, presentada ni
-            enviada oficialmente.
-          </p>
-          {canFinalize && (
-            <button
-              ref={triggerRef}
-              type="button"
-              disabled={anyPending}
-              onClick={() => setDialog("reopen")}
-              className={secondaryButtonClass}
-            >
-              Reabrir escritura
-            </button>
-          )}
-          <Link
-            href={`/dashboard/documents/${documentId}?section=notarial`}
-            className="inline-flex rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-          >
-            {includeInNotarialIndex ? "Completar datos del índice" : "Ver Índice Notarial"}
-          </Link>
-        </>
-      )}
-
-      {dirty && status !== "final" && (
-        <p className="w-full text-right text-xs text-amber-700">
-          Guarda los cambios antes de cambiar el estado.
-        </p>
+      {status === "final" && canFinalize && (
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={anyPending}
+          onClick={() => setDialog("reopen")}
+          className={primaryButtonClass}
+        >
+          Reabrir escritura
+        </button>
       )}
 
       {showFinalDialog && (
@@ -193,7 +193,7 @@ export function DocumentStatusControls({
             </>
           }
           confirmLabel="Finalizar escritura"
-          pending={finalPending}
+          pending={finalPending || dirty}
           error={final.message}
           onConfirm={submitFinal}
           onClose={closeDialog}

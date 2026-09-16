@@ -1,5 +1,10 @@
 # RLS Verification
 
+> **Historical scope.** This document records the manual verification approach
+> for the first migration. It is not the current complete authorization
+> runbook. Current Workspace/role behavior is covered by the versioned pgTAP
+> suites in `supabase/tests`; run them locally with `pnpm supabase db test`.
+
 ## Purpose
 
 This document explains how to verify the first Supabase migration's Row Level Security behavior in local development.
@@ -15,9 +20,12 @@ The current verification covers the initial MVP tables:
 - `clients`
 - `templates`
 - `template_fields`
-- `document_metadata`
-- `notarial_records`
 - `receivables`
+
+The initial migration also created `document_metadata` and `notarial_records`.
+They were unused scaffolding and were removed from the current schema by
+`20260915040113_remove_legacy_notarial_tables.sql`, so this current-state suite
+no longer creates fixtures or asserts policies for them.
 
 It verifies that:
 

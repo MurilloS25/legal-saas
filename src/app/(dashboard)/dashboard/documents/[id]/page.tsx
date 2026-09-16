@@ -14,12 +14,7 @@ import {
 } from "@/features/notarial-index/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
-import { buildFillableFields } from "@/features/templates";
-import {
-  toVariableAutofillSource,
-  toVariableOutputTransform,
-} from "@/features/templates/model/variable-autofill";
-import { resolveTemplateContent } from "@/lib/editor/content";
+import { resolveDocumentTemplateSnapshot } from "@/features/documents/model/document-template-snapshot";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { listReceivablesByDocument } from "@/features/receivables/server";
 import {
@@ -35,6 +30,7 @@ import {
 import {
   NotarialMetadataSection,
   generateConfiguredPartiesPreview,
+  isTemplateIndexConfigurationResolved,
   resolveNotarialMetadataPrefill,
 } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
@@ -96,9 +92,10 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     })),
     document.field_values,
   );
-  const resolvedTemplateContent = template
-    ? resolveTemplateContent(template.content_json)
-    : null;
+  const resolvedTemplateContent = resolveDocumentTemplateSnapshot(
+    document.template_snapshot,
+    document.rendered_content,
+  );
   const notarialPrefill = resolveNotarialMetadataPrefill({
     metadata: notarialMetadata,
     configuration: indexConfiguration,
@@ -107,7 +104,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       fieldKey: field.field_key,
     })),
     fieldValues: document.field_values,
-    templateDocument: resolvedTemplateContent?.document,
+    templateDocument: resolvedTemplateContent.document,
     optionSelections: document.option_selections,
     templateName: template?.name ?? null,
     generatedParties: generatedPartiesPreview,
@@ -124,15 +121,14 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     : null;
   const notarialUnlocked = document.status === "final";
   const initialSection: DocumentWorkspaceSection =
-    requestedSection === "revisar" || requestedSection === "cobro"
+    requestedSection === "cobro"
       ? requestedSection
       : requestedSection === "notarial" && notarialUnlocked
         ? "notarial"
-        // "finalizar" ya no es un paso propio — su contenido vive en
-        // "revisar" ("Revisar y finalizar"); un enlace viejo aterriza ahí.
-        : requestedSection === "finalizar"
-          ? "revisar"
-          : "completar";
+        // "revisar" y "finalizar" ya no son pasos propios — un enlace
+        // viejo con cualquiera de esos valores aterriza en "completar"
+        // (ahí vive ahora la revisión del documento y Finalizar).
+        : "completar";
 
   const receivablesNewHref = canManageReceivables
     ? appendReturnTo(
@@ -176,8 +172,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
       ) : (
         <DocumentComposerLoader
           templateName={template.name}
-          contentJson={template.content_json}
-          templateFields={templateFields}
+          templateSnapshot={resolvedTemplateContent}
           document={document}
           savedJustNow={saved === "1"}
           canEdit={canEdit}
@@ -189,7 +184,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           canManageReceivables={canManageReceivables}
           notarialMetadata={notarialMetadata}
           notarialPrefill={notarialPrefill}
-          canResetParties={indexConfiguration?.isComplete === true}
+          canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
           actNamePreview={template?.name ?? null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
@@ -204,8 +199,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
 // Carga de campos, clientes y documento etiquetado para el compositor.
 async function DocumentComposerLoader({
   templateName,
-  contentJson,
-  templateFields,
+  templateSnapshot,
   document,
   savedJustNow,
   canEdit,
@@ -225,8 +219,7 @@ async function DocumentComposerLoader({
   notarialConfirmedByName,
 }: {
   templateName: string;
-  contentJson: unknown;
-  templateFields: Awaited<ReturnType<typeof listTemplateFields>>;
+  templateSnapshot: ReturnType<typeof resolveDocumentTemplateSnapshot>;
   document: NonNullable<Awaited<ReturnType<typeof getDocumentById>>>;
   savedJustNow: boolean;
   canEdit: boolean;
@@ -245,16 +238,7 @@ async function DocumentComposerLoader({
   canConfirmNotarial: boolean;
   notarialConfirmedByName: string | null;
 }) {
-  const { document: templateDocument, templateText } =
-    resolveTemplateContent(contentJson);
-  const fields = buildFillableFields(
-    templateFields.map((field) => ({
-      ...field,
-      autofill_source: toVariableAutofillSource(field.autofill_source),
-      output_transform: toVariableOutputTransform(field.output_transform),
-    })),
-    templateText,
-  );
+  const { document: templateDocument, fields } = templateSnapshot;
   const labeledDocument = applyVariableLabels(
     templateDocument,
     Object.fromEntries(fields.map((field) => [field.field_key, field.label])),
@@ -278,6 +262,7 @@ async function DocumentComposerLoader({
       templateName={templateName}
       document={labeledDocument}
       fields={fields}
+      legacyTemplateSnapshot={templateSnapshot.legacy}
       clients={clientOptions}
       initialClientId={document.client_id}
       initialSection={initialSection}
@@ -410,7 +395,7 @@ function NoTemplateFallback({
           prefill={notarialPrefill}
           readOnly
           canEdit={canEdit}
-          canResetParties={indexConfiguration?.isComplete === true}
+          canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
           actNamePreview={null}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}

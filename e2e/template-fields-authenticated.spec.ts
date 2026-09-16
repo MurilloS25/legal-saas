@@ -99,7 +99,7 @@ test.describe("template variables workspace", () => {
     ).toBeVisible();
   });
 
-  test("B: 'Guardar variable' persists a pending variable immediately, with no separate 'Guardar y continuar' click needed", async ({
+  test("B: 'Guardar variable' applies the edit locally (marks the workspace dirty); the single global 'Guardar' persists it", async ({
     page,
   }) => {
     await openWorkspace(page);
@@ -112,19 +112,23 @@ test.describe("template variables workspace", () => {
     await page.getByLabel("Variable obligatoria").check();
     await page.getByRole("button", { name: "Guardar variable" }).click();
 
+    // "Guardar variable" ya no persiste por su cuenta (guardado único): solo
+    // aplica el cambio al estado local, igual que cualquier otra edición —
+    // la fila ya se ve "Configurada" y el workspace queda con cambios sin
+    // guardar hasta el botón "Guardar" global.
     await expect(
       variableRow(page, pendingKey).getByText("Configurada"),
     ).toBeVisible();
-    // "Guardar variable" ya envió el formulario: sin un segundo clic en
-    // "Guardar y continuar", el estado vuelve a "Guardado". "Guardar
-    // variable" nunca avanza de paso (solo el botón principal lo hace), así
-    // que seguimos en "Variables" tras el guardado.
+    await expect(page.locator('p[role="status"]')).toHaveText(
+      "Sin guardar",
+      { timeout: 5_000 },
+    );
+
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
 
-    // Recargar ya debe mostrar la variable persistida — no fue necesario
-    // ningún clic adicional en "Guardar y continuar".
     await page.reload();
     const row = variableRow(page, pendingKey);
     await expect(row.getByText(pendingLabel)).toBeVisible();
@@ -149,71 +153,103 @@ test.describe("template variables workspace", () => {
     await dialog.getByRole("button", { name: "Cancelar" }).click();
   });
 
-  test("D: removing a variable from the content keeps its configuration", async ({
+  // El contenido es la única fuente de verdad de qué variables existen
+  // (ver TemplateWorkspace.tsx): a diferencia del estado "No utilizada" que
+  // existía antes, quitar la ÚLTIMA referencia de una variable poda su
+  // configuración por completo — no se conserva huérfana — y recrear la
+  // misma clave más tarde se comporta como una variable nueva, sin
+  // resucitar la etiqueta ni la configuración previas.
+  test("D: removing a variable's last reference prunes its configuration, and recreating the same key later starts fresh", async ({
     page,
   }) => {
     await openWorkspace(page);
 
-    // Reemplaza todo el contenido por texto sin la variable configurada.
+    // Reemplaza todo el contenido por texto sin ninguna variable.
     await contentEditor(page).click();
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type(
       "COMPRAVENTA ACTUALIZADA sin variables en el texto.",
     );
 
-    // La configuración no se borra: la variable pasa a "No utilizada".
     await goToVariablesTab(page);
-    await expect(
-      variableRow(page, configuredKey).getByText("No utilizada"),
-    ).toBeVisible();
-    await expect(
-      variableRow(page, pendingKey).getByText("No utilizada"),
-    ).toBeVisible();
+    await expect(variableRow(page, configuredKey)).not.toBeVisible();
+    await expect(variableRow(page, pendingKey)).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Guardar desde "Variables" avanza automáticamente a "Índice"; hay que
-    // volver explícitamente a "Variables" antes de revisar su contenido.
+    // La poda persiste — no es solo un efecto visual local.
     await page.reload();
     await goToVariablesTab(page);
+    await expect(variableRow(page, configuredKey)).not.toBeVisible();
+
+    // Recrear la misma clave más tarde: aparece como pendiente, sin la
+    // etiqueta ni la configuración que tenía antes de podarse.
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await contentEditor(page).click();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type(`Referencia otra vez a {{${configuredKey}}}.`);
+
+    await goToVariablesTab(page);
+    const recreatedRow = variableRow(page, configuredKey);
     await expect(
-      variableRow(page, configuredKey).getByText("No utilizada"),
+      recreatedRow.getByText("Pendiente de configurar"),
     ).toBeVisible();
+    await expect(recreatedRow.getByText(configuredLabel)).toHaveCount(0);
+
+    // Deja este estado guardado — E parte de aquí (todavía referenciada,
+    // todavía sin configurar).
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
-      variableRow(page, configuredKey).getByText(configuredLabel),
-    ).toBeVisible();
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("E: the user can explicitly remove a variable configuration", async ({
+  // "Quitar configuración" es distinto de quitar la última referencia: la
+  // variable sigue en el contenido, así que vuelve a "Pendiente de
+  // configurar" en vez de desaparecer.
+  test("E: the user can explicitly remove a variable's configuration while it's still referenced, and it becomes pending again", async ({
     page,
   }) => {
     await openWorkspace(page);
-    await goToVariablesTab(page);
 
-    await variableRow(page, pendingKey)
-      .getByRole("button", {
-        name: `Quitar configuración de ${pendingKey}`,
-      })
+    // D dejó `configuredKey` referenciado en el contenido pero sin
+    // configuración (podada y recreada) — la configura de nuevo para tener
+    // algo "Configurada" que remover explícitamente.
+    await goToVariablesTab(page);
+    await variableRow(page, configuredKey)
+      .getByRole("button", { name: `Configurar variable ${configuredKey}` })
+      .click();
+    await variableRow(page, configuredKey)
+      .getByLabel("Etiqueta")
+      .fill(configuredLabel);
+    await variableRow(page, configuredKey)
+      .getByRole("button", { name: "Guardar variable" })
+      .click();
+    await expect(
+      variableRow(page, configuredKey).getByText("Configurada"),
+    ).toBeVisible();
+
+    await variableRow(page, configuredKey)
+      .getByRole("button", { name: `Quitar configuración de ${configuredKey}` })
       .click();
 
-    await expect(variableRow(page, pendingKey)).not.toBeVisible();
+    await expect(
+      variableRow(page, configuredKey).getByText("Pendiente de configurar"),
+    ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Guardar desde "Variables" avanza automáticamente a "Índice"; hay que
-    // volver explícitamente a "Variables" antes de revisar su contenido.
     await page.reload();
     await goToVariablesTab(page);
-    await expect(variableRow(page, pendingKey)).not.toBeVisible();
-    // La otra configuración sigue intacta.
     await expect(
-      variableRow(page, configuredKey).getByText(configuredLabel),
+      variableRow(page, configuredKey).getByText("Pendiente de configurar"),
     ).toBeVisible();
   });
 
@@ -259,7 +295,9 @@ test.describe("template variables workspace", () => {
     await expect(
       variableRow(page, newKey).getByText("Dígitos en palabras"),
     ).toBeVisible();
-    // Persistido de inmediato, sin un segundo clic en "Guardar y continuar".
+    // "Guardar variable" solo aplica el cambio localmente — el guardado
+    // único (botón "Guardar" global) es lo que persiste.
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
@@ -270,5 +308,45 @@ test.describe("template variables workspace", () => {
       row.getByText("Autollenado: Identificación del Cliente"),
     ).toBeVisible();
     await expect(row.getByText("Dígitos en palabras")).toBeVisible();
+  });
+
+  // "Insertar variable" pide obligatoriedad y transformación de salida
+  // directamente al crear — ya no hace falta el ida y vuelta de crearla,
+  // ir al paso Variables, buscarla y editarla para configurar lo mismo que
+  // el resto de los flujos (pegado, Bloques de opciones) ya piden de una.
+  test("G: 'Insertar variable' configures required and output transform at creation time, with no separate edit step needed", async ({
+    page,
+  }) => {
+    const newKey = "vendedor.identificacion";
+    const newLabel = "Vendedor - Identificación";
+
+    await openWorkspace(page);
+    await page.getByRole("button", { name: "Insertar variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await dialog.getByLabel("Clave").fill(newKey);
+    await dialog.getByLabel("Etiqueta").fill(newLabel);
+    await dialog.getByLabel("Variable obligatoria").check();
+    await dialog
+      .getByLabel("Transformación de salida")
+      .selectOption("digits_to_words");
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+    await expect(dialog).not.toBeVisible();
+
+    await goToVariablesTab(page);
+    const row = variableRow(page, newKey);
+    await expect(row.getByText("Configurada")).toBeVisible();
+    await expect(row.getByText("Obligatoria")).toBeVisible();
+    await expect(row.getByText("Dígitos en palabras")).toBeVisible();
+
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await goToVariablesTab(page);
+    const reloadedRow = variableRow(page, newKey);
+    await expect(reloadedRow.getByText("Obligatoria")).toBeVisible();
+    await expect(reloadedRow.getByText("Dígitos en palabras")).toBeVisible();
   });
 });

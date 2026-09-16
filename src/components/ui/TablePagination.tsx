@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { PageSizeOption } from "@/lib/pagination";
+import { PageSizeSelect } from "./PageSizeSelect";
 
 /**
  * Pie de paginación compartido por los listados server-paginados
@@ -12,6 +14,8 @@ type Props = {
   pageCount: number;
   countLabel: string;
   pageHref: (page: number) => string;
+  pageSize: PageSizeOption;
+  pageSizeOptions: { value: PageSizeOption; href: string }[];
 };
 
 const linkClass =
@@ -19,10 +23,20 @@ const linkClass =
 const disabledClass =
   "rounded-md border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400";
 
-export function TablePagination({ page, pageCount, countLabel, pageHref }: Props) {
+export function TablePagination({
+  page,
+  pageCount,
+  countLabel,
+  pageHref,
+  pageSize,
+  pageSizeOptions,
+}: Props) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-3">
-      <p className="text-xs text-slate-500">{countLabel}</p>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <p className="text-xs text-slate-500">{countLabel}</p>
+        <PageSizeSelect pageSize={pageSize} options={pageSizeOptions} />
+      </div>
       {pageCount > 1 && (
         <nav aria-label="Paginación" className="flex items-center gap-2">
           {page > 1 ? (

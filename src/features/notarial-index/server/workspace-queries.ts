@@ -4,7 +4,6 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   NOTARIAL_DATE_FILTER_COLUMN,
-  NOTARIAL_PAGE_SIZE,
   notarialDateRangeIso,
   notarialSearchHasNoSafeTerm,
   notarialSearchTerm,
@@ -16,6 +15,10 @@ import {
   NOTARIAL_INDEX_SELECT,
 } from "./mappers";
 import type { NotarialIndexRow } from "../model/notarial-index-row";
+import {
+  AUXILIARY_QUERY_LIMIT,
+  ensureWithinResultLimit,
+} from "@/lib/server/bounded-results";
 
 export type NotarialIndexPage = {
   rows: NotarialIndexRow[];
@@ -72,7 +75,7 @@ export async function listNotarialIndex(
   if (countError) throwDataAccessError("count notarial index", countError);
 
   const total = count ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / NOTARIAL_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
   if (total > 0 && query.page > pageCount) {
     return { rows: [], total, pageCount };
   }
@@ -111,13 +114,13 @@ export async function listNotarialIndex(
     );
   }
 
-  const from = (query.page - 1) * NOTARIAL_PAGE_SIZE;
+  const from = (query.page - 1) * query.pageSize;
 
   const { data, error } = await request
     .order("instrument_number", { ascending: true, nullsFirst: false })
     .order("authorized_at", { ascending: true, nullsFirst: false })
     .order("document_id", { ascending: true })
-    .range(from, from + NOTARIAL_PAGE_SIZE - 1);
+    .range(from, from + query.pageSize - 1);
 
   if (error) throwDataAccessError("list notarial index", error);
 
@@ -136,11 +139,17 @@ export async function listNotarialActTypes(): Promise<string[]> {
     .from("notarial_index_entries")
     .select("act_name")
     .eq("workspace_id", workspaceId)
-    .not("act_name", "is", null);
+    .not("act_name", "is", null)
+    .limit(AUXILIARY_QUERY_LIMIT + 1);
 
   if (error) throwDataAccessError("list notarial act types", error);
+  const rows = ensureWithinResultLimit(
+    data ?? [],
+    AUXILIARY_QUERY_LIMIT,
+    "tipos de acto",
+  );
   const set = new Set<string>();
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const value = row.act_name;
     if (value && value.trim() !== "") set.add(value);
   }

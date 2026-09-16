@@ -308,7 +308,7 @@ test.describe("template pasted/typed variable detection", () => {
     await expect(row.getByText("Obligatoria")).toBeVisible();
     await expect(row.getByText("Dígitos en palabras")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -347,7 +347,7 @@ test.describe("template pasted/typed variable detection", () => {
     await expect(row.getByText("Configurada")).toBeVisible();
     await expect(row.getByText("Folio final")).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -409,10 +409,12 @@ test.describe("template pasted/typed variable detection", () => {
     await page.getByLabel("Etiqueta").fill("Marca del vehículo");
     await page.getByRole("button", { name: "Guardar variable" }).click();
     await expect(row.getByText("Marca del vehículo")).toBeVisible();
-    // "Guardar variable" envía todo el formulario (documento + variables):
-    // no hace falta un clic adicional en "Guardar y continuar" para
-    // persistir ni la etiqueta ni el contenido pegado antes. "Guardar
-    // variable" tampoco avanza de paso, así que seguimos en "Variables".
+    // "Guardar variable" ya no persiste por su cuenta (guardado único):
+    // solo aplica el cambio localmente — el botón "Guardar" global es el
+    // que envía todo el formulario (documento + variables) y persiste tanto
+    // la etiqueta como el contenido pegado antes. Tampoco avanza de paso,
+    // así que seguimos en "Variables".
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
@@ -476,7 +478,9 @@ test.describe("template pasted/typed variable detection", () => {
     await page.getByLabel("Etiqueta").fill("Parte única");
     await page.getByRole("button", { name: "Guardar variable" }).click();
     await expect(row.getByText("Configurada")).toBeVisible();
-    // Persistido de inmediato: "Guardar variable" ya envía el formulario.
+    // "Guardar variable" solo aplica el cambio localmente — el botón
+    // "Guardar" global es el que persiste.
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
@@ -634,6 +638,7 @@ test.describe("template pasted/typed variable detection", () => {
     await page.getByLabel("Etiqueta").fill("Monto");
     await page.getByRole("button", { name: "Guardar variable" }).click();
     await expect(row.getByText("Configurada")).toBeVisible();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });
@@ -644,7 +649,7 @@ test.describe("template pasted/typed variable detection", () => {
     await page.keyboard.press("Backspace");
     await expect(chip).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.locator('p[role="status"]')).toHaveText("Guardado", {
       timeout: 15_000,
     });

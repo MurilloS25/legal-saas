@@ -68,13 +68,10 @@ export const TemplateIndexConfigurationSchema = z
         message: "La hora solo puede tener una fuente",
       });
     }
-    if (!value.allow_empty && value.template_field_ids.length === 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["template_field_ids"],
-        message: "Selecciona al menos un campo o confirma la configuración vacía",
-      });
-    }
+    // Sin selección Y sin `allow_empty` ya NO es un error: es el estado
+    // "Pendiente de definir" de Partes (ver TemplateIndexConfigurationSection,
+    // tri-estado Pendiente/Requiere/No requiere) — un machote puede guardarse
+    // sin haber decidido todavía si necesita Partes para el Índice.
     if (new Set(value.template_field_ids).size !== value.template_field_ids.length) {
       ctx.addIssue({
         code: "custom",
@@ -104,7 +101,10 @@ export type TemplateIndexConfiguration = {
   partySeparator: string;
   fixedSuffix: string | null;
   allowEmpty: boolean;
-  isComplete: boolean;
+  /** Mirrors the database `is_complete` flag: referenced mappings are
+   * internally valid. It does not mean every optional configuration
+   * decision has been made. */
+  mappingsValid: boolean;
   simpleFields: Record<SimpleIndexMappingKey, string | null>;
   authorizedTimeOptionBlockId: string | null;
   invalidMappings: InvalidIndexMapping[];
@@ -113,3 +113,28 @@ export type TemplateIndexConfiguration = {
     order: number;
   }>;
 };
+
+export type TemplateIndexPartiesState =
+  | "pending"
+  | "required"
+  | "not_required";
+
+export function getTemplateIndexPartiesState(
+  configuration: Pick<TemplateIndexConfiguration, "allowEmpty" | "fields">,
+): TemplateIndexPartiesState {
+  if (configuration.fields.length > 0) return "required";
+  return configuration.allowEmpty ? "not_required" : "pending";
+}
+
+/** A saved index configuration is resolved when its references are valid and
+ * the explicit Parties decision is no longer pending. Simple index mappings
+ * remain optional by product design. */
+export function isTemplateIndexConfigurationResolved(
+  configuration: TemplateIndexConfiguration | null,
+): boolean {
+  return (
+    configuration !== null &&
+    configuration.mappingsValid &&
+    getTemplateIndexPartiesState(configuration) !== "pending"
+  );
+}

@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  extractTemplateVariables,
-  findMissingTemplateFields,
-  findUnusedTemplateFields,
-} from "./variables";
+import { extractTemplateVariables } from "./variables";
 
 describe("extractTemplateVariables", () => {
   it("extracts a single variable", () => {
@@ -76,47 +72,5 @@ describe("extractTemplateVariables", () => {
     expect(
       extractTemplateVariables("{{buyer 1}} {{buyer_1.full_name}} {{..x}}"),
     ).toEqual(["buyer_1.full_name"]);
-  });
-});
-
-describe("findMissingTemplateFields", () => {
-  it("detects variables used in content but not defined as fields", () => {
-    expect(
-      findMissingTemplateFields(
-        ["buyer_1.full_name", "vehicle.plate"],
-        ["buyer_1.full_name"],
-      ),
-    ).toEqual(["vehicle.plate"]);
-  });
-
-  it("returns empty when every variable is defined", () => {
-    expect(
-      findMissingTemplateFields(["buyer_1.full_name"], ["buyer_1.full_name"]),
-    ).toEqual([]);
-  });
-
-  it("returns empty when there are no variables", () => {
-    expect(findMissingTemplateFields([], ["buyer_1.full_name"])).toEqual([]);
-  });
-});
-
-describe("findUnusedTemplateFields", () => {
-  it("detects fields defined but not used in content", () => {
-    expect(
-      findUnusedTemplateFields(
-        ["buyer_1.full_name"],
-        ["buyer_1.full_name", "sale.price"],
-      ),
-    ).toEqual(["sale.price"]);
-  });
-
-  it("returns empty when every field is used", () => {
-    expect(
-      findUnusedTemplateFields(["buyer_1.full_name"], ["buyer_1.full_name"]),
-    ).toEqual([]);
-  });
-
-  it("returns empty when there are no defined fields", () => {
-    expect(findUnusedTemplateFields(["buyer_1.full_name"], [])).toEqual([]);
   });
 });

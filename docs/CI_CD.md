@@ -12,7 +12,7 @@ The project uses:
 
 - GitHub Actions for CI.
 - Dependabot for dependency update pull requests.
-- Vercel for future production deployment.
+- Vercel for Preview deployments and the existing Production deployment.
 - Supabase Cloud for managed backend services.
 
 ## Branch Strategy
@@ -71,15 +71,14 @@ pnpm build
 
 ## Testing In CI
 
-The initial project may use:
+The unit-test script uses:
 
 ```bash
-vitest run --passWithNoTests
+vitest run
 ```
 
-This is allowed only during the foundation phase.
-
-After critical business logic is added, the project should include real tests and eventually remove the dependency on passing with no tests.
+The repository has substantive Vitest coverage. A run with no discovered tests
+fails so an accidental empty suite cannot pass CI silently.
 
 ## Dependabot
 
@@ -117,36 +116,28 @@ Vercel production deployment
 Supabase Cloud
 ```
 
-Preview deployments may be enabled later for pull requests.
+Vercel Preview deployments are enabled for pull requests. They must not receive
+Supabase Production credentials automatically. Vercel Production deploys from
+`main`; merging to `develop` does not promote Production.
 
 ## Environments
 
-Future environments may include:
+Current environments are:
 
 - Local.
 - Preview.
 - Production.
 
-Potential environment variable groups:
+Environment rules:
 
 ```txt
-Local:
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-
-Preview:
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-
-Production:
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
+Local: Supabase local public URL/key; service-role only in server-side test tooling
+Preview: no automatic access to Supabase Production
+Production: NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ```
 
-The service role key must remain server-only in every environment.
+The application does not require a service-role key in Vercel. Any future use
+must remain server-only and requires a separate security review.
 
 ## Release Flow
 
@@ -172,10 +163,7 @@ merge to main
 production deployment
 ```
 
-## TODO
-
-- Add Vercel deployment details after the project is connected to Vercel.
-- Add preview deployment rules.
-- Add branch protection rules in GitHub.
-- Add CodeQL or another security scanning workflow if needed.
-- Add Supabase migration workflow after database schema is approved.
+Supabase migrations are not pushed automatically by CI. They are versioned,
+tested locally and applied to Cloud only as an explicitly authorized,
+coordinated release step. See `docs/SUPABASE_PRODUCTION.md` and
+`docs/VERCEL_PRODUCTION.md` for dated operational state.

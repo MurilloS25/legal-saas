@@ -6,35 +6,29 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import {
   DocumentIdSchema,
-  DocumentOptionSelectionsSchema,
-  DocumentRenderedContentSchema,
-  DocumentTitleSchema,
   DocumentValuesSchema,
-  mergeDocumentDraftValues,
+  DocumentVersionSchema,
 } from "../model/document-schema";
 import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
-import { validateDocumentFill } from "../model/document-fill";
-import type { FillableTemplateField } from "@/features/templates";
 import {
   toVariableAutofillSource,
   toVariableOutputTransform,
-  type VariableOutputTransform,
 } from "@/features/templates/model/variable-autofill";
 import { resolveTemplateContent } from "@/lib/editor/content";
-import { renderStructuredTemplate } from "@/lib/editor/render";
-import type { TemplateDocument } from "@/lib/editor/types";
+import {
+  createDocumentTemplateSnapshot,
+  resolveDocumentTemplateSnapshot,
+} from "../model/document-template-snapshot";
 import { isReadOnlyStatus } from "../model/lifecycle";
 import { resolveOptionalClientId } from "./client-actions";
+import {
+  validateDraftInput,
+  type DocumentDraftState,
+} from "./document-draft-validation";
+
+export type { DocumentDraftState } from "./document-draft-validation";
 
 // ------------------------------------------------------------------ types
-
-export type DocumentDraftState = {
-  /** Errores por field_key del machote. */
-  errors?: Record<string, string>;
-  titleError?: string;
-  message?: string;
-  success?: boolean;
-};
 
 export type DeleteDocumentState = {
   message?: string;
@@ -97,118 +91,6 @@ async function loadOwnedTemplateWithFields(
   };
 }
 
-/** Mapa `field_key -> output_transform` para el render compartido. */
-function buildTransformsMap(
-  fields: FillableTemplateField[],
-): Record<string, VariableOutputTransform> {
-  const transforms: Record<string, VariableOutputTransform> = {};
-  for (const field of fields) {
-    if (field.output_transform !== "none") {
-      transforms[field.field_key] = field.output_transform;
-    }
-  }
-  return transforms;
-}
-
-function validateDraftInput(
-  formData: FormData,
-  fields: FillableTemplateField[],
-  document: TemplateDocument,
-  existingValues?: Record<string, string>,
-): { state: DocumentDraftState } | {
-  title: string;
-  values: Record<string, string>;
-  optionSelections: Record<string, string>;
-  rendered: string;
-} {
-  const titleResult = DocumentTitleSchema.safeParse(
-    String(formData.get("title") ?? ""),
-  );
-
-  const rawValues: Record<string, string> = {};
-  for (const field of fields) {
-    rawValues[field.field_key] = String(formData.get(field.field_key) ?? "");
-  }
-  const fillResult = validateDocumentFill(fields, rawValues);
-
-  if (!titleResult.success || !fillResult.success) {
-    return {
-      state: {
-        titleError: titleResult.success
-          ? undefined
-          : titleResult.error.issues[0]?.message,
-        errors: fillResult.success ? undefined : fillResult.errors,
-      },
-    };
-  }
-
-  // Defensa en profundidad: aunque las keys provienen de campos propios,
-  // se validan formato, tamaño y claves reservadas antes de persistir.
-  const valuesToPersist = existingValues
-    ? mergeDocumentDraftValues(
-        existingValues,
-        fillResult.values,
-        fields.map((field) => field.field_key),
-      )
-    : fillResult.values;
-
-  const valuesResult = DocumentValuesSchema.safeParse(valuesToPersist);
-  if (!valuesResult.success) {
-    return {
-      state: {
-        message: valuesResult.error.issues[0]?.message ??
-          "Los valores no son válidos.",
-      },
-    };
-  }
-
-  // Selección de variante por Bloque de opciones (blockId -> variantId). Un
-  // JSON inválido o ausente se trata como "sin selecciones" — no bloquea el
-  // guardado, ya que sin selección cada bloque simplemente usa su variante
-  // predeterminada.
-  let optionSelectionsRaw: unknown = {};
-  try {
-    const raw = String(formData.get("option_selections") ?? "{}");
-    optionSelectionsRaw = raw ? JSON.parse(raw) : {};
-  } catch {
-    optionSelectionsRaw = {};
-  }
-  const optionSelectionsResult =
-    DocumentOptionSelectionsSchema.safeParse(optionSelectionsRaw);
-  if (!optionSelectionsResult.success) {
-    return {
-      state: {
-        message:
-          optionSelectionsResult.error.issues[0]?.message ??
-          "Las selecciones de bloques no son válidas.",
-      },
-    };
-  }
-
-  const rendered = renderStructuredTemplate(
-    document,
-    valuesResult.data,
-    buildTransformsMap(fields),
-    optionSelectionsResult.data,
-  );
-  const renderedResult = DocumentRenderedContentSchema.safeParse(rendered);
-  if (!renderedResult.success) {
-    return {
-      state: {
-        message: renderedResult.error.issues[0]?.message ??
-          "El contenido del documento es demasiado largo.",
-      },
-    };
-  }
-
-  return {
-    title: titleResult.data,
-    values: valuesResult.data,
-    optionSelections: optionSelectionsResult.data,
-    rendered: renderedResult.data,
-  };
-}
-
 // ------------------------------------------------------------------ create draft
 
 export async function createDocumentDraftAction(
@@ -258,6 +140,10 @@ export async function createDocumentDraftAction(
       field_values: result.values,
       option_selections: result.optionSelections,
       rendered_content: result.rendered,
+      template_snapshot: createDocumentTemplateSnapshot(
+        loaded.document,
+        loaded.fields,
+      ),
       // El snapshot del default del Machote lo garantiza el trigger
       // `documents_notarial_index_snapshot` (ver 20260822090000) — cualquier
       // valor enviado aquí se descarta, así que no se envía ninguno.
@@ -272,11 +158,11 @@ export async function createDocumentDraftAction(
   }
 
   revalidatePath("/dashboard/documents");
-  // "Guardar y continuar" avanza al siguiente paso del flujo guiado en vez
-  // de preservar el paso activo — el único botón que dispara este primer
-  // guardado (en "Completar", el único paso editable antes de que la
-  // Escritura exista) siempre implica "continuar" a "Revisar y finalizar".
-  redirect(`/dashboard/documents/${data.id}?saved=1&section=revisar`);
+  // "Completar" es el único paso editable antes de que la Escritura exista
+  // y también donde vive el resto del workspace (revisión del documento,
+  // Finalizar) desde que "Revisar y finalizar" se retiró como paso propio
+  // — así que la transición create → edit permanece ahí, sin `section`.
+  redirect(`/dashboard/documents/${data.id}?saved=1`);
 }
 
 // ------------------------------------------------------------------ update draft
@@ -288,13 +174,18 @@ export async function updateDocumentDraftAction(
 ): Promise<DocumentDraftState> {
   const { supabase, workspaceId } = await requireWorkspace();
 
+  const version = DocumentVersionSchema.safeParse(formData.get("expected_updated_at"));
+  if (!version.success) {
+    return { message: "No se pudo comprobar la versión. Recarga la escritura antes de guardar." };
+  }
+
   if (!DocumentIdSchema.safeParse(documentId).success) {
     return { message: "No se encontró la escritura." };
   }
 
   const { data: existing, error: existingError } = await supabase
     .from("documents")
-    .select("id, template_id, field_values, status")
+    .select("id, field_values, status, rendered_content, template_snapshot")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -309,13 +200,14 @@ export async function updateDocumentDraftAction(
     };
   }
 
-  const loaded = await loadOwnedTemplateWithFields(
-    supabase,
-    existing.template_id,
-    workspaceId,
-  );
-  if (!loaded) {
-    return { message: "El machote de esta escritura ya no está disponible." };
+  let snapshot;
+  try {
+    snapshot = resolveDocumentTemplateSnapshot(
+      existing.template_snapshot,
+      existing.rendered_content,
+    );
+  } catch {
+    return { message: "No fue posible leer la versión documental guardada." };
   }
 
   const existingValuesResult = DocumentValuesSchema.safeParse(
@@ -327,8 +219,8 @@ export async function updateDocumentDraftAction(
 
   const result = validateDraftInput(
     formData,
-    loaded.fields,
-    loaded.document,
+    snapshot.fields,
+    snapshot.document,
     existingValuesResult.data,
   );
   if ("state" in result) return result.state;
@@ -352,21 +244,29 @@ export async function updateDocumentDraftAction(
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .neq("status", "final")
-    .select("id")
+    .eq("updated_at", version.data)
+    .select("id, updated_at")
     .maybeSingle();
 
   if (error) {
     return { message: "No fue posible guardar el borrador. Intenta de nuevo." };
   }
   if (!updated) {
+    const { data: current } = await supabase
+      .from("documents")
+      .select("updated_at, status")
+      .eq("id", documentId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
     return {
-      message: "Esta escritura está finalizada. Reábrela antes de editarla.",
+      message: "La escritura cambió desde que la abriste. Tus cambios siguen en esta pestaña. Revisa la versión guardada antes de reintentar: el reintento reemplazará su contenido con tus cambios.",
+      conflictUpdatedAt: current && !isReadOnlyStatus(current.status) ? current.updated_at : undefined,
     };
   }
 
   revalidatePath("/dashboard/documents");
   revalidatePath(`/dashboard/documents/${documentId}`);
-  return { success: true };
+  return { success: true, updatedAt: updated.updated_at };
 }
 
 // ------------------------------------------------------------------ delete draft

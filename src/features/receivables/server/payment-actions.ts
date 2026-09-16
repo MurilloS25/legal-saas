@@ -8,6 +8,10 @@ import {
   parseRegisterPaymentFormData,
   parseVoidPaymentFormData,
 } from "../model/receivable-payments";
+import {
+  appendReturnTo,
+  parseDocumentReceivablesReturnTo,
+} from "@/lib/navigation/context-return";
 
 // ------------------------------------------------------------------ types
 
@@ -107,7 +111,15 @@ export async function registerPaymentAction(
   const result = await registerPaymentRow(receivableId, formData);
   if (!result.ok) return result.state;
 
-  redirect(`/dashboard/receivables/${receivableId}?section=payments&paid=1`);
+  const returnTo = parseDocumentReceivablesReturnTo(
+    formData.get("returnTo") as string | null,
+  );
+  redirect(
+    appendReturnTo(
+      `/dashboard/receivables/${receivableId}?section=payments&paid=1`,
+      returnTo,
+    ),
+  );
 }
 
 /**
@@ -160,5 +172,13 @@ export async function voidPaymentAction(
   }
 
   revalidatePath(`/dashboard/receivables/${receivableId}`);
-  redirect(`/dashboard/receivables/${receivableId}?section=payments`);
+  const returnTo = parseDocumentReceivablesReturnTo(
+    formData.get("returnTo") as string | null,
+  );
+  redirect(
+    appendReturnTo(
+      `/dashboard/receivables/${receivableId}?section=payments`,
+      returnTo,
+    ),
+  );
 }

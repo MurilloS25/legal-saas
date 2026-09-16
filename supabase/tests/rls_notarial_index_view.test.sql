@@ -29,7 +29,15 @@ insert into public.documents (id, owner_id, template_id, title, status, field_va
   ('81111111-d000-0000-0000-000000000003','81111111-1111-1111-1111-111111111111','81111111-0000-0000-0000-000000000001','Día 16','draft','{}'::jsonb,''),
   ('81111111-d000-0000-0000-000000000004','81111111-1111-1111-1111-111111111111','81111111-0000-0000-0000-000000000001','Fin de mes','draft','{}'::jsonb,''),
   ('81111111-d000-0000-0000-000000000005','81111111-1111-1111-1111-111111111111','81111111-0000-0000-0000-000000000001','Draft A','draft','{}'::jsonb,''),
-  ('82222222-d000-0000-0000-000000000001','82222222-2222-2222-2222-222222222222','82222222-0000-0000-0000-000000000001','Final B','final','{}'::jsonb,'');
+  ('82222222-d000-0000-0000-000000000001','82222222-2222-2222-2222-222222222222','82222222-0000-0000-0000-000000000001','Final B','draft','{}'::jsonb,'');
+-- Final fixture follows the same draft -> final transition as the application.
+reset role;
+select set_config('request.jwt.claim.sub','82222222-2222-2222-2222-222222222222',true);
+set local role authenticated;
+update public.documents set status='final' where id='82222222-d000-0000-0000-000000000001';
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+
 
 select set_config('request.jwt.claim.sub','81111111-1111-1111-1111-111111111111', true);
 set local role authenticated;

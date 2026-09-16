@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { UnauthorizedError } from "@/lib/server/errors";
+import { ForbiddenError, UnauthorizedError } from "@/lib/server/errors";
 import {
   DocumentExportError,
   prepareDocumentDocxExport,
@@ -35,6 +35,7 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof UnauthorizedError) return genericError(401);
+    if (error instanceof ForbiddenError) return genericError(403);
     if (error instanceof DocumentExportError) return genericError(error.status);
     console.error("[docx] export request failed");
     return genericError(500);

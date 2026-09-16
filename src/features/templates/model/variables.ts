@@ -27,21 +27,3 @@ export function extractTemplateVariables(content: string): string[] {
 
   return [...seen];
 }
-
-/** Variables usadas en el contenido que no están definidas como campos. */
-export function findMissingTemplateFields(
-  variables: string[],
-  definedFields: string[],
-): string[] {
-  const defined = new Set(definedFields);
-  return variables.filter((variable) => !defined.has(variable));
-}
-
-/** Campos definidos que no se usan en el contenido. */
-export function findUnusedTemplateFields(
-  variables: string[],
-  definedFields: string[],
-): string[] {
-  const used = new Set(variables);
-  return definedFields.filter((field) => !used.has(field));
-}

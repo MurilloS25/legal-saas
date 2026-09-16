@@ -17,14 +17,15 @@ The database target is Supabase Postgres with Supabase Auth and Row Level Securi
 - Child records must validate ownership consistency with parent records.
 - Anonymous users must not access private user-owned data.
 - Generated Word files, PDFs, signed documents, official submission payloads, and storage paths for generated documents are intentionally excluded.
-- Persistent draft escrituras may store validated `field_values` and a server-rendered `rendered_content` text snapshot.
+- Persistent draft escrituras may store validated `field_values`, a server-rendered `rendered_content` text snapshot, and the minimal structured `template_snapshot` needed to keep that Escritura editable against its creation version.
 - Persistent draft text is sensitive user-owned data and must be protected by RLS, validation, and no-content logging rules.
 - The first migration focuses on independent lawyers and physical-person clients.
 - Company clients, legal representatives, audit events, and independent notes are deferred.
-- The database stores only data required for lawyer profile settings, clients, templates, persistent draft escrituras, optional document metadata, notarial index preparation, and basic receivables.
-- `document_metadata` is not created automatically every time a Word document is generated.
-- `document_metadata` is created only when the user chooses to save information for notarial index preparation and/or accounts receivable.
-- Accounts receivable is intentionally basic and does not include formal accounting, tax calculation, electronic invoicing, or a separate partial-payment table.
+- The database stores only data required for lawyer profile settings, clients, templates, persistent draft escrituras, notarial index preparation, and basic receivables.
+- The initial schema's unused `document_metadata` and `notarial_records` scaffolding was removed by `20260915040113_remove_legacy_notarial_tables.sql`; the operational models are `documents` and `document_notarial_metadata`.
+- Accounts receivable is intentionally basic. It includes payment records and
+  payment voiding/activity, but not formal accounting, tax calculation or
+  electronic invoicing.
 - This document describes approved schema decisions and future candidate fields. New migrations still require an explicit task.
 
 ## Database Goals
@@ -55,7 +56,7 @@ The database must avoid storing:
 
 ## First Migration Scope
 
-Candidate tables for the first migration:
+Historical tables created by the first migration:
 
 - `lawyer_profiles`
 - `document_settings`
@@ -63,8 +64,10 @@ Candidate tables for the first migration:
 - `templates`
 - `template_fields`
 - `document_metadata`
-- `document_notarial_metadata`
+- `notarial_records`
 - `receivables`
+
+`document_metadata` and `notarial_records` were never consumed by application code and were later removed. `documents` and `document_notarial_metadata` are the current operational tables.
 
 Explicitly excluded from the first migration:
 
@@ -220,7 +223,6 @@ updated_at
 Relationships:
 
 - `owner_id` references `auth.users(id)`.
-- May be referenced by `document_metadata`.
 - Referenced by `receivables`.
 
 Sensitive data:
@@ -277,7 +279,6 @@ Relationships:
 - `owner_id` references `auth.users(id)`.
 - Has many `template_fields`.
 - Has at most one `template_index_configurations` row per owner and template.
-- May be referenced by `document_metadata`.
 
 Sensitive data:
 
@@ -445,9 +446,9 @@ Rules:
   marks it incomplete for explicit reconciliation.
 - Saving is transactional through `save_template_index_configuration`, which
   derives the owner from `auth.uid()` and validates all relationships.
-- Saving an Option Block time source uses the owner-validated transactional
+- Saving an Option Block time source uses the Workspace-validated transactional
   RPC `save_template_index_mapping_with_block_source`.
-- RLS is owner-only on both tables; anonymous access is not allowed.
+- RLS is Workspace- and role-aware on both tables; anonymous access is not allowed.
 - The configuration stores no client values or escritura text. Generated
   `Partes` is snapshotted only in the document's notarial metadata.
 - Existing variable mappings remain valid. Historical blocks without
@@ -464,10 +465,14 @@ Decision:
 
 - `documents` is for editable drafts, not generated Word/PDF storage.
 - `field_values` stores a flat `field_key -> text` map.
-- `rendered_content` stores the server-rendered plain-text snapshot used for preview and continuation.
-- `status` only allows `draft` in this iteration.
+- `rendered_content` stores the server-rendered plain-text result of the last save.
+- `template_snapshot` stores one versioned JSON object containing the canonical structured document and only its configured field metadata (labels, required flags, autofill sources and output transforms). Variables without explicit configuration are derived again from the snapshotted document, so they are not duplicated in JSON. The snapshot is fixed when the Escritura is created and is the shared source for later preview, edits, finalization and DOCX export.
+- `status` supports `draft`, historical `ready`, and `final`. New rows start as
+  `draft`; valid drafts may finalize directly, while `ready` remains for
+  compatibility with existing rows.
 - Editing a machote must not silently rewrite saved draft snapshots.
-- Saving a draft again regenerates `rendered_content` from the current machote and saved values.
+- Saving a draft again regenerates `rendered_content` from its own `template_snapshot` and saved values, never from the current Machote.
+- Rows created before `template_snapshot` remain `null`. They use their historical `rendered_content` as a deterministic plain-text compatibility document; the missing variable/Option Block/formatting structure is not reconstructed from the current Machote.
 - Unknown historical `field_values` should be preserved unless a future explicit deletion workflow is approved.
 
 Candidate fields:
@@ -480,6 +485,7 @@ title
 status
 field_values
 rendered_content
+template_snapshot nullable
 created_at
 updated_at
 ```
@@ -498,7 +504,7 @@ Relationships:
 
 Sensitive data:
 
-- Contains draft legal text and submitted field values.
+- Contains draft legal text, submitted field values and a structured copy of the Machote content used for that Escritura.
 - Must be treated as sensitive user-owned data.
 - Must not contain generated Word/PDF files, signed documents, official submission payloads, or storage paths.
 
@@ -517,76 +523,27 @@ Pending questions:
 - Whether future non-draft statuses are needed.
 - Whether future draft archival or soft delete is needed.
 
-### `document_metadata`
+### Legacy `document_metadata` and `notarial_records` (removed)
 
-Purpose:
+Historical purpose:
 
-Stores minimal metadata about a document workflow only when the user chooses to save information for index preparation and/or receivables.
+The initial migration created `document_metadata` as optional document-workflow metadata and `notarial_records` as its notarial-index child. Neither table was ever consumed by application code or populated by the supported product workflow.
 
-Decision:
+Final decision:
 
-- Do not create `document_metadata` automatically every time a Word document is generated.
-- Create metadata only when the user decides to save information for index and/or billing.
-
-Candidate fields:
-
-```txt
-id
-owner_id
-template_id
-client_id nullable
-title
-document_type
-created_for_index
-created_for_receivable
-generated_at
-created_at
-updated_at
-```
-
-Initial allowed `document_type` values:
-
-```txt
-escritura
-nota
-otro
-```
-
-Relationships:
-
-- `owner_id` references `auth.users(id)`.
-- `template_id` references `templates(id)`.
-- `client_id` optionally references `clients(id)`.
-- May have one `document_notarial_metadata` row.
-- May be referenced by `receivables`.
-
-Sensitive data:
-
-- Contains legal workflow metadata and should be treated as sensitive.
-- Does not store generated Word files.
-- Does not store PDFs.
-- Does not store full escritura text.
-- Does not store a storage path for a generated document.
-
-Ownership rule:
-
-- The owner is the lawyer who manages the document metadata.
-
-RLS need:
-
-- Required. Users can only access their own document metadata.
-
-Pending questions:
-
-- Decide whether additional document types are needed after initial template workflows are tested.
+- `documents` owns the persisted Escritura, including its template/client links, title, editable values and stable template snapshot.
+- `document_notarial_metadata` owns the structured 1:1 notarial metadata used by the Índice.
+- `receivables.document_id` links a Cobro directly to its Escritura.
+- `20260915040113_remove_legacy_notarial_tables.sql` removes both legacy tables only after an explicit empty-table guard succeeds.
+- The historical definitions remain in the initial migration; they are not part of the current schema.
 
 ### `document_notarial_metadata`
 
 Purpose:
 
 Stores structured metadata required to help prepare a notarial index. This
-implemented 1:1 table fulfills the responsibility originally proposed as
-`notarial_records`; a second table is intentionally not created.
+implemented 1:1 table replaced the unused `notarial_records` scaffolding from
+the initial migration.
 
 The application prepares metadata only and does not submit official notarial indexes.
 
@@ -703,7 +660,7 @@ Candidate fields:
 id
 owner_id
 client_id
-document_metadata_id nullable
+document_id nullable
 description
 amount
 currency
@@ -730,7 +687,7 @@ Relationships:
 
 - `owner_id` references `auth.users(id)`.
 - `client_id` references `clients(id)`.
-- `document_metadata_id` optionally references `document_metadata(id)`.
+- `document_id` optionally references `documents(id)`.
 
 Sensitive data:
 
@@ -753,7 +710,6 @@ Decisions:
 Pending questions:
 
 - Confirm supported currencies for MVP.
-- Decide if `document_metadata_id` becomes required after workflows are tested.
 
 ## Deferred: Notes
 
@@ -815,14 +771,11 @@ auth.users
   ├─ lawyer_profiles
   ├─ document_settings
   ├─ clients
-  │   ├─ document_metadata
   │   └─ receivables
   ├─ templates
   │   ├─ template_fields
-  │   ├─ documents
-  │   └─ document_metadata
+  │   └─ documents
   ├─ documents
-  ├─ document_metadata
   │   ├─ document_notarial_metadata
   │   └─ receivables
   └─ receivables
@@ -869,7 +822,6 @@ RLS is required for every user-owned table:
 - `template_index_configurations`
 - `template_index_configuration_fields`
 - `documents`
-- `document_metadata`
 - `document_notarial_metadata`
 - `receivables`
 
@@ -897,7 +849,7 @@ RLS tests should include:
 - User cannot update `owner_id` to another user.
 - Anonymous users cannot access private user-owned data.
 
-### Workspaces (added, Iteration 4)
+### Workspaces (historical Iteration 4 baseline; superseded by Iterations 5–6)
 
 `supabase/migrations/20260804200000_workspace_foundation.sql` adds
 `workspaces` and `workspace_members` (role + active/invited/revoked
@@ -908,12 +860,12 @@ status), and a `workspace_id` column on every table above (plus
 becomes `is_workspace_member(workspace_id, [roles])` instead of a raw
 `owner_id = auth.uid()` comparison, so a workspace membership can be
 suspended independently of Supabase Auth. `document_metadata` and
-`notarial_records` did **not** get `workspace_id` — they are unused
-scaffolding from the first migration, never referenced by application
-code.
+`notarial_records` did **not** get `workspace_id` because they were unused
+scaffolding from the first migration; they were later removed by
+`20260915040113_remove_legacy_notarial_tables.sql`.
 
-This iteration only implements one functional role (`propietario`); no
-invitations, no other roles in practice, and `workspace_id` is a
+At that historical checkpoint the application implemented one functional role
+(`propietario`), no invitations, and `workspace_id` was a
 `generated always as (owner_id) stored` column — a deliberate
 simplification possible only because a workspace and its sole owner are
 1:1 today. Full rationale, what's simplified vs. the original design, and
@@ -974,13 +926,9 @@ Potential indexes:
 owner_id
 template_id
 client_id
-document_metadata_id
 status
 created_at
 generated_at
-period_month
-period_year
-period_half
 ```
 
 Indexes should be added based on real query needs.
@@ -1011,7 +959,8 @@ Migration files must:
 - Store draft escritura text only through the approved user-owned `documents` model.
 - Avoid broad public access.
 
-No migrations should be created until this design is approved.
+Future migrations require an explicit approved database task and must extend
+the versioned model described here.
 
 ### Notarial index export history
 
@@ -1021,7 +970,7 @@ It never stores the generated Word file, its contents, a storage path, or full
 escritura text. CSV is not an active format. The owner is always derived from
 `auth.uid()` by the restricted `log_notarial_index_export` RPC.
 
-The export query is owner-only, restricted to one selected Costa Rica
+The export query is Workspace- and permission-scoped, restricted to one selected Costa Rica
 fortnight, ordered by instrument number with deterministic tie-breakers, and
 limited to 2,000 rows. Exceeding the limit fails explicitly rather than
 returning a partial index.

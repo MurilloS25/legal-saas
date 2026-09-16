@@ -7,24 +7,27 @@
  * datos.
  */
 
-export const TEMPLATES_PAGE_SIZE = 10;
+import {
+  DEFAULT_PAGE_SIZE,
+  normalizePage,
+  normalizePageSize,
+  type PageSizeOption,
+} from "@/lib/pagination";
+
+export const TEMPLATES_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 export type RawTemplatesQuery = {
   page?: string;
+  pageSize?: string;
 };
 
 export type TemplatesQuery = {
   page: number;
+  pageSize: PageSizeOption;
 };
 
-function normalizePage(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return 1;
-  return Math.min(parsed, 100_000);
-}
-
 export function parseTemplatesQuery(raw: RawTemplatesQuery): TemplatesQuery {
-  return { page: normalizePage(raw.page) };
+  return { page: normalizePage(raw.page), pageSize: normalizePageSize(raw.pageSize) };
 }
 
 /**
@@ -35,6 +38,9 @@ export function templatesQueryToParams(
   query: Partial<TemplatesQuery>,
 ): Record<string, string> {
   const params: Record<string, string> = {};
+  if (query.pageSize && query.pageSize !== TEMPLATES_PAGE_SIZE) {
+    params.pageSize = String(query.pageSize);
+  }
   if (query.page && query.page > 1) params.page = String(query.page);
   return params;
 }

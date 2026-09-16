@@ -10,6 +10,11 @@ import {
   updateTestTemplateContent,
   uniqueName,
 } from "./support/factories";
+import {
+  createDisposableUser,
+  deleteUser,
+  restUpdate,
+} from "./support/supabase-admin";
 
 // Serial: comparten machote y borradores del mismo usuario.
 test.describe.configure({ mode: "serial" });
@@ -25,6 +30,9 @@ const fieldLabel = "Nombre del comprador";
 
 let completeDocId = "";
 let pendingDocId = "";
+let readerUserId = "";
+const readerEmail = `${uniqueName("docx", "reader")}@example.test`;
+const readerPassword = "Segura!DePrueba9";
 
 /** Verifica que el buffer es un .docx OOXML válido (ZIP con sus partes). */
 async function assertValidDocx(buffer: Buffer): Promise<void> {
@@ -57,9 +65,15 @@ function documentRegion(page: Page) {
   return page.getByRole("region", { name: "Documento", exact: true });
 }
 
-/** "Descargar Word" vive en el paso Finalizar, un panel independiente. */
-async function goToFinalizar(page: Page) {
-  await page.getByRole("tab", { name: "Revisar y finalizar" }).click();
+/**
+ * "Descargar Word" vive directo en el encabezado del workspace (tercer
+ * refinamiento — un menú "Más acciones" agrupándolo se probó y se
+ * descartó: es demasiado frecuente para esconder) — visible sin importar
+ * el paso activo del stepper, así que no hace falta navegar ni abrir nada
+ * para alcanzarlo. Se conserva como no-op para no tocar cada call site.
+ */
+async function openMoreActions(page: Page) {
+  void page;
 }
 
 async function goToCompletar(page: Page) {
@@ -67,8 +81,21 @@ async function goToCompletar(page: Page) {
 }
 
 test.describe("document docx download", () => {
+  test.beforeAll(async () => {
+    readerUserId = await createDisposableUser(readerEmail, readerPassword);
+    await restUpdate(
+      "workspace_members",
+      `workspace_id=eq.${readerUserId}&user_id=eq.${readerUserId}`,
+      { status: "revoked" },
+    );
+  });
+
   test.afterAll(async () => {
-    await runCleanup(registry, "docx");
+    try {
+      await runCleanup(registry, "docx");
+    } finally {
+      if (readerUserId) await deleteUser(readerUserId);
+    }
   });
 
   test("A: seed a template and two persisted drafts", async () => {
@@ -106,9 +133,9 @@ test.describe("document docx download", () => {
 
   test("B: the download button appears on a saved draft", async ({ page }) => {
     await openComposer(page, completeDocId);
-    await goToFinalizar(page);
-    // El botón vive en la franja compacta de estado (variant="compact"),
-    // sin el texto de ayuda del formulario completo de Cuentas por cobrar.
+    await openMoreActions(page);
+    // Variante "compact" en el encabezado — sin el texto de ayuda que
+    // acompaña a la variante "full" del paso Completar histórico.
     await expect(
       page.getByRole("button", { name: "Descargar Word" }),
     ).toBeVisible();
@@ -135,7 +162,7 @@ test.describe("document docx download", () => {
       );
       await input.fill(value);
       await input.blur();
-      await goToFinalizar(page);
+      await openMoreActions(page);
     }
 
     // Provoca un cambio local sin guardar. Se reintenta el fill hasta que el
@@ -152,13 +179,14 @@ test.describe("document docx download", () => {
     await fillField("Cliente Uno Editado");
     await expect(button).toBeDisabled();
 
-    // Guardar reactiva la descarga (el botón de guardado vive en Completar).
+    // Guardar reactiva la descarga — alcanzable desde cualquier paso, pero
+    // se vuelve a Completar para editar el campo con `fillField`.
     await goToCompletar(page);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
-    await goToFinalizar(page);
+    await openMoreActions(page);
     await expect(button).toBeEnabled();
   });
 
@@ -166,7 +194,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, completeDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Descargar Word" }).click();
@@ -233,7 +261,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, pendingDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
 
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
@@ -252,7 +280,7 @@ test.describe("document docx download", () => {
     page,
   }) => {
     await openComposer(page, pendingDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
     const dialog = page.getByRole("dialog", {
@@ -285,6 +313,27 @@ test.describe("document docx download", () => {
     expect(response.status()).toBe(404);
   });
 
+  test("I2: an authenticated user without an active Workspace receives 403", async ({
+    browser,
+    baseURL,
+  }) => {
+    const reader = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const readerPage = await reader.newPage();
+    await readerPage.goto(`${baseURL}/login`);
+    await readerPage.getByLabel("Correo electrónico").fill(readerEmail);
+    await readerPage.getByLabel("Contraseña").fill(readerPassword);
+    await readerPage.getByRole("button", { name: "Ingresar" }).click();
+    await readerPage.waitForURL(/\/workspace-unavailable/, { timeout: 15_000 });
+
+    const response = await reader.request.get(
+      `${baseURL}/api/documents/${completeDocId}/docx`,
+    );
+    expect(response.status()).toBe(403);
+    await reader.close();
+  });
+
   test("J: anonymous requests are rejected", async ({ browser, baseURL }) => {
     // storageState explícitamente vacío: el contexto no debe heredar la
     // sesión del proyecto autenticado.
@@ -301,7 +350,7 @@ test.describe("document docx download", () => {
   test("K: the download button works on a mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await openComposer(page, completeDocId);
-    await goToFinalizar(page);
+    await openMoreActions(page);
 
     const button = page.getByRole("button", { name: "Descargar Word" });
     await expect(button).toBeVisible();

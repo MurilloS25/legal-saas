@@ -9,6 +9,7 @@ type Props = {
   receivableId: string;
   rows: ReceivablePayment[];
   canVoid: boolean;
+  returnTo?: string | null;
 };
 
 // Columnas secundarias: se ocultan en viewports angostos para evitar
@@ -20,12 +21,12 @@ const RESPONSIVE_HIDDEN: Record<string, string> = {
   reference: "hidden md:table-cell",
 };
 
-export function PaymentsTable({ receivableId, rows, canVoid }: Props) {
+export function PaymentsTable({ receivableId, rows, canVoid, returnTo }: Props) {
   "use no memo";
 
   const columns = useMemo(
-    () => createPaymentsColumns(receivableId, canVoid),
-    [receivableId, canVoid],
+    () => createPaymentsColumns(receivableId, canVoid, returnTo),
+    [receivableId, canVoid, returnTo],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library

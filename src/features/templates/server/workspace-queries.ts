@@ -3,7 +3,11 @@ import "server-only";
 import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
 import type { Tables } from "@/lib/supabase/database.types";
-import { TEMPLATES_PAGE_SIZE, type TemplatesQuery } from "../model/workspace-query";
+import type { TemplatesQuery } from "../model/workspace-query";
+import {
+  AUXILIARY_QUERY_LIMIT,
+  ensureWithinResultLimit,
+} from "@/lib/server/bounded-results";
 
 export type TemplateListRow = Pick<
   Tables<"templates">,
@@ -26,10 +30,15 @@ export async function listTemplates(): Promise<TemplateListRow[]> {
     .from("templates")
     .select(TEMPLATE_COLUMNS)
     .eq("workspace_id", workspaceId)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(AUXILIARY_QUERY_LIMIT + 1);
 
   if (error) throwDataAccessError("list templates", error);
-  return data ?? [];
+  return ensureWithinResultLimit(
+    data ?? [],
+    AUXILIARY_QUERY_LIMIT,
+    "machotes",
+  );
 }
 
 export type TemplatesPage = {
@@ -43,13 +52,13 @@ export async function listTemplatesPage(
   query: TemplatesQuery,
 ): Promise<TemplatesPage> {
   const { supabase, workspaceId } = await requireWorkspace();
-  const from = (query.page - 1) * TEMPLATES_PAGE_SIZE;
+  const from = (query.page - 1) * query.pageSize;
   const { data, count, error } = await supabase
     .from("templates")
     .select(TEMPLATE_COLUMNS, { count: "exact" })
     .eq("workspace_id", workspaceId)
     .order("updated_at", { ascending: false })
-    .range(from, from + TEMPLATES_PAGE_SIZE - 1);
+    .range(from, from + query.pageSize - 1);
 
   if (error && !isRangeNotSatisfiable(error)) {
     throwDataAccessError("list templates page", error);
@@ -65,7 +74,7 @@ export async function listTemplatesPage(
       .eq("workspace_id", workspaceId);
     if (countError) throwDataAccessError("count templates page", countError);
     const total = totalOnly ?? 0;
-    return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / TEMPLATES_PAGE_SIZE)) };
+    return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / query.pageSize)) };
   }
 
   const total = count ?? 0;
@@ -73,6 +82,6 @@ export async function listTemplatesPage(
   return {
     rows: data ?? [],
     total,
-    pageCount: Math.max(1, Math.ceil(total / TEMPLATES_PAGE_SIZE)),
+    pageCount: Math.max(1, Math.ceil(total / query.pageSize)),
   };
 }

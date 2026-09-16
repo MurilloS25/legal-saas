@@ -16,7 +16,7 @@ import {
   isDocumentStatus,
   type DocumentAction,
 } from "../model/lifecycle";
-import { resolveTemplateContent } from "@/lib/editor/content";
+import { resolveDocumentTemplateSnapshot } from "../model/document-template-snapshot";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 
 export type DocumentStatusState = {
@@ -50,7 +50,7 @@ async function transitionDocument(
 
   const { data: doc, error: documentError } = await supabase
     .from("documents")
-    .select("id, status, template_id, field_values, option_selections")
+    .select("id, status, field_values, option_selections, rendered_content, template_snapshot, updated_at")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -81,20 +81,6 @@ async function transitionDocument(
 
   // Finalizar exige que no queden variables sin valor.
   if (target === "final") {
-    const { data: template, error: templateError } = await supabase
-      .from("templates")
-      .select("content_json")
-      .eq("id", doc.template_id)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-
-    if (templateError) {
-      throwDataAccessError("load lifecycle template", templateError);
-    }
-    if (!template) {
-      return { message: "El machote de esta escritura ya no está disponible." };
-    }
-
     const values = DocumentValuesSchema.safeParse(doc.field_values ?? {});
     if (!values.success) {
       throwDataAccessError("parse lifecycle field values", {
@@ -110,7 +96,15 @@ async function transitionDocument(
       });
     }
 
-    const { document } = resolveTemplateContent(template.content_json);
+    let document;
+    try {
+      document = resolveDocumentTemplateSnapshot(
+        doc.template_snapshot,
+        doc.rendered_content,
+      ).document;
+    } catch {
+      return { message: "No fue posible leer la versión documental guardada." };
+    }
     const pending = findUnresolvedDocumentVariables(
       document,
       values.data,
@@ -133,6 +127,7 @@ async function transitionDocument(
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .eq("status", doc.status)
+    .eq("updated_at", doc.updated_at)
     .select("id")
     .maybeSingle();
 
@@ -142,23 +137,13 @@ async function transitionDocument(
   if (!updated) {
     return {
       message:
-        "El estado cambió en otra pestaña. Recarga la escritura e intenta de nuevo.",
+        "La escritura cambió en otra pestaña. Recarga y revisa la versión actual antes de finalizar.",
     };
   }
 
   revalidatePath("/dashboard/documents");
   revalidatePath(`/dashboard/documents/${documentId}`);
   return { success: true };
-}
-
-export async function markDocumentReadyAction(
-  documentId: string,
-  _prev: DocumentStatusState,
-  _formData: FormData,
-): Promise<DocumentStatusState> {
-  void _prev;
-  void _formData;
-  return transitionDocument(documentId, "mark_ready");
 }
 
 export async function returnDocumentToDraftAction(
@@ -180,10 +165,10 @@ export async function markDocumentFinalAction(
   void _formData;
   const result = await transitionDocument(documentId, "mark_final");
   if (result.success) {
-    // Finalizar completa el paso "Revisar y finalizar" — avanza a "Cobro",
-    // el siguiente paso del flujo guiado. Antes este redirect no llevaba
-    // `section`, así que la página caía en su default ("completar"): el
-    // bug que hacía que finalizar pareciera devolver al primer paso.
+    // Finalizar avanza a "Cobro", el siguiente paso real del flujo guiado
+    // (Completar → Cobro → Índice). Sin `section` explícito la página cae
+    // en su default ("completar"), que parecería un retroceso justo
+    // después de finalizar.
     redirect(`/dashboard/documents/${documentId}?lifecycle=finalized&section=cobro`);
   }
   return result;
@@ -198,11 +183,11 @@ export async function reopenDocumentAction(
   void _formData;
   const result = await transitionDocument(documentId, "reopen");
   if (result.success) {
-    // Reabrir deshace la finalización — no "completa" nada, así que se
-    // conserva el paso donde vive la acción ("Revisar y finalizar") en vez
-    // de avanzar. Mismo bug que finalizar: sin `section` explícito, este
-    // redirect también caía en el paso por defecto.
-    redirect(`/dashboard/documents/${documentId}?lifecycle=reopened&section=revisar`);
+    // Reabrir deshace la finalización y deja la Escritura editable de
+    // nuevo — vuelve a "Completar" (el paso por defecto; ya no hay un
+    // paso "Revisar y finalizar" separado donde aterrizar), sin viaje
+    // artificial a ningún otro lado.
+    redirect(`/dashboard/documents/${documentId}?lifecycle=reopened`);
   }
   return result;
 }

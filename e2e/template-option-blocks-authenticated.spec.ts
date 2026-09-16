@@ -152,7 +152,7 @@ test.describe("template option blocks", () => {
       variablesRegion(page).getByText("vehiculo.chasis"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -183,7 +183,7 @@ test.describe("template option blocks", () => {
       contentEditor(page).getByText("Bloque: Chasis VIN Serie"),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -225,7 +225,7 @@ test.describe("template option blocks", () => {
       previewRegion(page).getByText("CHASIS número"),
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -261,7 +261,7 @@ test.describe("template option blocks", () => {
     await newVariableDialog.getByRole("button", { name: "Convertir" }).click();
     await expect(newVariableDialog).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -321,40 +321,28 @@ test.describe("template option blocks", () => {
       mappingEditor.getByText(/Aplicado al machote/),
     ).toBeVisible();
 
-    // El RPC de guardado del Índice exige que el bloque YA tenga
-    // `structuredOutput.type: "time"` persistido en `content_json` antes de
-    // poder seleccionarlo como fuente (ver
-    // `save_template_index_mapping_with_block_source` — `option_block_not_found`
-    // si no) — el orden real es: aplicar el mapeo, guardar el MACHOTE
-    // primero, y solo entonces guardar la configuración del Índice.
-    await page.getByRole("tab", { name: "Documento", exact: true }).click();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    // Partes queda en su estado por defecto ("Pendiente de definir") sin
+    // que haga falta decidirlo aquí — ya no bloquea el guardado del Índice
+    // (ver tri-estado Pendiente/Requiere/No requiere en
+    // TemplateIndexConfigurationSection). Aplicar el mapeo de hora ya marcó
+    // dirty el Índice, así que el machote y el Índice se coordinan en el
+    // mismo click de "Guardar" — el RPC del Índice de todas formas exige
+    // que el bloque ya tenga `structuredOutput.type: "time"` persistido, y
+    // el guardado único ya garantiza ese orden internamente: primero el
+    // machote, luego el Índice.
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Configuración guardada.")).toBeVisible({
+      timeout: 15_000,
+    });
 
-    await page.getByRole("tab", { name: "Índice", exact: true }).click();
     await expect(configSection).toBeVisible();
     await page.locator("#idx-authorized_time-trigger").click();
     await expect(
       configSection.getByText(/todavía no tiene mapeo de hora guardado/),
     ).toHaveCount(0);
-
-    // El formulario de configuración del Índice es uno solo para todos sus
-    // campos: "Partes" sin resolver (ni variables ni confirmación vacía)
-    // bloquea el guardado completo, sin relación con lo que esta prueba
-    // cubre — se confirma vacío para poder aislar la parte que sí importa.
-    await page.locator("#idx-parties-trigger").click();
-    await configSection
-      .getByLabel("Confirmo que este machote no requiere Partes para el índice.")
-      .check();
-
-    await configSection
-      .getByRole("button", { name: "Guardar configuración" })
-      .click();
-    await expect(page.getByText("Configuración guardada.")).toBeVisible({
-      timeout: 15_000,
-    });
 
     await page.reload();
     await page.getByRole("tab", { name: "Índice", exact: true }).click();
@@ -430,7 +418,7 @@ test.describe("template option blocks", () => {
     await expect(cityRow.getByText("Configurada")).toBeVisible();
 
     await page.getByRole("tab", { name: "Documento", exact: true }).click();
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
       page.getByRole("status").getByText("Machote guardado.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -473,5 +461,111 @@ test.describe("template option blocks", () => {
     await expect(
       provinceRow.getByText("Pendiente de configurar"),
     ).toBeVisible();
+  });
+
+  // ---------------------------------------------------------------------
+  // Cada variante tiene su propio botón "Insertar variable" (reutiliza el
+  // mismo diálogo que la barra de herramientas principal) para no depender
+  // de escribir `{{clave}}` a mano — insertar sigue funcionando también.
+  // ---------------------------------------------------------------------
+
+  test("I: the per-variant 'Insertar variable' button inserts an existing variable at the cursor, without asking to configure it again", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
+
+    const dialog = await openInsertDialog(page);
+    await dialog.getByLabel("Nombre del bloque").fill("Bloque I");
+    await dialog.getByLabel("Etiqueta de variante").fill("V1");
+
+    // Deja el cursor justo después de "A las " (6 caracteres) para
+    // confirmar que la inserción respeta la posición, no solo el final.
+    const before = "A las ";
+    const after = " horas";
+    const contentField = dialog.getByLabel("Contenido de variante");
+    await contentField.fill(before + after);
+    await contentField.click();
+    await page.keyboard.press("Home");
+    for (let i = 0; i < before.length; i++) {
+      await page.keyboard.press("ArrowRight");
+    }
+
+    await dialog.getByRole("button", { name: "Insertar variable" }).click();
+    const insertVarDialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await expect(insertVarDialog).toBeVisible();
+    // "hora.valor" ya está configurada (test E) — se elige de la lista, no
+    // se vuelve a crear.
+    await insertVarDialog
+      .locator("li")
+      .filter({ hasText: "hora.valor" })
+      .getByRole("button")
+      .click();
+    await expect(insertVarDialog).not.toBeVisible();
+    await expect(contentField).toHaveValue("A las {{hora.valor}} horas");
+
+    await dialog.getByRole("button", { name: "Insertar bloque" }).click();
+    await expect(dialog).not.toBeVisible();
+    // Ninguna clave nueva: el diálogo de revisión post-guardado no debe
+    // abrirse.
+    await expect(
+      page.getByRole("dialog", { name: "Configurar variables nuevas del bloque" }),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("J: the per-variant 'Insertar variable' button can create a new variable with full configuration (required + output transform) in one step", async ({
+    page,
+  }) => {
+    await page.goto(templateUrl);
+    await waitForWorkspace(page);
+
+    await contentEditor(page).getByText("Bloque: Hora").click();
+    await page.getByRole("button", { name: "Editar bloque" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Editar bloque de opciones" });
+    await expect(editDialog).toBeVisible();
+
+    const contentField = editDialog.getByLabel("Contenido de variante").nth(1);
+    await contentField.click();
+    await page.keyboard.press("End");
+    await editDialog.getByRole("button", { name: "Insertar variable" }).nth(1).click();
+
+    const insertVarDialog = page.getByRole("dialog", { name: "Insertar variable" });
+    await expect(insertVarDialog).toBeVisible();
+    await insertVarDialog.getByLabel("Clave").fill("hora.segundos");
+    await insertVarDialog.getByLabel("Etiqueta").fill("Segundos");
+    await insertVarDialog.getByLabel("Variable obligatoria").check();
+    await insertVarDialog
+      .getByLabel("Transformación de salida")
+      .selectOption("digits_to_words");
+    await insertVarDialog.getByRole("button", { name: "Insertar variable" }).click();
+    await expect(insertVarDialog).not.toBeVisible();
+    await expect(contentField).toHaveValue(/\{\{hora\.segundos\}\}$/);
+
+    await editDialog.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(editDialog).not.toBeVisible();
+    // Ya quedó configurada al crearla desde el botón — el diálogo de
+    // revisión post-guardado no debe pedirla otra vez.
+    await expect(
+      page.getByRole("dialog", { name: "Configurar variables nuevas del bloque" }),
+    ).toHaveCount(0);
+
+    await goToVariablesTab(page);
+    const secondsRow = variablesRegion(page)
+      .locator("li")
+      .filter({ hasText: "hora.segundos" });
+    await expect(secondsRow.getByText("Configurada")).toBeVisible();
+    await expect(secondsRow.getByText("Obligatoria")).toBeVisible();
+    await expect(secondsRow.getByText("Dígitos en palabras")).toBeVisible();
+
+    await page.getByRole("tab", { name: "Documento", exact: true }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(
+      page.getByRole("status").getByText("Machote guardado.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
