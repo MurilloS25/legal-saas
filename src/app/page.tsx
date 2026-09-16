@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
 import { LandingPage } from "./_components/LandingPage";
 
 export const metadata: Metadata = {
@@ -7,6 +8,11 @@ export const metadata: Metadata = {
     "Organiza clientes, machotes, escrituras, índice notarial y cuentas por cobrar desde un mismo espacio de trabajo.",
 };
 
-export default function Home() {
-  return <LandingPage />;
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return <LandingPage isAuthenticated={Boolean(user)} />;
 }

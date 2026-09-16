@@ -12,8 +12,11 @@ test.describe("authenticated landing", () => {
         name: "Gestión legal y notarial, en un solo lugar.",
       }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Iniciar sesión" }),
+    ).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Ir al panel" }).click();
+    await page.getByRole("link", { name: "Ir al panel" }).first().click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole("main")).toBeVisible();

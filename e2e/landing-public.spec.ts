@@ -34,6 +34,14 @@ test.describe("public landing", () => {
         }),
       ).toBeVisible();
     }
+
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Planes y precios" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("La información comercial de LexCR está en preparación."),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ir al panel" })).toHaveCount(0);
   });
 
   test("login call to action opens the existing login flow", async ({ page }) => {
