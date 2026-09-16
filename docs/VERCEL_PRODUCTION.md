@@ -158,7 +158,7 @@ autorizado real, una vez el usuario complete la invitación:
    página (F5) y confirmar que la sesión se mantiene (no vuelve a
    `/login`).
 3. **Acceso directo a ruta protegida:** con sesión iniciada, ir
-   directamente a `https://lexcr.vercel.app/dashboard/clients` (o
+   directamente a `https://lexcr.vercel.app/clients` (o
    cualquier ruta bajo `/dashboard`) y confirmar que carga sin
    redirigir a `/login`.
 4. **Logout:** cerrar sesión desde el menú de la aplicación y

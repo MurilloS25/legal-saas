@@ -75,7 +75,7 @@ async function createClientRow(
     };
   }
 
-  revalidatePath("/dashboard/clients");
+  revalidatePath("/clients");
   return { ok: true, client: data };
 }
 
@@ -86,7 +86,7 @@ export async function createClientAction(
   const result = await createClientRow(formData);
   if (!result.ok) return result.state;
 
-  redirect("/dashboard/clients?event=created");
+  redirect("/clients?event=created");
 }
 
 /**
@@ -128,9 +128,9 @@ export async function updateClientAction(
     };
   }
 
-  revalidatePath(`/dashboard/clients/${id}`);
-  revalidatePath("/dashboard/clients");
-  redirect("/dashboard/clients?event=updated");
+  revalidatePath(`/clients/${id}`);
+  revalidatePath("/clients");
+  redirect("/clients?event=updated");
 }
 
 // ------------------------------------------------------------------ delete
@@ -160,6 +160,6 @@ export async function deleteClientAction(
     };
   }
 
-  revalidatePath("/dashboard/clients");
-  redirect("/dashboard/clients");
+  revalidatePath("/clients");
+  redirect("/clients");
 }

@@ -53,7 +53,7 @@ test.describe("ayuda para crear un machote con IA", () => {
       name: templateName,
       content: "Contenido {{comprador.nombre}} de prueba.",
     });
-    templateUrl = `/dashboard/templates/${template.id}`;
+    templateUrl = `/templates/${template.id}`;
     await page.close();
   });
 

@@ -18,7 +18,7 @@ export function ClientReceivablesSection({
         receivables={receivables}
         newHref={
           canManage
-            ? `/dashboard/receivables/new?client=${clientId}`
+            ? `/receivables/new?client=${clientId}`
             : undefined
         }
         emptyText="Este cliente todavía no tiene cuentas por cobrar."

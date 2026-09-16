@@ -78,7 +78,7 @@ export async function saveProfileAction(
   }
 
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
 
   return { success: true, message: "Despacho actualizado." };
 }
@@ -154,7 +154,7 @@ export async function saveDocumentSettingsAction(
   }
 
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/settings");
+  revalidatePath("/settings");
 
   return { success: true, message: "Configuración de documento guardada." };
 }

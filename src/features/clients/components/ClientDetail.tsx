@@ -48,7 +48,7 @@ export function ClientDetail({ client, role, headerAction }: Props) {
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
-          href="/dashboard/clients"
+          href="/clients"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
         >
           <svg

@@ -39,7 +39,7 @@ export function ClientForm(props: Props) {
   const isEdit = props.mode === "edit";
   const client = isEdit ? props.client : null;
   // El modo "create" solo se alcanza si la página ya validó clients.write
-  // (ver /dashboard/clients/new); "edit" sí puede llegar aquí con
+  // (ver /clients/new); "edit" sí puede llegar aquí con
   // canWrite=false, porque la página de detalle es de lectura para
   // cualquier miembro activo.
   const canWrite = isEdit ? props.canWrite : true;
@@ -319,7 +319,7 @@ export function ClientForm(props: Props) {
         {/* ---- Buttons ---- */}
         <div className="mt-8 flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
           <Link
-            href="/dashboard/clients"
+            href="/clients"
             className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
             Cancelar

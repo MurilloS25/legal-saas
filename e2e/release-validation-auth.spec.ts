@@ -57,7 +57,7 @@ test("document title shows and clears each server validation error without losin
       title: "Título persistido",
       rendered_content: "Texto fijo.",
     });
-    await page.goto(`/dashboard/documents/${document.id}`);
+    await page.goto(`/documents/${document.id}`);
     const title = page.getByLabel("Título de la escritura");
     for (const [invalid, message] of [
       ["", "El título de la escritura es requerido"],
@@ -122,13 +122,13 @@ test("saving variant A does not require campo_b from inactive variant B", async 
       field_type: "text",
       required: true,
     });
-    await page.goto(`/dashboard/documents/new/${template.id}`);
+    await page.goto(`/documents/new/${template.id}`);
     await page.getByRole("button", { name: /Cambiar variante de Selección/ }).click();
     const variantA = page.getByRole("radio", { name: "Variante A" });
     await expect(variantA).toBeChecked();
     await variantA.click();
     await page.getByRole("button", { name: "Crear escritura", exact: true }).click({ noWaitAfter: true });
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/);
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/);
     const created = await restSelect<{
       option_selections: Record<string, string>;
       rendered_content: string;

@@ -44,7 +44,7 @@ function draftRow(page: Page, title: string) {
 }
 
 async function openDocumentsHome(page: Page) {
-  await page.goto("/dashboard/documents");
+  await page.goto("/documents");
   await expect(
     page.getByRole("heading", { name: "Escrituras", exact: true }),
   ).toBeVisible();
@@ -108,7 +108,7 @@ test.describe("document duplication", () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Duplicar" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
     // Toast disparado por `DocumentLifecycleToast` tras hidratar (antes era
@@ -141,7 +141,7 @@ test.describe("document duplication", () => {
   test("C: duplicating a finalized document creates an editable draft, without copying history, notarial metadata or receivables", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/${finalId}`);
+    await page.goto(`/documents/${finalId}`);
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible();
@@ -152,7 +152,7 @@ test.describe("document duplication", () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Duplicar" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
     const copyTitle = `Copia de ${finalTitle}`;
@@ -173,7 +173,7 @@ test.describe("document duplication", () => {
     await registerCreatedViaUi(registry, "documents", "title", copyTitle);
 
     // El original sigue finalizado e intacto.
-    await page.goto(`/dashboard/documents/${finalId}`);
+    await page.goto(`/documents/${finalId}`);
     await expect(
       page.getByText("Finalizada", { exact: true }).first(),
     ).toBeVisible();
@@ -192,7 +192,7 @@ test.describe("document duplication", () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Duplicar" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 15_000,
     });
     await expect(

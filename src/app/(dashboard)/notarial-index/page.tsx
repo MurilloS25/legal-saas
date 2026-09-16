@@ -37,7 +37,7 @@ export default async function NotarialIndexPage({ searchParams }: Props) {
   if (page.total > 0 && query.page > page.pageCount) {
     const params = notarialQueryToParams({ ...query, page: page.pageCount });
     const qs = new URLSearchParams(params).toString();
-    redirect(qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index");
+    redirect(qs ? `/notarial-index?${qs}` : "/notarial-index");
   }
 
   return (

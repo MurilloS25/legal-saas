@@ -143,7 +143,7 @@ test.describe("template pasted/typed variable detection", () => {
       name: templateName,
       content: "CONTRATO. ",
     });
-    templateUrl = `/dashboard/templates/${template.id}`;
+    templateUrl = `/templates/${template.id}`;
   });
 
   test("B: pasting an invalid placeholder leaves it as plain text, no dialog", async ({
@@ -621,7 +621,7 @@ test.describe("template pasted/typed variable detection", () => {
       name: templateName,
       content: "Contenido inicial.",
     });
-    const url = `/dashboard/templates/${template.id}`;
+    const url = `/templates/${template.id}`;
 
     await page.goto(url);
     await page.getByRole("tab", { name: "Documento", exact: true }).click();

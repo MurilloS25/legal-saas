@@ -141,7 +141,7 @@ export function TemplateWorkspaceHeader({
           documento (cubre este enlace y también la navbar/drawer
           compartidos), no un handler local en este único enlace. */}
       <Link
-        href="/dashboard/templates"
+        href="/templates"
         className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
       >
         ‹ Machotes

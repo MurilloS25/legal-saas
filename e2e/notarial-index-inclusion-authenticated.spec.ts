@@ -25,7 +25,7 @@ import { currentCostaRicaFortnight } from "../src/features/notarial-index/model/
  * completa Machote → Escritura → stepper).
  *
  * Este archivo cubre lo que esa otra spec NO cubre: el listado
- * `/dashboard/notarial-index` (búsqueda, presencia/ausencia de filas) bajo
+ * `/notarial-index` (búsqueda, presencia/ausencia de filas) bajo
  * este modelo, incluyendo que un cambio hecho por navegación cliente (tabs,
  * sin `page.goto`) se refleje correctamente ahí.
  */
@@ -56,7 +56,7 @@ function notarialSection(page: Page) {
 function rowFor(page: Page, docId: string): Locator {
   return page
     .locator("tr")
-    .filter({ has: page.locator(`a[href="/dashboard/documents/${docId}"]`) });
+    .filter({ has: page.locator(`a[href="/documents/${docId}"]`) });
 }
 
 // Los documentos de este spec se finalizan "ahora" (sin authorized_at
@@ -66,7 +66,7 @@ function rowFor(page: Page, docId: string): Locator {
 async function search(page: Page, term: string) {
   const { year, month, half } = currentCostaRicaFortnight();
   await page.goto(
-    `/dashboard/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(term)}`,
+    `/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(term)}`,
   );
   await expect(
     page.getByRole("heading", { name: "Índice notarial", exact: true }),
@@ -118,7 +118,7 @@ test.describe("notarial index inclusion", () => {
     });
     includedId = doc.id;
 
-    await page.goto(`/dashboard/documents/${includedId}`);
+    await page.goto(`/documents/${includedId}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(dialog.getByRole("checkbox")).toHaveCount(0);
@@ -149,7 +149,7 @@ test.describe("notarial index inclusion", () => {
     });
     excludedId = doc.id;
 
-    await page.goto(`/dashboard/documents/${excludedId}`);
+    await page.goto(`/documents/${excludedId}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(dialog.getByRole("checkbox")).toHaveCount(0);
@@ -209,7 +209,7 @@ test.describe("notarial index inclusion", () => {
     await search(page, token);
     await expect(rowFor(page, toggleId)).toBeVisible();
 
-    await page.goto(`/dashboard/documents/${toggleId}?section=notarial`);
+    await page.goto(`/documents/${toggleId}?section=notarial`);
     const toggle = notarialSection(page).getByLabel("Incluir en el Índice Notarial");
     await expect(toggle).toBeChecked();
 
@@ -235,7 +235,7 @@ test.describe("notarial index inclusion", () => {
     // listado del Índice) confirma que la exclusión sí persistió en
     // servidor (no solo estado optimista) — el paso sigue presente y
     // alcanzable, mostrando la misma tarjeta compacta.
-    await page.goto(`/dashboard/documents/${toggleId}?section=notarial`);
+    await page.goto(`/documents/${toggleId}?section=notarial`);
     await page.reload();
     await expect(
       page.getByText("No pertenece al Índice Notarial", { exact: true }),
@@ -260,7 +260,7 @@ test.describe("notarial index inclusion", () => {
     await search(page, token);
     await expect(rowFor(page, toggleId)).toBeVisible();
 
-    await page.goto(`/dashboard/documents/${toggleId}?section=notarial`);
+    await page.goto(`/documents/${toggleId}?section=notarial`);
     await expect(notarialSection(page)).toBeVisible();
     await expect(notarialSection(page).getByLabel("Incluir en el Índice Notarial")).toBeChecked();
   });
@@ -289,7 +289,7 @@ test.describe("notarial index inclusion", () => {
     // Escritura ya nacida incluida (default=true del Machote). Todo lo
     // demás usa navegación en la app (clics de tab), sin recargar. Finalizar
     // vive en el encabezado del workspace, alcanzable sin cambiar de paso.
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const finalDialog = page.getByRole("alertdialog", { name: "Finalizar escritura" });
     await expect(finalDialog.getByRole("checkbox")).toHaveCount(0);
@@ -340,7 +340,7 @@ test.describe("notarial index inclusion", () => {
       rowFor(page, toggleId).getByText("Fecha de autorización pendiente"),
     ).toBeVisible();
 
-    await page.goto(`/dashboard/documents/${toggleId}?section=notarial`);
+    await page.goto(`/documents/${toggleId}?section=notarial`);
     await expect(
       notarialSection(page).getByText("Fecha de autorización pendiente"),
     ).toBeVisible();

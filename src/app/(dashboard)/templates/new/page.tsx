@@ -12,7 +12,7 @@ export const metadata = {
 export default async function NewTemplatePage() {
   const { role } = await requireWorkspace();
   if (!hasPermission(role, "templates.write")) {
-    redirect("/dashboard/templates");
+    redirect("/templates");
   }
 
   // Sin breadcrumb/título propios aquí: `TemplateWorkspace` ya renderiza el

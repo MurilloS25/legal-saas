@@ -12,7 +12,7 @@ export const metadata = {
 export default async function NewClientPage() {
   const { role } = await requireWorkspace();
   if (!hasPermission(role, "clients.write")) {
-    redirect("/dashboard/clients");
+    redirect("/clients");
   }
 
   return (
@@ -20,7 +20,7 @@ export default async function NewClientPage() {
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
-          href="/dashboard/clients"
+          href="/clients"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
         >
           <svg

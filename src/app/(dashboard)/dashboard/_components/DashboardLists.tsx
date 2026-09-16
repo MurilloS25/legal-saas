@@ -80,7 +80,7 @@ function AttentionReceivables({
             return (
               <li key={receivable.id}>
                 <Link
-                  href={`/dashboard/receivables/${receivable.id}`}
+                  href={`/receivables/${receivable.id}`}
                   className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-accent-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500"
                 >
                   <div className="min-w-0">
@@ -114,7 +114,7 @@ function AttentionReceivables({
       )}
       <div className="border-t border-slate-100 px-5 py-3">
         <Link
-          href="/dashboard/receivables"
+          href="/receivables"
           className="inline-flex items-center gap-1 text-xs font-medium text-accent-700 hover:underline"
         >
           Ver cuentas por cobrar <ArrowRightIcon className="size-3.5" />
@@ -143,7 +143,7 @@ function RecentDocuments({
           Escrituras recientes
         </h2>
         <Link
-          href="/dashboard/documents"
+          href="/documents"
           className="text-xs font-medium text-accent-700 hover:underline"
         >
           Ver todas
@@ -157,7 +157,7 @@ function RecentDocuments({
           </p>
           {canCreateDocuments && (
             <Link
-              href="/dashboard/documents/new"
+              href="/documents/new"
               className="text-xs font-medium text-accent-700 hover:underline"
             >
               Crear la primera →
@@ -169,7 +169,7 @@ function RecentDocuments({
           {documents.map((document) => (
             <li key={document.id}>
               <Link
-                href={`/dashboard/documents/${document.id}`}
+                href={`/documents/${document.id}`}
                 className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-accent-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500"
               >
                 <div className="min-w-0">

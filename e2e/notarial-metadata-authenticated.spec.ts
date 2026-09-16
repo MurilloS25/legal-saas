@@ -46,8 +46,8 @@ const AUTO_CONFIGURED_FIELDS = 1;
 async function open(page: Page, id: string, section: "document" | "notarial" = "notarial") {
   await page.goto(
     section === "notarial"
-      ? `/dashboard/documents/${id}?section=notarial`
-      : `/dashboard/documents/${id}`,
+      ? `/documents/${id}?section=notarial`
+      : `/documents/${id}`,
   );
   if (section === "notarial") await expect(notarialSection(page)).toBeVisible();
 }
@@ -351,10 +351,10 @@ test.describe("notarial index metadata", () => {
 
     // workingId quedó completo (sin confirmar) en el test B/E de esta misma
     // corrida serial — completo ya no implica ✓.
-    await page.goto(`/dashboard/documents/${workingId}?section=cobro`);
+    await page.goto(`/documents/${workingId}?section=cobro`);
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
 
-    await page.goto(`/dashboard/documents/${workingId}?section=notarial`);
+    await page.goto(`/documents/${workingId}?section=notarial`);
     await notarialSection(page)
       .getByRole("button", { name: "Confirmar datos del Índice" })
       .click();
@@ -369,12 +369,12 @@ test.describe("notarial index metadata", () => {
     // El paso activo nunca muestra su propio ✓ (convención ya existente del
     // stepper, ver otros pasos) — hay que mirar "Índice" desde un paso
     // distinto para que su check, si corresponde, sea visible.
-    await page.goto(`/dashboard/documents/${workingId}?section=cobro`);
+    await page.goto(`/documents/${workingId}?section=cobro`);
     await expect(indiceTab.getByText("✓", { exact: true })).toBeVisible();
 
     // partialId solo tiene el número de instrumento configurado (test G) —
     // sigue incompleto (y sin confirmar), así que el paso no debe mostrar ✓.
-    await page.goto(`/dashboard/documents/${partialId}?section=cobro`);
+    await page.goto(`/documents/${partialId}?section=cobro`);
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
   });
 

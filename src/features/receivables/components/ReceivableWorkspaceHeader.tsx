@@ -55,7 +55,7 @@ export function ReceivableWorkspaceHeader({
         <ContextBackLink href={returnTo} label="Volver a la Escritura" />
       )}
       <Link
-        href="/dashboard/receivables"
+        href="/receivables"
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
       >
         <svg
@@ -86,7 +86,7 @@ export function ReceivableWorkspaceHeader({
           <p className="mt-1 text-sm text-slate-500">
             {clientId ? (
               <Link
-                href={`/dashboard/clients/${clientId}`}
+                href={`/clients/${clientId}`}
                 className="text-accent-700 hover:underline"
               >
                 {clientName}
@@ -98,7 +98,7 @@ export function ReceivableWorkspaceHeader({
               <>
                 {" · "}
                 <Link
-                  href={`/dashboard/documents/${documentId}`}
+                  href={`/documents/${documentId}`}
                   className="text-accent-700 hover:underline"
                 >
                   {documentTitle}

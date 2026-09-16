@@ -68,7 +68,7 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("selects a fortnight and warns without blocking export", async ({ page }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.goto(`/notarial-index?${selection}&search=${token}`);
     await expect(page.getByLabel("Año")).toHaveValue("2026");
     await expect(page.getByLabel("Mes")).toHaveValue("7");
     await expect(page.getByLabel("Quincena")).toHaveValue("FIRST_HALF");
@@ -85,7 +85,7 @@ test.describe("notarial index DOCX export", () => {
   test("clicking Exportar Word opens a confirmation dialog; Cancelar closes it without exporting", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.goto(`/notarial-index?${selection}&search=${token}`);
     await page.getByRole("button", { name: "Exportar Word" }).click();
 
     const dialog = page.getByRole("alertdialog", {
@@ -103,7 +103,7 @@ test.describe("notarial index DOCX export", () => {
   test("confirming the dialog downloads the Word file and stays on the Índice", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.goto(`/notarial-index?${selection}&search=${token}`);
     await page.getByRole("button", { name: "Exportar Word" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "¿Exportar Índice Notarial a Word?",
@@ -228,7 +228,7 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("removes CSV from the user-facing workflow", async ({ page }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}`);
+    await page.goto(`/notarial-index?${selection}`);
     await expect(page.getByText(/CSV/i)).toHaveCount(0);
     await expect(page.getByRole("link", { name: /CSV/i })).toHaveCount(0);
   });
@@ -266,7 +266,7 @@ test.describe("notarial index DOCX export", () => {
   }) => {
     await removeTestLawyerProfile();
     try {
-      await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+      await page.goto(`/notarial-index?${selection}&search=${token}`);
       await page.getByRole("button", { name: "Exportar Word" }).click();
       const dialog = page.getByRole("alertdialog", {
         name: "¿Exportar Índice Notarial a Word?",

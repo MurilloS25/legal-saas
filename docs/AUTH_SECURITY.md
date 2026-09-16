@@ -225,7 +225,7 @@ propuesto para no bloquear esa implementación:
 
 - **Método:** TOTP (Supabase Auth ya soporta `mfa.enroll({ factorType: "totp" })`
   sin cambios de plan — no requiere Pro).
-- **Enrolamiento:** paso opcional en `/dashboard/settings`, no forzado al
+- **Enrolamiento:** paso opcional en `/settings`, no forzado al
   primer login (para no romper la aceptación de invitación existente).
   Flujo: `enroll()` → mostrar QR (`totp.qr_code`) → `challenge()` +
   `verify()` con el código de 6 dígitos → factor queda `verified`.

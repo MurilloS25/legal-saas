@@ -81,7 +81,7 @@ async function registerPaymentRow(
     return { ok: false, state: { message: registerErrorMessage(error.code) } };
   }
 
-  revalidatePath(`/dashboard/receivables/${receivableId}`);
+  revalidatePath(`/receivables/${receivableId}`);
   return { ok: true };
 }
 
@@ -98,7 +98,7 @@ export async function registerPaymentAction(
   );
   redirect(
     appendReturnTo(
-      `/dashboard/receivables/${receivableId}?section=payments&paid=1`,
+      `/receivables/${receivableId}?section=payments&paid=1`,
       returnTo,
     ),
   );
@@ -118,7 +118,7 @@ export async function registerPaymentForDialogAction(
   const result = await registerPaymentRow(receivableId, formData);
   if (!result.ok) return result.state;
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath(`/documents/${documentId}`);
   return { success: true };
 }
 
@@ -153,13 +153,13 @@ export async function voidPaymentAction(
     return { error: message };
   }
 
-  revalidatePath(`/dashboard/receivables/${receivableId}`);
+  revalidatePath(`/receivables/${receivableId}`);
   const returnTo = parseDocumentReceivablesReturnTo(
     formData.get("returnTo") as string | null,
   );
   redirect(
     appendReturnTo(
-      `/dashboard/receivables/${receivableId}?section=payments`,
+      `/receivables/${receivableId}?section=payments`,
       returnTo,
     ),
   );

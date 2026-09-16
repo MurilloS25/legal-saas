@@ -40,8 +40,8 @@ async function openIndexRow(page: Page, name: string) {
 async function open(page: Page, section: "document" | "notarial" = "notarial") {
   await page.goto(
     section === "notarial"
-      ? `/dashboard/documents/${docId}?section=notarial`
-      : `/dashboard/documents/${docId}`,
+      ? `/documents/${docId}?section=notarial`
+      : `/documents/${docId}`,
   );
   if (section === "notarial") await expect(notarialSection(page)).toBeVisible();
 }

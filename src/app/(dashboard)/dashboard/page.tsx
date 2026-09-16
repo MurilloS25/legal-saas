@@ -34,25 +34,25 @@ export const metadata = {
 const QUICK_ACTIONS = [
   {
     label: "Nueva escritura",
-    href: "/dashboard/documents/new",
+    href: "/documents/new",
     Icon: ScrollIcon,
     permission: "documents.create",
   },
   {
     label: "Nuevo cliente",
-    href: "/dashboard/clients/new",
+    href: "/clients/new",
     Icon: UsersIcon,
     permission: "clients.write",
   },
   {
     label: "Nuevo machote",
-    href: "/dashboard/templates/new",
+    href: "/templates/new",
     Icon: StackIcon,
     permission: "templates.write",
   },
   {
     label: "Nueva cuenta",
-    href: "/dashboard/receivables/new",
+    href: "/receivables/new",
     Icon: WalletIcon,
     permission: "receivables.manage",
   },

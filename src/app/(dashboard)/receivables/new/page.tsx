@@ -26,7 +26,7 @@ type Props = {
 export default async function NewReceivablePage({ searchParams }: Props) {
   const { role } = await requireWorkspace();
   if (!hasPermission(role, "receivables.manage")) {
-    redirect("/dashboard/receivables");
+    redirect("/receivables");
   }
   const { client, document, returnTo: rawReturnTo } = await searchParams;
   const returnTo = parseDocumentReceivablesReturnTo(rawReturnTo);
@@ -42,7 +42,7 @@ export default async function NewReceivablePage({ searchParams }: Props) {
           <ContextBackLink href={returnTo} label="Volver a la Escritura" />
         )}
         <Link
-          href="/dashboard/receivables"
+          href="/receivables"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
         >
           <svg

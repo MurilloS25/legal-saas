@@ -45,7 +45,7 @@ async function fillInlineField(page: Page, key: string, value: string) {
 }
 
 async function openDocument(page: Page) {
-  await page.goto(`/dashboard/documents/${documentId}`);
+  await page.goto(`/documents/${documentId}`);
   await expect(
     page.getByRole("region", { name: "Datos de la Escritura" }),
   ).toBeVisible();
@@ -71,11 +71,11 @@ test.describe("document activity history", () => {
   });
 
   test("B: creating a draft records a creation event", async ({ page }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await fillInlineField(page, "parte.nombre", "Persona Uno");
     await page.getByRole("button", { name: "Crear escritura" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);
@@ -193,7 +193,7 @@ test.describe("document activity history", () => {
       storageState: { cookies: [], origins: [] },
     });
     const response = await anon.request.get(
-      `${baseURL}/dashboard/documents/${documentId}`,
+      `${baseURL}/documents/${documentId}`,
       { maxRedirects: 0 },
     );
     expect([302, 307]).toContain(response.status());

@@ -37,27 +37,28 @@ test.describe("auth smoke", () => {
     ).toBeVisible();
   });
 
-  test("D: /dashboard/settings sin sesión redirige a /login", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard/settings");
+  for (const path of [
+    "/clients",
+    "/clients/new",
+    "/templates",
+    "/templates/new",
+    "/documents",
+    "/documents/new",
+    "/notarial-index",
+    "/receivables",
+    "/receivables/new",
+    "/settings",
+    "/settings/profile",
+  ]) {
+    test(`D: ${path} sin sesión redirige a /login`, async ({ page }) => {
+      await page.goto(path);
 
-    await expect(page).toHaveURL(/\/login/);
-    await expect(
-      page.getByRole("heading", { name: "Iniciar sesión" }),
-    ).toBeVisible();
-  });
-
-  test("D2: /dashboard/documents sin sesión redirige a /login", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard/documents");
-
-    await expect(page).toHaveURL(/\/login/);
-    await expect(
-      page.getByRole("heading", { name: "Iniciar sesión" }),
-    ).toBeVisible();
-  });
+      await expect(page).toHaveURL(/\/login/);
+      await expect(
+        page.getByRole("heading", { name: "Iniciar sesión" }),
+      ).toBeVisible();
+    });
+  }
 
   test("E: login inválido muestra error visible", async ({ page }) => {
     await page.goto("/login");

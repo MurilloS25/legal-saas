@@ -41,7 +41,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
       content: "ESCRITURA de prueba sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/new/${template.id}`);
+    await page.goto(`/documents/new/${template.id}`);
     const title = uniqueName("document-milestone", "escritura-a");
     await page.getByLabel("Título de la escritura").fill(title);
     await page.getByRole("button", { name: "Crear escritura" }).click();
@@ -50,7 +50,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
     // defecto) — sin un paso "Revisar y finalizar" al que avanzar.
     await expect(
       page,
-    ).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
+    ).toHaveURL(/\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);
@@ -72,7 +72,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
 
     // Un guardado real posterior también muestra el toast, no un banner.
     const documentId = new URL(page.url()).pathname.split("/").pop();
-    await page.goto(`/dashboard/documents/${documentId}`);
+    await page.goto(`/documents/${documentId}`);
     await page.getByLabel("Título de la escritura").fill(`${title} editado`);
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(
@@ -94,7 +94,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
       rendered_content: "ESCRITURA de prueba sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await expect(contentEditor(page)).toBeVisible();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {
@@ -137,18 +137,18 @@ test.describe("document milestone feedback (toast replacement)", () => {
     // aparece en TODO período (ver 20260818130000_notarial_index_inclusion.sql).
     const { year, month, half } = currentCostaRicaFortnight();
     await page.goto(
-      `/dashboard/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(title)}`,
+      `/notarial-index?year=${year}&month=${month}&half=${half}&search=${encodeURIComponent(title)}`,
     );
     const row = page
       .locator("tr")
-      .filter({ has: page.locator(`a[href="/dashboard/documents/${doc.id}"]`) });
+      .filter({ has: page.locator(`a[href="/documents/${doc.id}"]`) });
     await expect(row).toBeVisible();
     await expect(row.getByText("Pendiente", { exact: true })).toBeVisible();
     await expect(row).toContainText(template.name);
 
     // "Reabrir escritura" vive en el encabezado del workspace, visible sin
     // importar el paso activo.
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     const reopenDialog = page.getByRole("alertdialog", {
       name: "¿Reabrir la escritura?",
@@ -182,7 +182,7 @@ test.describe("document milestone feedback (toast replacement)", () => {
       rendered_content: "CONSTANCIA de prueba sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await expect(contentEditor(page)).toBeVisible();
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
     const dialog = page.getByRole("alertdialog", {

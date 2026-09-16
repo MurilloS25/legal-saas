@@ -668,6 +668,18 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Canonical authenticated paths and compatibility redirects from the
+    // former /dashboard/<module> route tree.
+    {
+      name: "chromium-authenticated-routing",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /authenticated-routing\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Account and workspace settings — authenticated.
     {
       name: "chromium-authenticated",

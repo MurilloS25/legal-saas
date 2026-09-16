@@ -58,19 +58,19 @@ export default async function ReceivablesPage({ searchParams }: Props) {
   if (page.totalCount > 0 && query.page > page.pageCount) {
     const params = receivablesQueryToParams({ ...query, page: page.pageCount });
     const qs = new URLSearchParams(params).toString();
-    redirect(qs ? `/dashboard/receivables?${qs}` : "/dashboard/receivables");
+    redirect(qs ? `/receivables?${qs}` : "/receivables");
   }
 
   function pageHref(n: number): string {
     const params = receivablesQueryToParams({ ...query, page: n });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/receivables?${qs}` : "/dashboard/receivables";
+    return qs ? `/receivables?${qs}` : "/receivables";
   }
 
   const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
     const params = receivablesQueryToParams({ ...query, page: 1, pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/receivables?${qs}` : "/dashboard/receivables";
+    return qs ? `/receivables?${qs}` : "/receivables";
   });
 
   const rangeStart =
@@ -89,7 +89,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
           </p>
         </div>
         {canWrite && (
-          <Link href="/dashboard/receivables/new" className={newButtonClass}>
+          <Link href="/receivables/new" className={newButtonClass}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -189,7 +189,7 @@ export default async function ReceivablesPage({ searchParams }: Props) {
           </p>
           {!query.hasActiveFilters && canWrite && (
             <Link
-              href="/dashboard/receivables/new"
+              href="/receivables/new"
               className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
             >
               Agregar cuenta

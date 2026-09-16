@@ -112,7 +112,7 @@ test.describe("document data sidebar", () => {
   test("B: the panel shows no long field list, no filter buttons, and no extra tabs", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await expect(dataPanel(page)).toBeVisible();
 
     // Solo título, Cliente principal, Autollenado, Progreso y Acción.
@@ -139,7 +139,7 @@ test.describe("document data sidebar", () => {
   test("C: progress is variant-aware and updates as fields are completed", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     // Con 3 o menos pendientes, PendingFieldsDialog lista los campos por
     // nombre ("Pendientes: X, Y, Z") en vez de mostrar un conteo.
@@ -189,7 +189,7 @@ test.describe("document data sidebar", () => {
   test("D: 'Siguiente pendiente' scrolls to, focuses and cycles through empty active fields in document order", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     const nextPending = page.getByRole("button", { name: "Siguiente pendiente →" });
     await expect(nextPending).toBeEnabled();
@@ -231,7 +231,7 @@ test.describe("document data sidebar", () => {
   test("E: saving keeps title, progress and the panel heading consistent — no autofill section for a template without role-shaped keys", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     // "parte.uno"/"parte.dos" no siguen el patrón `rol.dato`: sin roles
     // detectados, la sección de autollenado simplemente no aparece.
@@ -245,7 +245,7 @@ test.describe("document data sidebar", () => {
 
     await page.getByLabel("Título de la escritura").fill(draftTitle);
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", draftTitle);

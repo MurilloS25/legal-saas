@@ -37,7 +37,7 @@ export default async function NewDocumentTemplatePickerPage({
 }: Props) {
   const { role } = await requireWorkspace();
   if (!hasPermission(role, "documents.create")) {
-    redirect("/dashboard/documents");
+    redirect("/documents");
   }
   const { client: clientParam } = await searchParams;
   const [templates, hasAnyTemplates, clients] = await Promise.all([
@@ -55,15 +55,15 @@ export default async function NewDocumentTemplatePickerPage({
   // El cliente elegido se propaga al siguiente paso por query param.
   const templateHref = (templateId: string) =>
     selectedClient
-      ? `/dashboard/documents/new/${templateId}?client=${selectedClient.id}`
-      : `/dashboard/documents/new/${templateId}`;
+      ? `/documents/new/${templateId}?client=${selectedClient.id}`
+      : `/documents/new/${templateId}`;
 
   return (
     <PageContainer>
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
-          href="/dashboard/documents"
+          href="/documents"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 focus:outline-none focus:underline"
         >
           <svg
@@ -116,7 +116,7 @@ export default async function NewDocumentTemplatePickerPage({
               : "Para crear una escritura primero necesitas un machote con sus campos configurados."}
           </p>
           <Link
-            href={hasAnyTemplates ? "/dashboard/templates" : "/dashboard/templates/new"}
+            href={hasAnyTemplates ? "/templates" : "/templates/new"}
             className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
           >
             {hasAnyTemplates ? "Ver machotes" : "Crear machote"}

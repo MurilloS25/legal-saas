@@ -34,13 +34,13 @@ test.describe("receivable milestone feedback (toast replacement)", () => {
     });
     const concept = uniqueName("receivable-milestone", "concepto-a");
 
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
     await page.getByLabel("Cliente", { exact: true }).selectOption(client.id);
     await page.getByLabel("Concepto").fill(concept);
     await page.getByLabel("Monto total").fill("50000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "receivables", "concept", concept);
@@ -86,7 +86,7 @@ test.describe("receivable milestone feedback (toast replacement)", () => {
       concept: uniqueName("receivable-milestone", "concepto-c"),
     });
 
-    await page.goto(`/dashboard/receivables/${receivable.id}`);
+    await page.goto(`/receivables/${receivable.id}`);
     await expect(
       page
         .getByRole("status")

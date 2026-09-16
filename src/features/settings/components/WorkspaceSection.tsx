@@ -3,7 +3,7 @@
 /**
  * Pestaña "Despacho": identidad profesional del notario/despacho
  * (`lawyer_profiles`, compartida por workspace) + equipo. El equipo se
- * embebe aquí en vez de vivir en `/dashboard/team` (esa ruta ahora
+ * embebe aquí en vez de vivir en `/dashboard/team` (esa ruta legacy ahora
  * redirige aquí) — mismos componentes y acciones que existían, solo
  * consolidados en el menú de usuario en vez de un ítem de navegación
  * aparte. Sin cambios de permisos: el equipo solo se muestra si

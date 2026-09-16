@@ -91,7 +91,7 @@ export async function createTemplateWorkspaceAction(
 
   if (error || !created) return { message: saveError(error?.code) };
 
-  revalidatePath("/dashboard/templates");
+  revalidatePath("/templates");
   // "Guardar y continuar" avanza al siguiente paso del flujo guiado, no
   // preserva el paso activo — el único botón que dispara este primer
   // guardado siempre implica "continuar". "notarial" nunca es el destino
@@ -100,7 +100,7 @@ export async function createTemplateWorkspaceAction(
   const section = String(formData.get("section") ?? "information");
   const next = nextTemplateSection(section);
   const sectionParam = next && next !== "information" ? `&section=${next}` : "";
-  redirect(`/dashboard/templates/${created.template_id}?created=1${sectionParam}`);
+  redirect(`/templates/${created.template_id}?created=1${sectionParam}`);
 }
 
 // ------------------------------------------------------------------ update
@@ -141,8 +141,8 @@ export async function updateTemplateWorkspaceAction(
 
   if (error || !saved) return { message: saveError(error?.code) };
 
-  revalidatePath("/dashboard/templates");
-  revalidatePath(`/dashboard/templates/${templateId}`);
+  revalidatePath("/templates");
+  revalidatePath(`/templates/${templateId}`);
   return { success: true, updatedAt: saved.updated_at };
 }
 

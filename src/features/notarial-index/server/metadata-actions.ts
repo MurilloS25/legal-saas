@@ -94,7 +94,7 @@ export async function saveNotarialMetadataAction(
           "Los datos cambiaron en otra sesión. Recarga la página antes de continuar.",
       };
     }
-    revalidatePath(`/dashboard/documents/${documentId}`);
+    revalidatePath(`/documents/${documentId}`);
     return {
       success: true,
       successMessage: "Partes restablecidas desde el machote.",
@@ -171,8 +171,8 @@ export async function saveNotarialMetadataAction(
     };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
 
   // El mismo guardado nunca debe leerse como "la Escritura ya quedó
   // agregada al Índice" si todavía faltan campos — el Índice se deriva de

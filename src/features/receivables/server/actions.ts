@@ -123,7 +123,7 @@ async function createReceivableRow(
     };
   }
 
-  revalidatePath("/dashboard/receivables");
+  revalidatePath("/receivables");
   return { ok: true, id: data.id, documentId: result.data.document_id };
 }
 
@@ -142,7 +142,7 @@ export async function createReceivableAction(
   );
 
   redirect(
-    appendReturnTo(`/dashboard/receivables/${result.id}?created=1`, returnTo),
+    appendReturnTo(`/receivables/${result.id}?created=1`, returnTo),
   );
 }
 
@@ -159,7 +159,7 @@ export async function createReceivableForDialogAction(
   if (!result.ok) return result.state;
 
   if (result.documentId) {
-    revalidatePath(`/dashboard/documents/${result.documentId}`);
+    revalidatePath(`/documents/${result.documentId}`);
   }
 
   const receivable = await getReceivableEntry(result.id);
@@ -237,12 +237,12 @@ export async function updateReceivableAction(
     };
   }
 
-  revalidatePath(`/dashboard/receivables/${id}`);
-  revalidatePath("/dashboard/receivables");
+  revalidatePath(`/receivables/${id}`);
+  revalidatePath("/receivables");
   const returnTo = parseDocumentReceivablesReturnTo(
     formData.get("returnTo") as string | null,
   );
-  redirect(appendReturnTo(`/dashboard/receivables/${id}`, returnTo));
+  redirect(appendReturnTo(`/receivables/${id}`, returnTo));
 }
 
 // ------------------------------------------------------------------ delete
@@ -274,6 +274,6 @@ export async function deleteReceivableAction(
     };
   }
 
-  revalidatePath("/dashboard/receivables");
-  redirect("/dashboard/receivables");
+  revalidatePath("/receivables");
+  redirect("/receivables");
 }

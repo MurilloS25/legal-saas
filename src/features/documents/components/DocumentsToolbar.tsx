@@ -74,7 +74,7 @@ export function DocumentsToolbar({
     // Cualquier cambio reinicia la paginación (no se conserva `page`).
 
     const qs = params.toString();
-    router.push(qs ? `/dashboard/documents?${qs}` : "/dashboard/documents");
+    router.push(qs ? `/documents?${qs}` : "/documents");
   }
 
   return (
@@ -219,7 +219,7 @@ export function DocumentsToolbar({
               params.set("pageSize", String(initial.pageSize));
             }
             const qs = params.toString();
-            router.push(qs ? `/dashboard/documents?${qs}` : "/dashboard/documents");
+            router.push(qs ? `/documents?${qs}` : "/documents");
           }}
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
         >

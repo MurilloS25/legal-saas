@@ -18,7 +18,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DOCUMENT_RECEIVABLES_RETURN_PATTERN =
-  /^\/dashboard\/documents\/([^/?]+)\?section=cobro$/;
+  /^\/documents\/([^/?]+)\?section=cobro$/;
 
 /**
  * Construye el `returnTo` hacia el paso "Cobro" de una Escritura. Único
@@ -26,14 +26,14 @@ const DOCUMENT_RECEIVABLES_RETURN_PATTERN =
  * `parseDocumentReceivablesReturnTo` acepta.
  */
 export function buildDocumentReceivablesReturnTo(documentId: string): string {
-  return `/dashboard/documents/${documentId}?section=cobro`;
+  return `/documents/${documentId}?section=cobro`;
 }
 
 /**
  * Valida un valor de `returnTo` recibido de un query param o de un campo
  * oculto de formulario. Devuelve la ruta interna si calza exactamente con
  * la única forma permitida, o `null` en cualquier otro caso: dominios
- * externos, protocolos (`javascript:`), rutas fuera de `/dashboard`, IDs
+ * externos, protocolos (`javascript:`), rutas fuera de `/documents`, IDs
  * malformados, o cualquier variación del patrón.
  *
  * Esta validación es de formato únicamente — no confirma que la Escritura

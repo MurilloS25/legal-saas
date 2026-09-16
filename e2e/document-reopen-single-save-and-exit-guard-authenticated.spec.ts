@@ -99,7 +99,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       status: "final",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await expect(stepTab(page, "Completar")).toHaveAttribute(
       "aria-selected",
       "true",
@@ -152,7 +152,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
     // a "Cobro" (regresión conocida y deliberada, cubierta aparte en
     // `document-guided-progression-authenticated.spec.ts`) — se navega
     // explícitamente de vuelta a "Completar" para ver el documento.
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await expect(
       documentGroup(page).getByText("Persona Corregida"),
     ).toBeVisible();
@@ -176,7 +176,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       rendered_content: "ESCRITURA. Comparece Persona B.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await editFieldLive(page, "parte.nombre", "Persona B editada");
     await expect(saveStatus(page)).toHaveText("Sin guardar");
 
@@ -238,7 +238,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       rendered_content: "ESCRITURA sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await page.getByLabel("Título de la escritura").fill(`${doc.id} editado`);
     await expect(saveStatus(page)).toHaveText("Sin guardar");
 
@@ -263,7 +263,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       rendered_content: "ESCRITURA sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     const editedTitle = `${doc.id} editado D`;
     await page.getByLabel("Título de la escritura").fill(editedTitle);
     await expect(saveStatus(page)).toHaveText("Sin guardar");
@@ -286,7 +286,7 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       .getByRole("alertdialog", { name: "¿Salir sin guardar?" })
       .getByRole("button", { name: "Salir sin guardar" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/clients$/, { timeout: 15_000 });
   });
 
   test("E: after a successful save the navbar no longer asks for confirmation", async ({
@@ -301,12 +301,12 @@ test.describe("document reopen: single save from Completar, and exit guard", () 
       rendered_content: "ESCRITURA sin variables.",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
     await page.getByLabel("Título de la escritura").fill(`${doc.id} editado E`);
     await page.getByRole("button", { name: "Guardar" }).click();
     await expect(saveStatus(page)).toHaveText("Guardado", { timeout: 15_000 });
 
     await page.getByRole("link", { name: "Clientes" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/clients$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/clients$/, { timeout: 15_000 });
   });
 });

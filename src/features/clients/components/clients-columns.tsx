@@ -43,7 +43,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
         const avatarColor = getAvatarColor(client.full_name);
         return (
           <Link
-            href={`/dashboard/clients/${client.id}`}
+            href={`/clients/${client.id}`}
             className="flex min-w-0 items-center gap-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 rounded"
           >
             <div
@@ -86,7 +86,7 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
         return (
           <div className="flex items-center justify-end">
             <Link
-              href={`/dashboard/clients/${client.id}`}
+              href={`/clients/${client.id}`}
               aria-label={`Ver detalle de ${client.full_name}`}
               className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 transition-colors"
             >

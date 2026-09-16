@@ -475,7 +475,7 @@ export function DocumentComposer(props: Props) {
             {state.message}
             {isEdit && state.conflictUpdatedAt && (
               <div className="mt-3 flex flex-wrap gap-4">
-                <a href={`/dashboard/documents/${props.draft.id}`} target="_blank" rel="noopener noreferrer" className="underline">
+                <a href={`/documents/${props.draft.id}`} target="_blank" rel="noopener noreferrer" className="underline">
                   Revisar versión guardada (nueva pestaña)
                 </a>
                 <button type="submit" disabled={pending} className="underline disabled:opacity-50" onClick={() => {

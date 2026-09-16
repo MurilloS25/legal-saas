@@ -867,7 +867,7 @@ formulario de `lawyer_profiles` totalmente interactivo a CUALQUIER
 miembro, incluido un asistente — el guardado fallaba solo en el servidor
 (`settings.manage`) y en RLS, sin ninguna señal en la UI. Se corrigió
 pasando `canManage = hasPermission(role, "settings.manage")` a
-`SettingsWorkspace` (`src/app/(dashboard)/dashboard/settings/page.tsx` →
+`SettingsWorkspace` (`src/app/(dashboard)/settings/page.tsx` →
 `_components/SettingsWorkspace.tsx`): todos los campos quedan `disabled`,
 la barra de guardar/descartar no se renderiza, y un aviso explica por qué.
 
@@ -914,8 +914,9 @@ reactivar/remover) se escribía desde el día uno pero **ningún código de
 `src/` la leía** — "Mi equipo" no tenía ninguna vista de historial. Nuevo
 RPC `list_workspace_activity(p_limit)`, mismo patrón que
 `list_workspace_members()` (acota al Workspace activo del caller vía
-`SECURITY DEFINER`), añade una sección "Actividad" a
-`/dashboard/team` (`WorkspaceActivityList.tsx`). Resuelve el email
+`SECURITY DEFINER`), añadió originalmente una sección "Actividad" a la ruta
+histórica `/dashboard/team` (`WorkspaceActivityList.tsx`). La UI vigente vive en
+`/settings?tab=workspace` y la ruta histórica redirige allí. Resuelve el email
 ACTUAL del `target_user_id` como etiqueta de conveniencia (no un
 snapshot histórico — el dato con garantía histórica es
 `actor_name_snapshot`/`actor_role_snapshot`, no el target).

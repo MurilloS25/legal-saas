@@ -92,12 +92,12 @@ test.describe("document template snapshot", () => {
       required: true,
     });
 
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await fillInlineVariable(page, "persona.nombre", "Ana V1");
     await page.getByRole("button", { name: /Cambiar variante de Modalidad v1/ }).click();
     await page.getByRole("radio", { name: "Por poder" }).click();
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, { timeout: 15_000 });
     v1DocumentUrl = page.url();
     await registerCreatedViaUi(registry, "documents", "title", v1Title);
     await expect(documentRegion(page).getByText("VERSION UNO:", { exact: true })).toBeVisible();
@@ -125,7 +125,7 @@ test.describe("document template snapshot", () => {
 
     await page.getByRole("button", { name: "Duplicar" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Duplicar" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, { timeout: 15_000 });
     const duplicateId = new URL(page.url()).pathname.split("/").pop();
     if (duplicateId) registry.register("documents", duplicateId);
     await expect(documentRegion(page).getByText("VERSION UNO:", { exact: true })).toBeVisible();
@@ -133,12 +133,12 @@ test.describe("document template snapshot", () => {
   });
 
   test("G-H: a new Escritura created after the edit uses Machote v2", async ({ page }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await expect(documentRegion(page).getByText("VERSION DOS:", { exact: true })).toBeVisible();
     await expect(documentRegion(page).getByText("VERSION UNO:", { exact: true })).toHaveCount(0);
     await fillInlineVariable(page, "parte.nombre", "Beatriz V2");
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, { timeout: 15_000 });
     const newDocumentId = new URL(page.url()).pathname.split("/").pop();
     if (newDocumentId) registry.register("documents", newDocumentId);
     expect(await downloadedText(page)).toContain("VERSION DOS: Beatriz V2 DIRECTA v2");

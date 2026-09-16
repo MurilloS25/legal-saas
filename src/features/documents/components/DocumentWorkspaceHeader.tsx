@@ -174,7 +174,7 @@ export function DocumentWorkspaceHeader({
   return (
     <header className="mb-6">
       <Link
-        href="/dashboard/documents"
+        href="/documents"
         className="mb-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:underline"
       >
         ‹ Volver a Escrituras

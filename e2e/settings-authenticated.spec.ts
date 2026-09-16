@@ -15,7 +15,7 @@ test.describe("authenticated flows", () => {
     await expect(page).not.toHaveURL(/\/login/);
     // Dashboard shows either the generic heading or a time-of-day greeting
     // ("Buenos días"/"Buenas tardes"/"Buenas noches") — see greeting() in
-    // src/app/(dashboard)/dashboard/page.tsx.
+    // src/app/(dashboard)/dashboard/page.tsx (the /dashboard overview).
     await expect(
       page.getByRole("heading", { name: /^(Panel|Buenos días|Buenas tardes|Buenas noches)/ }),
     ).toBeVisible();
@@ -30,11 +30,11 @@ test.describe("authenticated flows", () => {
     // banner de onboarding "Configurar ahora →", que desaparece una vez que
     // el perfil está configurado.
     const modules = [
-      ["Clientes", "/dashboard/clients"],
-      ["Machotes", "/dashboard/templates"],
-      ["Escrituras", "/dashboard/documents"],
-      ["Índice Notarial", "/dashboard/notarial-index"],
-      ["Cuentas por cobrar", "/dashboard/receivables"],
+      ["Clientes", "/clients"],
+      ["Machotes", "/templates"],
+      ["Escrituras", "/documents"],
+      ["Índice Notarial", "/notarial-index"],
+      ["Cuentas por cobrar", "/receivables"],
     ] as const;
 
     for (const [label, href] of modules) {
@@ -50,19 +50,19 @@ test.describe("authenticated flows", () => {
       .getByRole("main")
       .getByRole("link", { name: /^Índice Notarial(?:\s|$)/ })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/notarial-index$/);
+    await expect(page).toHaveURL(/\/notarial-index$/);
     await page.goto("/dashboard");
     await page
       .getByRole("main")
       .getByRole("link", { name: /^Cuentas por cobrar(?:\s|$)/ })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/receivables$/);
+    await expect(page).toHaveURL(/\/receivables$/);
   });
 
-  test("C: authenticated user reaches /dashboard/settings, defaulting to the Perfil tab", async ({
+  test("C: authenticated user reaches /settings, defaulting to the Perfil tab", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/settings");
 
     await expect(page).not.toHaveURL(/\/login/);
     // exact: true distinguishes the h1 "Cuenta y configuración" from the
@@ -78,7 +78,7 @@ test.describe("authenticated flows", () => {
   test("C2: Perfil/Configuración/Despacho are separate tabs, each with its own save action", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings");
+    await page.goto("/settings");
 
     // Perfil (default tab): no editable fields, just the account email and
     // a password-reset action — no "Guardar" button here.
@@ -101,7 +101,7 @@ test.describe("authenticated flows", () => {
   test("C3: save and discard are disabled until a change is made", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     const saveButton = page.getByRole("button", { name: "Guardar cambios" });
     const discardButton = page.getByRole("button", { name: "Descartar" });
@@ -122,7 +122,7 @@ test.describe("authenticated flows", () => {
   test("C4: discarding restores the last saved values and disables the actions again", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     const original = await page.getByLabel("Teléfono").inputValue();
     await page.getByLabel("Teléfono").fill("9999-9999");
@@ -136,7 +136,7 @@ test.describe("authenticated flows", () => {
   test("D: user can save the lawyer profile (Despacho) independently", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     const name = `E2E Lawyer ${Date.now()}`;
 
@@ -155,7 +155,7 @@ test.describe("authenticated flows", () => {
   test("E: user can save document settings independently", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings?tab=document");
+    await page.goto("/settings?tab=document");
 
     // exact: true distinguishes "Fuente" from "Tamaño (pt)".
     await page.getByLabel("Fuente", { exact: true }).selectOption("Arial");
@@ -178,7 +178,7 @@ test.describe("authenticated flows", () => {
   test("F: saved profile and document settings persist after page reload", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     const name = `E2E Persist ${Date.now()}`;
     await page.getByLabel("Nombre completo").fill(name);
@@ -190,7 +190,7 @@ test.describe("authenticated flows", () => {
     await page.reload();
     await expect(page.getByLabel("Nombre completo")).toHaveValue(name);
 
-    await page.goto("/dashboard/settings?tab=document");
+    await page.goto("/settings?tab=document");
     await page.getByLabel("Superior").fill("4.0");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
@@ -204,7 +204,7 @@ test.describe("authenticated flows", () => {
   test("G: an invalid field blocks the save for that section and keeps every edited value", async ({
     page,
   }) => {
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     const name = `E2E Invalid ${Date.now()}`;
     await page.getByLabel("Nombre completo").fill(name);
@@ -229,7 +229,7 @@ test.describe("authenticated flows", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     await expect(
       page.getByRole("heading", { name: "Cuenta y configuración", exact: true }),
@@ -250,7 +250,7 @@ test.describe("authenticated flows", () => {
   });
 
   test("I: the Despacho form is keyboard-navigable end to end", async ({ page }) => {
-    await page.goto("/dashboard/settings?tab=workspace");
+    await page.goto("/settings?tab=workspace");
 
     await page.getByLabel("Nombre completo").focus();
     await expect(page.getByLabel("Nombre completo")).toBeFocused();
