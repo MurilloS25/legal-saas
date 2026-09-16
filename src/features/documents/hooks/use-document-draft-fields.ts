@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CreatedClient } from "@/features/clients";
 import type { OptionSelectionsMap } from "@/lib/editor/render";
-import type { FillableTemplateField } from "@/features/templates";
+import type { FillableTemplateField } from "@/features/templates/domain";
 import type { DocumentClientOption } from "../model/role-autofill";
 
 type InitialDraft = {

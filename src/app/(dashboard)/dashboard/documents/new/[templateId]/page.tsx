@@ -4,16 +4,16 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
-import { templateStatusLabel } from "@/features/templates/model/templates";
 import { listClients } from "@/features/clients/server";
-import { buildFillableFields } from "@/features/templates";
+import {
+  buildFillableFields,
+  templateStatusLabel,
+  toVariableAutofillSource,
+  toVariableOutputTransform,
+} from "@/features/templates/domain";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { DocumentComposer } from "@/features/documents";
-import {
-  toVariableAutofillSource,
-  toVariableOutputTransform,
-} from "@/features/templates/model/variable-autofill";
 
 export const metadata = {
   title: "Crear escritura — LexCR",

@@ -3,8 +3,8 @@ import {
   buildFillableFields,
   type ConfiguredTemplateField,
   type FillableTemplateField,
-} from "@/features/templates/model/fillable-fields";
-import { VARIABLE_AUTOFILL_SOURCES } from "@/features/templates/model/variable-autofill";
+  VARIABLE_AUTOFILL_SOURCES,
+} from "@/features/templates/domain";
 import { serializeDocumentToTemplateText } from "@/lib/editor/convert";
 import { VARIABLE_OUTPUT_TRANSFORMS } from "@/lib/editor/text-transforms";
 import type { TemplateDocument } from "@/lib/editor/types";

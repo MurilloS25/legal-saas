@@ -3,6 +3,7 @@ export { DeleteDocumentButton } from "./components/DeleteDocumentButton";
 export { DocumentActivity } from "./components/DocumentActivity";
 export { DocumentComposer } from "./components/DocumentComposer";
 export { DocumentLifecycleToast } from "./components/DocumentLifecycleToast";
+export { DocumentNotarialInclusionSection } from "./components/DocumentNotarialInclusionSection";
 export type { DocumentLifecycleEvent } from "./components/DocumentLifecycleToast";
 export { DocumentWorkspaceHeader } from "./components/DocumentWorkspaceHeader";
 export type { DocumentWorkspaceSection } from "./components/DocumentWorkspaceHeader";
@@ -29,3 +30,4 @@ export type {
 } from "./model/workspace-query";
 export { DocumentIdSchema } from "./model/document-schema";
 export { buildDuplicateDocumentTitle } from "./model/duplicate";
+export { resolveDocumentTemplateSnapshot } from "./model/document-template-snapshot";

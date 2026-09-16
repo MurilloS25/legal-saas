@@ -10,7 +10,7 @@ import { applyVariableLabels } from "@/lib/editor/variables";
 import {
   toVariableAutofillSource,
   toVariableOutputTransform,
-} from "@/features/templates/model/variable-autofill";
+} from "@/features/templates/domain";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
 

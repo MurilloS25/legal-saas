@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResourceIdSchema } from "@/lib/validation/resource-id";
 import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
 import {
   DOCUMENT_STATUSES,
@@ -126,12 +127,7 @@ export const DocumentRenderedContentSchema = z
 
 // Formato UUID laxo (sin exigir bits de versión RFC): los IDs reales son v4
 // generados por Postgres y RLS es la defensa de fondo.
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export const DocumentIdSchema = z
-  .string()
-  .regex(UUID_PATTERN, "El identificador no es válido");
+export const DocumentIdSchema = ResourceIdSchema;
 
 /**
  * client_id opcional del formulario. La cadena vacía (opción "Sin cliente")
@@ -141,7 +137,7 @@ export const OptionalClientIdSchema = z
   .string()
   .trim()
   .transform((value) => (value === "" ? null : value))
-  .refine((value) => value === null || UUID_PATTERN.test(value), {
+  .refine((value) => value === null || ResourceIdSchema.safeParse(value).success, {
     message: "El cliente seleccionado no es válido",
   });
 

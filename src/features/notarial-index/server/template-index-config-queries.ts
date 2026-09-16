@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { TemplateIdSchema } from "@/features/templates";
+import { ResourceIdSchema as TemplateIdSchema } from "@/lib/validation/resource-id";
 import {
   INDEX_MAPPING_KEYS,
   type InvalidIndexMapping,

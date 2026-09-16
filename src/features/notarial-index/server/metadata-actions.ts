@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "@/features/documents";
+import { ResourceIdSchema as DocumentIdSchema } from "@/lib/validation/resource-id";
 import { parseNotarialFormData } from "../model/notarial-schema";
 import { generateConfiguredParties } from "./parties-generation";
 import { isNotarialComplete } from "../model/notarial";

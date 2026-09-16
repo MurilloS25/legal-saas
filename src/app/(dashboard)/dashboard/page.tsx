@@ -8,7 +8,7 @@ import { listDocuments } from "@/features/documents/server";
 import {
   documentStatusBadgeClass,
   documentStatusLabel,
-} from "@/features/documents/model/status";
+} from "@/features/documents";
 import { getReceivablesSummary, listReceivables } from "@/features/receivables/server";
 import {
   parseReceivablesQuery,
@@ -17,7 +17,7 @@ import {
   formatMoney,
 } from "@/features/receivables";
 import { listNotarialIndex } from "@/features/notarial-index/server";
-import { parseNotarialQuery } from "@/features/notarial-index/model/query";
+import { parseNotarialQuery } from "@/features/notarial-index";
 import {
   ArrowRightIcon,
   BookmarkIcon,
