@@ -317,9 +317,36 @@ Documentado por adelantado; no se ejecutó ningún backup/restore real
   gratuito vigentes en el dashboard del proyecto (verificar ahí para
   cifras actualizadas, cambian con el tiempo).
 
+## Pendientes de producción / SMTP y branding de correo
+
+**Estado confirmado el 2026-09-15:** Supabase Cloud continúa sin SMTP
+personalizado. En el plan y configuración actuales, las plantillas
+personalizadas de invitación y recuperación no pueden activarse hasta
+configurar un proveedor SMTP propio. El dominio y el nombre definitivo del
+producto siguen pendientes de decisión; no se debe inventar un remitente,
+dominio o proveedor temporal.
+
+Impacto conocido:
+
+- Las invitaciones por correo no se consideran validadas para producción.
+- La recuperación por correo no se considera validada para producción.
+- Los flujos del producto que no envían correo no dependen de esta decisión.
+
+La resolución futura debe definir y validar, en conjunto:
+
+- dominio y registros DNS necesarios;
+- proveedor SMTP productivo;
+- dirección `sender/from` y nombre visible del remitente;
+- plantillas Invite y Recovery;
+- una prueba real y controlada de entrega, incluyendo inbox/spam y enlaces.
+
+No guardar credenciales SMTP ni otros secretos en esta documentación o en
+Git.
+
 ## Verificaciones pendientes antes del próximo release
 
-- Revalidar Site URL, redirect URLs, política de contraseña y plantillas de
-  correo en Supabase Auth.
+- Revalidar Site URL, redirect URLs y política de contraseña en Supabase
+  Auth; resolver el pendiente SMTP/branding anterior antes de considerar
+  validado el email transaccional.
 - Revalidar el conteo Cloud antes de aplicar las migrations 40 y 41.
 - Coordinar schema y aplicación; no desplegar una de esas partes aisladamente.
