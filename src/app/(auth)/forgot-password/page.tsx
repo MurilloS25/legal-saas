@@ -2,8 +2,9 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { forgotPasswordAction, type ForgotPasswordState } from "./actions";
 import { FieldError } from "@/components/forms/FieldError";
+import type { ForgotPasswordState } from "@/lib/forms/forgot-password-state";
+import { forgotPasswordAction } from "@/lib/server/forgot-password-action";
 
 const initialState: ForgotPasswordState = {};
 

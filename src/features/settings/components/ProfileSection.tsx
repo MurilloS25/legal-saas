@@ -12,9 +12,10 @@
  */
 
 import { useActionState, useEffect, useRef } from "react";
-import { forgotPasswordAction, type ForgotPasswordState } from "@/app/(auth)/forgot-password/actions";
 import { LockIcon } from "@/components/icons";
 import { useToast } from "@/components/feedback/Toast";
+import type { ForgotPasswordState } from "@/lib/forms/forgot-password-state";
+import { forgotPasswordAction } from "@/lib/server/forgot-password-action";
 
 const initialState: ForgotPasswordState = {};
 
