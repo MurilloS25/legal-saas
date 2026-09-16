@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { useToast } from "@/components/feedback/Toast";
-import { setNotarialIndexInclusionAction } from "@/features/documents/server/lifecycle-actions";
+import { setNotarialIndexInclusionAction } from "../server/lifecycle-actions";
 
 type Props = {
   documentId: string;
@@ -14,7 +14,7 @@ type Props = {
   children: ReactNode;
 };
 
-export function NotarialInclusionSection({
+export function DocumentNotarialInclusionSection({
   documentId,
   headingId,
   includeInNotarialIndex,

@@ -19,8 +19,8 @@
  * ocurre si el usuario confirma cada variable en el diálogo de revisión.
  */
 
-import { FIELD_KEY_PATTERN } from "./variable-key";
-import { TEMPLATE_DOC_LIMITS } from "./types";
+import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
+import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 
 /**
  * Caracteres invisibles que algunos orígenes (Word, PDFs) pueden insertar:

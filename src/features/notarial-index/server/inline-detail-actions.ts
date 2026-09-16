@@ -1,6 +1,6 @@
 "use server";
 
-import { DocumentIdSchema } from "@/features/documents";
+import { ResourceIdSchema as DocumentIdSchema } from "@/lib/validation/resource-id";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import type { NotarialMetadata } from "../model/notarial";

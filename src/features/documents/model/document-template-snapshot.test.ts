@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FillableTemplateField } from "@/features/templates";
+import type { FillableTemplateField } from "@/features/templates/domain";
 import type { TemplateDocument } from "@/lib/editor/types";
 import {
   createDocumentTemplateSnapshot,

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { TemplateIdSchema } from "@/features/templates";
+import { ResourceIdSchema as TemplateIdSchema } from "@/lib/validation/resource-id";
 import { requireUser } from "@/lib/server/auth";
 import type { Database } from "@/lib/supabase/database.types";
 import { TemplateIndexConfigurationSchema } from "../model/template-index-configuration";

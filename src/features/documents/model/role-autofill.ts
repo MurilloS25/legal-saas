@@ -8,11 +8,11 @@
  * copiados quedan como un snapshot editable dentro de la Escritura.
  */
 
-import type { FillableTemplateField } from "@/features/templates";
+import type { FillableTemplateField } from "@/features/templates/domain";
 import {
   resolveAutofillSource,
   type VariableAutofillSource,
-} from "@/features/templates/model/variable-autofill";
+} from "@/features/templates/domain";
 
 /**
  * Variable de un rol con su origen de autollenado ya resuelto: configuración

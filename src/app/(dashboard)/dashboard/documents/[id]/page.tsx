@@ -14,7 +14,6 @@ import {
 } from "@/features/notarial-index/server";
 import { getTemplateById, listTemplateFields } from "@/features/templates/server";
 import { listClients } from "@/features/clients/server";
-import { resolveDocumentTemplateSnapshot } from "@/features/documents/model/document-template-snapshot";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { listReceivablesByDocument } from "@/features/receivables/server";
 import {
@@ -24,6 +23,8 @@ import {
 import {
   DocumentComposer,
   DocumentLifecycleToast,
+  DocumentNotarialInclusionSection,
+  resolveDocumentTemplateSnapshot,
   type DocumentLifecycleEvent,
   type DocumentWorkspaceSection,
 } from "@/features/documents";
@@ -389,21 +390,26 @@ function NoTemplateFallback({
       )}
 
       {section === "notarial" && (
-        <NotarialMetadataSection
+        <DocumentNotarialInclusionSection
           documentId={document.id}
-          metadata={notarialMetadata}
-          prefill={notarialPrefill}
-          readOnly
-          canEdit={canEdit}
-          canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
-          actNamePreview={null}
-          generatedPartiesPreview={generatedPartiesPreview}
-          reviewRequired={notarialReviewRequired}
+          headingId="document-notarial-index-heading"
           includeInNotarialIndex={document.include_in_notarial_index}
           canChangeInclusion={canConfirmNotarial}
-          canConfirm={canConfirmNotarial}
-          confirmedByName={notarialConfirmedByName}
-        />
+        >
+          <NotarialMetadataSection
+            documentId={document.id}
+            metadata={notarialMetadata}
+            prefill={notarialPrefill}
+            readOnly
+            canEdit={canEdit}
+            canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
+            actNamePreview={null}
+            generatedPartiesPreview={generatedPartiesPreview}
+            reviewRequired={notarialReviewRequired}
+            canConfirm={canConfirmNotarial}
+            confirmedByName={notarialConfirmedByName}
+          />
+        </DocumentNotarialInclusionSection>
       )}
     </div>
   );

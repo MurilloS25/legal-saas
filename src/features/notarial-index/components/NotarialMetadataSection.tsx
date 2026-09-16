@@ -23,7 +23,7 @@
  * completitud en vivo (cliente).
  */
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveNotarialMetadataAction,
   type NotarialMetadataState,
@@ -42,7 +42,6 @@ import {
   NotarialConfirmationSection,
   useNotarialConfirmationController,
 } from "./metadata/NotarialConfirmationController";
-import { NotarialInclusionSection } from "./metadata/NotarialInclusionSection";
 
 const initialState: NotarialMetadataState = {};
 
@@ -61,23 +60,12 @@ type Props = {
   /** El contenido de la Escritura cambió después del último guardado de
    * estos datos — distinto del ciclo de confirmación (ver abajo). */
   reviewRequired?: boolean;
-  /** Pertenencia actual al Índice Notarial (independiente de `status`). */
-  includeInNotarialIndex: boolean;
-  /** notarial_index.generate — trabajar el Índice (incluye asistente),
-   * distinto de `documents.finalize` (finalizar/reabrir la Escritura en sí,
-   * solo propietario/administrador); sin este permiso el control se muestra
-   * pero deshabilitado. */
-  canChangeInclusion: boolean;
   /** notarial_index.generate — confirmar/corregir datos del Índice; sin
    * este permiso el estado se ve pero los botones no aparecen. */
   canConfirm: boolean;
   /** Nombre del actor de la confirmación más reciente, o null si nunca se
    * confirmó. */
   confirmedByName: string | null;
-  /** Se llama justo después de excluir con éxito — el compositor lo usa
-   * para sacar al usuario del paso "Índice" si estaba parado ahí, ya que
-   * ese paso deja de aparecer en la navegación normal del stepper. */
-  onExcludedFromIndex?: () => void;
 };
 
 export function NotarialMetadataSection({
@@ -90,13 +78,9 @@ export function NotarialMetadataSection({
   actNamePreview = null,
   generatedPartiesPreview = null,
   reviewRequired = false,
-  includeInNotarialIndex,
-  canChangeInclusion,
   canConfirm,
   confirmedByName,
-  onExcludedFromIndex,
 }: Props) {
-  const headingId = useId();
   const action = saveNotarialMetadataAction.bind(null, documentId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const { showToast } = useToast();
@@ -143,19 +127,11 @@ export function NotarialMetadataSection({
   }
 
   return (
-    <NotarialInclusionSection
-      documentId={documentId}
-      headingId={headingId}
-      includeInNotarialIndex={includeInNotarialIndex}
-      canChangeInclusion={canChangeInclusion}
-      onExcludedFromIndex={onExcludedFromIndex}
+    <NotarialConfirmationSection
+      controller={confirmation}
+      confirmedByName={confirmedByName}
     >
-      <NotarialConfirmationSection
-        controller={confirmation}
-        confirmedByName={confirmedByName}
-      >
-
-        <form action={formAction} noValidate className="px-6 py-6">
+      <form action={formAction} noValidate className="px-6 py-6">
         {state.message && (
           <div
             role="alert"
@@ -292,9 +268,8 @@ export function NotarialMetadataSection({
             </button>
           </div>
         )}
-        </form>
-      </NotarialConfirmationSection>
-    </NotarialInclusionSection>
+      </form>
+    </NotarialConfirmationSection>
   );
 }
 

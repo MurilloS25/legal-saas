@@ -9,11 +9,11 @@ import {
   DocumentValuesSchema,
   DocumentVersionSchema,
 } from "../model/document-schema";
-import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
+import { buildFillableFields, TemplateIdSchema } from "@/features/templates/domain";
 import {
   toVariableAutofillSource,
   toVariableOutputTransform,
-} from "@/features/templates/model/variable-autofill";
+} from "@/features/templates/domain";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import {
   createDocumentTemplateSnapshot,

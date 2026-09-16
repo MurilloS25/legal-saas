@@ -13,7 +13,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { DocumentClientOption } from "../model/role-autofill";
-import { stripDiacritics } from "@/features/templates/model/variable-autofill";
+import { stripDiacritics } from "@/features/templates/domain";
 
 type Props = {
   clients: DocumentClientOption[];

@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "@/features/documents";
+import { ResourceIdSchema as DocumentIdSchema } from "@/lib/validation/resource-id";
 import type {
   NotarialMetadata,
   NotarialMetadataSuggestions,

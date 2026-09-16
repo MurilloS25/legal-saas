@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
-import { extractTemplateVariables } from "@/features/templates";
+import { extractTemplateVariables } from "@/features/templates/domain";
 import {
   sanitizeSearchTermForPostgrest,
   sortColumnFor,
