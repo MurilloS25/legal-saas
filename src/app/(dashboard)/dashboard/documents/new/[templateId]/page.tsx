@@ -14,6 +14,7 @@ import {
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import { DocumentComposer } from "@/features/documents";
+import { isResourceId } from "@/lib/validation/resource-id";
 
 export const metadata = {
   title: "Crear escritura — LexCR",
@@ -30,6 +31,8 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
     redirect("/dashboard/documents");
   }
   const { templateId } = await params;
+  if (!isResourceId(templateId)) notFound();
+
   const { client: clientParam } = await searchParams;
   const template = await getTemplateById(templateId);
 

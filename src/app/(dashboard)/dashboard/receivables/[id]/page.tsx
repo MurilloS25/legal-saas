@@ -13,6 +13,7 @@ import type { ReceivableWorkspaceSection } from "@/features/receivables";
 import { parseDocumentReceivablesReturnTo } from "@/lib/navigation/context-return";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission } from "@/lib/server/permissions";
+import { isResourceId } from "@/lib/validation/resource-id";
 
 export const metadata = {
   title: "Cuenta por cobrar — LexCR",
@@ -45,6 +46,7 @@ export default async function ReceivableDetailPage({
   const canWrite = hasPermission(role, "receivables.manage");
   const canRegisterPayments = hasPermission(role, "payments.register");
   const canVoidPayments = hasPermission(role, "payments.void");
+  if (!isResourceId(id)) notFound();
 
   const [entry, editable] = await Promise.all([
     getReceivableEntry(id),

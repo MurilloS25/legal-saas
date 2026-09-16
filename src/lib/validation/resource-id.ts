@@ -6,3 +6,7 @@ const UUID_PATTERN =
 export const ResourceIdSchema = z
   .string()
   .regex(UUID_PATTERN, "El identificador no es válido");
+
+export function isResourceId(value: string): boolean {
+  return ResourceIdSchema.safeParse(value).success;
+}

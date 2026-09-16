@@ -74,6 +74,19 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
+    // Global not-found experience for authenticated app routes and arbitrary
+    // unmatched paths. It reuses the normal session so `/dashboardx` and
+    // nested dashboard paths reach Next.js instead of the login redirect.
+    {
+      name: "chromium-not-found",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /not-found-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // P1-03: an Escritura keeps its creation-version Machote snapshot.
     {
       name: "chromium-document-template-snapshot",
