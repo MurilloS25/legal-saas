@@ -167,4 +167,23 @@ test.describe("receivables workspace", () => {
     await expect(section.getByText(conceptCrc).first()).toBeVisible();
     await expect(section.getByText(conceptUsd).first()).toBeVisible();
   });
+
+  test("I: starting a receivable from the client detail preserves the client context", async ({
+    page,
+  }) => {
+    await page.goto(`/dashboard/clients/${clientId}`);
+    const section = page.getByRole("region", {
+      name: "Cuentas por cobrar del cliente",
+    });
+
+    await section.getByRole("link", { name: "Nueva cuenta" }).click();
+
+    await expect(page).toHaveURL(
+      new RegExp(`/dashboard/receivables/new\\?client=${clientId}$`),
+      { timeout: 15_000 },
+    );
+    await expect(page.getByLabel("Cliente", { exact: true })).toHaveValue(
+      clientId,
+    );
+  });
 });

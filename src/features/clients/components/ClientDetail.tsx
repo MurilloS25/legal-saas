@@ -1,11 +1,5 @@
-import { PageContainer } from "@/components/layout/PageContainer";
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { ClientDocumentsTable } from "@/features/documents";
-import type { ClientDocumentRow } from "@/features/documents/server";
-import {
-  ReceivableMiniList,
-  type ReceivableEntry,
-} from "@/features/receivables";
 import type { ClientRow } from "../model/types";
 import { ClientForm } from "./ClientForm";
 import { hasPermission, type WorkspaceRole } from "@/lib/server/permissions";
@@ -40,20 +34,17 @@ function getAvatarColor(name: string): string {
 
 type Props = {
   client: ClientRow;
-  documents: ClientDocumentRow[];
-  receivables: ReceivableEntry[];
   role: WorkspaceRole;
+  headerAction?: ReactNode;
 };
 
-export function ClientDetail({ client, documents, receivables, role }: Props) {
+export function ClientDetail({ client, role, headerAction }: Props) {
   const initials = getInitials(client.full_name);
   const avatarColor = getAvatarColor(client.full_name);
   const canWrite = hasPermission(role, "clients.write");
-  const canCreateDocuments = hasPermission(role, "documents.create");
-  const canManageReceivables = hasPermission(role, "receivables.manage");
 
   return (
-    <PageContainer>
+    <>
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <Link
@@ -97,54 +88,13 @@ export function ClientDetail({ client, documents, receivables, role }: Props) {
           </div>
         </div>
 
-        {canCreateDocuments && (
-          <Link
-            href={`/dashboard/documents/new?client=${client.id}`}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
-          >
-            Nueva escritura
-          </Link>
-        )}
+        {headerAction}
       </div>
 
       {/* Edit form (delete icon lives in the card header) — solo lectura si
           el rol no tiene clients.write (ver ClientForm) */}
       <ClientForm mode="edit" client={client} canWrite={canWrite} />
 
-      {/* Escrituras asociadas */}
-      <section aria-labelledby="client-documents-heading" className="mt-8">
-        <h2
-          id="client-documents-heading"
-          className="text-sm font-semibold text-slate-900 mb-3"
-        >
-          Escrituras
-        </h2>
-
-        {documents.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
-            <p className="text-sm text-slate-500">
-              Este cliente todavía no tiene escrituras asociadas.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <ClientDocumentsTable rows={documents} />
-          </div>
-        )}
-      </section>
-
-      {/* Cuentas por cobrar del cliente */}
-      <section aria-label="Cuentas por cobrar del cliente" className="mt-8">
-        <ReceivableMiniList
-          receivables={receivables}
-          newHref={
-            canManageReceivables
-              ? `/dashboard/receivables/new?client=${client.id}`
-              : undefined
-          }
-          emptyText="Este cliente todavía no tiene cuentas por cobrar."
-        />
-      </section>
-    </PageContainer>
+    </>
   );
 }

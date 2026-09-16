@@ -1,4 +1,5 @@
 export { CreateReceivableDialog } from "./components/CreateReceivableDialog";
+export { ClientReceivablesSection } from "./components/ClientReceivablesSection";
 export { DeleteReceivableButton } from "./components/DeleteReceivableButton";
 export { PaymentsSection } from "./components/PaymentsSection";
 export { ReceivableForm } from "./components/ReceivableForm";

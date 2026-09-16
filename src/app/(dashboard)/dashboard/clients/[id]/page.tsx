@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { ClientDetail } from "@/features/clients";
 import { getClientById } from "@/features/clients/server";
+import {
+  ClientDocumentsSection,
+  CreateClientDocumentLink,
+} from "@/features/documents";
 import { listDocumentsByClient } from "@/features/documents/server";
+import { ClientReceivablesSection } from "@/features/receivables";
 import { listReceivablesByClient } from "@/features/receivables/server";
 import { requireWorkspace } from "@/lib/server/auth";
+import { hasPermission } from "@/lib/server/permissions";
 
 export const metadata = {
   title: "Cliente — LexCR",
@@ -25,11 +32,22 @@ export default async function ClientDetailPage({ params }: Props) {
   ]);
 
   return (
-    <ClientDetail
-      client={client}
-      documents={documents}
-      receivables={receivables}
-      role={role}
-    />
+    <PageContainer>
+      <ClientDetail
+        client={client}
+        role={role}
+        headerAction={
+          hasPermission(role, "documents.create") ? (
+            <CreateClientDocumentLink clientId={client.id} />
+          ) : undefined
+        }
+      />
+      <ClientDocumentsSection documents={documents} />
+      <ClientReceivablesSection
+        clientId={client.id}
+        receivables={receivables}
+        canManage={hasPermission(role, "receivables.manage")}
+      />
+    </PageContainer>
   );
 }
