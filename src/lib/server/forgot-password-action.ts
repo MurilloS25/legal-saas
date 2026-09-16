@@ -3,14 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { ForgotPasswordSchema } from "@/lib/validations/auth";
-
-export type ForgotPasswordState = {
-  errors?: {
-    email?: string;
-  };
-  message?: string;
-  submitted?: boolean;
-};
+import type { ForgotPasswordState } from "@/lib/forms/forgot-password-state";
 
 // Mismo mensaje siempre, exista o no la cuenta, y también ante cualquier
 // error real (p. ej. rate limit de Supabase): nunca revela si un correo
