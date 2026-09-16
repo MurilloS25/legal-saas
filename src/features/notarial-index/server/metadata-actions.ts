@@ -9,14 +9,7 @@ import { generateConfiguredParties } from "./parties-generation";
 import { isNotarialComplete } from "../model/notarial";
 import { notarialSaveErrorMessage } from "./notarial-save-error";
 import { hasPermission } from "@/lib/server/permissions";
-
-export type NotarialMetadataState = {
-  errors?: Partial<Record<string, string>>;
-  message?: string;
-  success?: boolean;
-  successMessage?: string;
-  resetParties?: boolean;
-};
+import type { NotarialMetadataState } from "../model/action-state";
 
 /**
  * Guarda (crea o actualiza) la metadata del índice notarial de una Escritura.

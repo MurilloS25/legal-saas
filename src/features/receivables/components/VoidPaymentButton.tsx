@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import {
   voidPaymentAction,
-  type VoidPaymentState,
 } from "../server/payment-actions";
+import type { VoidPaymentState } from "../model/action-state";
 
 type Props = {
   receivableId: string;

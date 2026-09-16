@@ -26,8 +26,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveNotarialMetadataAction,
-  type NotarialMetadataState,
 } from "../server/metadata-actions";
+import type { NotarialMetadataState } from "../model/action-state";
 import type { NotarialMetadata } from "../model/notarial";
 import type { NotarialMetadataPrefill } from "../model/prefill";
 import { joinMissingFieldLabels } from "../model/notarial";

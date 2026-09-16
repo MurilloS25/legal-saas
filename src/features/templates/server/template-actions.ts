@@ -11,6 +11,7 @@ import { buildTemplateContentJson } from "@/lib/editor/content";
 import { TemplateIdSchema } from "../model/templates";
 import { listTemplateFields } from "./detail-queries";
 import type { Database } from "@/lib/supabase/database.types";
+import type { TemplateWorkspaceState } from "../model/action-state";
 
 // Mínima copia del orden del stepper — usada solo para calcular a qué paso
 // avanzar tras el primer guardado (create → edit). `TemplateWorkspace.tsx`
@@ -32,21 +33,6 @@ function nextTemplateSection(current: string): string {
     ? TEMPLATE_STEP_ORDER[index + 1]
     : current;
 }
-
-// ------------------------------------------------------------------ types
-
-export type TemplateWorkspaceState = {
-  errors?: {
-    name?: string;
-    description?: string;
-    status?: string;
-    document?: string;
-    variables?: string;
-  };
-  message?: string;
-  success?: boolean;
-  updatedAt?: string;
-};
 
 const GENERIC_SAVE_ERROR =
   "No fue posible guardar el machote. Intenta de nuevo.";

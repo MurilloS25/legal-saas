@@ -69,8 +69,8 @@ import { groupVariablesByRole } from "../model/role-autofill";
 import {
   createDocumentDraftAction,
   updateDocumentDraftAction,
-  type DocumentDraftState,
 } from "../server/content-actions";
+import type { DocumentDraftState } from "../model/action-state";
 import type { DocumentRow } from "../server/detail-queries";
 import type { DocumentActivityPage } from "../server/activity-queries";
 import {

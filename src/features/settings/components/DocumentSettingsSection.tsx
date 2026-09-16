@@ -17,8 +17,8 @@ import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
 import {
   saveDocumentSettingsAction,
-  type DocumentSettingsState,
 } from "../server/settings-actions";
+import type { DocumentSettingsState } from "../model/action-state";
 import { ALLOWED_FONT_FAMILIES } from "@/lib/validations/settings";
 import { FieldError } from "@/components/forms/FieldError";
 import { SettingsActionsBar } from "./SettingsActionsBar";

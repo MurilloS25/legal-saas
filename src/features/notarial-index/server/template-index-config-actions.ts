@@ -5,12 +5,7 @@ import { ResourceIdSchema as TemplateIdSchema } from "@/lib/validation/resource-
 import { requireUser } from "@/lib/server/auth";
 import type { Database } from "@/lib/supabase/database.types";
 import { TemplateIndexConfigurationSchema } from "../model/template-index-configuration";
-
-export type TemplateIndexConfigurationState = {
-  errors?: Partial<Record<string, string>>;
-  message?: string;
-  success?: boolean;
-};
+import type { TemplateIndexConfigurationState } from "../model/action-state";
 
 export async function saveTemplateIndexConfigurationAction(
   templateId: string,

@@ -27,8 +27,8 @@ import {
   markDocumentFinalAction,
   reopenDocumentAction,
   returnDocumentToDraftAction,
-  type DocumentStatusState,
 } from "../server/lifecycle-actions";
+import type { DocumentStatusState } from "../model/action-state";
 import type { DocumentStatus } from "../model/lifecycle";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 

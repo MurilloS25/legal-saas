@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSaveRevision } from "@/lib/forms/use-save-revision";
-import type { DocumentDraftState } from "../server/content-actions";
+import type { DocumentDraftState } from "../model/action-state";
 
 export function useDocumentDirtyState(
   state: DocumentDraftState,

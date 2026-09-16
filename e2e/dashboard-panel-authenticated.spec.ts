@@ -30,7 +30,9 @@ function todayCostaRicaIso(): string {
     day: "2-digit",
   }).formatToParts(new Date());
   const value = (type: string) => parts.find((p) => p.type === type)?.value;
-  return `${value("year")}-${value("month")}-${value("day")}`;
+  // Mediodía local evita que PostgreSQL interprete 00:00Z como el día
+  // anterior en Costa Rica, especialmente en el cambio de quincena.
+  return `${value("year")}-${value("month")}-${value("day")}T12:00:00-06:00`;
 }
 
 test.describe("dashboard panel", () => {

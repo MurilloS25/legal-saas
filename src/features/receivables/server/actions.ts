@@ -15,35 +15,13 @@ import {
 } from "@/lib/navigation/context-return";
 import { receivableHasPaymentHistory } from "./payment-queries";
 import { getReceivableEntry } from "./detail-queries";
-import type { ReceivableEntry } from "../model/types";
+import type {
+  DeleteReceivableState,
+  ReceivableState,
+} from "../model/action-state";
 
 type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
 type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
-
-// ------------------------------------------------------------------ types
-
-export type ReceivableState = {
-  errors?: {
-    client_id?: string;
-    client_name?: string;
-    document_id?: string;
-    concept?: string;
-    currency?: string;
-    amount_total?: string;
-    issued_at?: string;
-    due_at?: string;
-    notes?: string;
-  };
-  message?: string;
-  success?: boolean;
-  /** Solo poblado por `createReceivableForDialogAction` (modo diálogo,
-   * creación contextual desde una Escritura, que nunca redirige). */
-  receivable?: ReceivableEntry;
-};
-
-export type DeleteReceivableState = {
-  message?: string;
-};
 
 // ------------------------------------------------------------------ helpers
 

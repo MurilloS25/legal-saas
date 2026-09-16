@@ -3,8 +3,8 @@
 import { useActionState, useEffect, useRef } from "react";
 import {
   inviteMemberAction,
-  type InviteMemberState,
 } from "../server/team-actions";
+import type { InviteMemberState } from "../model/action-state";
 import { FieldError } from "@/components/forms/FieldError";
 import { INVITABLE_ROLES, ROLE_LABELS } from "@/lib/server/permissions";
 import { useToast } from "@/components/feedback/Toast";

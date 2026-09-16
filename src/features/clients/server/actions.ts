@@ -4,38 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
 import { ClientSchema } from "../model/client-schema";
-
-// ------------------------------------------------------------------ types
-
-export type ClientState = {
-  errors?: {
-    full_name?: string;
-    identification_type?: string;
-    identification_number?: string;
-    marital_status?: string;
-    nationality?: string;
-    occupation?: string;
-    exact_address?: string;
-  };
-  message?: string;
-  success?: boolean;
-};
-
-export type DeleteClientState = {
-  message?: string;
-};
-
-/** Cliente mínimo que devuelve la creación contextual (diálogo). */
-export type CreatedClient = {
-  id: string;
-  full_name: string;
-  identification_number: string;
-  exact_address: string;
-};
-
-export type ClientDialogState = ClientState & {
-  client?: CreatedClient;
-};
+import type {
+  ClientDialogState,
+  ClientState,
+  CreatedClient,
+  DeleteClientState,
+} from "../model/action-state";
 
 // ------------------------------------------------------------------ helpers
 

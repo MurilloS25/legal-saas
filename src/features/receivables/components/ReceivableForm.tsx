@@ -6,8 +6,8 @@ import {
   createReceivableAction,
   createReceivableForDialogAction,
   updateReceivableAction,
-  type ReceivableState,
 } from "../server/actions";
+import type { ReceivableState } from "../model/action-state";
 import type {
   ClientOption,
   DocumentOption,

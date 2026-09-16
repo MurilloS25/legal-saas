@@ -18,13 +18,7 @@ import {
 } from "../model/lifecycle";
 import { resolveDocumentTemplateSnapshot } from "../model/document-template-snapshot";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
-
-export type DocumentStatusState = {
-  message?: string;
-  success?: boolean;
-  /** Cantidad de variables pendientes cuando bloquean finalizar. */
-  pendingCount?: number;
-};
+import type { DocumentStatusState } from "../model/action-state";
 
 /**
  * Transición de estado del ciclo de vida. No acepta un estado arbitrario del

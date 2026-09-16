@@ -6,10 +6,7 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "../model/document-schema";
 import { buildDuplicateDocumentTitle } from "../model/duplicate";
-
-export type DuplicateDocumentState = {
-  message?: string;
-};
+import type { DuplicateDocumentState } from "../model/action-state";
 
 /**
  * Duplica una escritura propia (borrador o finalizada) como un borrador

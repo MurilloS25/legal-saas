@@ -23,17 +23,11 @@ import { isReadOnlyStatus } from "../model/lifecycle";
 import { resolveOptionalClientId } from "./client-actions";
 import {
   validateDraftInput,
-  type DocumentDraftState,
 } from "./document-draft-validation";
-
-export type { DocumentDraftState } from "./document-draft-validation";
-
-// ------------------------------------------------------------------ types
-
-export type DeleteDocumentState = {
-  message?: string;
-  success?: boolean;
-};
+import type {
+  DeleteDocumentState,
+  DocumentDraftState,
+} from "../model/action-state";
 
 // ------------------------------------------------------------------ helpers
 

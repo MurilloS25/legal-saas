@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import {
   deleteDocumentDraftAction,
-  type DeleteDocumentState,
 } from "../server/content-actions";
+import type { DeleteDocumentState } from "../model/action-state";
 
 type Props = {
   documentId: string;

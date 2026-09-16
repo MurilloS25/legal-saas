@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import {
   deleteReceivableAction,
-  type DeleteReceivableState,
 } from "../server/actions";
+import type { DeleteReceivableState } from "../model/action-state";
 
 type Props = {
   receivableId: string;
