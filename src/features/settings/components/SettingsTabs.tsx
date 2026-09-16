@@ -9,13 +9,15 @@
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { BuildingIcon, GearIcon, UsersIcon } from "@/app/(dashboard)/_components/icons";
+import { BuildingIcon, GearIcon, UsersIcon } from "@/components/icons";
 import { ProfileSection } from "./ProfileSection";
-import { DocumentSettingsSection, type DocumentSettingsData } from "./DocumentSettingsSection";
-import { WorkspaceSection, type LawyerProfileData } from "./WorkspaceSection";
-import type { TeamMember } from "@/app/(dashboard)/dashboard/team/MemberRow";
-import type { WorkspaceActivityEvent } from "@/app/(dashboard)/dashboard/team/activity-format";
-import type { WorkspaceRole } from "@/lib/server/permissions";
+import { DocumentSettingsSection } from "./DocumentSettingsSection";
+import { WorkspaceSection } from "./WorkspaceSection";
+import type {
+  DocumentSettingsData,
+  LawyerProfileData,
+  SettingsTeamData,
+} from "../model/types";
 
 type Section = "profile" | "document" | "workspace";
 
@@ -30,13 +32,7 @@ type Props = {
   canManage: boolean;
   initialProfile: LawyerProfileData | null;
   initialSettings: DocumentSettingsData | null;
-  team: {
-    canManageMembers: boolean;
-    members: TeamMember[];
-    activity: WorkspaceActivityEvent[];
-    callerUserId: string;
-    callerRole: WorkspaceRole;
-  } | null;
+  team: SettingsTeamData | null;
 };
 
 export function SettingsTabs({ userEmail, canManage, initialProfile, initialSettings, team }: Props) {

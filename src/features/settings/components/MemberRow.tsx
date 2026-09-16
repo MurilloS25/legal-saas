@@ -7,7 +7,7 @@ import {
   removeMemberAction,
   suspendMemberAction,
   type TeamMemberActionState,
-} from "./actions";
+} from "../server/team-actions";
 import {
   ROLE_LABELS,
   canManageMember,
@@ -15,16 +15,9 @@ import {
   type WorkspaceRole,
 } from "@/lib/server/permissions";
 
-export type TeamMember = {
-  id: string;
-  user_id: string;
-  email: string | null;
-  full_name: string | null;
-  role: string;
-  status: string;
-  invited_by: string | null;
-  created_at: string;
-};
+import type { TeamMember } from "../model/types";
+
+export type { TeamMember } from "../model/types";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Activo",

@@ -27,7 +27,7 @@ import {
   StackIcon,
   UsersIcon,
   WalletIcon,
-} from "../_components/icons";
+} from "@/components/icons";
 
 export const metadata = {
   title: "Panel — LexCR",

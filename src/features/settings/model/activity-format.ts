@@ -8,16 +8,9 @@
  */
 
 import { ROLE_LABELS, type WorkspaceRole } from "@/lib/server/permissions";
+import type { WorkspaceActivityEvent } from "./types";
 
-export type WorkspaceActivityEvent = {
-  id: string;
-  event_type: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  actor_name_snapshot: string;
-  actor_role_snapshot: string;
-  target_email: string | null;
-};
+export type { WorkspaceActivityEvent } from "./types";
 
 function roleLabel(role: unknown): string {
   if (typeof role !== "string") return String(role);

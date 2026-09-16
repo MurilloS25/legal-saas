@@ -2,7 +2,7 @@ import {
   formatWorkspaceActivityEvent,
   formatWorkspaceActivityTimestamp,
   type WorkspaceActivityEvent,
-} from "./activity-format";
+} from "../model/activity-format";
 
 type Props = {
   events: WorkspaceActivityEvent[];

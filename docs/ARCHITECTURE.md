@@ -433,6 +433,16 @@ Each phase must preserve behavior, security, accessibility, and relevant unit,
 RLS, build, and E2E coverage. A failed or oversized phase should be reduced,
 not solved by a repository-wide rewrite.
 
+## Product and UX backlog
+
+These items are recorded for future product work and are not part of the
+current architecture refactors:
+
+- Add a global `not-found.tsx` with LexCR styling and an action back to the
+  dashboard.
+- Define a future public landing route at `/` with product presentation,
+  login access, possible pricing, and the definitive brand/domain decisions.
+
 ## Unsaved workspace navigation
 
 The dashboard's `NavigationGuardProvider` owns the shared leave confirmation.
