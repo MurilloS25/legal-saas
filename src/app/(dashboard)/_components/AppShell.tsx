@@ -32,7 +32,7 @@ import {
   UsersIcon,
   WalletIcon,
   XIcon,
-} from "./icons";
+} from "@/components/icons";
 
 // ------------------------------------------------------------------ nav config
 

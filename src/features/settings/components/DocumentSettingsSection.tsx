@@ -18,21 +18,15 @@ import { useActionState } from "react";
 import {
   saveDocumentSettingsAction,
   type DocumentSettingsState,
-} from "../actions";
+} from "../server/settings-actions";
 import { ALLOWED_FONT_FAMILIES } from "@/lib/validations/settings";
 import { FieldError } from "@/components/forms/FieldError";
 import { SettingsActionsBar } from "./SettingsActionsBar";
 import { useToast } from "@/components/feedback/Toast";
 
-export type DocumentSettingsData = {
-  font_family: string;
-  font_size: number;
-  margin_top_cm: number;
-  margin_bottom_cm: number;
-  margin_left_cm: number;
-  margin_right_cm: number;
-  line_spacing: number;
-};
+import type { DocumentSettingsData } from "../model/types";
+
+export type { DocumentSettingsData } from "../model/types";
 
 // Defaults aligned with Costa Rican legal document conventions.
 const DOCUMENT_SETTINGS_DEFAULTS: DocumentSettingsData = {

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
 import { createAdminClient, findUserIdByEmail } from "@/lib/supabase/admin";
 import { hasPermission, INVITABLE_ROLES } from "@/lib/server/permissions";
-import { InviteMemberSchema } from "@/lib/validations/team";
+import { InviteMemberSchema } from "../model/team-validation";
 
 export type InviteMemberState = {
   errors?: {

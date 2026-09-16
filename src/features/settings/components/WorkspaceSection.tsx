@@ -12,23 +12,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
-import { saveProfileAction, type ProfileState } from "../actions";
+import { saveProfileAction, type ProfileState } from "../server/settings-actions";
 import { FieldError } from "@/components/forms/FieldError";
 import { SettingsActionsBar } from "./SettingsActionsBar";
 import { useToast } from "@/components/feedback/Toast";
-import { InviteMemberForm } from "@/app/(dashboard)/dashboard/team/InviteMemberForm";
-import { TeamMembersTable } from "@/app/(dashboard)/dashboard/team/TeamMembersTable";
-import { WorkspaceActivityList } from "@/app/(dashboard)/dashboard/team/WorkspaceActivityList";
-import type { WorkspaceActivityEvent } from "@/app/(dashboard)/dashboard/team/activity-format";
-import type { TeamMember } from "@/app/(dashboard)/dashboard/team/MemberRow";
-import type { WorkspaceRole } from "@/lib/server/permissions";
+import { InviteMemberForm } from "./InviteMemberForm";
+import { TeamMembersTable } from "./TeamMembersTable";
+import { WorkspaceActivityList } from "./WorkspaceActivityList";
+import type {
+  LawyerProfileData,
+  SettingsTeamData,
+} from "../model/types";
 
-export type LawyerProfileData = {
-  full_name: string;
-  professional_code: string | null;
-  email: string | null;
-  phone: string | null;
-};
+export type { LawyerProfileData } from "../model/types";
 
 type FormValues = {
   full_name: string;
@@ -55,13 +51,7 @@ const initialState: ProfileState = {};
 type Props = {
   initialProfile: LawyerProfileData | null;
   canManage: boolean;
-  team: {
-    canManageMembers: boolean;
-    members: TeamMember[];
-    activity: WorkspaceActivityEvent[];
-    callerUserId: string;
-    callerRole: WorkspaceRole;
-  } | null;
+  team: SettingsTeamData | null;
 };
 
 export function WorkspaceSection({ initialProfile, canManage, team }: Props) {

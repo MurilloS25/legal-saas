@@ -1,5 +1,6 @@
 import type { WorkspaceRole } from "@/lib/server/permissions";
-import { MemberRow, type TeamMember } from "./MemberRow";
+import { MemberRow } from "./MemberRow";
+import type { TeamMember } from "../model/types";
 
 type Props = {
   members: TeamMember[];

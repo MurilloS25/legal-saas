@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveDocumentSettingsAction, saveProfileAction } from "./actions";
+import {
+  saveDocumentSettingsAction,
+  saveProfileAction,
+} from "./settings-actions";
 
 const db = vi.hoisted(() => ({
   from: vi.fn(), update: vi.fn(), eq: vi.fn(), select: vi.fn(),
