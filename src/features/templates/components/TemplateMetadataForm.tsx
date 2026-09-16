@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { FieldError } from "@/components/forms/FieldError";
-import type { TemplateWorkspaceState } from "../server/template-actions";
+import type { TemplateWorkspaceState } from "../model/action-state";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-50";

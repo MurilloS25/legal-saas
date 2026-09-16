@@ -17,7 +17,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ReceivableForm } from "./ReceivableForm";
 import type { ClientOption, DocumentOption } from "../model/types";
-import type { ReceivableState } from "../server/actions";
+import type { ReceivableState } from "../model/action-state";
 
 type Props = {
   clients: ClientOption[];

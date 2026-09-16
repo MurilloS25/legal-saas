@@ -225,10 +225,14 @@ test.describe("document composer workspace", () => {
 
     const historyTrigger = page.getByRole("button", { name: "Historial" });
     await historyTrigger.click();
-    await expect(
-      page.getByRole("dialog", { name: "Historial de la escritura" }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Cerrar historial" }).click();
+    const historyDialog = page.getByRole("dialog", {
+      name: "Historial de la escritura",
+    });
+    await expect(historyDialog).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(historyDialog.locator(":focus")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(historyDialog).toBeHidden();
     await expect(historyTrigger).toBeFocused();
   });
 
@@ -510,14 +514,15 @@ test.describe("document composer workspace", () => {
     });
 
     // El machote pierde la variable dato.dos después de guardar el borrador.
+    // La Escritura conserva su snapshot histórico, así que el campo y su
+    // valor siguen perteneciendo a esta versión documental.
     await updateTestTemplateContent(
       historyTemplate.id,
       "Acta con {{dato.uno}}.",
     );
 
     await page.goto(`/dashboard/documents/${historyDraft.id}`);
-    // El campo huérfano ya no es editable: ni siquiera se envía en el form.
-    await expect(fieldValue(page, "dato.dos")).toHaveCount(0);
+    await expect(fieldValue(page, "dato.dos")).toHaveValue("Valor Dos");
 
     // Guardar con un cambio no borra el valor histórico.
     await fillFieldLive(page, "dato.uno", "Valor Uno B");
@@ -526,7 +531,7 @@ test.describe("document composer workspace", () => {
       page.getByRole("status").getByText("Escritura guardada."),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Si el machote recupera la variable, el valor histórico reaparece.
+    // Cambios posteriores al Machote tampoco alteran el snapshot existente.
     await updateTestTemplateContent(
       historyTemplate.id,
       "Acta con {{dato.uno}} y {{dato.dos}}.",

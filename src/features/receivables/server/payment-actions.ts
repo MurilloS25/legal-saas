@@ -12,25 +12,7 @@ import {
   appendReturnTo,
   parseDocumentReceivablesReturnTo,
 } from "@/lib/navigation/context-return";
-
-// ------------------------------------------------------------------ types
-
-export type PaymentState = {
-  errors?: {
-    amount?: string;
-    paid_at?: string;
-    method?: string;
-    reference?: string;
-  };
-  message?: string;
-  /** Solo poblado por `registerPaymentForDialogAction` (modo diálogo,
-   * registro contextual desde una Escritura, que nunca redirige). */
-  success?: boolean;
-};
-
-export type VoidPaymentState = {
-  error?: string;
-};
+import type { PaymentState, VoidPaymentState } from "../model/action-state";
 
 // Traduce el SQLSTATE de la RPC a un mensaje accionable para el usuario.
 function registerErrorMessage(code: string | undefined): string {

@@ -12,7 +12,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
-import { saveProfileAction, type ProfileState } from "../server/settings-actions";
+import { saveProfileAction } from "../server/settings-actions";
+import type { ProfileState } from "../model/action-state";
 import { FieldError } from "@/components/forms/FieldError";
 import { SettingsActionsBar } from "./SettingsActionsBar";
 import { useToast } from "@/components/feedback/Toast";

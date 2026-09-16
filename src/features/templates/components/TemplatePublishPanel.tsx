@@ -1,6 +1,6 @@
 "use client";
 
-import type { TemplateWorkspaceState } from "../server/template-actions";
+import type { TemplateWorkspaceState } from "../model/action-state";
 import { TemplateMetadataForm } from "./TemplateMetadataForm";
 
 type Props = {

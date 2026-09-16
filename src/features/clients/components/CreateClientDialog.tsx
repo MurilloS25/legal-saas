@@ -22,9 +22,11 @@ import { createPortal } from "react-dom";
 import { useActionState } from "react";
 import {
   createClientForDialogAction,
-  type ClientDialogState,
-  type CreatedClient,
 } from "../server/actions";
+import type {
+  ClientDialogState,
+  CreatedClient,
+} from "../model/action-state";
 import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 import { FieldError } from "@/components/forms/FieldError";
 

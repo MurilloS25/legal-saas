@@ -11,16 +11,7 @@ import type { VariableOutputTransform } from "@/features/templates/domain";
 import { renderStructuredTemplate } from "@/lib/editor/render";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { extractActiveDocumentVariables } from "@/lib/editor/variables";
-
-export type DocumentDraftState = {
-  /** Errores por field_key del machote. */
-  errors?: Record<string, string>;
-  titleError?: string;
-  message?: string;
-  success?: boolean;
-  updatedAt?: string;
-  conflictUpdatedAt?: string;
-};
+import type { DocumentDraftState } from "../model/action-state";
 
 function buildTransformsMap(
   fields: FillableTemplateField[],

@@ -5,8 +5,8 @@ import { useActionState } from "react";
 import {
   createClientAction,
   updateClientAction,
-  type ClientState,
 } from "../server/actions";
+import type { ClientState } from "../model/action-state";
 import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
 import type { ClientRow } from "../model/types";
 import { DeleteClientButton } from "./DeleteClientButton";

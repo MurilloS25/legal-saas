@@ -6,8 +6,8 @@ import {
   reactivateMemberAction,
   removeMemberAction,
   suspendMemberAction,
-  type TeamMemberActionState,
 } from "../server/team-actions";
+import type { TeamMemberActionState } from "../model/action-state";
 import {
   ROLE_LABELS,
   canManageMember,

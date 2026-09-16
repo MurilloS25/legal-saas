@@ -6,15 +6,10 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { createAdminClient, findUserIdByEmail } from "@/lib/supabase/admin";
 import { hasPermission, INVITABLE_ROLES } from "@/lib/server/permissions";
 import { InviteMemberSchema } from "../model/team-validation";
-
-export type InviteMemberState = {
-  errors?: {
-    email?: string;
-    role?: string;
-  };
-  message?: string;
-  success?: boolean;
-};
+import type {
+  InviteMemberState,
+  TeamMemberActionState,
+} from "../model/action-state";
 
 async function resolveSiteOrigin(): Promise<string> {
   const h = await headers();
@@ -114,10 +109,6 @@ export async function inviteMemberAction(
       : "Invitación registrada: este correo ya tiene cuenta en LexCR — podrá aceptarla la próxima vez que inicie sesión.",
   };
 }
-
-export type TeamMemberActionState = {
-  message?: string;
-};
 
 /**
  * Cambia el rol de un miembro. La jerarquía (propietario inmutable, un

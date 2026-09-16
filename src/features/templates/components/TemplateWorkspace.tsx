@@ -37,8 +37,8 @@ import {
   createTemplateWorkspaceAction,
   getTemplateIndexFieldOptionsAction,
   updateTemplateWorkspaceAction,
-  type TemplateWorkspaceState,
 } from "../server/template-actions";
+import type { TemplateWorkspaceState } from "../model/action-state";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { extractOptionBlockSummaries } from "@/lib/editor/option-blocks";

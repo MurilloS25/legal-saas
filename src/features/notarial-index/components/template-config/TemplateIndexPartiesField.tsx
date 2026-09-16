@@ -1,6 +1,6 @@
 "use client";
 
-import type { TemplateIndexConfigurationState } from "../../server/template-index-config-actions";
+import type { TemplateIndexConfigurationState } from "../../model/action-state";
 import { CollapsibleFieldRow } from "../CollapsibleFieldRow";
 import type { TemplateIndexPartiesController } from "./useTemplateIndexParties";
 import type { TemplateIndexPartiesMode } from "./types";

@@ -17,8 +17,8 @@ import type {
 import {
   saveTemplateIndexConfigurationAction,
   setTemplateNotarialIndexDefaultAction,
-  type TemplateIndexConfigurationState,
 } from "../server/template-index-config-actions";
+import type { TemplateIndexConfigurationState } from "../model/action-state";
 import type { TemplateOptionBlockAttrs } from "@/lib/editor/types";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { TemplateIndexSimpleFields } from "./template-config/TemplateIndexSimpleFields";

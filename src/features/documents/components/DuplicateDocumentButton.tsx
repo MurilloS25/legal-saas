@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import {
   duplicateDocumentAction,
-  type DuplicateDocumentState,
 } from "../server/duplicate-actions";
+import type { DuplicateDocumentState } from "../model/action-state";
 
 type Props = {
   documentId: string;
