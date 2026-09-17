@@ -11,6 +11,7 @@ import {
   throwDataAccessError,
 } from "@/lib/server/errors";
 import type { WorkspaceRole } from "@/lib/server/permissions";
+import { isUserBanned } from "@/lib/auth/user-status";
 
 const getServerAuth = cache(async () => {
   const supabase = await createClient();
@@ -27,7 +28,7 @@ const getServerAuth = cache(async () => {
 /** Auth context for Server Components and Server Actions. */
 export async function requireUser() {
   const context = await getServerAuth();
-  if (!context.user) redirect("/login");
+  if (!context.user || isUserBanned(context.user)) redirect("/login");
   return { supabase: context.supabase, user: context.user };
 }
 
@@ -45,7 +46,7 @@ export async function requireApiUser() {
 
   if (isAuthSessionMissingError(error)) throw new UnauthorizedError();
   if (error) throwDataAccessError("authenticate API user", error);
-  if (!user) throw new UnauthorizedError();
+  if (!user || isUserBanned(user)) throw new UnauthorizedError();
   return { supabase, user };
 }
 

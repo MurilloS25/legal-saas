@@ -44,7 +44,12 @@ export const UpdatePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+export const ChangePasswordSchema = UpdatePasswordSchema.safeExtend({
+  currentPassword: z.string().min(1, "Ingresa tu contraseña actual"),
+});
+
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type SignupInput = z.infer<typeof SignupSchema>;
 export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
 export type UpdatePasswordInput = z.infer<typeof UpdatePasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;

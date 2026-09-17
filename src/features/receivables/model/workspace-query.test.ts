@@ -96,4 +96,10 @@ describe("sanitizeSearchTermForPostgrest", () => {
     expect(searchHasNoSafeTerm("")).toBe(false);
     expect(searchHasNoSafeTerm("Honorarios %")).toBe(false);
   });
+
+  it("neutralizes a PostgREST OR-filter injection payload", () => {
+    expect(
+      sanitizeSearchTermForPostgrest("x%,workspace_id.eq.attacker),concept.ilike.%"),
+    ).toBe("x workspace id eq attacker concept ilike");
+  });
 });

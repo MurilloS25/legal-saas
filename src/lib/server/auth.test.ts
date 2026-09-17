@@ -53,6 +53,24 @@ describe("requireApiUser", () => {
 
     await expect(requireApiUser()).rejects.toBeInstanceOf(DataAccessError);
   });
+
+  it("rejects an API request from a currently banned user", async () => {
+    createClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: {
+            user: {
+              id: "banned-user",
+              banned_until: new Date(Date.now() + 60_000).toISOString(),
+            },
+          },
+          error: null,
+        }),
+      },
+    });
+
+    await expect(requireApiUser()).rejects.toBeInstanceOf(UnauthorizedError);
+  });
 });
 
 function workspaceClient(result: {

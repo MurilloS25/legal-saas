@@ -18,10 +18,10 @@ export function UpdatePasswordForm() {
       <div className="bg-white rounded-2xl border border-slate-200 px-8 py-10 shadow-sm">
         <div className="mb-7">
           <h1 className="text-xl font-semibold text-slate-900">
-            Crear nueva contraseña
+            Cambiar contraseña
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Elige una contraseña nueva para tu cuenta.
+            Confirma tu contraseña actual antes de guardar una nueva.
           </p>
         </div>
 
@@ -35,6 +35,15 @@ export function UpdatePasswordForm() {
         )}
 
         <form action={formAction} className="space-y-5" noValidate>
+          <div>
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-700 mb-1.5">
+              Contraseña actual
+            </label>
+            <input id="currentPassword" name="currentPassword" type="password" autoComplete="current-password" required
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500"
+              aria-describedby="currentPassword-error" aria-invalid={!!state.errors?.currentPassword} />
+            <FieldError id="currentPassword-error" message={state.errors?.currentPassword} />
+          </div>
           <div>
             <label
               htmlFor="password"

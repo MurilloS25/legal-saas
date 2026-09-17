@@ -72,22 +72,17 @@ cuenta. Implementado end-to-end:
    `/reset-password?token_hash=...&email=...` — una ruta propia de la app
    en vez del endpoint hosted de Supabase, igual que para invitación (ver
    más abajo).
-3. `/reset-password` (`src/app/(auth)/reset-password/`) es una página
-   intermedia: el `GET` **no** ejecuta `verifyOtp` ni toca sesión alguna
-   — solo muestra "Restablecer tu contraseña para &lt;email&gt;" y un botón
-   "Continuar". Solo el `POST` de ese botón
-   (`reset-password/confirm-actions.ts`) llama
-   `verifyOtp({ token_hash, type: "recovery" })`, crea la sesión, y
-   redirige a `/update-password` (URL limpia, sin token). Mismo patrón y
-   mismo razonamiento que la invitación a un Workspace — ver esa sección
-   más abajo para el porqué.
-4. `/update-password` — Server Component que verifica sesión server-side
-   antes de mostrar el formulario; sin sesión válida muestra "Enlace no
-   válido o expirado" con un enlace para pedir uno nuevo, en vez de un
-   redirect silencioso a `/login`. Al guardar la nueva contraseña,
-   `updatePasswordAction` llama `signOut({ scope: "others" })` — cualquier
-   otra sesión activa con la contraseña anterior queda invalidada. Sin
-   cambios en esta iteración.
+3. `/reset-password` (`src/app/(auth)/reset-password/`) muestra el formulario
+   de contraseña sin consumir el token en el `GET`. Un único Server Action
+   valida `token_hash` con `verifyOtp`, actualiza la contraseña y redirige al
+   panel. Así el privilegio de recuperación nunca queda disponible para una
+   sesión ordinaria y la URL final queda limpia.
+4. `/update-password` es exclusivamente el cambio de contraseña de una sesión
+   normal. Además de una sesión válida exige la contraseña actual y
+   reautentica explícitamente el mismo correo con `signInWithPassword` antes
+   del cambio. Una sesión robada por sí sola no basta para cambiar la
+   credencial. Ambos flujos intentan revocar las otras
+   sesiones y registran solo el código seguro si esa revocación remota falla.
 5. `/update-password` y `/reset-password` están **deliberadamente
    excluidas** de `PRIVATE_ROUTE_PREFIXES` y `AUTH_ROUTES` en
    `src/proxy.ts` — ver el comentario ahí para el razonamiento (un enlace
@@ -125,12 +120,10 @@ Diseño actual:
 
 1. El correo enlaza directo a `/accept-invite?token_hash=...&email=...`
    (`src/app/(auth)/accept-invite/page.tsx`, "Mode A" en ese archivo). El
-   `GET` **no** llama a `verifyOtp` ni toca sesión alguna — solo muestra una
-   vista previa (Workspace, correo, rol) resuelta leyendo
-   `workspace_members` directamente por email vía la Admin API
-   (`createAdminClient`/`findUserIdByEmail`), sin acercarse al token de
-   Supabase. Si la invitación ya fue aceptada o fue revocada, lo dice
-   explícitamente en vez de ofrecer el botón.
+   `GET` **no** llama a `verifyOtp`, no toca sesión y tampoco consulta datos
+   por correo con service role. Muestra un estado genérico sin Workspace,
+   rol, correo ni estado de membresía. Esto evita que un token inventado con
+   un correo conocido funcione como oráculo de metadatos.
 2. Solo el `POST` del botón "Aceptar invitación"
    (`src/app/(auth)/accept-invite/confirm-actions.ts`) ejecuta
    `verifyOtp({ token_hash, type: "invite" })`, crea la sesión, y llama a
@@ -179,8 +172,10 @@ forma stateless, y un token no vencido sigue siendo válido para
 `getUser()` incluso después de banear al usuario (verificado
 empíricamente contra el stack local). Por eso `src/proxy.ts` chequea
 explícitamente `user.banned_until` en cada request (no solo `!user`) y
-cierra la sesión (`signOut()`) apenas lo detecta — esto es lo que corta
-el acceso de verdad, no el baneo en sí. Cubierto por
+  cierra la sesión (`signOut()`) apenas lo detecta. El proxy corta además
+  cualquier `/api/*` con `401` antes de ejecutar el Route Handler; los helpers
+  `requireApiUser` y `requireUser` mantienen la defensa cuando el proveedor
+  devuelve el atributo de baneo. Cubierto por
 `e2e/auth-security-hardening.spec.ts` (test D).
 
 Eliminar el usuario (en vez de banear) también sigue funcionando como
@@ -196,6 +191,21 @@ cascada sus datos (`docs/SUPABASE_PRODUCTION.md`).
 - `proxy.ts` llama `getUser()` (no `getSession()`) en cada request —
   valida el JWT contra el servidor de Auth en vez de confiar solo en la
   cookie local, requisito para que la revocación de arriba funcione.
+- Las cookies de sesión emitidas por `@supabase/ssr` usan `HttpOnly`,
+  `SameSite=Lax`, `Path=/` y `Secure` en producción. El checkout no crea un
+  cliente Supabase en el navegador, por lo que `HttpOnly` es compatible con
+  la arquitectura; en desarrollo `Secure` queda desactivado para HTTP local.
+- El logout intenta revocación global, registra únicamente el código del
+  error y elimina siempre las cookies Auth locales, incluso si falla la
+  llamada remota.
+
+### Headers del navegador
+
+`next.config.ts` aplica CSP global con `frame-ancestors 'none'`, fuentes y
+conexiones acotadas al propio origen y Supabase, además de
+`X-Content-Type-Options`, `Referrer-Policy` y `Permissions-Policy`. El runtime
+de desarrollo agrega solo lo necesario para Next local; producción no permite
+`unsafe-eval`.
 
 ### Rate limits (solo local)
 

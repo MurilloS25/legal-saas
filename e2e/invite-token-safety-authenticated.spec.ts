@@ -82,6 +82,26 @@ async function acceptInviteThroughUi(page: Page, link: string): Promise<void> {
 test.describe("seguridad del token de invitación (un GET no debe consumirlo)", () => {
   test.describe.configure({ mode: "serial" });
 
+  test("un token inválido con un correo conocido no revela metadatos de la cuenta o Workspace", async ({
+    page,
+  }) => {
+    const knownEmail = uniqueEmail("known-invalid-token");
+    const userId = await createDisposableUser(knownEmail, PASSWORD);
+
+    try {
+      await page.goto(
+        `/accept-invite?token_hash=not-a-real-token&email=${encodeURIComponent(knownEmail)}`,
+      );
+      await expect(page.getByRole("heading", { name: "Confirmar invitación" })).toBeVisible();
+      await expect(page.getByText(knownEmail)).toHaveCount(0);
+      await expect(page.getByText(/Te invitaron a/)).toHaveCount(0);
+      await page.getByRole("button", { name: "Aceptar invitación" }).click();
+      await expect(page.getByText("El enlace ya se usó o expiró. Pide una nueva invitación.")).toBeVisible();
+    } finally {
+      await deleteUser(userId);
+    }
+  });
+
   test("un GET simple, y varios GET consecutivos, al enlace no consumen el token", async ({
     page,
     browser,
@@ -285,12 +305,9 @@ test.describe("seguridad del token de invitación (un GET no debe consumirlo)", 
       const memberContext = await browser.newContext();
       const memberPage = await memberContext.newPage();
       await memberPage.goto(link);
-      await expect(
-        memberPage.getByRole("heading", { name: "Esta invitación fue revocada" }),
-      ).toBeVisible();
-      await expect(
-        memberPage.getByRole("button", { name: "Aceptar invitación" }),
-      ).not.toBeVisible();
+      await expect(memberPage.getByRole("heading", { name: "Confirmar invitación" })).toBeVisible();
+      await memberPage.getByRole("button", { name: "Aceptar invitación" }).click();
+      await expect(memberPage.getByText("No se encontró una invitación pendiente para tu cuenta.")).toBeVisible();
       await memberContext.close();
 
       const rows = await restSelect<{ status: string }>(
@@ -385,20 +402,14 @@ test.describe("seguridad del token de invitación (un GET no debe consumirlo)", 
       expect(finalRows).toHaveLength(1);
       expect(finalRows[0]).toEqual({ status: "active", role: "solo_lectura" });
 
-      // Bono: el enlace VIEJO (de la primera invitación, ya superada por
-      // la reinvitación y ya aceptada vía secondLink) no ofrece ningún
-      // botón para "revivir" la invitación — el correo ya es miembro
-      // activo, así que la vista previa lo dice explícitamente en vez de
-      // mostrar "Aceptar invitación".
+      // El enlace viejo no revela el estado de la cuenta en el GET y su
+      // token ya inválido falla de forma genérica al enviarse.
       const staleContext = await browser.newContext();
       const stalePage = await staleContext.newPage();
       await stalePage.goto(firstLink);
-      await expect(
-        stalePage.getByRole("heading", { name: "Esta invitación ya fue aceptada" }),
-      ).toBeVisible();
-      await expect(
-        stalePage.getByRole("button", { name: "Aceptar invitación" }),
-      ).not.toBeVisible();
+      await expect(stalePage.getByRole("heading", { name: "Confirmar invitación" })).toBeVisible();
+      await stalePage.getByRole("button", { name: "Aceptar invitación" }).click();
+      await expect(stalePage.getByText("El enlace ya se usó o expiró. Pide una nueva invitación.")).toBeVisible();
       await staleContext.close();
 
       await memberContext.close();
