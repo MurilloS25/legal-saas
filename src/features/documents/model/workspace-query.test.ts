@@ -87,6 +87,12 @@ describe("sanitizeSearchTermForPostgrest", () => {
   it("returns an empty string when the search only contains filter syntax", () => {
     expect(sanitizeSearchTermForPostgrest(`%,._()'"\\`)).toBe("");
   });
+
+  it("neutralizes a PostgREST OR-filter injection payload", () => {
+    expect(
+      sanitizeSearchTermForPostgrest("x%,workspace_id.eq.attacker),title.ilike.%"),
+    ).toBe("x workspace id eq attacker title ilike");
+  });
 });
 
 describe("documentsQueryToParams", () => {

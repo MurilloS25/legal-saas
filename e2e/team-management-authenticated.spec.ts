@@ -108,9 +108,9 @@ test.describe("team management", () => {
       const memberPage = await memberContext.newPage();
       await memberPage.goto(link);
       await expect(
-        memberPage.getByRole("heading", { name: /Te invitaron a/ }),
+        memberPage.getByRole("heading", { name: "Confirmar invitación" }),
       ).toBeVisible();
-      await expect(memberPage.getByText("Asistente")).toBeVisible();
+      await expect(memberPage.getByText(memberEmail)).toHaveCount(0);
 
       // Página intermedia (GET, sin sesión): el token todavía no se
       // consumió — solo se consume al enviar este botón, en un POST.
@@ -132,9 +132,16 @@ test.describe("team management", () => {
         .getByRole("navigation", { name: "Navegación principal" })
         .waitFor();
 
-      // Un asistente no puede gestionar miembros: la propia página redirige.
+      // La ruta legacy lleva a Despacho, pero un asistente solo ve la
+      // información en modo lectura y no recibe controles de equipo.
       await memberPage.goto("/dashboard/team");
-      await expect(memberPage).toHaveURL(/\/dashboard$/);
+      await expect(memberPage).toHaveURL(/\/settings\?tab=workspace$/);
+      await expect(
+        memberPage.getByText(/Solo el propietario o un administrador/),
+      ).toBeVisible();
+      await expect(
+        memberPage.getByRole("heading", { name: "Equipo", level: 2 }),
+      ).not.toBeVisible();
       await memberContext.close();
 
       // El propietario cambia el rol a administrador, y ahora sí puede

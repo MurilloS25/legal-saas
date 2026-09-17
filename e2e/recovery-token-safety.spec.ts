@@ -50,7 +50,6 @@ async function completeResetThroughUi(
   newPassword: string,
 ): Promise<void> {
   await page.goto(link);
-  await page.getByRole("button", { name: "Continuar" }).click();
   await expect(
     page.getByRole("heading", { name: "Crear nueva contraseña" }),
   ).toBeVisible();
@@ -142,16 +141,15 @@ test.describe("seguridad del token de recuperación (un GET no debe consumirlo)"
       const contextA = await browser.newContext();
       const pageA = await contextA.newPage();
       await pageA.goto(link);
-      await expect(pageA.getByRole("button", { name: "Continuar" })).toBeVisible();
+      await expect(pageA.getByRole("button", { name: "Guardar contraseña" })).toBeVisible();
 
       const contextB = await browser.newContext();
       const pageB = await contextB.newPage();
       await pageB.goto(link);
-      await expect(pageB.getByRole("button", { name: "Continuar" })).toBeVisible();
+      await expect(pageB.getByRole("button", { name: "Guardar contraseña" })).toBeVisible();
 
       // La pestaña A confirma primero — consume el token real, y completa
       // el restablecimiento.
-      await pageA.getByRole("button", { name: "Continuar" }).click();
       await expect(
         pageA.getByRole("heading", { name: "Crear nueva contraseña" }),
       ).toBeVisible();
@@ -165,7 +163,9 @@ test.describe("seguridad del token de recuperación (un GET no debe consumirlo)"
       // exactamente el mismo mensaje genérico que vería alguien con un
       // token realmente expirado, ya que el código no puede (ni necesita)
       // distinguir ambos casos.
-      await pageB.getByRole("button", { name: "Continuar" }).click();
+      await pageB.getByLabel("Contraseña nueva").fill(newPassword);
+      await pageB.getByLabel("Confirmar contraseña").fill(newPassword);
+      await pageB.getByRole("button", { name: "Guardar contraseña" }).click();
       await expect(
         pageB.getByText("El enlace ya se usó o expiró. Solicita uno nuevo."),
       ).toBeVisible();
@@ -189,9 +189,11 @@ test.describe("seguridad del token de recuperación (un GET no debe consumirlo)"
         `/reset-password?token_hash=not-a-real-token&email=${encodeURIComponent(email)}`,
       );
       await expect(
-        page.getByRole("heading", { name: "Restablecer tu contraseña" }),
+        page.getByRole("heading", { name: "Crear nueva contraseña" }),
       ).toBeVisible();
-      await page.getByRole("button", { name: "Continuar" }).click();
+      await page.getByLabel("Contraseña nueva").fill("OtraClave!Segura7");
+      await page.getByLabel("Confirmar contraseña").fill("OtraClave!Segura7");
+      await page.getByRole("button", { name: "Guardar contraseña" }).click();
       await expect(
         page.getByText("El enlace ya se usó o expiró. Solicita uno nuevo."),
       ).toBeVisible();
@@ -202,7 +204,7 @@ test.describe("seguridad del token de recuperación (un GET no debe consumirlo)"
         page.getByRole("heading", { name: "Enlace no válido o expirado" }),
       ).toBeVisible();
       await expect(
-        page.getByRole("button", { name: "Continuar" }),
+        page.getByRole("button", { name: "Guardar contraseña" }),
       ).not.toBeVisible();
     } finally {
       await deleteUser(userId);
@@ -225,12 +227,6 @@ test.describe("seguridad del token de recuperación (un GET no debe consumirlo)"
       const memberContext = await browser.newContext();
       const memberPage = await memberContext.newPage();
       await memberPage.goto(link);
-      await memberPage.getByRole("button", { name: "Continuar" }).click();
-
-      await memberPage.waitForURL(/\/update-password$/, { timeout: 15_000 });
-      expect(memberPage.url()).not.toContain(tokenHash!);
-      await expect(memberPage.getByText(tokenHash!)).toHaveCount(0);
-
       await memberPage.getByLabel("Contraseña nueva").fill(newPassword);
       await memberPage.getByLabel("Confirmar contraseña").fill(newPassword);
       await memberPage.getByRole("button", { name: "Guardar contraseña" }).click();

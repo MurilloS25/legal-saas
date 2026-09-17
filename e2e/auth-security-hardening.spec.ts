@@ -24,6 +24,38 @@ function uniqueEmail(label: string): string {
   return `e2e-auth-${label}-${randomUUID()}@example.com`;
 }
 
+async function forceAuthCookieRefresh(page: Page): Promise<string> {
+  const authCookies = (await page.context().cookies())
+    .filter((cookie) => /^sb-.+-auth-token(?:\.\d+)?$/.test(cookie.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  expect(authCookies.length).toBeGreaterThan(0);
+
+  const encoded = authCookies.map((cookie) => cookie.value).join("");
+  const raw = decodeURIComponent(encoded);
+  const session = JSON.parse(
+    raw.startsWith("base64-")
+      ? Buffer.from(raw.slice("base64-".length), "base64url").toString("utf8")
+      : raw,
+  ) as { access_token: string; expires_at: number };
+  const previousAccessToken = session.access_token;
+  session.expires_at = 0;
+  const expired = `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`;
+  const baseName = authCookies[0].name.replace(/\.\d+$/, "");
+
+  await page.context().clearCookies({ name: new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
+  await page.context().addCookies([
+    {
+      name: baseName,
+      value: expired,
+      url: new URL(page.url()).origin,
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax",
+    },
+  ]);
+  return previousAccessToken;
+}
+
 // El primer request a cada ruta en un dev server recién arrancado compila
 // bajo demanda y puede tardar varios segundos — más que el timeout por
 // defecto de expect() (5s). Mismo margen que ya usa auth.setup.ts.
@@ -56,6 +88,12 @@ test.describe("auth security hardening", () => {
     try {
       await page.goto("/login");
       await loginAndExpectDashboard(page, email, PASSWORD);
+      const authCookies = (await page.context().cookies()).filter((cookie) =>
+        cookie.name.includes("auth-token"),
+      );
+      expect(authCookies.length).toBeGreaterThan(0);
+      expect(authCookies.every((cookie) => cookie.httpOnly)).toBe(true);
+      expect(authCookies.every((cookie) => cookie.sameSite === "Lax")).toBe(true);
     } finally {
       await deleteUser(userId);
     }
@@ -74,6 +112,11 @@ test.describe("auth security hardening", () => {
       await page.getByRole("button", { name: "Menú de usuario" }).click();
       await page.getByRole("button", { name: "Cerrar sesión" }).click();
       await expect(page).toHaveURL(/\/login/);
+      expect(
+        (await page.context().cookies()).filter((cookie) =>
+          cookie.name.includes("auth-token"),
+        ),
+      ).toHaveLength(0);
 
       await page.goto("/dashboard");
       await expect(page).toHaveURL(/\/login/);
@@ -95,6 +138,15 @@ test.describe("auth security hardening", () => {
       await page.reload();
       await expect(page).toHaveURL(/\/dashboard/);
       await expect(page).not.toHaveURL(/\/login/);
+
+      const previousAccessToken = await forceAuthCookieRefresh(page);
+      await page.reload();
+      await expect(page).toHaveURL(/\/dashboard/);
+      const refreshedCookie = (await page.context().cookies()).find((cookie) =>
+        cookie.name.includes("auth-token"),
+      );
+      expect(refreshedCookie).toBeDefined();
+      expect(refreshedCookie?.value).not.toContain(previousAccessToken);
     } finally {
       await deleteUser(userId);
     }
@@ -111,6 +163,11 @@ test.describe("auth security hardening", () => {
       await loginAndExpectDashboard(page, email, PASSWORD);
 
       await banUser(userId);
+
+      const apiResponse = await page.request.get(
+        "/api/documents/00000000-0000-0000-0000-000000000000/docx",
+      );
+      expect(apiResponse.status()).toBe(401);
 
       // La sesión ya emitida no se invalida instantáneamente en el cliente:
       // la próxima verificación server-side (proxy.ts llama a getUser() en
@@ -150,16 +207,11 @@ test.describe("auth security hardening", () => {
       link.host = new URL(page.url()).host;
 
       await page.goto(link.toString());
-      // Página intermedia (GET, sin sesión): el token todavía no se
-      // consumió — solo se consume al enviar este botón, en un POST.
-      await expect(
-        page.getByRole("heading", { name: "Restablecer tu contraseña" }),
-      ).toBeVisible();
-      await page.getByRole("button", { name: "Continuar" }).click();
+      // El GET no consume el token. El POST aplica token + contraseña de
+      // forma atómica en el flujo de recuperación.
       await expect(
         page.getByRole("heading", { name: "Crear nueva contraseña" }),
       ).toBeVisible();
-
       await page.getByLabel("Contraseña nueva").fill(newPassword);
       await page.getByLabel("Confirmar contraseña").fill(newPassword);
       await page.getByRole("button", { name: "Guardar contraseña" }).click();
@@ -190,5 +242,44 @@ test.describe("auth security hardening", () => {
     } finally {
       await deleteUser(userId);
     }
+  });
+
+  test("F: una sesión normal requiere la contraseña actual para cambiarla", async ({
+    page,
+  }) => {
+    const email = uniqueEmail("reauth-password-change");
+    const userId = await createDisposableUser(email, PASSWORD);
+    const newPassword = "CambioNormal!Seguro6";
+
+    try {
+      await page.goto("/login");
+      await loginAndExpectDashboard(page, email, PASSWORD);
+      await page.goto("/update-password");
+
+      await page.getByLabel("Contraseña actual").fill("Incorrecta!Segura9");
+      await page.getByLabel("Contraseña nueva").fill(newPassword);
+      await page.getByLabel("Confirmar contraseña").fill(newPassword);
+      await page.getByRole("button", { name: "Guardar contraseña" }).click();
+      await expect(page.getByText("La contraseña actual no es correcta.")).toBeVisible();
+      await expect(page).toHaveURL(/\/update-password/);
+
+      await page.getByLabel("Contraseña actual").fill(PASSWORD);
+      await page.getByLabel("Contraseña nueva").fill(newPassword);
+      await page.getByLabel("Confirmar contraseña").fill(newPassword);
+      await page.getByRole("button", { name: "Guardar contraseña" }).click();
+      await page.waitForURL(/\/dashboard\?password_updated=1/, { timeout: 15_000 });
+    } finally {
+      await deleteUser(userId);
+    }
+  });
+
+  test("G: las respuestas incluyen la política de seguridad del navegador", async ({
+    request,
+  }) => {
+    const response = await request.get("/login");
+    expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+    expect(response.headers()["permissions-policy"]).toContain("camera=()");
   });
 });

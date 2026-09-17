@@ -2,8 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { UpdatePasswordSchema } from "@/lib/validations/auth";
 
 export type ConfirmResetState = {
+  errors?: {
+    password?: string;
+    confirmPassword?: string;
+  };
   message?: string;
 };
 
@@ -21,6 +26,10 @@ export async function confirmResetAction(
 ): Promise<ConfirmResetState> {
   const tokenHash = formData.get("token_hash");
   const email = formData.get("email");
+  const result = UpdatePasswordSchema.safeParse({
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
 
   if (typeof tokenHash !== "string" || !tokenHash) {
     return { message: "Enlace de recuperación inválido." };
@@ -28,15 +37,24 @@ export async function confirmResetAction(
   if (typeof email !== "string" || !email) {
     return { message: "Enlace de recuperación inválido." };
   }
+  if (!result.success) {
+    const errors = result.error.flatten().fieldErrors;
+    return {
+      errors: {
+        password: errors.password?.[0],
+        confirmPassword: errors.confirmPassword?.[0],
+      },
+    };
+  }
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.verifyOtp({
+  const { error: verifyError } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
     type: "recovery",
   });
 
-  if (error) {
+  if (verifyError) {
     // No se registra el detalle del error — podría contener información
     // del token. Un token ya usado, expirado o inválido comparten el
     // mismo mensaje genérico.
@@ -45,8 +63,19 @@ export async function confirmResetAction(
     };
   }
 
-  // URL limpia: ni token_hash ni email quedan en la barra de direcciones.
-  // /update-password ya verifica la sesión server-side antes de mostrar
-  // el formulario (sin cambios — ver ese archivo).
-  redirect("/update-password");
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: result.data.password,
+  });
+  if (updateError) {
+    return { message: "No fue posible actualizar la contraseña. Intenta de nuevo." };
+  }
+
+  const { error: signOutError } = await supabase.auth.signOut({ scope: "others" });
+  if (signOutError) {
+    console.warn(`[auth] remote session revocation failed (${signOutError.code ?? "unknown"})`);
+  }
+
+  // La redirección elimina token_hash y email de la URL y no persiste el
+  // token en almacenamiento del navegador.
+  redirect("/dashboard?password_updated=1");
 }
