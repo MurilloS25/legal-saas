@@ -7,7 +7,7 @@ configuración pública.
 
 ## Estado conocido vigente
 
-Última reconciliación documental: **2026-09-11**. El proyecto y la URL
+Última reconciliación documental: **2026-09-17**. El proyecto y la URL
 Production existen y `main` es la rama productiva. Esta reconciliación no
 consultó ni modificó Vercel Production, por lo que el deployment exacto debe
 revalidarse en Vercel antes de un release. El último deployment verificado se
@@ -61,8 +61,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   (preferida, el código la intenta primero
 NEXT_PUBLIC_SUPABASE_ANON_KEY          (fallback legacy, solo si la anterior no está)
 ```
 
-**`SUPABASE_SERVICE_ROLE_KEY`:** en esa auditoría no se encontró ninguna
-referencia en `src/` y no se configuró en Vercel.
+**`SUPABASE_SERVICE_ROLE_KEY`:** ahora la usa exclusivamente el módulo
+server-only de invitaciones de equipo (`src/lib/supabase/admin.ts`). El
+2026-09-17 se verificó por Vercel CLI autenticada, sin leer el valor, que existe
+como `Secret` y está limitada al entorno `Production`.
 
 Solo se configuró `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (no también
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`): el código ya prioriza la publishable
@@ -70,21 +72,19 @@ key, así que agregar ambas sería redundante sin necesidad real (regla
 explícita de la tarea: no configurar las dos claves públicas salvo que
 el código realmente use ambas a la vez).
 
-## Variables configuradas (Production only)
+## Variables configuradas
 
 | Variable | Entorno | Clasificación | Origen del valor |
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Production | Pública (URL del proyecto) | Supabase → `lexcr-production` → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Production | Pública (diseñada para llegar al navegador) | Supabase → `lexcr-production` → Settings → API → Publishable key |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Production, Preview | Pública (diseñada para llegar al navegador) | Supabase → `lexcr-production` → Settings → API → Publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production | Secreta, solo servidor | Supabase → `lexcr-production` → Settings → API |
 
-No se copiaron a Preview (regla explícita: las ramas Preview no deben
-tener acceso automático a producción). El usuario configuró estas dos
-variables directamente en el dashboard de Vercel — ningún tool
-disponible en este entorno puede leer/escribir variables de entorno de
-un proyecto Vercel existente, así que no se pudo verificar el scope
-"Production only" de forma automatizada; se confirma **funcionalmente**
-más abajo (la conexión a Supabase funciona en producción, lo que
-requiere que ambas estén presentes ahí).
+La verificación automatizada mostró que la publishable key también está en
+Preview; no se cambió su scope en esta remediación. La service-role key no está
+en Preview. El código valida su presencia en el servidor antes de llamar a la
+Admin API y responde con un mensaje controlado si falta, sin registrar valores,
+correos ni payloads del proveedor.
 
 ## Historial: deployment verificado el 2026-07-22
 

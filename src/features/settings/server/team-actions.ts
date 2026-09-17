@@ -3,7 +3,11 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
-import { createAdminClient, findUserIdByEmail } from "@/lib/supabase/admin";
+import {
+  AdminConfigurationError,
+  createAdminClient,
+  findUserIdByEmail,
+} from "@/lib/supabase/admin";
 import { hasPermission, INVITABLE_ROLES } from "@/lib/server/permissions";
 import { InviteMemberSchema } from "../model/team-validation";
 import type {
@@ -64,20 +68,33 @@ export async function inviteMemberAction(
     };
   }
 
-  const admin = createAdminClient();
-  const origin = await resolveSiteOrigin();
+  let targetUserId: string | null = null;
+  let emailSent = false;
 
-  const { data: invited, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(result.data.email, {
-      redirectTo: `${origin}/accept-invite`,
-    });
+  try {
+    const admin = createAdminClient();
+    const origin = await resolveSiteOrigin();
+    const { data: invited, error: inviteError } =
+      await admin.auth.admin.inviteUserByEmail(result.data.email, {
+        redirectTo: `${origin}/accept-invite`,
+      });
 
-  let targetUserId = invited?.user?.id ?? null;
-  let emailSent = !inviteError && !!targetUserId;
+    targetUserId = invited?.user?.id ?? null;
+    emailSent = !inviteError && !!targetUserId;
 
-  if (inviteError?.code === "email_exists") {
-    targetUserId = await findUserIdByEmail(result.data.email);
-    emailSent = false;
+    if (inviteError?.code === "email_exists") {
+      targetUserId = await findUserIdByEmail(result.data.email);
+      emailSent = false;
+    }
+  } catch (error) {
+    if (!(error instanceof AdminConfigurationError)) throw error;
+    // Operational context only: never log the missing value, invite email,
+    // provider payload, or a stack that could include request details.
+    console.error("[team-invite] Supabase Admin API is not configured");
+    return {
+      message:
+        "Las invitaciones no están disponibles temporalmente. Contacta al administrador del sistema.",
+    };
   }
 
   if (!targetUserId) {

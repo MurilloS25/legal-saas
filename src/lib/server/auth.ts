@@ -103,7 +103,16 @@ export const getWorkspaceAccess = cache(
 
     const rows = data ?? [];
 
-    const genuineActive = rows.find(
+    const activeRows = rows.filter((row) => row.status === "active");
+    if (activeRows.length > 1) {
+      // The database unique partial index prevents new violations. Keep this
+      // guard for legacy/drifted data so the application never selects an
+      // arbitrary Workspace and risks crossing an authorization boundary.
+      console.error("[workspace-access] multiple active memberships detected");
+      throw new DataAccessError("validate workspace access invariant");
+    }
+
+    const genuineActive = activeRows.find(
       (row) => row.status === "active" && row.workspace_id !== userId,
     );
     if (genuineActive) {
@@ -119,7 +128,7 @@ export const getWorkspaceAccess = cache(
       return { kind: "invited", workspaceId: invited.workspace_id };
     }
 
-    const bootstrapActive = rows.find(
+    const bootstrapActive = activeRows.find(
       (row) => row.status === "active" && row.workspace_id === userId,
     );
     if (bootstrapActive) {
