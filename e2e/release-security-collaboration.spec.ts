@@ -26,6 +26,7 @@ test("release A: assistant saves owner document; owner finalizes assistant docum
     const assistant = await createDisposableUser(assistantEmail, password); users.push(assistant);
     const admin = await createDisposableUser(adminEmail, password); users.push(admin);
     for (const [user, role] of [[assistant, "asistente"], [admin, "administrador"]]) {
+      await restDelete("workspace_members", `workspace_id=eq.${user}&user_id=eq.${user}`);
       await restInsert("workspace_members", { workspace_id: owner, user_id: user, role, status: "active" });
     }
     const template = await restInsert("templates", {

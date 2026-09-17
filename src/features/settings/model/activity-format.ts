@@ -35,6 +35,8 @@ export function formatWorkspaceActivityEvent(event: WorkspaceActivityEvent): str
     }
     case "member_invitation_accepted":
       return `Aceptó la invitación y se unió al equipo`;
+    case "member_workspace_left":
+      return `Dejó el equipo al cambiar de Workspace`;
     case "member_role_changed": {
       const prev = str(meta, "previousRole");
       const next = str(meta, "newRole");

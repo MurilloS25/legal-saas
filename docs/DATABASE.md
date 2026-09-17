@@ -900,6 +900,15 @@ activity history. Full design rationale, the role hierarchy rules, and
 the "1 workspace per user" invariant are in
 `docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §12.
 
+`20260917174844_enforce_single_active_workspace_membership.sql` convierte la
+regla de producto "un Workspace activo por usuario" en una invariante de base
+de datos mediante un índice único parcial en `workspace_members(user_id)` para
+`status = 'active'`. La aceptación de una invitación bloquea las membresías del
+usuario, conserva como `revoked` la membresía real anterior y activa el destino
+en la misma transacción. Solo elimina el Workspace de bootstrap si está vacío;
+un propietario con datos o equipo debe transferir la propiedad antes de poder
+cambiar de Workspace.
+
 ### Actor identity and audit snapshots (added, Iteration 6)
 
 `supabase/migrations/20260805100000_actor_identity_audit_snapshots.sql`

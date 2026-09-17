@@ -185,6 +185,14 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     assistantId = await createDisposableUser(assistantEmail, PASSWORD);
     readerId = await createDisposableUser(readerEmail, PASSWORD);
 
+    await restDelete(
+      "workspace_members",
+      `workspace_id=eq.${assistantId}&user_id=eq.${assistantId}`,
+    );
+    await restDelete(
+      "workspace_members",
+      `workspace_id=eq.${readerId}&user_id=eq.${readerId}`,
+    );
     await restInsert("workspace_members", {
       workspace_id: ownerId,
       user_id: assistantId,

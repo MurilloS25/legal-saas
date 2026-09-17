@@ -1,9 +1,5 @@
--- default_workspace_id_from_actor(): cuando un actor tiene más de una fila
--- activa en workspace_members (su propio Workspace de arranque + uno donde
--- fue añadido directamente como activo, sin pasar por
--- accept_workspace_invitation()), el trigger debe preferir la membresía
--- "genuina" (workspace_id distinto de su propio user id) sobre la de
--- arranque — igual que ya hace getWorkspaceAccess() a nivel de aplicación.
+-- default_workspace_id_from_actor(): con la invariiante de una sola membresía
+-- activa, el trigger resuelve de forma determinista el Workspace del actor.
 --
 -- Reproduce el fixture que expuso el bug original: un asistente insertado
 -- directamente en workspace_members con status 'active' (como hacen varios
@@ -23,20 +19,18 @@ values
   ('91111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-000000000000','authenticated','authenticated','dwifa-owner@example.test','x',now(),'{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
   ('92222222-2222-2222-2222-222222222222','00000000-0000-0000-0000-000000000000','authenticated','authenticated','dwifa-assistant@example.test','x',now(),'{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now());
 
--- El bootstrap automático (trigger sobre auth.users) ya le creó a cada uno
--- su propio Workspace personal como propietario. El asistente además se
--- añade DIRECTO como activo al Workspace compartido del propietario, sin
--- pasar por accept_workspace_invitation() — así queda con dos filas
--- activas, la ambigüedad que el trigger debe resolver.
+select throws_ok($sql$
+  insert into public.workspace_members (workspace_id, user_id, role, status, invited_by)
+  values ('91111111-1111-1111-1111-111111111111','92222222-2222-2222-2222-222222222222','asistente','active','91111111-1111-1111-1111-111111111111')
+$sql$, '23505', null,
+  'No se puede crear una segunda membresía activa saltándose la RPC');
+
+delete from public.workspace_members
+ where workspace_id = '92222222-2222-2222-2222-222222222222'
+   and user_id = '92222222-2222-2222-2222-222222222222';
+
 insert into public.workspace_members (workspace_id, user_id, role, status, invited_by)
 values ('91111111-1111-1111-1111-111111111111','92222222-2222-2222-2222-222222222222','asistente','active','91111111-1111-1111-1111-111111111111');
-
-select is(
-  (select count(*) from public.workspace_members
-    where user_id = '92222222-2222-2222-2222-222222222222' and status = 'active'),
-  2::bigint,
-  'El asistente del fixture queda con dos membresías activas (arranque propio + compartida)'
-);
 
 -- Datos mínimos del Workspace compartido para poder crear una cuenta por
 -- cobrar como el asistente.

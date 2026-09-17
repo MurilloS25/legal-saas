@@ -793,17 +793,31 @@ deliberado, no una regresión encubierta.
 
 Cada usuario pertenece a exactamente un Workspace activo a la vez — una
 decisión de diseño propia (no está en el spec) para evitar construir un
-selector de "Workspace actual" en la UI. `accept_workspace_invitation`
-elimina la fila `workspace_members` del Workspace personal del invitado
-al aceptar una invitación real, reutilizando el trigger de limpieza de
-Workspaces huérfanos de la Iteración 4 (`cleanup_orphaned_workspace`) para
-borrar también la fila `workspaces` correspondiente.
+selector de "Workspace actual" en la UI. Desde
+`20260917174844_enforce_single_active_workspace_membership.sql`, una restricción
+única parcial sobre `workspace_members(user_id) where status = 'active'`
+impone esta regla también ante RPCs, scripts y concurrencia.
+
+`accept_workspace_invitation` serializa aceptaciones por usuario y realiza la
+transición completa en una transacción. Si el usuario estaba en otro Workspace
+como administrador, asistente o solo lectura, esa membresía se conserva como
+`revoked`, se registra `member_workspace_left` y luego se activa la invitación
+nueva. El Workspace personal de bootstrap solo se elimina si todavía está
+vacío: sin otros miembros, configuración, datos de negocio ni auditoría. Un
+propietario cuyo Workspace ya tiene contenido o equipo no puede abandonarlo
+silenciosamente; la aceptación falla de forma explícita hasta que exista un
+flujo de transferencia de propiedad.
+
+La aplicación también rechaza datos legacy ambiguos: `getWorkspaceAccess()`
+lanza un error operativo si recibe más de una membresía activa en vez de elegir
+una fila arbitraria. La migration se niega a crear el índice si encuentra
+duplicados activos, para exigir una reconciliación explícita antes del deploy.
 
 **Efecto secundario no cubierto por esta iteración**: un miembro
 *removido* (no suspendido, no baneado) se queda sin ninguna membresía
 activa — su Workspace personal ya no existe. `requireWorkspace()` lo
-manda de vuelta a `/login` en el siguiente intento aunque sus credenciales
-sigan siendo válidas. Verificado explícitamente en
+manda a `/workspace-unavailable` aunque sus credenciales sigan siendo válidas.
+Verificado explícitamente en
 `e2e/team-management-authenticated.spec.ts`. Si un removido debe poder
 seguir usando la cuenta con un Workspace propio nuevo, hace falta decidir
 y construir ese flujo — no implementado aquí.
