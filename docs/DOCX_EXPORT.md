@@ -12,32 +12,73 @@ Lawyers can download a saved escritura draft as an editable Word (`.docx`) file.
 
 ## Supported format
 
-Legal paper (8.5 × 14 in) portrait, always — not a user preference, a fixed product default. Font family, font size, and the four margins come from the owner's saved `document_settings` row (`src/app/(dashboard)/settings`), resolved through `resolveDocumentFormatting` (`src/lib/documents/docx/formatting.ts`) with product defaults (Times New Roman, 12pt, 4.7/4.7/3.2/3.2 cm margins) for anything missing or invalid — generation never fails because of a bad preference. The document body is always **justified** with **exactly 24pt line spacing** (`FIXED_BODY_ALIGNMENT`/`FIXED_BODY_LINE_SPACING`) — fixed, independent of the saved `line_spacing` preference (that field still exists in Configuración/`document_settings` but no longer affects DOCX output). Preserves paragraphs, empty lines, hard breaks, bold, italic, underline, and full Unicode (accents, `₡`, `§`, guillemets). Out of scope for now: headers/footers, page numbers, tables, images, imported `.docx` templates, per-run style overrides beyond bold/italic/underline, PDF.
+Legal paper (8.5 × 14 in) portrait, always — not a user preference, a fixed product default. Font family, font size, and the margins come from the workspace's saved `document_settings` row (`src/app/(dashboard)/settings`), resolved through `resolveDocumentFormatting` (`src/lib/documents/docx/formatting.ts`) with product defaults (Times New Roman, 12pt, Word-reference margins below) for anything missing or invalid — generation never fails because of a bad preference. Preserves paragraphs, empty lines, hard breaks, bold, italic, underline, and full Unicode (accents, `₡`, `§`, guillemets). Out of scope for now: headers/footers, page numbers, tables, images, imported `.docx` templates, per-run style overrides beyond bold/italic/underline, PDF.
+
+The **font list and font sizes are not final**: they are preserved as they were and still pending normative validation. Do not treat them as definitive.
+
+### Body paragraph format (fixed, not configurable)
+
+Declared once in `FIXED_BODY_PARAGRAPH` (`formatting.ts`) and written to the document's `docDefaults` (`w:pPrDefault`), so every body paragraph inherits it and no paragraph overrides it:
+
+| Property | Value | OOXML |
+|---|---|---|
+| Alignment | Justified | `<w:jc w:val="both"/>` |
+| Left / right indent | 0 | `<w:ind w:left="0" w:right="0"/>` (no `firstLine`/`hanging`) |
+| Spacing before / after | 0 pt | `w:before="0" w:after="0"` |
+| Line spacing | **Exactly 24 pt** | `w:line="480" w:lineRule="exactly"` (480 = 24 pt × 20) |
+
+Line spacing is a fixed absolute measure (`lineRule="exactly"`), never a multiple such as 1.5 (`auto`). The old `line_spacing` preference no longer exists in the UI or validation; the `document_settings.line_spacing` column remains (default 1.5, unused) only for compatibility.
+
+### Margins: Frente / Vuelto
+
+Two independent margin profiles — **Frente** (`front`) and **Vuelto** (`back`) — each with top/bottom/left/right. Gutter is always 0, orientation portrait. Both start with the Word reference values; they may diverge later.
+
+| Side | Word | Stored (cm) | Twips |
+|---|---|---|---|
+| Top | 1.44" | 3.66 | 2074 |
+| Bottom | 2.22" | 5.64 | 3197 |
+| Left | 0.98" | 2.49 | 1411 |
+| Right | 0.98" | 2.49 | 1411 |
+
+- **Unit:** the UI and `document_settings` use centimeters (2 decimals); the DOCX uses twips. The only conversion is `centimetersToTwip` in `formatting.ts`. The cm values above convert to exactly the same twips as the inch values in Word.
+- **Storage:** Frente = `margin_*_cm`; Vuelto = `back_margin_*_cm` (nullable, all-or-none). A row saved before this change has NULL Vuelto margins and is resolved as Vuelto = its Frente margins (no data rewritten); saving Configuración persists both.
+- **Existing saved rows keep their margins** — only workspaces with no saved row get the new Word-reference defaults (they were 4.7/4.7/3.2/3.2 cm).
+- **Selecting the profile:** pressing "Descargar Word" (composer header, Completar step, or a row of the Escrituras list) always opens a dialog titled "Descargar Word" with a "Formato de margen" radio group — **Frente** (default) | **Vuelto** — plus Cancelar / Descargar. If the saved draft has pending variables, the same dialog warns about them and the confirm button reads "Descargar de todas formas". The choice applies only to that download: it is not stored, not remembered (it resets to Frente each time) and never changes Configuración. It travels as `?margins=front|back`. The Índice Notarial export always uses Frente.
+
+**Where to change the margins**
+
+- In the app: **Configuración → pestaña "Configuración" → sección "Márgenes (cm)" → `Frente | Vuelto`** (Superior, Inferior, Izquierdo, Derecho for each), then "Guardar cambios". Requires `settings.manage` (owner/admin).
+- In code (defaults only): `DEFAULT_MARGINS_CM` in `src/lib/documents/docx/margin-profile.ts` (cm, one object per profile).
+
+**Priority of the final value sent to the DOCX**, per profile and per side: (1) the value saved in `document_settings` (`margin_*_cm` for Frente, `back_margin_*_cm` for Vuelto) → (2) for a legacy row with NULL Vuelto margins, that row's Frente margins → (3) `DEFAULT_MARGINS_CM[profile]` (no saved row, or an invalid/missing value). The result goes through `centimetersToTwip` into `w:pgMar`. Saved settings always win over code defaults.
 
 ### Formatting preferences → DOCX
 
-- `src/lib/documents/docx/formatting.ts` — single source of truth: `DocumentFormattingPreferences` type, `DOCX_DEFAULT_FORMATTING`, `LEGAL_PAGE_SIZE_TWIPS`, `FIXED_BODY_LINE_SPACING`/`FIXED_BODY_ALIGNMENT` (24pt exact, justified — not derived from preferences), unit conversions (`centimetersToTwip`, `pointsToHalfPoints`, `lineSpacingToDocx`, the last now unused in production but kept as a tested pure utility), and `resolveDocumentFormatting(raw)` (saved row → validated preferences, independent per-field fallback to defaults).
+- `src/lib/documents/docx/formatting.ts` — single source of truth: `DocumentFormattingPreferences` type, `DOCX_DEFAULT_FORMATTING`, `LEGAL_PAGE_SIZE_TWIPS`, `FIXED_BODY_PARAGRAPH` (justified, indents 0, before/after 0, exactly 24pt — not derived from preferences), `DOCX_DEFAULT_FORMATTING` built from `DEFAULT_MARGINS_CM`, unit conversions (`centimetersToTwip`, `pointsToHalfPoints`), and `resolveDocumentFormatting(raw)` (saved row → validated preferences with `marginsCm.front`/`marginsCm.back`, independent per-field fallback to defaults, Vuelto falls back to Frente for legacy rows). `margin-profile.ts` holds the client-safe `MarginProfile` constants and `DEFAULT_MARGINS_CM` (the single source of per-profile default margins) shared with the Configuración UI and the download dialog. Import them from `margin-profile.ts` directly (or from the `docx` index), never re-exported through `formatting.ts`.
 - `src/lib/documents/docx/settings-loader.ts` — `loadDocumentFormattingPreferences(supabase, ownerId)`, the only place that queries `document_settings` for generation.
-- `src/lib/documents/docx/config.ts` — `buildDocxSectionConfig(prefs)` translates preferences into the twips/half-points/`docx` section shape `generateDocumentDocx` consumes.
-- The Índice Notarial exporter (`src/features/notarial-index/export/notarial-docx.ts`) reuses the same font/margins/page size, overriding only orientation (landscape) — see the code comments there for why its per-element table/title/footer point sizes stay fixed instead of inheriting the configured font size, and why the fixed justified/24pt-exact body formatting doesn't apply to it (no flowing body paragraphs — title, table cells, and footer are single-line and explicitly centered).
+- `src/lib/documents/docx/config.ts` — `buildDocxSectionConfig(prefs, profile)` translates preferences into the twips/half-points/`docx` section shape `generateDocumentDocx` consumes.
+- The Índice Notarial exporter (`src/features/notarial-index/export/notarial-docx.ts`) reuses the same font/Frente margins/page size, overriding only orientation (landscape) — see the code comments there for why its per-element table/title/footer point sizes stay fixed instead of inheriting the configured font size, and why the fixed justified/24pt-exact body formatting doesn't apply to it (no flowing body paragraphs — title, table cells, and footer are single-line and explicitly centered).
 
 ## Endpoint
 
 ```
-GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
+GET  /api/documents/[id]/docx?margins=front|back   (runtime: nodejs, dynamic; no audit event)
+POST /api/documents/[id]/docx?margins=front|back   (records the export activity)
 ```
+
+`margins` is optional (default `front`); any other value → `400`.
 
 - Authenticates on the server; anonymous → `401`.
 - Loads only the caller's own document and its stored template snapshot — does not distinguish missing from foreign (`404`), defense in depth beyond RLS.
-- Accepts nothing from the client except the document ID in the path: not content, `field_values`, title, ownership, filename or status.
+- Accepts nothing from the client except the document ID in the path and the optional `margins` profile (`front`/`back`): not content, `field_values`, title, ownership, filename or status.
 - Response headers: OOXML MIME, `Content-Disposition: attachment` (ASCII fallback + RFC 5987 `filename*`), `Content-Length`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
 - Errors are generic (`No fue posible generar el documento.`) with no SQL, stack, or document content; only a non-sensitive technical code is logged.
 
 ## Modules
 
 - `src/lib/documents/docx/` — server-only generation layer:
-  - `document.ts` — `buildEscrituraDocx({ document, fieldValues, title, formatting? })` → `{ buffer, filename, pendingVariables }`.
-  - `generate.ts` — `generateDocumentDocx(model, formatting?)` (neutral `DocumentModel` → in-memory Buffer).
+  - `document.ts` — `buildEscrituraDocx({ document, fieldValues, title, formatting?, marginProfile? })` → `{ buffer, filename, pendingVariables }`.
+  - `generate.ts` — `generateDocumentDocx(model, formatting?, marginProfile?)` (neutral `DocumentModel` → in-memory Buffer).
   - `formatting.ts` — formatting preferences type, defaults, unit conversions, `resolveDocumentFormatting`.
   - `settings-loader.ts` — `loadDocumentFormattingPreferences(supabase, ownerId)`.
   - `config.ts` — `buildDocxSectionConfig(prefs)`, translates preferences to the `docx` section shape.
@@ -63,6 +104,6 @@ Legal content may be sensitive. The feature sends nothing to third parties, adds
 
 ## Tests
 
-- Unit (`src/lib/documents/docx/*.test.ts`): filename safety, generation and OOXML structure (inspected as ZIP: `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`, `word/styles.xml`), marks, variable substitution, pending placeholders, Unicode, limits, `Content-Disposition` header safety (CRLF/quotes/RFC 5987), basic performance (small/medium/near-limit), unit conversions and `resolveDocumentFormatting` defaulting (`formatting.test.ts`), and end-to-end formatting applied to the generated OOXML — Legal page size, margins, font, size, line spacing (`formatting-applied.test.ts`).
-- `src/features/notarial-index/export/notarial-docx.test.ts`: landscape Legal page size, configured margins, font propagation, and fixed per-element point sizes.
+- Unit (`src/lib/documents/docx/*.test.ts`): filename safety, generation and OOXML structure (inspected as ZIP: `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`, `word/styles.xml`), marks, variable substitution, pending placeholders, Unicode, limits, `Content-Disposition` header safety (CRLF/quotes/RFC 5987), basic performance (small/medium/near-limit), unit conversions and `resolveDocumentFormatting` defaulting (`formatting.test.ts`), and end-to-end formatting applied to the generated OOXML (`formatting-applied.test.ts`): `w:pgMar` for Frente and Vuelto (independent), `w:pgSz`, `w:jc`, `w:ind` and `w:spacing` (before/after 0, exactly 24pt). E2E `document-format-front-back-authenticated.spec.ts` saves both profiles, persists them, and downloads Frente and Vuelto inspecting `w:pgMar` in the real `.docx`.
+- `src/features/notarial-index/export/notarial-docx.test.ts`: landscape Legal page size, configured Frente margins, font propagation, and fixed per-element point sizes.
 - E2E (`e2e/documents-docx-authenticated.spec.ts`, project `chromium-documents-docx`): button visibility, unsaved-changes gate, download + ZIP inspection, saved-snapshot regression after a later template edit, MIME/headers, pending-variables confirmation, cancel / download anyway, `404` for missing/foreign, invalid id, anonymous `401`, and mobile.

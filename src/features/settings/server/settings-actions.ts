@@ -104,7 +104,10 @@ export async function saveDocumentSettingsAction(
     margin_bottom_cm: parseFloat(String(formData.get("margin_bottom_cm") ?? "")),
     margin_left_cm: parseFloat(String(formData.get("margin_left_cm") ?? "")),
     margin_right_cm: parseFloat(String(formData.get("margin_right_cm") ?? "")),
-    line_spacing: parseFloat(String(formData.get("line_spacing") ?? "")),
+    back_margin_top_cm: parseFloat(String(formData.get("back_margin_top_cm") ?? "")),
+    back_margin_bottom_cm: parseFloat(String(formData.get("back_margin_bottom_cm") ?? "")),
+    back_margin_left_cm: parseFloat(String(formData.get("back_margin_left_cm") ?? "")),
+    back_margin_right_cm: parseFloat(String(formData.get("back_margin_right_cm") ?? "")),
   };
 
   const result = DocumentSettingsSchema.safeParse(raw);
@@ -118,7 +121,10 @@ export async function saveDocumentSettingsAction(
         margin_bottom_cm: fieldErrors.margin_bottom_cm?.[0],
         margin_left_cm: fieldErrors.margin_left_cm?.[0],
         margin_right_cm: fieldErrors.margin_right_cm?.[0],
-        line_spacing: fieldErrors.line_spacing?.[0],
+        back_margin_top_cm: fieldErrors.back_margin_top_cm?.[0],
+        back_margin_bottom_cm: fieldErrors.back_margin_bottom_cm?.[0],
+        back_margin_left_cm: fieldErrors.back_margin_left_cm?.[0],
+        back_margin_right_cm: fieldErrors.back_margin_right_cm?.[0],
       },
     };
   }
@@ -130,7 +136,10 @@ export async function saveDocumentSettingsAction(
     margin_bottom_cm: result.data.margin_bottom_cm,
     margin_left_cm: result.data.margin_left_cm,
     margin_right_cm: result.data.margin_right_cm,
-    line_spacing: result.data.line_spacing,
+    back_margin_top_cm: result.data.back_margin_top_cm,
+    back_margin_bottom_cm: result.data.back_margin_bottom_cm,
+    back_margin_left_cm: result.data.back_margin_left_cm,
+    back_margin_right_cm: result.data.back_margin_right_cm,
   };
   // Update preserves the original creator. A concurrent first insert fails
   // safely on the workspace uniqueness constraint instead of replacing it.

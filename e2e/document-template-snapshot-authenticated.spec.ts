@@ -11,6 +11,7 @@ import {
   updateTestTemplateContent,
 } from "./support/factories";
 import { restRpc, restSelect, restUpdate } from "./support/supabase-api";
+import { openAndConfirmWordDownload } from "./support/word-download";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(60_000);
@@ -73,7 +74,10 @@ async function fillInlineVariable(page: Page, key: string, value: string) {
 
 async function downloadedText(page: Page): Promise<string> {
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Descargar Word" }).click();
+  await openAndConfirmWordDownload(
+    page,
+    page.getByRole("button", { name: "Descargar Word" }),
+  );
   const zip = await JSZip.loadAsync(readFileSync(await (await downloadPromise).path()));
   const xml = await zip.file("word/document.xml")!.async("string");
   return [...xml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((match) => match[1]).join("");

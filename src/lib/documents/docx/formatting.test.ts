@@ -5,10 +5,11 @@ import {
   FIXED_BODY_ALIGNMENT,
   FIXED_BODY_LINE_SPACING,
   LEGAL_PAGE_SIZE_TWIPS,
-  lineSpacingToDocx,
+  FIXED_BODY_PARAGRAPH,
   pointsToHalfPoints,
   resolveDocumentFormatting,
 } from "./formatting";
+import { DEFAULT_MARGINS_CM, parseMarginProfile } from "./margin-profile";
 
 describe("centimetersToTwip", () => {
   it("converts centimeters to twips (1 cm = 566.929... twips)", () => {
@@ -20,9 +21,15 @@ describe("centimetersToTwip", () => {
     expect(centimetersToTwip(0)).toBe(0);
   });
 
-  it("handles decimal values (the product's own default margins)", () => {
-    expect(centimetersToTwip(4.7)).toBe(2664);
-    expect(centimetersToTwip(3.2)).toBe(1814);
+  it("reproduces the Word reference margins exactly (1.44\", 2.22\", 0.98\")", () => {
+    const twipsOf = (inches: number) => Math.round(inches * 1440);
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.top)).toBe(twipsOf(1.44));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.bottom)).toBe(twipsOf(2.22));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.left)).toBe(twipsOf(0.98));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.right)).toBe(twipsOf(0.98));
+    expect(twipsOf(1.44)).toBe(2074);
+    expect(twipsOf(2.22)).toBe(3197);
+    expect(twipsOf(0.98)).toBe(1411);
   });
 
   it("rejects negative values", () => {
@@ -54,28 +61,6 @@ describe("pointsToHalfPoints", () => {
   });
 });
 
-describe("lineSpacingToDocx", () => {
-  it("maps common line spacing values to docx's twentieths-of-a-point scale", () => {
-    expect(lineSpacingToDocx(1.0).line).toBe(240);
-    expect(lineSpacingToDocx(1.15).line).toBe(276);
-    expect(lineSpacingToDocx(1.5).line).toBe(360);
-    expect(lineSpacingToDocx(2.0).line).toBe(480);
-  });
-
-  it("always sets lineRule to auto so it scales with the font", () => {
-    expect(lineSpacingToDocx(1.5).lineRule).toBe("auto");
-  });
-
-  it("rejects 0 and negative values", () => {
-    expect(() => lineSpacingToDocx(0)).toThrow(RangeError);
-    expect(() => lineSpacingToDocx(-1.5)).toThrow(RangeError);
-  });
-
-  it("rejects NaN", () => {
-    expect(() => lineSpacingToDocx(NaN)).toThrow(RangeError);
-  });
-});
-
 describe("LEGAL_PAGE_SIZE_TWIPS", () => {
   it("is 8.5 x 14 inches in twips", () => {
     expect(LEGAL_PAGE_SIZE_TWIPS.width).toBe(12240);
@@ -99,6 +84,26 @@ describe("FIXED_BODY_ALIGNMENT", () => {
   });
 });
 
+describe("FIXED_BODY_PARAGRAPH", () => {
+  it("is justified, no indents, 0pt before/after, exactly 24pt", () => {
+    expect(FIXED_BODY_PARAGRAPH).toEqual({
+      alignment: "both",
+      indent: { left: 0, right: 0 },
+      spacing: { before: 0, after: 0, line: 480, lineRule: "exactly" },
+    });
+  });
+});
+
+describe("parseMarginProfile", () => {
+  it("accepts only front and back", () => {
+    expect(parseMarginProfile("front")).toBe("front");
+    expect(parseMarginProfile("back")).toBe("back");
+    expect(parseMarginProfile("Frente")).toBeNull();
+    expect(parseMarginProfile("")).toBeNull();
+    expect(parseMarginProfile(undefined)).toBeNull();
+  });
+});
+
 describe("resolveDocumentFormatting", () => {
   it("returns the product defaults when there is no saved row", () => {
     expect(resolveDocumentFormatting(null)).toEqual(DOCX_DEFAULT_FORMATTING);
@@ -107,22 +112,57 @@ describe("resolveDocumentFormatting", () => {
     );
   });
 
-  it("uses every saved preference when all are valid", () => {
+  it("uses every saved preference when all are valid, keeping Frente and Vuelto independent", () => {
     const resolved = resolveDocumentFormatting({
       font_family: "Arial",
       font_size: 11,
-      line_spacing: 2,
       margin_top_cm: 2,
       margin_bottom_cm: 2.5,
       margin_left_cm: 3,
       margin_right_cm: 3.5,
+      back_margin_top_cm: 4,
+      back_margin_bottom_cm: 4.5,
+      back_margin_left_cm: 5,
+      back_margin_right_cm: 5.5,
     });
     expect(resolved).toEqual({
       fontFamily: "Arial",
       fontSizePt: 11,
-      lineSpacing: 2,
-      marginsCm: { top: 2, bottom: 2.5, left: 3, right: 3.5 },
+      marginsCm: {
+        front: { top: 2, bottom: 2.5, left: 3, right: 3.5 },
+        back: { top: 4, bottom: 4.5, left: 5, right: 5.5 },
+      },
     });
+  });
+
+  it("legacy row (no back margins) uses its saved margins for Vuelto too", () => {
+    const resolved = resolveDocumentFormatting({
+      font_family: "Times New Roman",
+      font_size: 12,
+      margin_top_cm: 4.7,
+      margin_bottom_cm: 4.7,
+      margin_left_cm: 3.2,
+      margin_right_cm: 3.2,
+      back_margin_top_cm: null,
+      back_margin_bottom_cm: null,
+      back_margin_left_cm: null,
+      back_margin_right_cm: null,
+    });
+    const legacy = { top: 4.7, bottom: 4.7, left: 3.2, right: 3.2 };
+    expect(resolved.marginsCm.front).toEqual(legacy);
+    expect(resolved.marginsCm.back).toEqual(legacy);
+  });
+
+  it("defaults are the Word reference margins for both Frente and Vuelto", () => {
+    expect(DOCX_DEFAULT_FORMATTING.marginsCm.front).toEqual({
+      top: 3.66,
+      bottom: 5.64,
+      left: 2.49,
+      right: 2.49,
+    });
+    expect(DOCX_DEFAULT_FORMATTING.marginsCm.back).toEqual(
+      DOCX_DEFAULT_FORMATTING.marginsCm.front,
+    );
   });
 
   it("never swaps top/bottom or left/right", () => {
@@ -132,7 +172,7 @@ describe("resolveDocumentFormatting", () => {
       margin_left_cm: 3,
       margin_right_cm: 4,
     });
-    expect(resolved.marginsCm).toEqual({ top: 1, bottom: 2, left: 3, right: 4 });
+    expect(resolved.marginsCm.front).toEqual({ top: 1, bottom: 2, left: 3, right: 4 });
   });
 
   it("falls back to defaults for a font family not in the allowed list", () => {
@@ -143,7 +183,6 @@ describe("resolveDocumentFormatting", () => {
   it("falls back to defaults for invalid numeric fields independently", () => {
     const resolved = resolveDocumentFormatting({
       font_size: NaN,
-      line_spacing: -1,
       margin_top_cm: -0.1,
       // margin_bottom_cm/left/right valid — must be preserved.
       margin_bottom_cm: 1,
@@ -151,11 +190,12 @@ describe("resolveDocumentFormatting", () => {
       margin_right_cm: 1,
     });
     expect(resolved.fontSizePt).toBe(DOCX_DEFAULT_FORMATTING.fontSizePt);
-    expect(resolved.lineSpacing).toBe(DOCX_DEFAULT_FORMATTING.lineSpacing);
-    expect(resolved.marginsCm.top).toBe(DOCX_DEFAULT_FORMATTING.marginsCm.top);
-    expect(resolved.marginsCm.bottom).toBe(1);
-    expect(resolved.marginsCm.left).toBe(1);
-    expect(resolved.marginsCm.right).toBe(1);
+    expect(resolved.marginsCm.front.top).toBe(
+      DOCX_DEFAULT_FORMATTING.marginsCm.front.top,
+    );
+    expect(resolved.marginsCm.front.bottom).toBe(1);
+    expect(resolved.marginsCm.front.left).toBe(1);
+    expect(resolved.marginsCm.front.right).toBe(1);
   });
 
   it("accepts a margin of exactly 0", () => {
@@ -165,7 +205,7 @@ describe("resolveDocumentFormatting", () => {
       margin_left_cm: 0,
       margin_right_cm: 0,
     });
-    expect(resolved.marginsCm).toEqual({ top: 0, bottom: 0, left: 0, right: 0 });
+    expect(resolved.marginsCm.front).toEqual({ top: 0, bottom: 0, left: 0, right: 0 });
   });
 
   it("treats missing fields as absent, not invalid, and still falls back to defaults", () => {

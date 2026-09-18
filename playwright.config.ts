@@ -411,6 +411,17 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Document format: Frente / Vuelto margins — authenticated.
+    {
+      name: "chromium-document-format",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /document-format-front-back-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Document ↔ client relationship — authenticated.
     {
       name: "chromium-documents-client",

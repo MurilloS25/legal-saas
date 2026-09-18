@@ -8,6 +8,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { openAndConfirmWordDownload } from "./support/word-download";
 
 // Serial: comparten el conjunto sembrado del mismo usuario.
 test.describe.configure({ mode: "serial" });
@@ -178,9 +179,12 @@ test.describe("documents workspace management", () => {
   test("K: user can download a Word file from the list", async ({ page }) => {
     await search(page, titleAlpha);
     const downloadPromise = page.waitForEvent("download");
-    await row(page, titleAlpha)
-      .getByRole("button", { name: `Descargar Word de ${titleAlpha}` })
-      .click();
+    await openAndConfirmWordDownload(
+      page,
+      row(page, titleAlpha).getByRole("button", {
+        name: `Descargar Word de ${titleAlpha}`,
+      }),
+    );
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.docx$/);
   });

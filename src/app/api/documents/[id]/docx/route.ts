@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { ForbiddenError, UnauthorizedError } from "@/lib/server/errors";
 import {
+  DEFAULT_MARGIN_PROFILE,
+  parseMarginProfile,
+} from "@/lib/documents/docx/margin-profile";
+import {
   DocumentExportError,
   prepareAndRecordDocumentDocxExport,
   prepareDocumentDocxExport,
@@ -17,15 +21,25 @@ function genericError(status: number): NextResponse {
 }
 
 async function handleExport(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
   recordActivity: boolean,
 ): Promise<NextResponse> {
   const { id } = await params;
 
+  // `?margins=front|back` elige el perfil de márgenes (Frente por defecto);
+  // un valor presente pero desconocido se rechaza en vez de ignorarse.
+  const marginsParam = request.nextUrl.searchParams.get("margins");
+  const marginProfile =
+    marginsParam === null
+      ? DEFAULT_MARGIN_PROFILE
+      : parseMarginProfile(marginsParam);
+  if (!marginProfile) return genericError(400);
+
   try {
     const result = await (recordActivity
-      ? prepareAndRecordDocumentDocxExport(id)
-      : prepareDocumentDocxExport(id));
+      ? prepareAndRecordDocumentDocxExport(id, marginProfile)
+      : prepareDocumentDocxExport(id, marginProfile));
     return new NextResponse(result.body, {
       status: 200,
       headers: {
@@ -46,15 +60,15 @@ async function handleExport(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  return handleExport(context, false);
+  return handleExport(request, context, false);
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  return handleExport(context, true);
+  return handleExport(request, context, true);
 }

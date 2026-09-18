@@ -79,11 +79,14 @@ describe("ProfileSchema", () => {
 const VALID_SETTINGS = {
   font_family: "Times New Roman" as const,
   font_size: 12,
-  margin_top_cm: 4.7,
-  margin_bottom_cm: 4.7,
-  margin_left_cm: 3.2,
-  margin_right_cm: 3.2,
-  line_spacing: 1.5,
+  margin_top_cm: 3.66,
+  margin_bottom_cm: 5.64,
+  margin_left_cm: 2.49,
+  margin_right_cm: 2.49,
+  back_margin_top_cm: 3.66,
+  back_margin_bottom_cm: 5.64,
+  back_margin_left_cm: 2.49,
+  back_margin_right_cm: 2.49,
 };
 
 describe("DocumentSettingsSchema", () => {
@@ -143,29 +146,34 @@ describe("DocumentSettingsSchema", () => {
       margin_bottom_cm: 0,
       margin_left_cm: 0,
       margin_right_cm: 0,
+      back_margin_top_cm: 0,
+      back_margin_bottom_cm: 0,
+      back_margin_left_cm: 0,
+      back_margin_right_cm: 0,
     });
     expect(result.success).toBe(true);
   });
 
-  it("rejects line_spacing of 0", () => {
+  it("rejects a negative Vuelto margin", () => {
     const result = DocumentSettingsSchema.safeParse({
       ...VALID_SETTINGS,
-      line_spacing: 0,
+      back_margin_left_cm: -1,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.line_spacing).toBeDefined();
+      expect(result.error.flatten().fieldErrors.back_margin_left_cm).toBeDefined();
     }
   });
 
-  it("rejects a negative line_spacing", () => {
-    const result = DocumentSettingsSchema.safeParse({
-      ...VALID_SETTINGS,
-      line_spacing: -1,
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.flatten().fieldErrors.line_spacing).toBeDefined();
-    }
+  it("requires all four Vuelto margins", () => {
+    const { back_margin_top_cm: _omitted, ...withoutBackTop } = VALID_SETTINGS;
+    void _omitted;
+    expect(DocumentSettingsSchema.safeParse(withoutBackTop).success).toBe(false);
+  });
+
+  it("does not accept or require line_spacing anymore", () => {
+    const parsed = DocumentSettingsSchema.safeParse({ ...VALID_SETTINGS, line_spacing: 1.5 });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data).not.toHaveProperty("line_spacing");
   });
 });

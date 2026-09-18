@@ -16,6 +16,11 @@ import {
   LineRuleType,
 } from "docx";
 import {
+  DEFAULT_MARGINS_CM,
+  type MarginProfile,
+  type MarginsCm,
+} from "./margin-profile";
+import {
   ALLOWED_FONT_FAMILIES,
   type AllowedFontFamily,
 } from "@/lib/validations/settings";
@@ -23,21 +28,17 @@ import {
 export type DocumentFormattingPreferences = {
   fontFamily: AllowedFontFamily;
   fontSizePt: number;
-  lineSpacing: number;
-  marginsCm: {
-    top: number;
-    bottom: number;
-    left: number;
-    right: number;
-  };
+  marginsCm: Record<MarginProfile, MarginsCm>;
 };
 
 /** Alineados con `DOCUMENT_SETTINGS_DEFAULTS` en la UI de Configuración. */
 export const DOCX_DEFAULT_FORMATTING: DocumentFormattingPreferences = {
   fontFamily: "Times New Roman",
   fontSizePt: 12,
-  lineSpacing: 1.5,
-  marginsCm: { top: 4.7, bottom: 4.7, left: 3.2, right: 3.2 },
+  marginsCm: {
+    front: { ...DEFAULT_MARGINS_CM.front },
+    back: { ...DEFAULT_MARGINS_CM.back },
+  },
 };
 
 /**
@@ -52,8 +53,6 @@ export const LEGAL_PAGE_SIZE_TWIPS = {
 } as const;
 
 const HALF_POINTS_PER_POINT = 2;
-/** Twentieths de punto por unidad de interlineado "sencillo" (100%). */
-const LINE_SPACING_UNIT = 240;
 /** Twentieths de punto por punto — unidad de `spacing.line` en `docx`. */
 const TWENTIETHS_PER_POINT = 20;
 /** 24pt exactos, en twentieths de punto. */
@@ -76,25 +75,6 @@ export function pointsToHalfPoints(valuePt: number): number {
 }
 
 /**
- * Interlineado (1.0, 1.15, 1.5, 2.0, ...) → `spacing.line` de `docx`, con
- * `lineRule: "auto"` explícito para que escale con la fuente en uso en vez
- * de una medida fija (`exact`/`atLeast`), que es el comportamiento esperado
- * al elegir "1.5" o "doble" en un procesador de texto.
- */
-export function lineSpacingToDocx(value: number): {
-  line: number;
-  lineRule: (typeof LineRuleType)[keyof typeof LineRuleType];
-} {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`invalid line spacing: ${value}`);
-  }
-  return {
-    line: Math.round(LINE_SPACING_UNIT * value),
-    lineRule: LineRuleType.AUTO,
-  };
-}
-
-/**
  * Interlineado fijo del cuerpo documental: exactamente 24pt con regla
  * "exactly" — una medida absoluta, no un múltiplo de la fuente ("auto").
  * Deliberadamente independiente de `DocumentFormattingPreferences.lineSpacing`
@@ -108,6 +88,22 @@ export const FIXED_BODY_LINE_SPACING = {
 
 /** Alineación fija del cuerpo documental: justificada. */
 export const FIXED_BODY_ALIGNMENT = AlignmentType.JUSTIFIED;
+
+/**
+ * Formato fijo de párrafo del cuerpo (mismo que el Word de referencia):
+ * justificado, sangrías izquierda/derecha 0 y sin sangría especial, espacio
+ * antes/después 0 pt, interlineado exacto 24 pt. Única definición — la usa
+ * `config.ts` para los `docDefaults` del documento.
+ */
+export const FIXED_BODY_PARAGRAPH = {
+  alignment: FIXED_BODY_ALIGNMENT,
+  indent: { left: 0, right: 0 },
+  spacing: {
+    before: 0,
+    after: 0,
+    ...FIXED_BODY_LINE_SPACING,
+  },
+} as const;
 
 function isAllowedFontFamily(value: unknown): value is AllowedFontFamily {
   return (
@@ -132,20 +128,62 @@ export type RawDocumentFormattingSettings = {
   margin_bottom_cm?: number | null;
   margin_left_cm?: number | null;
   margin_right_cm?: number | null;
-  line_spacing?: number | null;
+  back_margin_top_cm?: number | null;
+  back_margin_bottom_cm?: number | null;
+  back_margin_left_cm?: number | null;
+  back_margin_right_cm?: number | null;
 } | null | undefined;
+
+/**
+ * Resuelve los cuatro márgenes de un perfil: cada uno cae de forma
+ * independiente a `fallback` si falta o es inválido.
+ */
+function resolveMargins(
+  raw: Record<keyof MarginsCm, unknown>,
+  fallback: MarginsCm,
+): MarginsCm {
+  const pick = (v: unknown, fb: number) => (isFiniteNonNegative(v) ? v : fb);
+  return {
+    top: pick(raw.top, fallback.top),
+    bottom: pick(raw.bottom, fallback.bottom),
+    left: pick(raw.left, fallback.left),
+    right: pick(raw.right, fallback.right),
+  };
+}
 
 /**
  * Fila cruda de `document_settings` → preferencias completas y válidas.
  * Cada campo ausente o inválido cae a su default de forma independiente: una
  * sola preferencia corrupta nunca bloquea la generación del documento
  * completo. Sin fila guardada (usuario nuevo), devuelve los defaults.
+ *
+ * Compatibilidad: una fila anterior a Frente/Vuelto (columnas `back_*` NULL)
+ * usa sus márgenes guardados también para Vuelto.
  */
 export function resolveDocumentFormatting(
   raw: RawDocumentFormattingSettings,
 ): DocumentFormattingPreferences {
   const defaults = DOCX_DEFAULT_FORMATTING;
   if (!raw) return defaults;
+
+  const front = resolveMargins(
+    {
+      top: raw.margin_top_cm,
+      bottom: raw.margin_bottom_cm,
+      left: raw.margin_left_cm,
+      right: raw.margin_right_cm,
+    },
+    defaults.marginsCm.front,
+  );
+  const back = resolveMargins(
+    {
+      top: raw.back_margin_top_cm,
+      bottom: raw.back_margin_bottom_cm,
+      left: raw.back_margin_left_cm,
+      right: raw.back_margin_right_cm,
+    },
+    front,
+  );
 
   return {
     fontFamily: isAllowedFontFamily(raw.font_family)
@@ -154,22 +192,6 @@ export function resolveDocumentFormatting(
     fontSizePt: isFinitePositive(raw.font_size)
       ? raw.font_size
       : defaults.fontSizePt,
-    lineSpacing: isFinitePositive(raw.line_spacing)
-      ? raw.line_spacing
-      : defaults.lineSpacing,
-    marginsCm: {
-      top: isFiniteNonNegative(raw.margin_top_cm)
-        ? raw.margin_top_cm
-        : defaults.marginsCm.top,
-      bottom: isFiniteNonNegative(raw.margin_bottom_cm)
-        ? raw.margin_bottom_cm
-        : defaults.marginsCm.bottom,
-      left: isFiniteNonNegative(raw.margin_left_cm)
-        ? raw.margin_left_cm
-        : defaults.marginsCm.left,
-      right: isFiniteNonNegative(raw.margin_right_cm)
-        ? raw.margin_right_cm
-        : defaults.marginsCm.right,
-    },
+    marginsCm: { front, back },
   };
 }

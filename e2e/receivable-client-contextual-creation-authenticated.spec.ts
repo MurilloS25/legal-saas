@@ -100,7 +100,7 @@ test.describe("create a client from the receivable form", () => {
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     await dialog.getByLabel("Nombre completo").fill(clientName);
     await dialog.getByLabel("Número de cédula").fill("3-3333-3333");
-    await dialog.getByLabel("Estado civil").selectOption("casado");
+    await dialog.getByLabel("Estado civil").selectOption("Casado/a");
     await dialog.getByLabel("Nacionalidad").fill("Costarricense");
     await dialog.getByLabel("Ocupación").fill("Contador");
     await dialog.getByLabel("Dirección exacta").fill("Heredia, Costa Rica");
@@ -162,7 +162,7 @@ test.describe("create a client from the receivable form", () => {
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     await dialog.getByLabel("Nombre completo").fill(newClientName);
     await dialog.getByLabel("Número de cédula").fill("5-5555-5555");
-    await dialog.getByLabel("Estado civil").selectOption("divorciado");
+    await dialog.getByLabel("Estado civil").selectOption("Divorciado/a");
     await dialog.getByLabel("Nacionalidad").fill("Costarricense");
     await dialog.getByLabel("Ocupación").fill("Médico");
     await dialog.getByLabel("Dirección exacta").fill("Alajuela, Costa Rica");
