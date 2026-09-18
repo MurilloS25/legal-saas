@@ -69,7 +69,7 @@ test.describe("clients module", () => {
     await page.getByLabel("Nombre completo").fill(createdClientName);
     // identification_type defaults to cedula_fisica — no change needed
     await page.getByLabel("Número de cédula").fill("0-0001-0001");
-    await page.getByLabel("Estado civil").selectOption("soltero");
+    await page.getByLabel("Estado civil").selectOption("Casada dos veces");
     await page.getByLabel("Nacionalidad").fill("Costarricense");
     await page.getByLabel("Ocupación").fill("Ingeniero de pruebas");
     await page.getByLabel("Dirección exacta").fill("San José, Test 123");
@@ -103,6 +103,7 @@ test.describe("clients module", () => {
 
     editedClientName = `${createdClientName} Editado`;
     await page.getByLabel("Nombre completo").fill(editedClientName);
+    await page.getByLabel("Estado civil").selectOption("Divorciado tres veces");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     // After save the action redirects back to the client list.

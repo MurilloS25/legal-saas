@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { ClientSchema, normalizeClientIdentification } from "./client-schema";
+import {
+  ClientSchema,
+  MARITAL_STATUS_OPTIONS,
+  MARITAL_STATUS_VALUES,
+  normalizeClientIdentification,
+  resolveMaritalStatusSelection,
+} from "./client-schema";
 
 describe("normalizeClientIdentification", () => {
   it("strips dashes", () => {
@@ -23,7 +29,7 @@ const valid = {
   full_name: "Test Client One",
   identification_type: "cedula_fisica" as const,
   identification_number: "000000000",
-  marital_status: "soltero",
+  marital_status: "Soltero",
   nationality: "costarricense",
   occupation: "ingeniero",
   exact_address: "Dirección de prueba 123",
@@ -145,7 +151,7 @@ describe("ClientSchema", () => {
       full_name: "  Test Client One  ",
       identification_type: "cedula_fisica",
       identification_number: "  000000000  ",
-      marital_status: "  soltero  ",
+      marital_status: "  Casada dos veces  ",
       nationality: "  costarricense  ",
       occupation: "  ingeniero  ",
       exact_address: "  Dirección de prueba 123  ",
@@ -154,7 +160,43 @@ describe("ClientSchema", () => {
     if (result.success) {
       expect(result.data.full_name).toBe("Test Client One");
       expect(result.data.identification_number).toBe("000000000");
+      expect(result.data.marital_status).toBe("Casada dos veces");
     }
+  });
+
+  it.each(MARITAL_STATUS_VALUES)("accepts marital_status %s", (value) => {
+    const result = ClientSchema.safeParse({ ...valid, marital_status: value });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.marital_status).toBe(value);
+  });
+
+  it("offers exactly the 17 explicit marital status options", () => {
+    expect(MARITAL_STATUS_OPTIONS.map((o) => o.value)).toEqual([
+      "Soltero", "Soltera", "Casado", "Casada", "Casado dos veces",
+      "Casada dos veces", "Casado tres veces", "Casada tres veces",
+      "Divorciado", "Divorciada", "Divorciado dos veces",
+      "Divorciada dos veces", "Divorciado tres veces",
+      "Divorciada tres veces", "Viudo", "Viuda", "Libre",
+    ]);
+  });
+
+  it.each(["soltero", "Casado/a", "Unión libre", "Casado cuatro veces"])(
+    "rejects legacy or unknown marital_status %s",
+    (value) => {
+      const result = ClientSchema.safeParse({ ...valid, marital_status: value });
+      expect(result.success).toBe(false);
+    },
+  );
+
+  it("preselects legacy values only when they match an explicit option", () => {
+    expect(resolveMaritalStatusSelection("soltero")).toBe("Soltero");
+    expect(resolveMaritalStatusSelection("casado")).toBe("Casado");
+    expect(resolveMaritalStatusSelection("Casada dos veces")).toBe(
+      "Casada dos veces",
+    );
+    expect(resolveMaritalStatusSelection("Casado/a")).toBe("");
+    expect(resolveMaritalStatusSelection("union_libre")).toBe("");
+    expect(resolveMaritalStatusSelection(null)).toBe("");
   });
 
   it("rejects when a required field is missing", () => {
@@ -162,7 +204,7 @@ describe("ClientSchema", () => {
       full_name: "Test Client One",
       identification_type: "cedula_fisica" as const,
       identification_number: "000000000",
-      marital_status: "soltero",
+      marital_status: "Soltero",
       nationality: "costarricense",
       // occupation intentionally omitted
       exact_address: "Dirección de prueba 123",
