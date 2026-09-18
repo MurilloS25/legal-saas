@@ -22,8 +22,10 @@ import {
 import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
 import { buildDocxSectionConfig } from "./config";
 import {
+  DEFAULT_MARGIN_PROFILE,
   DOCX_DEFAULT_FORMATTING,
   type DocumentFormattingPreferences,
+  type MarginProfile,
 } from "./formatting";
 import {
   checkDocumentModelLimits,
@@ -77,14 +79,15 @@ function paragraphToDocx(runs: DocumentRun[]): Paragraph {
 
 /**
  * Genera el `.docx` en memoria desde el modelo documental, aplicando las
- * preferencias de formato del usuario (fuente, tamaño, interlineado,
- * márgenes) — o los defaults si no se pasan. Lanza `DocxGenerationError` con
+ * preferencias de formato del usuario (fuente, tamaño y los márgenes del
+ * perfil `marginProfile`: Frente por defecto, o Vuelto) — o los defaults si no se pasan. Lanza `DocxGenerationError` con
  * un código técnico si el documento excede los límites o si el empaquetado
  * falla.
  */
 export async function generateDocumentDocx(
   model: DocumentModel,
   formatting: DocumentFormattingPreferences = DOCX_DEFAULT_FORMATTING,
+  marginProfile: MarginProfile = DEFAULT_MARGIN_PROFILE,
 ): Promise<Buffer> {
   const limit = checkDocumentModelLimits(model);
   if (limit) throw new DocxGenerationError(limit);
@@ -94,7 +97,7 @@ export async function generateDocumentDocx(
       ? model.map((paragraph) => paragraphToDocx(paragraph.runs))
       : [new Paragraph({})];
 
-  const section = buildDocxSectionConfig(formatting);
+  const section = buildDocxSectionConfig(formatting, marginProfile);
 
   const doc = new Document({
     styles: {
@@ -104,14 +107,7 @@ export async function generateDocumentDocx(
             font: section.fontFamily,
             size: section.fontHalfPoints,
           },
-          paragraph: {
-            alignment: section.paragraph.alignment,
-            spacing: {
-              line: section.paragraph.line,
-              lineRule: section.paragraph.lineRule,
-              after: section.paragraph.after,
-            },
-          },
+          paragraph: section.paragraph,
         },
       },
     },

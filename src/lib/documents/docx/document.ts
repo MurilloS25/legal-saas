@@ -21,7 +21,11 @@ import {
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { buildDocxFilename } from "./filename";
-import { DOCX_DEFAULT_FORMATTING, type DocumentFormattingPreferences } from "./formatting";
+import {
+  DOCX_DEFAULT_FORMATTING,
+  type DocumentFormattingPreferences,
+  type MarginProfile,
+} from "./formatting";
 import { generateDocumentDocx } from "./generate";
 
 export type EscrituraDocxInput = {
@@ -37,6 +41,8 @@ export type EscrituraDocxInput = {
   optionSelections?: OptionSelectionsMap;
   /** Preferencias de formato del dueño (ver `formatting.ts`); defaults si se omite. */
   formatting?: DocumentFormattingPreferences;
+  /** Perfil de márgenes a aplicar: Frente (default) o Vuelto. */
+  marginProfile?: MarginProfile;
 };
 
 export type EscrituraDocxResult = {
@@ -58,6 +64,7 @@ export async function buildEscrituraDocx(
   const buffer = await generateDocumentDocx(
     model,
     input.formatting ?? DOCX_DEFAULT_FORMATTING,
+    input.marginProfile,
   );
 
   return {

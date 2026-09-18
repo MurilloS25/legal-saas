@@ -24,7 +24,7 @@ export async function loadSettingsPageData(tab: string | undefined) {
       supabase
         .from("document_settings")
         .select(
-          "font_family, font_size, margin_top_cm, margin_bottom_cm, margin_left_cm, margin_right_cm, line_spacing",
+          "font_family, font_size, margin_top_cm, margin_bottom_cm, margin_left_cm, margin_right_cm, back_margin_top_cm, back_margin_bottom_cm, back_margin_left_cm, back_margin_right_cm",
         )
         .eq("workspace_id", workspaceId)
         .maybeSingle(),

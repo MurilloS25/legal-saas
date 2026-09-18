@@ -7,11 +7,38 @@ import type { DocumentFormattingPreferences } from "./formatting";
 
 // Verifica que `generateDocumentDocx` aplica de verdad las preferencias de
 // formato al OOXML generado (no solo que las acepta como parámetro): página
-// Legal siempre, márgenes/fuente/tamaño según lo configurado, y el cuerpo
-// documental siempre justificado con interlineado fijo de 24pt exacto —
-// independiente de la preferencia de interlineado guardada.
+// Legal siempre, márgenes del perfil elegido (Frente/Vuelto), fuente/tamaño
+// según lo configurado, y el cuerpo documental siempre justificado, sin
+// sangrías, con 0 pt antes/después y 24 pt exactos de interlineado.
 
 const model = buildDocumentModel(legacyTextToDocument("Texto de prueba."), {});
+
+/** Atributos `w:*` de la primera aparición de `<w:tag .../>` en el XML. */
+function attrs(xml: string, tag: string): Record<string, string> {
+  const match = new RegExp(`<w:${tag}\\s([^>]*?)/?>`).exec(xml);
+  if (!match) throw new Error(`<w:${tag}> not found`);
+  return Object.fromEntries(
+    [...match[1].matchAll(/w:(\w+)="([^"]*)"/g)].map((m) => [m[1], m[2]]),
+  );
+}
+
+/** Twips de una medida en pulgadas (unidad de Word). */
+const inchesToTwips = (inches: number) => Math.round(inches * 1440);
+
+const REFERENCE_INCHES = { top: 1.44, bottom: 2.22, left: 0.98, right: 0.98 };
+
+function expectReferenceMargins(pgMar: Record<string, string>) {
+  // Las medidas se guardan en cm con 2 decimales (3.66/5.64/2.49) y aun así
+  // convierten exactamente a los twips de las pulgadas de Word.
+  for (const side of ["top", "bottom", "left", "right"] as const) {
+    expect(Number(pgMar[side])).toBe(inchesToTwips(REFERENCE_INCHES[side]));
+  }
+  expect(pgMar.top).toBe("2074");
+  expect(pgMar.bottom).toBe("3197");
+  expect(pgMar.left).toBe("1411");
+  expect(pgMar.right).toBe("1411");
+  expect(pgMar.gutter).toBe("0");
+}
 
 describe("formatting applied to the generated docx", () => {
   it("uses Legal paper size (8.5 x 14 in) by default, portrait", async () => {
@@ -22,50 +49,94 @@ describe("formatting applied to the generated docx", () => {
     );
   });
 
-  it("applies the default formatting preferences (Times New Roman 12pt, product default margins), justified with 24pt exact spacing", async () => {
-    const buffer = await generateDocumentDocx(model);
-    const parts = await readDocx(buffer);
+  it("Frente (default): Word reference margins, gutter 0, portrait", async () => {
+    const parts = await readDocx(await generateDocumentDocx(model));
+    expectReferenceMargins(attrs(parts.documentXml, "pgMar"));
+    expect(attrs(parts.documentXml, "pgSz").orient).toBe("portrait");
+  });
 
-    expect(parts.stylesXml).toContain('w:ascii="Times New Roman"');
-    expect(parts.stylesXml).toContain('<w:sz w:val="24"/>'); // 12pt
-    expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exactly"'); // 24pt exact
-    expect(parts.stylesXml).toContain('<w:jc w:val="both"/>'); // justified
-
-    // Márgenes default: 4.7/4.7 top-bottom, 3.2/3.2 left-right (en twips).
-    expect(parts.documentXml).toContain(
-      '<w:pgMar w:top="2664" w:right="1814" w:bottom="2664" w:left="1814"',
+  it("Frente selected explicitly gives the same result as the default", async () => {
+    const implicit = await readDocx(await generateDocumentDocx(model));
+    const explicit = await readDocx(
+      await generateDocumentDocx(model, undefined, "front"),
+    );
+    expect(attrs(explicit.documentXml, "pgMar")).toEqual(
+      attrs(implicit.documentXml, "pgMar"),
     );
   });
 
-  it("applies a fully custom set of margins/font/size end to end, but line spacing and alignment stay fixed regardless of the preference", async () => {
+  it("Vuelto: Word reference margins too (same initial values as Frente)", async () => {
+    const parts = await readDocx(
+      await generateDocumentDocx(model, undefined, "back"),
+    );
+    expectReferenceMargins(attrs(parts.documentXml, "pgMar"));
+  });
+
+  it("Frente and Vuelto are independent profiles: each selection applies its own margins", async () => {
     const custom: DocumentFormattingPreferences = {
       fontFamily: "Arial",
       fontSizePt: 11,
-      lineSpacing: 2, // debe ignorarse: el interlineado del DOCX es siempre 24pt exacto.
-      marginsCm: { top: 2, bottom: 2.5, left: 3, right: 3.5 },
+      marginsCm: {
+        front: { top: 2, bottom: 2.5, left: 3, right: 3.5 },
+        back: { top: 4, bottom: 4.5, left: 5, right: 5.5 },
+      },
     };
-    const buffer = await generateDocumentDocx(model, custom);
-    const parts = await readDocx(buffer);
+    const front = await readDocx(await generateDocumentDocx(model, custom, "front"));
+    const back = await readDocx(await generateDocumentDocx(model, custom, "back"));
 
-    // Fuente y tamaño (11pt = 22 half-points).
+    // Nunca top/bottom ni left/right intercambiados, y cada perfil es el suyo.
+    expect(attrs(front.documentXml, "pgMar")).toMatchObject({
+      top: "1133",
+      right: "1984",
+      bottom: "1417",
+      left: "1700",
+    });
+    expect(attrs(back.documentXml, "pgMar")).toMatchObject({
+      top: "2267",
+      right: "3118",
+      bottom: "2551",
+      left: "2834",
+    });
+  });
+
+  it("body paragraph format: justified, no indents, 0pt before/after, exactly 24pt", async () => {
+    const parts = await readDocx(await generateDocumentDocx(model));
+
+    const pPrDefault = /<w:pPrDefault>[\s\S]*?<\/w:pPrDefault>/.exec(
+      parts.stylesXml,
+    )![0];
+    expect(attrs(pPrDefault, "spacing")).toEqual({
+      before: "0",
+      after: "0",
+      line: "480", // 24 pt = 480 veinteavos de punto
+      lineRule: "exactly", // "Exactly", no "auto" (1.5) ni "atLeast"
+    });
+    expect(attrs(pPrDefault, "ind")).toEqual({ left: "0", right: "0" });
+    expect(pPrDefault).not.toMatch(/firstLine|hanging/); // sin sangría especial
+    expect(attrs(pPrDefault, "jc")).toEqual({ val: "both" });
+  });
+
+  it("applies the default font preferences (Times New Roman 12pt)", async () => {
+    const parts = await readDocx(await generateDocumentDocx(model));
+    expect(parts.stylesXml).toContain('w:ascii="Times New Roman"');
+    expect(parts.stylesXml).toContain('<w:sz w:val="24"/>'); // 12pt
+  });
+
+  it("applies custom font and size, while paragraph format and page size stay fixed", async () => {
+    const custom: DocumentFormattingPreferences = {
+      fontFamily: "Arial",
+      fontSizePt: 11,
+      marginsCm: {
+        front: { top: 2, bottom: 2.5, left: 3, right: 3.5 },
+        back: { top: 2, bottom: 2.5, left: 3, right: 3.5 },
+      },
+    };
+    const parts = await readDocx(await generateDocumentDocx(model, custom));
+
     expect(parts.stylesXml).toContain('w:ascii="Arial"');
-    expect(parts.stylesXml).toContain('<w:sz w:val="22"/>');
-    // Interlineado siempre 24pt exacto, sin importar `lineSpacing: 2`. (No
-    // se afirma "sin auto en todo el documento": los estilos de nota al pie
-    // que aporta la propia librería `docx` usan "auto" independientemente
-    // de nuestros docDefaults — lo relevante es que el default del cuerpo
-    // documental sea "exactly".)
-    expect(parts.stylesXml).toContain(
-      '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="480" w:lineRule="exactly"/><w:jc w:val="both"/></w:pPr></w:pPrDefault>',
-    );
-    // Siempre justificado.
+    expect(parts.stylesXml).toContain('<w:sz w:val="22"/>'); // 11pt
+    expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exactly"');
     expect(parts.stylesXml).toContain('<w:jc w:val="both"/>');
-    // Márgenes distintos en cada lado — nunca top/bottom ni left/right
-    // intercambiados.
-    expect(parts.documentXml).toContain(
-      '<w:pgMar w:top="1133" w:right="1984" w:bottom="1417" w:left="1700"',
-    );
-    // Papel Legal se mantiene sin importar la configuración del usuario.
     expect(parts.documentXml).toContain(
       '<w:pgSz w:w="12240" w:h="20160" w:orient="portrait"/>',
     );
@@ -76,20 +147,27 @@ describe("formatting applied to the generated docx", () => {
       legacyTextToDocument("Uno\nDos\nTres"),
       {},
     );
-    const buffer = await generateDocumentDocx(multiParagraphModel, {
-      fontFamily: "Calibri",
-      fontSizePt: 12,
-      lineSpacing: 1.5,
-      marginsCm: { top: 1, bottom: 1, left: 1, right: 1 },
-    });
-    const parts = await readDocx(buffer);
+    const parts = await readDocx(
+      await generateDocumentDocx(
+        multiParagraphModel,
+        {
+          fontFamily: "Calibri",
+          fontSizePt: 12,
+          marginsCm: {
+            front: { top: 1, bottom: 1, left: 1, right: 1 },
+            back: { top: 1, bottom: 1, left: 1, right: 1 },
+          },
+        },
+        "back",
+      ),
+    );
 
-    // El interlineado y la alineación se declaran una sola vez en el
-    // default del documento (docDefaults), aplicado a todos los párrafos
-    // que no lo sobreescriben — ningún párrafo del modelo define los suyos.
+    // El formato se declara una sola vez en docDefaults, aplicado a todos los
+    // párrafos; ningún párrafo del modelo lo sobreescribe con el suyo.
     expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exactly"');
     expect(parts.stylesXml).toContain('<w:jc w:val="both"/>');
     expect(parts.documentXml).not.toMatch(/<w:pPr>[\s\S]*?<w:spacing/);
     expect(parts.documentXml).not.toMatch(/<w:pPr>[\s\S]*?<w:jc/);
+    expect(parts.documentXml).not.toMatch(/<w:pPr>[\s\S]*?<w:ind/);
   });
 });

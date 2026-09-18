@@ -148,6 +148,8 @@ Decision:
 
 - One default configuration per lawyer.
 - No named presets in the MVP.
+- Margins have two independent profiles: **Frente** (`margin_*_cm`) and **Vuelto** (`back_margin_*_cm`). The `back_*` columns are nullable, all-or-none, and NULL on rows saved before the split (the app then uses the Frente margins for Vuelto). See `docs/DOCX_EXPORT.md`.
+- `line_spacing` is no longer a preference (the DOCX always uses exactly 24 pt); the column is kept with a default (1.5) for compatibility and is unused.
 
 Candidate fields:
 
@@ -160,6 +162,10 @@ margin_top_cm
 margin_bottom_cm
 margin_left_cm
 margin_right_cm
+back_margin_top_cm
+back_margin_bottom_cm
+back_margin_left_cm
+back_margin_right_cm
 line_spacing
 created_at
 updated_at

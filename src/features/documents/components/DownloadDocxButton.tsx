@@ -13,6 +13,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useId } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DEFAULT_MARGIN_PROFILE,
+  MARGIN_PROFILES,
+  MARGIN_PROFILE_LABELS,
+  parseMarginProfile,
+  type MarginProfile,
+} from "@/lib/documents/docx/margin-profile";
 
 type Props = {
   documentId: string;
@@ -61,6 +68,8 @@ export function DownloadDocxButton({
   const compact = variant === "compact";
   const [status, setStatus] = useState<Status>("idle");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [marginProfile, setMarginProfile] =
+    useState<MarginProfile>(DEFAULT_MARGIN_PROFILE);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
@@ -80,7 +89,7 @@ export function DownloadDocxButton({
     setConfirmOpen(false);
 
     try {
-      const response = await fetch(`/api/documents/${documentId}/docx`, {
+      const response = await fetch(`/api/documents/${documentId}/docx?margins=${marginProfile}`, {
         method: "POST",
         headers: { Accept: "*/*" },
       });
@@ -133,8 +142,44 @@ export function DownloadDocxButton({
     ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
     : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
+  const marginSelect = (
+    <select
+      value={marginProfile}
+      onChange={(e) =>
+        setMarginProfile(
+          parseMarginProfile(e.target.value) ?? DEFAULT_MARGIN_PROFILE,
+        )
+      }
+      disabled={preparing}
+      aria-label={
+        ariaLabel
+          ? `Formato de margen — ${ariaLabel.replace(/^Descargar Word de /, "")}`
+          : "Formato de margen"
+      }
+      title="Formato de margen"
+      className={
+        compact
+          ? "rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
+          : "rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
+      }
+    >
+      {MARGIN_PROFILES.map((p) => (
+        <option key={p} value={p}>
+          {MARGIN_PROFILE_LABELS[p]}
+        </option>
+      ))}
+    </select>
+  );
+
   return (
-    <div className={compact ? "inline-block" : undefined}>
+    <div className={compact ? "inline-flex items-center gap-1" : undefined}>
+      {compact && marginSelect}
+      {!compact && (
+        <div className="mb-2 flex items-center gap-2">
+          <label className="text-sm text-slate-600">Formato de margen</label>
+          {marginSelect}
+        </div>
+      )}
       <button
         ref={triggerRef}
         type="button"

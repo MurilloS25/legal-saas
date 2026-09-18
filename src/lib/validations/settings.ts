@@ -30,26 +30,25 @@ export const ProfileSchema = z.object({
 
 // ------------------------------------------------------------------ document settings
 
+const marginCm = (label: string) =>
+  z.number().min(0, `El margen ${label} no puede ser negativo`);
+
+// Márgenes por perfil: Frente (`margin_*_cm`) y Vuelto (`back_margin_*_cm`).
+// `line_spacing` ya no es una preferencia: el DOCX usa siempre interlineado
+// exacto de 24 pt (ver `src/lib/documents/docx/formatting.ts`).
 export const DocumentSettingsSchema = z.object({
   font_family: z.enum(ALLOWED_FONT_FAMILIES, "La fuente seleccionada no está permitida"),
   font_size: z
     .number()
     .positive("El tamaño de fuente debe ser mayor a 0"),
-  margin_top_cm: z
-    .number()
-    .min(0, "El margen superior no puede ser negativo"),
-  margin_bottom_cm: z
-    .number()
-    .min(0, "El margen inferior no puede ser negativo"),
-  margin_left_cm: z
-    .number()
-    .min(0, "El margen izquierdo no puede ser negativo"),
-  margin_right_cm: z
-    .number()
-    .min(0, "El margen derecho no puede ser negativo"),
-  line_spacing: z
-    .number()
-    .positive("El interlineado debe ser mayor a 0"),
+  margin_top_cm: marginCm("superior"),
+  margin_bottom_cm: marginCm("inferior"),
+  margin_left_cm: marginCm("izquierdo"),
+  margin_right_cm: marginCm("derecho"),
+  back_margin_top_cm: marginCm("superior"),
+  back_margin_bottom_cm: marginCm("inferior"),
+  back_margin_left_cm: marginCm("izquierdo"),
+  back_margin_right_cm: marginCm("derecho"),
 });
 
 export type ProfileInput = z.infer<typeof ProfileSchema>;
