@@ -237,6 +237,10 @@ export type Database = {
       }
       document_settings: {
         Row: {
+          back_margin_bottom_cm: number | null
+          back_margin_left_cm: number | null
+          back_margin_right_cm: number | null
+          back_margin_top_cm: number | null
           created_at: string
           font_family: string
           font_size: number
@@ -251,11 +255,15 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          back_margin_bottom_cm?: number | null
+          back_margin_left_cm?: number | null
+          back_margin_right_cm?: number | null
+          back_margin_top_cm?: number | null
           created_at?: string
           font_family: string
           font_size: number
           id?: string
-          line_spacing: number
+          line_spacing?: number
           margin_bottom_cm: number
           margin_left_cm: number
           margin_right_cm: number
@@ -265,6 +273,10 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          back_margin_bottom_cm?: number | null
+          back_margin_left_cm?: number | null
+          back_margin_right_cm?: number | null
+          back_margin_top_cm?: number | null
           created_at?: string
           font_family?: string
           font_size?: number

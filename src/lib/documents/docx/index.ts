@@ -15,5 +15,12 @@ export {
   DOCX_DEFAULT_FORMATTING,
   resolveDocumentFormatting,
 } from "./formatting";
+export {
+  DEFAULT_MARGIN_PROFILE,
+  MARGIN_PROFILES,
+  MARGIN_PROFILE_LABELS,
+  parseMarginProfile,
+} from "./margin-profile";
+export type { MarginProfile } from "./margin-profile";
 export type { DocumentFormattingPreferences } from "./formatting";
 export { loadDocumentFormattingPreferences } from "./settings-loader";

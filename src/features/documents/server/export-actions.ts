@@ -5,10 +5,12 @@ import { throwDataAccessError } from "@/lib/server/errors";
 import { hasPermission } from "@/lib/server/permissions";
 import {
   buildEscrituraDocx,
+  DEFAULT_MARGIN_PROFILE,
   contentDispositionAttachment,
   DOCX_MIME,
   DocxGenerationError,
   loadDocumentFormattingPreferences,
+  type MarginProfile,
 } from "@/lib/documents/docx";
 import {
   DocumentIdSchema,
@@ -34,6 +36,7 @@ export type BinaryExport = {
 async function prepareDocumentDocxExportInternal(
   documentId: string,
   recordActivity: boolean,
+  marginProfile: MarginProfile,
 ): Promise<BinaryExport> {
   const { supabase, workspaceId, role } = await requireApiWorkspace();
   if (!hasPermission(role, "documents.export")) {
@@ -89,6 +92,7 @@ async function prepareDocumentDocxExportInternal(
       transforms,
       optionSelections: optionSelections.data,
       formatting,
+      marginProfile,
     });
   } catch (error) {
     if (error instanceof DocxGenerationError) {
@@ -123,14 +127,22 @@ async function prepareDocumentDocxExportInternal(
   };
 }
 
-/** Read-only preparation used by GET; it never writes audit activity. */
-export function prepareDocumentDocxExport(documentId: string): Promise<BinaryExport> {
-  return prepareDocumentDocxExportInternal(documentId, false);
+/**
+ * Read-only preparation used by GET; it never writes audit activity.
+ * `marginProfile` (Frente por defecto) elige qué márgenes de Configuración
+ * se aplican al Word generado.
+ */
+export function prepareDocumentDocxExport(
+  documentId: string,
+  marginProfile: MarginProfile = DEFAULT_MARGIN_PROFILE,
+): Promise<BinaryExport> {
+  return prepareDocumentDocxExportInternal(documentId, false, marginProfile);
 }
 
 /** Explicit user export command used by POST; records one activity event. */
 export function prepareAndRecordDocumentDocxExport(
   documentId: string,
+  marginProfile: MarginProfile = DEFAULT_MARGIN_PROFILE,
 ): Promise<BinaryExport> {
-  return prepareDocumentDocxExportInternal(documentId, true);
+  return prepareDocumentDocxExportInternal(documentId, true, marginProfile);
 }

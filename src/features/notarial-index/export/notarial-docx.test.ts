@@ -67,8 +67,8 @@ describe("notarial index DOCX", () => {
       orient: "landscape",
     });
     expect(pageWidth).toBeGreaterThan(Number(pageSize.h));
-    // Márgenes: defaults de formato del producto (sin preferencias guardadas).
-    expect(pageMargins).toMatchObject({ left: "1814", right: "1814" });
+    // Márgenes: defaults de formato del producto (Frente, sin preferencias guardadas).
+    expect(pageMargins).toMatchObject({ left: "1411", right: "1411" });
     expect(columnWidths).toHaveLength(8);
     expect(columnWidths.reduce((sum, width) => sum + width, 0)).toBe(tableWidth);
     expect(tableWidth).toBeLessThanOrEqual(usableWidth);
@@ -102,8 +102,10 @@ describe("notarial index DOCX", () => {
     const formatting: DocumentFormattingPreferences = {
       fontFamily: "Arial",
       fontSizePt: 12,
-      lineSpacing: 1.5,
-      marginsCm: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
+      marginsCm: {
+        front: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
+        back: { top: 9, bottom: 9, left: 9, right: 9 },
+      },
     };
     const parts = await readDocx(
       await generateNotarialIndexDocx({
@@ -116,7 +118,7 @@ describe("notarial index DOCX", () => {
     );
     const pageMargins = wordAttributes(parts.documentXml, "pgMar");
 
-    // 2cm top/bottom = 1133 twips, 1.5cm left/right = 850 twips.
+    // Usa el perfil Frente (no el Vuelto): 2cm top/bottom = 1133 twips, 1.5cm left/right = 850 twips.
     expect(pageMargins).toMatchObject({
       top: "1133",
       bottom: "1133",

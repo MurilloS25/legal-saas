@@ -7,7 +7,11 @@ export type DocumentSettingsData = {
   margin_bottom_cm: number;
   margin_left_cm: number;
   margin_right_cm: number;
-  line_spacing: number;
+  /** Vuelto; `null` en filas anteriores a Frente/Vuelto (= mismos que Frente). */
+  back_margin_top_cm: number | null;
+  back_margin_bottom_cm: number | null;
+  back_margin_left_cm: number | null;
+  back_margin_right_cm: number | null;
 };
 
 export type LawyerProfileData = {

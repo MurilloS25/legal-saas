@@ -17,7 +17,10 @@ export type DocumentSettingsState = {
     margin_bottom_cm?: string;
     margin_left_cm?: string;
     margin_right_cm?: string;
-    line_spacing?: string;
+    back_margin_top_cm?: string;
+    back_margin_bottom_cm?: string;
+    back_margin_left_cm?: string;
+    back_margin_right_cm?: string;
   };
   message?: string;
   success?: boolean;

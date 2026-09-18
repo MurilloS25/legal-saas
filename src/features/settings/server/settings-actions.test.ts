@@ -31,7 +31,8 @@ describe.each([
     values: { full_name: "Despacho de prueba" } },
   { name: "document settings", table: "document_settings", action: saveDocumentSettingsAction,
     values: { font_family: "Arial", font_size: "12", margin_top_cm: "2", margin_bottom_cm: "2",
-      margin_left_cm: "2", margin_right_cm: "2", line_spacing: "1.5" } },
+      margin_left_cm: "2", margin_right_cm: "2", back_margin_top_cm: "2", back_margin_bottom_cm: "2",
+      back_margin_left_cm: "2", back_margin_right_cm: "2" } },
 ])("$name provenance", ({ table, action, values }) => {
   function form() {
     const data = new FormData();

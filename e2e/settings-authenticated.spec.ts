@@ -161,13 +161,22 @@ test.describe("authenticated flows", () => {
     await page.getByLabel("Fuente", { exact: true }).selectOption("Arial");
     await page.getByLabel("Tamaño (pt)").fill("11");
 
-    // Margin inputs are inside a fieldset — locate by their visible labels.
-    await page.getByLabel("Superior").fill("3.0");
-    await page.getByLabel("Inferior").fill("3.0");
-    await page.getByLabel("Izquierdo").fill("2.5");
-    await page.getByLabel("Derecho").fill("2.5");
+    // Margin inputs live in the active Frente/Vuelto tabpanel — locate them
+    // by their visible labels inside it. Frente first, then Vuelto.
+    const front = page.getByRole("tabpanel");
+    await front.getByLabel("Superior").fill("3.0");
+    await front.getByLabel("Inferior").fill("3.0");
+    await front.getByLabel("Izquierdo").fill("2.5");
+    await front.getByLabel("Derecho").fill("2.5");
+    await page.getByRole("tab", { name: "Vuelto" }).click();
+    const back = page.getByRole("tabpanel");
+    await back.getByLabel("Superior").fill("3.5");
+    await back.getByLabel("Inferior").fill("3.5");
+    await back.getByLabel("Izquierdo").fill("2");
+    await back.getByLabel("Derecho").fill("2");
 
-    await page.getByLabel("Interlineado").fill("2.0");
+    // El interlineado ya no es una preferencia: fijo en 24 pt exactos.
+    await expect(page.getByLabel("Interlineado")).toHaveCount(0);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(
@@ -191,14 +200,23 @@ test.describe("authenticated flows", () => {
     await expect(page.getByLabel("Nombre completo")).toHaveValue(name);
 
     await page.goto("/settings?tab=document");
-    await page.getByLabel("Superior").fill("4.0");
+    await page.getByRole("tabpanel").getByLabel("Superior").fill("4.0");
+    await page.getByRole("tab", { name: "Vuelto" }).click();
+    await page.getByRole("tabpanel").getByLabel("Superior").fill("4.5");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(
       page.getByRole("status").getByText("Configuración de documento guardada."),
     ).toBeVisible({ timeout: 15_000 });
 
+    // Ambos perfiles persisten de forma independiente tras recargar.
     await page.reload();
-    await expect(page.getByLabel("Superior")).toHaveValue("4");
+    await expect(page.getByRole("tab", { name: "Frente" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("tabpanel").getByLabel("Superior")).toHaveValue("4");
+    await page.getByRole("tab", { name: "Vuelto" }).click();
+    await expect(page.getByRole("tabpanel").getByLabel("Superior")).toHaveValue("4.5");
   });
 
   test("G: an invalid field blocks the save for that section and keeps every edited value", async ({
