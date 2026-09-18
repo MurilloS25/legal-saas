@@ -29,7 +29,7 @@ const valid = {
   full_name: "Test Client One",
   identification_type: "cedula_fisica" as const,
   identification_number: "000000000",
-  marital_status: "Soltero",
+  marital_status: "Soltero/a",
   nationality: "costarricense",
   occupation: "ingeniero",
   exact_address: "Dirección de prueba 123",
@@ -151,7 +151,7 @@ describe("ClientSchema", () => {
       full_name: "  Test Client One  ",
       identification_type: "cedula_fisica",
       identification_number: "  000000000  ",
-      marital_status: "  Casada dos veces  ",
+      marital_status: "  Casado/a dos veces  ",
       nationality: "  costarricense  ",
       occupation: "  ingeniero  ",
       exact_address: "  Dirección de prueba 123  ",
@@ -160,7 +160,7 @@ describe("ClientSchema", () => {
     if (result.success) {
       expect(result.data.full_name).toBe("Test Client One");
       expect(result.data.identification_number).toBe("000000000");
-      expect(result.data.marital_status).toBe("Casada dos veces");
+      expect(result.data.marital_status).toBe("Casado/a dos veces");
     }
   });
 
@@ -170,33 +170,63 @@ describe("ClientSchema", () => {
     if (result.success) expect(result.data.marital_status).toBe(value);
   });
 
-  it("offers exactly the 17 explicit marital status options", () => {
+  it("offers exactly the 9 canonical marital status options in order", () => {
     expect(MARITAL_STATUS_OPTIONS.map((o) => o.value)).toEqual([
-      "Soltero", "Soltera", "Casado", "Casada", "Casado dos veces",
-      "Casada dos veces", "Casado tres veces", "Casada tres veces",
-      "Divorciado", "Divorciada", "Divorciado dos veces",
-      "Divorciada dos veces", "Divorciado tres veces",
-      "Divorciada tres veces", "Viudo", "Viuda", "Libre",
+      "Soltero/a",
+      "Casado/a",
+      "Casado/a dos veces",
+      "Casado/a tres veces",
+      "Divorciado/a",
+      "Divorciado/a dos veces",
+      "Divorciado/a tres veces",
+      "Viudo/a",
+      "Libre",
     ]);
   });
 
-  it.each(["soltero", "Casado/a", "Unión libre", "Casado cuatro veces"])(
-    "rejects legacy or unknown marital_status %s",
-    (value) => {
-      const result = ClientSchema.safeParse({ ...valid, marital_status: value });
-      expect(result.success).toBe(false);
-    },
-  );
+  it.each([
+    "soltero",
+    "Soltera",
+    "Casado",
+    "Casada dos veces",
+    "union_libre",
+    "Unión libre",
+    "Casado/a cuatro veces",
+  ])("rejects non-canonical marital_status %s on save", (value) => {
+    const result = ClientSchema.safeParse({ ...valid, marital_status: value });
+    expect(result.success).toBe(false);
+  });
 
-  it("preselects legacy values only when they match an explicit option", () => {
-    expect(resolveMaritalStatusSelection("soltero")).toBe("Soltero");
-    expect(resolveMaritalStatusSelection("casado")).toBe("Casado");
-    expect(resolveMaritalStatusSelection("Casada dos veces")).toBe(
-      "Casada dos veces",
-    );
-    expect(resolveMaritalStatusSelection("Casado/a")).toBe("");
-    expect(resolveMaritalStatusSelection("union_libre")).toBe("");
+  it.each([
+    ["soltero", "Soltero/a"],
+    ["Soltera", "Soltero/a"],
+    ["Soltero/a", "Soltero/a"],
+    ["casado", "Casado/a"],
+    ["Casada", "Casado/a"],
+    ["Casado/a", "Casado/a"],
+    ["Casada dos veces", "Casado/a dos veces"],
+    ["divorciado", "Divorciado/a"],
+    ["Divorciada", "Divorciado/a"],
+    ["Divorciada tres veces", "Divorciado/a tres veces"],
+    ["viudo", "Viudo/a"],
+    ["viuda", "Viudo/a"],
+    ["union_libre", "Libre"],
+    ["Unión libre", "Libre"],
+    ["Libre", "Libre"],
+  ])("normalizes legacy %s → %s for preselection", (stored, expected) => {
+    expect(resolveMaritalStatusSelection(stored)).toBe(expected);
+  });
+
+  it("leaves unknown or empty legacy values unselected", () => {
+    expect(resolveMaritalStatusSelection("single")).toBe("");
+    expect(resolveMaritalStatusSelection("Viudo dos veces")).toBe("");
     expect(resolveMaritalStatusSelection(null)).toBe("");
+  });
+
+  it("maps every canonical value to itself", () => {
+    for (const v of MARITAL_STATUS_VALUES) {
+      expect(resolveMaritalStatusSelection(v)).toBe(v);
+    }
   });
 
   it("rejects when a required field is missing", () => {
@@ -204,7 +234,7 @@ describe("ClientSchema", () => {
       full_name: "Test Client One",
       identification_type: "cedula_fisica" as const,
       identification_number: "000000000",
-      marital_status: "Soltero",
+      marital_status: "Soltero/a",
       nationality: "costarricense",
       // occupation intentionally omitted
       exact_address: "Dirección de prueba 123",

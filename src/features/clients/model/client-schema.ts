@@ -18,27 +18,18 @@ export function normalizeClientIdentification(raw: string): string {
 // formulario completo (`ClientForm`) como el diálogo de creación contextual
 // (`CreateClientDialog`), para no duplicar la lista.
 //
-// El valor almacenado es exactamente el texto visible (p. ej. "Casada dos
-// veces"), porque se reutiliza tal cual en documentos notariales: no se
-// deriva género ni número de veces después. `Casado`/`Divorciado` son el
-// caso normal (primera vez).
+// El valor almacenado es exactamente el texto visible (p. ej.
+// "Casado/a dos veces"), porque se reutiliza tal cual en documentos
+// notariales. `Casado/a` y `Divorciado/a` son el caso normal (primera vez).
 export const MARITAL_STATUS_VALUES = [
-  "Soltero",
-  "Soltera",
-  "Casado",
-  "Casada",
-  "Casado dos veces",
-  "Casada dos veces",
-  "Casado tres veces",
-  "Casada tres veces",
-  "Divorciado",
-  "Divorciada",
-  "Divorciado dos veces",
-  "Divorciada dos veces",
-  "Divorciado tres veces",
-  "Divorciada tres veces",
-  "Viudo",
-  "Viuda",
+  "Soltero/a",
+  "Casado/a",
+  "Casado/a dos veces",
+  "Casado/a tres veces",
+  "Divorciado/a",
+  "Divorciado/a dos veces",
+  "Divorciado/a tres veces",
+  "Viudo/a",
   "Libre",
 ] as const;
 
@@ -49,20 +40,44 @@ export const MARITAL_STATUS_OPTIONS = MARITAL_STATUS_VALUES.map((value) => ({
   label: value,
 }));
 
+const LEGACY_BASE: Record<string, string> = {
+  soltero: "Soltero/a",
+  soltera: "Soltero/a",
+  casado: "Casado/a",
+  casada: "Casado/a",
+  divorciado: "Divorciado/a",
+  divorciada: "Divorciado/a",
+  viudo: "Viudo/a",
+  viuda: "Viudo/a",
+  libre: "Libre",
+  "union libre": "Libre",
+};
+
 /**
- * Valor inicial del selector al editar. Los Clientes anteriores guardaron
- * slugs ("soltero", "casado"…) o formas combinadas ("Casado/a"); no se
- * reescriben en la base de datos. Solo un valor que coincide exactamente
- * (sin distinguir mayúsculas) con una opción actual se preselecciona; el
- * resto queda sin seleccionar para que la persona elija la forma explícita
- * al guardar.
+ * Equivalente canónico de un valor histórico de estado civil, o "" si no hay
+ * equivalencia clara. Los Clientes anteriores guardaron slugs ("soltero",
+ * "union_libre"), formas de género ("Casada") o el texto actual. Solo se usa
+ * para preseleccionar el formulario: no se reescribe nada en la base de datos;
+ * el valor canónico se persiste al guardar de nuevo el Cliente.
  */
-export function resolveMaritalStatusSelection(stored: string | null | undefined): string {
+export function resolveMaritalStatusSelection(
+  stored: string | null | undefined,
+): string {
   if (!stored) return "";
-  const match = MARITAL_STATUS_VALUES.find(
-    (v) => v.toLowerCase() === stored.trim().toLowerCase(),
-  );
-  return match ?? "";
+  const key = stored
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\/a\b/g, "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const times = key.match(/^(.*?)(?: (dos|tres) veces)?$/);
+  const base = LEGACY_BASE[times?.[1] ?? ""];
+  if (!base || base === "Soltero/a" || base === "Viudo/a" || base === "Libre") {
+    return times?.[2] ? "" : (base ?? "");
+  }
+  return times?.[2] ? `${base} ${times[2]} veces` : base;
 }
 
 export const ClientSchema = z.object({
