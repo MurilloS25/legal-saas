@@ -7,7 +7,10 @@ import {
   updateClientAction,
 } from "../server/actions";
 import type { ClientState } from "../model/action-state";
-import { MARITAL_STATUS_OPTIONS } from "../model/client-schema";
+import {
+  MARITAL_STATUS_OPTIONS,
+  resolveMaritalStatusSelection,
+} from "../model/client-schema";
 import type { ClientRow } from "../model/types";
 import { DeleteClientButton } from "./DeleteClientButton";
 import { FieldError } from "@/components/forms/FieldError";
@@ -214,7 +217,7 @@ export function ClientForm(props: Props) {
                 name="marital_status"
                 required
                 disabled={!canWrite}
-                defaultValue={client?.marital_status ?? ""}
+                defaultValue={resolveMaritalStatusSelection(client?.marital_status)}
                 className={inputClass}
                 aria-describedby={
                   state.errors?.marital_status

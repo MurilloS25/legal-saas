@@ -134,7 +134,7 @@ test.describe("create a client from the document workspace", () => {
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     await dialog.getByLabel("Nombre completo").fill(clientName);
     await dialog.getByLabel("Número de cédula").fill("1-1111-1111");
-    await dialog.getByLabel("Estado civil").selectOption("soltero");
+    await dialog.getByLabel("Estado civil").selectOption("Soltero/a");
     await dialog.getByLabel("Nacionalidad").fill("Costarricense");
     await dialog.getByLabel("Ocupación").fill("Abogado");
     await dialog.getByLabel("Dirección exacta").fill("San José, Costa Rica");
