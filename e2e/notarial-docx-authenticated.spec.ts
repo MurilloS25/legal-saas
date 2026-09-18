@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { countTableRows, extractDocxText, readDocx } from "../test/support/docx";
+import { restSelect } from "./support/supabase-api";
 import {
   CleanupRegistry,
   cleanupNotarialExports,
@@ -126,6 +127,7 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("downloads all selected rows as an ordered DOCX", async ({ page }) => {
+    const before = await restSelect<{ id: string }>("notarial_index_exports?select=id");
     const response = await page.request.get(`/api/notarial-index/export?${selection}`);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain(
@@ -141,6 +143,16 @@ test.describe("notarial index DOCX export", () => {
     expect(second).toBeGreaterThan(first);
     expect(text).not.toContain("800003");
     expect(text).toContain("NOTARIA PRUEBA E2E");
+    const after = await restSelect<{ id: string }>("notarial_index_exports?select=id");
+    expect(after).toHaveLength(before.length);
+  });
+
+  test("POST records exactly one auditable export", async ({ request }) => {
+    const before = await restSelect<{ id: string }>("notarial_index_exports?select=id");
+    const response = await request.post(`/api/notarial-index/export?${selection}`);
+    expect(response.status()).toBe(200);
+    const after = await restSelect<{ id: string }>("notarial_index_exports?select=id");
+    expect(after).toHaveLength(before.length + 1);
   });
 
   // Regresión de smoke: el export usaba `.gte()/.lte()` encadenados sobre

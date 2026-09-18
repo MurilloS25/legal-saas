@@ -26,9 +26,11 @@ que cubren el mismo riesgo (contraseñas débiles/reutilizadas) desde otro
   en la app redirige a `/login` sin ofrecer ningún enlace de registro
   (cubierto por `e2e/auth-smoke.spec.ts`).
 - **Proveedor único: Email.** Sin OAuth, sin Magic Link, sin Web3.
-- **Usuarios creados solo por invitación** (Authentication → Users → Add
-  user → Send invitation en el dashboard de Supabase Cloud) — ver
-  `docs/SUPABASE_PRODUCTION.md` para el flujo de invitación ya documentado.
+- **Usuarios creados solo por invitación.** La vía operativa normal es
+  Despacho → Equipo en LexCR, donde un propietario/administrador autorizado usa
+  el Server Action respaldado por la Admin API. El Dashboard de Supabase queda
+  como herramienta administrativa excepcional; no sustituye la membresía del
+  Workspace.
 
 ## Controles compensatorios implementados
 
@@ -137,6 +139,14 @@ Diseño actual:
    defensivamente cualquier `type=invite` que le llegue (enlaces viejos en
    correos ya enviados) redirigiendo a `/accept-invite` sin tocar el
    token, en vez de reproducir el mismo problema.
+
+La creación de la invitación también separa Auth de membresía de forma
+explícita: valida entrada y permiso antes de tocar Auth, resuelve primero si la
+cuenta ya existe, y solo envía correo para una cuenta nueva. Si Auth crea esa
+cuenta pero la RPC de membresía falla, el servidor intenta eliminar únicamente
+la cuenta creada por ese intento. Nunca elimina usuarios existentes; si la
+compensación falla, registra solo un código seguro y el retry reconcilia la
+cuenta existente sin reenviar ni duplicar la invitación.
 
 Cobertura: `e2e/invite-token-safety-authenticated.spec.ts` (GET no consume,
 GETs repetidos no consumen, un segundo POST con el mismo token falla

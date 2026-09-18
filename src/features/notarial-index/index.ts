@@ -12,6 +12,10 @@ export type { TemplateIndexConfiguration } from "./model/template-index-configur
 export { isTemplateIndexConfigurationResolved } from "./model/template-index-configuration";
 export { generateConfiguredPartiesPreview } from "./model/parties";
 export { resolveNotarialMetadataPrefill } from "./model/prefill";
+export {
+  createDocumentNotarialSnapshot,
+  resolveDocumentNotarialSnapshot,
+} from "./model/document-notarial-snapshot";
 export type {
   NotarialMetadataPrefill,
   NotarialPrefillField,

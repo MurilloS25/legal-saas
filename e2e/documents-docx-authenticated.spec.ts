@@ -15,6 +15,7 @@ import {
   deleteUser,
   restUpdate,
 } from "./support/supabase-admin";
+import { restSelect } from "./support/supabase-api";
 
 // Serial: comparten machote y borradores del mismo usuario.
 test.describe.configure({ mode: "serial" });
@@ -240,6 +241,9 @@ test.describe("document docx download", () => {
   test("E: the endpoint returns the correct MIME and disposition", async ({
     page,
   }) => {
+    const before = await restSelect<{ id: string }>(
+      `document_activity?select=id&document_id=eq.${completeDocId}&event_type=eq.document_word_generated`,
+    );
     const response = await page.request.get(
       `/api/documents/${completeDocId}/docx`,
     );
@@ -255,6 +259,22 @@ test.describe("document docx download", () => {
     // Firma de un ZIP ("PK").
     expect(body[0]).toBe(0x50);
     expect(body[1]).toBe(0x4b);
+    const after = await restSelect<{ id: string }>(
+      `document_activity?select=id&document_id=eq.${completeDocId}&event_type=eq.document_word_generated`,
+    );
+    expect(after).toHaveLength(before.length);
+  });
+
+  test("E2: POST records exactly one Word export activity", async ({ page }) => {
+    const before = await restSelect<{ id: string }>(
+      `document_activity?select=id&document_id=eq.${completeDocId}&event_type=eq.document_word_generated`,
+    );
+    const response = await page.request.post(`/api/documents/${completeDocId}/docx`);
+    expect(response.status()).toBe(200);
+    const after = await restSelect<{ id: string }>(
+      `document_activity?select=id&document_id=eq.${completeDocId}&event_type=eq.document_word_generated`,
+    );
+    expect(after).toHaveLength(before.length + 1);
   });
 
   test("F: pending variables trigger a confirmation before downloading", async ({

@@ -10,8 +10,14 @@ import { VARIABLE_OUTPUT_TRANSFORMS } from "@/lib/editor/text-transforms";
 import type { TemplateDocument } from "@/lib/editor/types";
 import { validateTemplateDocument } from "@/lib/editor/validate";
 import { FIELD_KEY_PATTERN } from "@/lib/editor/variable-key";
+import {
+  DocumentNotarialSnapshotSchema,
+  type DocumentNotarialSnapshot,
+} from "@/lib/documents/notarial-snapshot";
 
-const SNAPSHOT_VERSION = 1 as const;
+export type { DocumentNotarialSnapshot } from "@/lib/documents/notarial-snapshot";
+
+const SNAPSHOT_VERSION = 2 as const;
 const MAX_FIELDS = 200;
 
 const SnapshotFieldSchema = z
@@ -35,11 +41,20 @@ const SnapshotFieldSchema = z
   })
   .strict();
 
+const SnapshotV1EnvelopeSchema = z
+  .object({
+    version: z.literal(1),
+    document: z.unknown(),
+    fields: z.array(SnapshotFieldSchema).max(MAX_FIELDS),
+  })
+  .strict();
+
 const SnapshotEnvelopeSchema = z
   .object({
     version: z.literal(SNAPSHOT_VERSION),
     document: z.unknown(),
     fields: z.array(SnapshotFieldSchema).max(MAX_FIELDS),
+    notarial: DocumentNotarialSnapshotSchema,
   })
   .strict();
 
@@ -52,6 +67,7 @@ export type DocumentTemplateSnapshot = {
   document: TemplateDocument;
   /** Solo configuración explícita; variables derivadas se reconstruyen desde document. */
   fields: ConfiguredTemplateField[];
+  notarial: DocumentNotarialSnapshot;
 };
 
 export type ResolvedDocumentTemplateSnapshot = {
@@ -59,6 +75,8 @@ export type ResolvedDocumentTemplateSnapshot = {
   fields: FillableTemplateField[];
   /** true para filas anteriores a la migration, cuya única fuente histórica es rendered_content. */
   legacy: boolean;
+  /** Null only for documents created before the notarial snapshot existed. */
+  notarial: DocumentNotarialSnapshot | null;
 };
 
 function savedRenderedTextToDocument(text: string): TemplateDocument {
@@ -75,13 +93,15 @@ function savedRenderedTextToDocument(text: string): TemplateDocument {
 export function createDocumentTemplateSnapshot(
   document: TemplateDocument,
   fields: FillableTemplateField[],
+  notarial: DocumentNotarialSnapshot,
 ): DocumentTemplateSnapshot {
   const documentResult = validateTemplateDocument(document);
   const fieldsResult = z
     .array(FillableSnapshotInputSchema)
     .max(MAX_FIELDS)
     .safeParse(fields);
-  if (!documentResult.ok || !fieldsResult.success) {
+  const notarialResult = DocumentNotarialSnapshotSchema.safeParse(notarial);
+  if (!documentResult.ok || !fieldsResult.success || !notarialResult.success) {
     throw new Error("No fue posible crear el snapshot del machote.");
   }
 
@@ -98,6 +118,7 @@ export function createDocumentTemplateSnapshot(
         autofill_source: field.autofill_source,
         output_transform: field.output_transform,
       })),
+    notarial: notarialResult.data,
   };
 }
 
@@ -116,14 +137,23 @@ export function resolveDocumentTemplateSnapshot(
       document: savedRenderedTextToDocument(renderedContent),
       fields: [],
       legacy: true,
+      notarial: null,
     };
   }
 
-  const envelope = SnapshotEnvelopeSchema.safeParse(snapshot);
-  if (!envelope.success) {
+  const currentEnvelope = SnapshotEnvelopeSchema.safeParse(snapshot);
+  const legacyEnvelope = currentEnvelope.success
+    ? null
+    : SnapshotV1EnvelopeSchema.safeParse(snapshot);
+  const envelope = currentEnvelope.success
+    ? currentEnvelope.data
+    : legacyEnvelope?.success
+      ? legacyEnvelope.data
+      : null;
+  if (!envelope) {
     throw new Error("El snapshot del machote no es válido.");
   }
-  const document = validateTemplateDocument(envelope.data.document);
+  const document = validateTemplateDocument(envelope.document);
   if (!document.ok) {
     throw new Error("El snapshot del machote no es válido.");
   }
@@ -131,9 +161,10 @@ export function resolveDocumentTemplateSnapshot(
   return {
     document: document.document,
     fields: buildFillableFields(
-      envelope.data.fields,
+      envelope.fields,
       serializeDocumentToTemplateText(document.document),
     ),
     legacy: false,
+    notarial: "notarial" in envelope ? envelope.notarial : null,
   };
 }

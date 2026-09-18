@@ -822,15 +822,20 @@ Verificado explícitamente en
 seguir usando la cuenta con un Workspace propio nuevo, hace falta decidir
 y construir ese flujo — no implementado aquí.
 
-El flujo de correo reutiliza el patrón de `/auth/confirm` de la Iteración
-2 (`token_hash` + `type`, ya genérico para cualquier `EmailOtpType`):
-`admin.inviteUserByEmail` (service role, `src/lib/supabase/admin.ts`,
-nunca importado desde el cliente) crea la cuenta y dispara el correo con
-la plantilla `supabase/templates/invite.html`
-(`config.toml` → `[auth.email.template.invite]`); el enlace apunta a
-`/auth/confirm?type=invite&next=/accept-invite`. `/accept-invite` exige
-fijar contraseña (`updateUser`, mismo patrón que `/update-password`) y
-llama a `accept_workspace_invitation` en el mismo submit.
+El flujo vigente usa `admin.inviteUserByEmail` (service role,
+`src/lib/supabase/admin.ts`, nunca importado desde el cliente) únicamente para
+cuentas nuevas. La plantilla `supabase/templates/invite.html` apunta directo a
+`/accept-invite?token_hash=...&email=...`: el GET no consume el token y el POST
+explícito lo verifica antes de fijar contraseña y llamar a
+`accept_workspace_invitation`.
+
+Antes de invitar se validan permiso, email y rol, y se busca una cuenta Auth
+existente. Una cuenta existente recibe la membresía sin correo nuevo. Si este
+intento crea una cuenta y luego falla `invite_workspace_member`, se intenta
+compensar borrando solo esa cuenta recién creada. Las cuentas preexistentes y
+las carreras `email_exists` nunca se borran. Si falla la compensación, queda un
+evento operativo sin datos sensibles y el retry resuelve la cuenta existente,
+evitando un segundo correo o usuario duplicado.
 
 ### 12.4 Jerarquía de gestión de miembros
 

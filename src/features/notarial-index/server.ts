@@ -11,9 +11,15 @@ export {
   startNotarialCorrectionAction,
   type NotarialConfirmationActionState,
 } from "./server/confirmation-actions";
-export { getTemplateIndexConfiguration } from "./server/template-index-config-queries";
+export {
+  getTemplateIndexConfiguration,
+  queryTemplateIndexConfiguration,
+} from "./server/template-index-config-queries";
 export type { TemplateIndexConfiguration } from "./model/template-index-configuration";
-export { prepareNotarialDocxExport } from "./server/export-actions";
+export {
+  prepareAndRecordNotarialDocxExport,
+  prepareNotarialDocxExport,
+} from "./server/export-actions";
 export {
   getLatestNotarialExportAt,
   listNotarialIndexForExport,

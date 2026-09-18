@@ -338,6 +338,10 @@ is the overview only; feature workspaces use the canonical top-level paths
 `/clients`, `/templates`, `/documents`, `/notarial-index`, `/receivables`, and
 `/settings`. Compatibility redirects keep former `/dashboard/<module>` bookmarks
 working while preserving nested IDs and query parameters.
+The root `/` is the public landing page. Auth screens live under the `(auth)`
+route group while retaining stable public URLs such as `/login`,
+`/accept-invite` and `/reset-password`; `src/proxy.ts` owns the authenticated
+route boundary rather than physical nesting below `/dashboard`.
 
 - The dashboard shell uses a desktop top navbar and a mobile drawer. Account
   actions open Perfil, Configuración or Despacho; team management is part of
@@ -357,7 +361,9 @@ working while preserving nested IDs and query parameters.
   non-cancelable history behavior.
 - Document saves and finalization use optimistic concurrency based on the
   expected `updated_at`. Each new Escritura captures an immutable structured
-  Machote snapshot used by preview, later edits, finalization and DOCX.
+  Machote snapshot used by preview, later edits, finalization and DOCX. Snapshot
+  version 2 also freezes the Machote name and minimal notarial mapping in stable
+  field keys, so later Machote edits do not change the historical Index view.
 
 ## State And Data Libraries
 
@@ -510,17 +516,11 @@ Each phase must preserve behavior, security, accessibility, and relevant unit,
 RLS, build, and E2E coverage. A failed or oversized phase should be reduced,
 not solved by a repository-wide rewrite.
 
-## Product and UX backlog
+## Product and UX operational debt
 
-These items are recorded for future product work and are not part of the
-current architecture refactors:
-
-- Add a global `not-found.tsx` with LexCR styling and an action back to the
-  dashboard.
-- Define a future public landing route at `/` with product presentation,
-  login access, possible pricing, and the definitive brand/domain decisions.
-- Configure custom SMTP and transactional email templates for the production
-  domain and branding.
+The public landing route and global `not-found.tsx` are implemented. Custom
+SMTP, the definitive production domain and transactional email templates remain
+operational debt and require a separate product/release decision.
 
 ## Unsaved workspace navigation
 

@@ -32,6 +32,7 @@ import {
   NotarialMetadataSection,
   generateConfiguredPartiesPreview,
   isTemplateIndexConfigurationResolved,
+  resolveDocumentNotarialSnapshot,
   resolveNotarialMetadataPrefill,
 } from "@/features/notarial-index";
 import { ReceivableMiniList } from "@/features/receivables";
@@ -71,6 +72,14 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
   const document = await getDocumentById(id);
   if (!document) notFound();
 
+  const resolvedTemplateContent = resolveDocumentTemplateSnapshot(
+    document.template_snapshot,
+    document.rendered_content,
+  );
+  const historicalNotarial = resolvedTemplateContent.notarial
+    ? resolveDocumentNotarialSnapshot(resolvedTemplateContent.notarial)
+    : null;
+
   const [
     template,
     templateFields,
@@ -81,36 +90,37 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
     receivables,
   ] = await Promise.all([
     getTemplateById(document.template_id),
-    listTemplateFields(document.template_id),
-    getTemplateIndexConfiguration(document.template_id),
+    historicalNotarial ? Promise.resolve([]) : listTemplateFields(document.template_id),
+    historicalNotarial
+      ? Promise.resolve(null)
+      : getTemplateIndexConfiguration(document.template_id),
     listDocumentActivity(document.id),
     getNotarialMetadata(document.id),
     getNotarialMetadataSuggestions(),
     listReceivablesByDocument(document.id),
   ]);
-  const generatedPartiesPreview = generateConfiguredPartiesPreview(
-    indexConfiguration,
-    templateFields.map((field) => ({
+  const effectiveConfiguration =
+    historicalNotarial?.configuration ?? indexConfiguration;
+  const effectiveFields =
+    historicalNotarial?.availableFields ?? templateFields.map((field) => ({
       id: field.id,
       fieldKey: field.field_key,
-    })),
+    }));
+  const effectiveTemplateName =
+    historicalNotarial?.templateName ?? template?.name ?? null;
+  const generatedPartiesPreview = generateConfiguredPartiesPreview(
+    effectiveConfiguration,
+    effectiveFields,
     document.field_values,
-  );
-  const resolvedTemplateContent = resolveDocumentTemplateSnapshot(
-    document.template_snapshot,
-    document.rendered_content,
   );
   const notarialPrefill = resolveNotarialMetadataPrefill({
     metadata: notarialMetadata,
-    configuration: indexConfiguration,
-    availableFields: templateFields.map((field) => ({
-      id: field.id,
-      fieldKey: field.field_key,
-    })),
+    configuration: effectiveConfiguration,
+    availableFields: effectiveFields,
     fieldValues: document.field_values,
     templateDocument: resolvedTemplateContent.document,
     optionSelections: document.option_selections,
-    templateName: template?.name ?? null,
+    templateName: effectiveTemplateName,
     generatedParties: generatedPartiesPreview,
     suggestions: notarialSuggestions,
   });
@@ -167,7 +177,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           notarialMetadata={notarialMetadata}
           notarialPrefill={notarialPrefill}
           notarialReviewRequired={notarialReviewRequired}
-          indexConfiguration={indexConfiguration}
+          indexConfiguration={effectiveConfiguration}
           generatedPartiesPreview={generatedPartiesPreview}
           requestedSection={requestedSection}
           canConfirmNotarial={canConfirmNotarial}
@@ -175,7 +185,7 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
         />
       ) : (
         <DocumentComposerLoader
-          templateName={template.name}
+          templateName={effectiveTemplateName ?? template.name}
           templateSnapshot={resolvedTemplateContent}
           document={document}
           savedJustNow={saved === "1"}
@@ -188,8 +198,8 @@ export default async function DocumentDetailPage({ params, searchParams }: Props
           canManageReceivables={canManageReceivables}
           notarialMetadata={notarialMetadata}
           notarialPrefill={notarialPrefill}
-          canResetParties={isTemplateIndexConfigurationResolved(indexConfiguration)}
-          actNamePreview={template?.name ?? null}
+          canResetParties={isTemplateIndexConfigurationResolved(effectiveConfiguration)}
+          actNamePreview={effectiveTemplateName}
           generatedPartiesPreview={generatedPartiesPreview}
           reviewRequired={notarialReviewRequired}
           canConfirmNotarial={canConfirmNotarial}
@@ -387,6 +397,7 @@ function NoTemplateFallback({
           <ReceivableMiniList
             receivables={receivables}
             newHref={canManageReceivables ? receivablesNewHref : undefined}
+            allHref={`/receivables?document=${document.id}`}
             emptyText="Esta escritura todavía no tiene cuentas por cobrar."
           />
         </section>

@@ -61,7 +61,7 @@ export function NotarialExportButton({ href }: Props) {
     setPending(true);
     try {
       const response = await fetch(href, {
-        method: "GET",
+        method: "POST",
         headers: { Accept: "*/*" },
       });
 

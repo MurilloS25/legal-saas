@@ -12,6 +12,29 @@ export type ConfiguredPartiesResult =
   | { status: "missing" | "incomplete"; value: null }
   | { status: "ready"; value: string | null };
 
+export function generateConfiguredPartiesFromConfiguration(
+  configuration: Awaited<ReturnType<typeof queryTemplateIndexConfiguration>>,
+  availableFields: Array<{ id: string; fieldKey: string }>,
+  fieldValues: unknown,
+): ConfiguredPartiesResult {
+  if (!configuration) return { status: "missing", value: null };
+  if (!isTemplateIndexConfigurationResolved(configuration)) {
+    return { status: "incomplete", value: null };
+  }
+  const selectedIds = configuration.fields.map((field) => field.templateFieldId);
+  if (selectedIds.some((id) => !availableFields.some((field) => field.id === id))) {
+    return { status: "incomplete", value: null };
+  }
+  const values =
+    fieldValues && typeof fieldValues === "object" && !Array.isArray(fieldValues)
+      ? (fieldValues as Record<string, unknown>)
+      : {};
+  return {
+    status: "ready",
+    value: generateConfiguredPartiesPreview(configuration, availableFields, values),
+  };
+}
+
 export async function generateConfiguredParties(
   supabase: Supabase,
   workspaceId: string,
@@ -24,9 +47,6 @@ export async function generateConfiguredParties(
     templateId,
   );
   if (!configuration) return { status: "missing", value: null };
-  if (!isTemplateIndexConfigurationResolved(configuration)) {
-    return { status: "incomplete", value: null };
-  }
 
   const selectedIds = configuration.fields.map(
     (field) => field.templateFieldId,
@@ -46,17 +66,9 @@ export async function generateConfiguredParties(
     }));
   }
 
-  const values =
-    fieldValues && typeof fieldValues === "object" && !Array.isArray(fieldValues)
-      ? (fieldValues as Record<string, unknown>)
-      : {};
-  const generated = generateConfiguredPartiesPreview(
+  return generateConfiguredPartiesFromConfiguration(
     configuration,
     availableFields,
-    values,
+    fieldValues,
   );
-  if (selectedIds.length !== availableFields.length) {
-    return { status: "incomplete", value: null };
-  }
-  return { status: "ready", value: generated };
 }

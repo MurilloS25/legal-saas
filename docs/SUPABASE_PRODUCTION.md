@@ -6,15 +6,17 @@ ni claves — solo nombres y configuración pública.
 
 ## Estado conocido vigente
 
-Última reconciliación documental: **2026-09-11**. No se consultó ni modificó
-Cloud durante esta reconciliación.
+Última reconciliación documental: **2026-09-17**. No se consultó ni modificó
+Cloud durante esta reconciliación; el estado indicado es el último confirmado
+durante la release productiva anterior.
 
 - Proyecto Cloud y conexión con Vercel: existentes.
-- Último conteo confirmado en Cloud: **39 migrations**.
-- Supabase local: **41 migrations**.
-- Pendientes deliberadas para un release coordinado con el código:
-  `20260910012002_release_security_rls_lifecycle.sql` y
-  `20260911170653_document_template_snapshot.sql`.
+- Último conteo confirmado en Cloud: **43 migrations**, hasta
+  `20260915040113_remove_legacy_notarial_tables.sql` inclusive.
+- Supabase local en esta rama: **45 migrations**.
+- Pendientes deliberadas para el próximo release coordinado con el código:
+  `20260917174844_enforce_single_active_workspace_membership.sql` y
+  `20260917193555_document_notarial_configuration_snapshot.sql`.
 - No ejecutar `supabase db push`, `apply_migration` ni cambios del Dashboard
   sin autorización explícita. Antes de un release se debe volver a consultar
   el estado real; este documento no convierte el último dato conocido en una
@@ -182,11 +184,10 @@ ejecutaron dumps, imports, seeds funcionales, scripts E2E ni fixtures.
 
 ## Auth
 
-Estos pasos requieren el dashboard de Supabase directamente — ningún
-tool disponible en este entorno puede leer/escribir configuración de
-Auth ni invitar usuarios sin un access token que este entorno no tiene
-(y que, por política, nunca se pide pegar en el chat). Por eso se le
-pidió al usuario que los completara directamente.
+La configuración de plataforma (signup, URLs, políticas y plantillas) se
+administra en el Dashboard de Supabase. Las invitaciones de equipo, en cambio,
+se inician normalmente desde Despacho → Equipo en LexCR mediante la Admin API
+server-only y luego se registran con las RPCs de membresía.
 
 **Registro público (Authentication → Settings → Auth):** confirmado
 por el usuario como revisado y completado (`Allow new user signups` en
@@ -195,12 +196,11 @@ forma independiente desde este entorno (sin acceso al dashboard ni a la
 Management API) — queda registrado según la confirmación directa del
 usuario, no una verificación automatizada.
 
-**Usuarios autorizados (Authentication → Users → Add user → Send
-invitation):** el usuario indicó que invitará directamente a las
-personas autorizadas del piloto por su cuenta, sin necesidad de
-compartir los correos en esta conversación. No se creó ningún usuario
-desde este entorno (ni admin genérico, ni `test@test.com`, ni cuenta
-demo).
+**Usuarios autorizados:** un propietario/administrador invita desde la app.
+El flujo busca primero cuentas existentes, solo envía correo para una cuenta
+nueva y compensa una falla posterior de DB únicamente si ese mismo intento creó
+el usuario Auth. El Dashboard sigue disponible para administración excepcional,
+pero crear allí un usuario no crea por sí solo su membresía del Workspace.
 
 Después de que cada persona acepte su invitación, conviene verificar
 (desde la propia aplicación, ya logueada como esa persona):
@@ -212,12 +212,9 @@ Después de que cada persona acepte su invitación, conviene verificar
 
 ## Pruebas de seguridad A/B — pendientes
 
-La Fase 12 (aislamiento entre dos usuarios autorizados) requiere al
-menos dos cuentas reales ya invitadas y confirmadas — no se puede
-simular de forma significativa sin sesiones autenticadas reales, y el
-usuario invitará a esas personas por su cuenta fuera de esta
-conversación. Queda como pendiente explícito hasta que existan cuentas
-reales que probar; no se marcó como completada.
+La suite local cubre aislamiento entre usuarios y roles con identidades
+desechables y RLS. Un smoke productivo entre cuentas reales continúa siendo un
+paso manual del runbook porque no deben manejarse credenciales reales desde CI.
 
 ## Conexión con Vercel
 
@@ -259,14 +256,16 @@ reales que probar; no se marcó como completada.
 ```text
 NEXT_PUBLIC_SUPABASE_URL              -> https://iicsltjlnmawkobqnhpi.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY  -> clave pública del proyecto
+SUPABASE_SERVICE_ROLE_KEY             -> clave secreta, solo servidor
 ```
 
 Reglas:
 - La clave anon/publishable puede llegar al navegador (es pública por
   diseño) — pero de todas formas no se imprime su valor en este
   documento ni en el chat, solo se confirma que existe y su nombre.
-- La `service_role key` (si algún día se necesita server-side) **nunca**
-  lleva prefijo `NEXT_PUBLIC_` y nunca se expone al navegador.
+- La `service_role key` es necesaria para invitaciones de equipo. **Nunca**
+  lleva prefijo `NEXT_PUBLIC_`, se limita a Production y no se expone al
+  navegador. Su presencia fue verificada sin leer su valor el 2026-09-17.
 - La contraseña de la base de datos no se usa en la aplicación — no se
   guarda en ningún archivo del repo.
 - No se creó `.env.production` versionado.
@@ -343,10 +342,19 @@ La resolución futura debe definir y validar, en conjunto:
 No guardar credenciales SMTP ni otros secretos en esta documentación o en
 Git.
 
-## Verificaciones pendientes antes del próximo release
+## Runbook del próximo release
 
-- Revalidar Site URL, redirect URLs y política de contraseña en Supabase
-  Auth; resolver el pendiente SMTP/branding anterior antes de considerar
-  validado el email transaccional.
-- Revalidar el conteo Cloud antes de aplicar las migrations 40 y 41.
-- Coordinar schema y aplicación; no desplegar una de esas partes aisladamente.
+1. Confirmar que Cloud continúa exactamente en **43 migrations** y tomar el
+   backup operativo aprobado antes de modificar schema.
+2. Verificar localmente `db reset`, pgTAP y ambos `supabase db diff` vacíos.
+3. Aplicar, en orden, las migrations 44 y 45 indicadas arriba. La 44 impone
+   una sola membresía activa por usuario; la 45 hace que el Índice prefiera el
+   nombre histórico guardado en el snapshot notarial de la Escritura.
+4. Promover el código compatible en la misma ventana y ejecutar smoke tests de
+   Auth, invitaciones, Escrituras, Índice y exportaciones.
+5. Confirmar que Cloud registra **45 migrations** y documentar el deployment
+   exacto. No ejecutar estos pasos desde una rama de feature.
+
+El SMTP personalizado, dominio y plantillas productivas siguen como deuda
+operativa aceptada. No bloquean flujos sin correo, pero invitación y recovery
+no se consideran validados end-to-end en Production hasta resolverlos.

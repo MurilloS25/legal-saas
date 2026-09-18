@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
 import {
   AdminConfigurationError,
+  AdminRequestError,
   createAdminClient,
   findUserIdByEmail,
 } from "@/lib/supabase/admin";
@@ -70,27 +71,47 @@ export async function inviteMemberAction(
 
   let targetUserId: string | null = null;
   let emailSent = false;
+  let createdByThisAttempt = false;
+  let admin: ReturnType<typeof createAdminClient> | null = null;
 
   try {
-    const admin = createAdminClient();
-    const origin = await resolveSiteOrigin();
-    const { data: invited, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(result.data.email, {
-        redirectTo: `${origin}/accept-invite`,
-      });
+    admin = createAdminClient();
+    // Existing accounts never need a new Auth invitation. Resolving them
+    // first also lets the membership RPC reject duplicates before any email
+    // or Auth mutation occurs.
+    targetUserId = await findUserIdByEmail(result.data.email);
 
-    targetUserId = invited?.user?.id ?? null;
-    emailSent = !inviteError && !!targetUserId;
+    if (!targetUserId) {
+      const origin = await resolveSiteOrigin();
+      const { data: invited, error: inviteError } =
+        await admin.auth.admin.inviteUserByEmail(result.data.email, {
+          redirectTo: `${origin}/accept-invite`,
+        });
 
-    if (inviteError?.code === "email_exists") {
-      targetUserId = await findUserIdByEmail(result.data.email);
-      emailSent = false;
+      if (inviteError?.code === "email_exists") {
+        // Race: the account appeared after the initial lookup. It is an
+        // existing account and must never be deleted by compensation.
+        targetUserId = await findUserIdByEmail(result.data.email);
+      } else if (!inviteError && invited?.user?.id) {
+        targetUserId = invited.user.id;
+        emailSent = true;
+        createdByThisAttempt = true;
+      }
     }
   } catch (error) {
-    if (!(error instanceof AdminConfigurationError)) throw error;
+    if (
+      !(error instanceof AdminConfigurationError) &&
+      !(error instanceof AdminRequestError)
+    ) {
+      throw error;
+    }
     // Operational context only: never log the missing value, invite email,
     // provider payload, or a stack that could include request details.
-    console.error("[team-invite] Supabase Admin API is not configured");
+    console.error(
+      error instanceof AdminConfigurationError
+        ? "[team-invite] Supabase Admin API is not configured"
+        : "[team-invite] Supabase Admin API lookup failed",
+    );
     return {
       message:
         "Las invitaciones no están disponibles temporalmente. Contacta al administrador del sistema.",
@@ -107,6 +128,17 @@ export async function inviteMemberAction(
   );
 
   if (membershipError) {
+    if (createdByThisAttempt && membershipError.code !== "23505" && admin) {
+      const { error: compensationError } =
+        await admin.auth.admin.deleteUser(targetUserId);
+      if (compensationError) {
+        // The next retry resolves this account as existing and can reconcile
+        // the membership. Never include email/provider payloads in the log.
+        console.error(
+          `[team-invite] Auth compensation failed (${compensationError.code ?? "unknown"})`,
+        );
+      }
+    }
     return {
       message:
         membershipError.code === "23505"

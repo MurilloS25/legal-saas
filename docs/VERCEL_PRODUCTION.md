@@ -12,7 +12,13 @@ Production existen y `main` es la rama productiva. Esta reconciliación no
 consultó ni modificó Vercel Production, por lo que el deployment exacto debe
 revalidarse en Vercel antes de un release. El último deployment verificado se
 conserva abajo como historial; el HEAD actual conocido de `main` en Git es
-`0c0b355ec9a47aed23ebfabc623ebcd731e2dc3f`.
+`4fb7169a5cd966e66ed5fe54cba87fa86f883344`.
+
+El routing vigente sirve la landing pública en `/`, agrupa las pantallas de
+Auth sin alterar sus URLs y protege las rutas de producto canónicas
+(`/dashboard`, `/clients`, `/templates`, `/documents`, `/notarial-index`,
+`/receivables`, `/settings`) mediante el proxy. Los nombres de route groups de
+App Router no aparecen en la URL.
 
 ## Proyecto
 
@@ -84,7 +90,11 @@ La verificación automatizada mostró que la publishable key también está en
 Preview; no se cambió su scope en esta remediación. La service-role key no está
 en Preview. El código valida su presencia en el servidor antes de llamar a la
 Admin API y responde con un mensaje controlado si falta, sin registrar valores,
-correos ni payloads del proveedor.
+correos ni payloads del proveedor. La invitación resuelve primero usuarios
+existentes; si este intento crea un usuario nuevo y luego falla el alta de la
+membresía, intenta eliminar únicamente ese usuario recién creado. Nunca borra
+una cuenta preexistente, y un fallo de compensación queda registrado mediante
+un código seguro para permitir reconciliación en el retry.
 
 ## Historial: deployment verificado el 2026-07-22
 

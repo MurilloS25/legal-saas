@@ -27,6 +27,25 @@ export async function listReceivables(): Promise<ReceivableEntry[]> {
   return mapReceivableEntries(data);
 }
 
+/** Five nearest unpaid/overdue accounts shown by the dashboard. */
+export async function listAttentionReceivables(
+  dueThrough: string,
+  limit = 5,
+): Promise<ReceivableEntry[]> {
+  const { supabase, workspaceId } = await requireWorkspace();
+  const { data, error } = await supabase
+    .from("receivable_entries")
+    .select(ENTRY_COLUMNS)
+    .eq("workspace_id", workspaceId)
+    .neq("status", "paid")
+    .lte("due_at", dueThrough)
+    .order("due_at", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true })
+    .limit(limit);
+  if (error) throwDataAccessError("list dashboard attention receivables", error);
+  return mapReceivableEntries(data);
+}
+
 export async function listReceivablesWorkspace(
   query: ReceivablesQuery,
 ): Promise<ReceivablesWorkspacePage> {

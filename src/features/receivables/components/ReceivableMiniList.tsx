@@ -17,6 +17,8 @@ type Props = {
   /** Presente solo cuando se incrusta en una Escritura; habilita el enlace
    * de regreso en cada fila hacia esa Escritura. */
   returnTo?: string;
+  /** Enlace al listado server-paginado con el mismo contexto aplicado. */
+  allHref?: string;
 };
 
 export function ReceivableMiniList({
@@ -24,6 +26,7 @@ export function ReceivableMiniList({
   newHref,
   emptyText,
   returnTo,
+  allHref,
 }: Props) {
   return (
     <div>
@@ -31,14 +34,21 @@ export function ReceivableMiniList({
         <h2 className="text-sm font-semibold text-slate-900">
           Cuentas por cobrar
         </h2>
-        {newHref && (
-          <Link
-            href={newHref}
-            className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
-          >
-            Nueva cuenta
-          </Link>
-        )}
+        <div className="flex items-center gap-4">
+          {allHref && (
+            <Link href={allHref} className="text-sm font-medium text-accent-700 hover:underline">
+              Ver todas
+            </Link>
+          )}
+          {newHref && (
+            <Link
+              href={newHref}
+              className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"
+            >
+              Nueva cuenta
+            </Link>
+          )}
+        </div>
       </div>
 
       {receivables.length === 0 ? (

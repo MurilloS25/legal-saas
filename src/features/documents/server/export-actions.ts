@@ -31,8 +31,9 @@ export type BinaryExport = {
   contentDisposition: string;
 };
 
-export async function prepareDocumentDocxExport(
+async function prepareDocumentDocxExportInternal(
   documentId: string,
+  recordActivity: boolean,
 ): Promise<BinaryExport> {
   const { supabase, workspaceId, role } = await requireApiWorkspace();
   if (!hasPermission(role, "documents.export")) {
@@ -100,14 +101,16 @@ export async function prepareDocumentDocxExport(
     throw new DocumentExportError(500);
   }
 
-  const { error: activityError } = await supabase.rpc(
-    "log_document_word_generated",
-    { p_document_id: documentId },
-  );
-  if (activityError) {
-    console.error(
-      `[docx] activity logging failed (${activityError.code ?? "unknown"})`,
+  if (recordActivity) {
+    const { error: activityError } = await supabase.rpc(
+      "log_document_word_generated",
+      { p_document_id: documentId },
     );
+    if (activityError) {
+      console.error(
+        `[docx] activity logging failed (${activityError.code ?? "unknown"})`,
+      );
+    }
   }
 
   const body = new Uint8Array(result.buffer.byteLength);
@@ -118,4 +121,16 @@ export async function prepareDocumentDocxExport(
     contentType: DOCX_MIME,
     contentDisposition: contentDispositionAttachment(result.filename),
   };
+}
+
+/** Read-only preparation used by GET; it never writes audit activity. */
+export function prepareDocumentDocxExport(documentId: string): Promise<BinaryExport> {
+  return prepareDocumentDocxExportInternal(documentId, false);
+}
+
+/** Explicit user export command used by POST; records one activity event. */
+export function prepareAndRecordDocumentDocxExport(
+  documentId: string,
+): Promise<BinaryExport> {
+  return prepareDocumentDocxExportInternal(documentId, true);
 }

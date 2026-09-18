@@ -45,7 +45,7 @@ export default async function ClientDetailPage({ params }: Props) {
           ) : undefined
         }
       />
-      <ClientDocumentsSection documents={documents} />
+      <ClientDocumentsSection documents={documents} clientId={client.id} />
       <ClientReceivablesSection
         clientId={client.id}
         receivables={receivables}
