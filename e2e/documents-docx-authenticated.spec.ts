@@ -16,6 +16,10 @@ import {
   restUpdate,
 } from "./support/supabase-admin";
 import { restSelect } from "./support/supabase-api";
+import {
+  openAndConfirmWordDownload,
+  wordDownloadDialog,
+} from "./support/word-download";
 
 // Serial: comparten machote y borradores del mismo usuario.
 test.describe.configure({ mode: "serial" });
@@ -198,7 +202,10 @@ test.describe("document docx download", () => {
     await openMoreActions(page);
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Descargar Word" }).click();
+    await openAndConfirmWordDownload(
+      page,
+      page.getByRole("button", { name: "Descargar Word" }),
+    );
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/\.docx$/);
@@ -285,9 +292,7 @@ test.describe("document docx download", () => {
 
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
-    const dialog = page.getByRole("dialog", {
-      name: "Hay variables sin completar",
-    });
+    const dialog = wordDownloadDialog(page);
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(/1 variable pendiente/)).toBeVisible();
 
@@ -303,9 +308,7 @@ test.describe("document docx download", () => {
     await openMoreActions(page);
     await page.getByRole("button", { name: "Descargar Word" }).click();
 
-    const dialog = page.getByRole("dialog", {
-      name: "Hay variables sin completar",
-    });
+    const dialog = wordDownloadDialog(page);
     const downloadPromise = page.waitForEvent("download");
     await dialog
       .getByRole("button", { name: "Descargar de todas formas" })
@@ -376,7 +379,7 @@ test.describe("document docx download", () => {
     await expect(button).toBeVisible();
 
     const downloadPromise = page.waitForEvent("download");
-    await button.click();
+    await openAndConfirmWordDownload(page, button);
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.docx$/);
   });

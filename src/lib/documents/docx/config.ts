@@ -12,13 +12,12 @@
 
 import {
   centimetersToTwip,
-  DEFAULT_MARGIN_PROFILE,
   FIXED_BODY_PARAGRAPH,
   LEGAL_PAGE_SIZE_TWIPS,
   pointsToHalfPoints,
   type DocumentFormattingPreferences,
-  type MarginProfile,
 } from "./formatting";
+import { DEFAULT_MARGIN_PROFILE, type MarginProfile } from "./margin-profile";
 
 export function buildDocxSectionConfig(
   prefs: DocumentFormattingPreferences,

@@ -24,8 +24,8 @@ import { buildDocxFilename } from "./filename";
 import {
   DOCX_DEFAULT_FORMATTING,
   type DocumentFormattingPreferences,
-  type MarginProfile,
 } from "./formatting";
+import type { MarginProfile } from "./margin-profile";
 import { generateDocumentDocx } from "./generate";
 
 export type EscrituraDocxInput = {

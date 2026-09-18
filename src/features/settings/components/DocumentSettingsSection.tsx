@@ -31,25 +31,25 @@ import type { DocumentSettingsData } from "../model/types";
 import {
   MARGIN_PROFILES,
   MARGIN_PROFILE_LABELS,
-  REFERENCE_MARGINS_CM,
+  DEFAULT_MARGINS_CM,
   type MarginProfile,
 } from "@/lib/documents/docx/margin-profile";
 
 export type { DocumentSettingsData } from "../model/types";
 
-// Defaults: márgenes de referencia de Word (ver `REFERENCE_MARGINS_CM`), los
-// mismos para Frente y Vuelto hasta que se definan valores distintos.
+// Defaults por perfil: `DEFAULT_MARGINS_CM` (única fuente, en cm). Solo se
+// muestran cuando el Workspace aún no guardó Configuración.
 const DOCUMENT_SETTINGS_DEFAULTS: DocumentSettingsData = {
   font_family: "Times New Roman",
   font_size: 12,
-  margin_top_cm: REFERENCE_MARGINS_CM.top,
-  margin_bottom_cm: REFERENCE_MARGINS_CM.bottom,
-  margin_left_cm: REFERENCE_MARGINS_CM.left,
-  margin_right_cm: REFERENCE_MARGINS_CM.right,
-  back_margin_top_cm: null,
-  back_margin_bottom_cm: null,
-  back_margin_left_cm: null,
-  back_margin_right_cm: null,
+  margin_top_cm: DEFAULT_MARGINS_CM.front.top,
+  margin_bottom_cm: DEFAULT_MARGINS_CM.front.bottom,
+  margin_left_cm: DEFAULT_MARGINS_CM.front.left,
+  margin_right_cm: DEFAULT_MARGINS_CM.front.right,
+  back_margin_top_cm: DEFAULT_MARGINS_CM.back.top,
+  back_margin_bottom_cm: DEFAULT_MARGINS_CM.back.bottom,
+  back_margin_left_cm: DEFAULT_MARGINS_CM.back.left,
+  back_margin_right_cm: DEFAULT_MARGINS_CM.back.right,
 };
 
 type Side = "top" | "bottom" | "left" | "right";

@@ -5,9 +5,14 @@
  *
  * La descarga usa siempre el último estado guardado en servidor (el endpoint
  * ignora cualquier dato del cliente). Por eso el botón se deshabilita mientras
- * haya cambios sin guardar. Si el borrador persistido tiene variables
- * pendientes, abre una confirmación accesible antes de descargar; las
- * variables sin valor aparecerán en el Word como `{{clave}}`.
+ * haya cambios sin guardar.
+ *
+ * Al pulsarlo se abre siempre un diálogo accesible para elegir el "Formato de
+ * margen" de ESA descarga (Frente por defecto | Vuelto). La elección no se
+ * guarda ni modifica Configuración; viaja como `?margins=` y el servidor
+ * aplica los márgenes de ese perfil. Si el borrador persistido tiene variables
+ * pendientes, el mismo diálogo lo advierte (aparecerán en el Word como
+ * `{{clave}}`) y el botón pasa a "Descargar de todas formas".
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -17,7 +22,6 @@ import {
   DEFAULT_MARGIN_PROFILE,
   MARGIN_PROFILES,
   MARGIN_PROFILE_LABELS,
-  parseMarginProfile,
   type MarginProfile,
 } from "@/lib/documents/docx/margin-profile";
 
@@ -68,6 +72,7 @@ export function DownloadDocxButton({
   const compact = variant === "compact";
   const [status, setStatus] = useState<Status>("idle");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Solo vive mientras el diálogo está abierto: se reinicia a Frente cada vez.
   const [marginProfile, setMarginProfile] =
     useState<MarginProfile>(DEFAULT_MARGIN_PROFILE);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -78,18 +83,19 @@ export function DownloadDocxButton({
   // Devuelve el foco al botón al cerrar la confirmación.
   useEffect(() => {
     if (!confirmOpen) return;
-    const firstButton = dialogRef.current?.querySelector<HTMLElement>("button");
-    firstButton?.focus();
+    dialogRef.current
+      ?.querySelector<HTMLElement>("input[type=radio]:checked")
+      ?.focus();
   }, [confirmOpen]);
 
-  async function startDownload() {
+  async function startDownload(profile: MarginProfile = marginProfile) {
     // Anti doble-clic: si ya se está preparando, ignora.
     if (status === "preparing") return;
     setStatus("preparing");
     setConfirmOpen(false);
 
     try {
-      const response = await fetch(`/api/documents/${documentId}/docx?margins=${marginProfile}`, {
+      const response = await fetch(`/api/documents/${documentId}/docx?margins=${profile}`, {
         method: "POST",
         headers: { Accept: "*/*" },
       });
@@ -123,11 +129,8 @@ export function DownloadDocxButton({
 
   function onClick() {
     setStatus("idle");
-    if (pendingVariableCount > 0) {
-      setConfirmOpen(true);
-    } else {
-      void startDownload();
-    }
+    setMarginProfile(DEFAULT_MARGIN_PROFILE);
+    setConfirmOpen(true);
   }
 
   function closeConfirm() {
@@ -142,44 +145,8 @@ export function DownloadDocxButton({
     ? "rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
     : "w-full rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-  const marginSelect = (
-    <select
-      value={marginProfile}
-      onChange={(e) =>
-        setMarginProfile(
-          parseMarginProfile(e.target.value) ?? DEFAULT_MARGIN_PROFILE,
-        )
-      }
-      disabled={preparing}
-      aria-label={
-        ariaLabel
-          ? `Formato de margen — ${ariaLabel.replace(/^Descargar Word de /, "")}`
-          : "Formato de margen"
-      }
-      title="Formato de margen"
-      className={
-        compact
-          ? "rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
-          : "rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50"
-      }
-    >
-      {MARGIN_PROFILES.map((p) => (
-        <option key={p} value={p}>
-          {MARGIN_PROFILE_LABELS[p]}
-        </option>
-      ))}
-    </select>
-  );
-
   return (
-    <div className={compact ? "inline-flex items-center gap-1" : undefined}>
-      {compact && marginSelect}
-      {!compact && (
-        <div className="mb-2 flex items-center gap-2">
-          <label className="text-sm text-slate-600">Formato de margen</label>
-          {marginSelect}
-        </div>
-      )}
+    <div className={compact ? "inline-block" : undefined}>
       <button
         ref={triggerRef}
         type="button"
@@ -246,7 +213,7 @@ export function DownloadDocxButton({
 
               const focusable = Array.from(
                 dialogRef.current?.querySelectorAll<HTMLElement>(
-                  "button:not([disabled])",
+                  "button:not([disabled]), input[type=radio]:checked",
                 ) ?? [],
               );
               if (focusable.length === 0) return;
@@ -267,22 +234,58 @@ export function DownloadDocxButton({
                   id={titleId}
                   className="text-base font-semibold text-slate-900 mb-2"
                 >
-                  Hay variables sin completar
+                  Descargar Word
                 </h2>
                 <p id={descId} className="text-sm text-slate-600 leading-relaxed">
-                  El borrador guardado tiene{" "}
-                  <strong>
-                    {pendingVariableCount}{" "}
-                    {pendingVariableCount === 1
-                      ? "variable pendiente"
-                      : "variables pendientes"}
-                  </strong>
-                  . Aparecerán en el Word con su marca{" "}
-                  <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
-                    {"{{ }}"}
-                  </code>{" "}
-                  sin reemplazar. ¿Descargar de todas formas?
+                  Selecciona el formato de margen que deseas utilizar para
+                  generar el documento.
                 </p>
+                <fieldset className="mt-4">
+                  <legend className="mb-2 text-sm font-medium text-slate-700">
+                    Formato de margen
+                  </legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MARGIN_PROFILES.map((p) => (
+                      <label
+                        key={p}
+                        className={`flex cursor-pointer items-center justify-center rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-accent-500 ${
+                          marginProfile === p
+                            ? "border-accent-600 bg-accent-50 text-accent-800"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`${titleId}-margin-profile`}
+                          value={p}
+                          checked={marginProfile === p}
+                          onChange={() => setMarginProfile(p)}
+                          className="sr-only"
+                        />
+                        {MARGIN_PROFILE_LABELS[p]}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                {pendingVariableCount > 0 && (
+                  <p
+                    role="status"
+                    className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed"
+                  >
+                    El borrador guardado tiene{" "}
+                    <strong>
+                      {pendingVariableCount}{" "}
+                      {pendingVariableCount === 1
+                        ? "variable pendiente"
+                        : "variables pendientes"}
+                    </strong>
+                    . Aparecerán en el Word con su marca{" "}
+                    <code className="rounded bg-amber-100 px-1 py-0.5">
+                      {"{{ }}"}
+                    </code>{" "}
+                    sin reemplazar.
+                  </p>
+                )}
               </div>
               <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
                 <button
@@ -294,10 +297,10 @@ export function DownloadDocxButton({
                 </button>
                 <button
                   type="button"
-                  onClick={() => void startDownload()}
+                  onClick={() => void startDownload(marginProfile)}
                   className="flex-1 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
                 >
-                  Descargar de todas formas
+                  {pendingVariableCount > 0 ? "Descargar de todas formas" : "Descargar"}
                 </button>
               </div>
             </div>

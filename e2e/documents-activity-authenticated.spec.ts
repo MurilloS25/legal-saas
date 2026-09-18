@@ -8,6 +8,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { openAndConfirmWordDownload } from "./support/word-download";
 
 // Serial: comparten cliente, machote y escritura del mismo usuario.
 test.describe.configure({ mode: "serial" });
@@ -139,7 +140,10 @@ test.describe("document activity history", () => {
   test("F: generating a Word file records an event", async ({ page }) => {
     await openDocument(page);
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Descargar Word" }).click();
+    await openAndConfirmWordDownload(
+      page,
+      page.getByRole("button", { name: "Descargar Word" }),
+    );
     await downloadPromise;
 
     await expect(

@@ -22,11 +22,10 @@ import {
 import type { DocumentModel, DocumentRun } from "@/lib/editor/render";
 import { buildDocxSectionConfig } from "./config";
 import {
-  DEFAULT_MARGIN_PROFILE,
   DOCX_DEFAULT_FORMATTING,
   type DocumentFormattingPreferences,
-  type MarginProfile,
 } from "./formatting";
+import { DEFAULT_MARGIN_PROFILE, type MarginProfile } from "./margin-profile";
 import {
   checkDocumentModelLimits,
   DOCX_LIMITS,

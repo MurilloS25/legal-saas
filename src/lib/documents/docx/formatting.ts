@@ -16,25 +16,14 @@ import {
   LineRuleType,
 } from "docx";
 import {
-  REFERENCE_MARGINS_CM,
+  DEFAULT_MARGINS_CM,
   type MarginProfile,
   type MarginsCm,
 } from "./margin-profile";
-
 import {
   ALLOWED_FONT_FAMILIES,
   type AllowedFontFamily,
 } from "@/lib/validations/settings";
-
-export {
-  DEFAULT_MARGIN_PROFILE,
-  MARGIN_PROFILES,
-  MARGIN_PROFILE_LABELS,
-  parseMarginProfile,
-  REFERENCE_MARGINS_CM,
-  type MarginProfile,
-  type MarginsCm,
-} from "./margin-profile";
 
 export type DocumentFormattingPreferences = {
   fontFamily: AllowedFontFamily;
@@ -47,8 +36,8 @@ export const DOCX_DEFAULT_FORMATTING: DocumentFormattingPreferences = {
   fontFamily: "Times New Roman",
   fontSizePt: 12,
   marginsCm: {
-    front: { ...REFERENCE_MARGINS_CM },
-    back: { ...REFERENCE_MARGINS_CM },
+    front: { ...DEFAULT_MARGINS_CM.front },
+    back: { ...DEFAULT_MARGINS_CM.back },
   },
 };
 

@@ -10,6 +10,11 @@ import {
 } from "./support/factories";
 import { restSelect, restUpdate } from "./support/supabase-admin";
 import { getTestUserAuth } from "./support/supabase-api";
+import {
+  confirmWordDownload,
+  wordDownloadDialog,
+  type MarginProfileLabel,
+} from "./support/word-download";
 
 // Serial: comparten los mismos `document_settings` del usuario de prueba.
 test.describe.configure({ mode: "serial" });
@@ -37,10 +42,11 @@ async function pageMargins(buffer: Buffer): Promise<Record<string, string>> {
   );
 }
 
-async function download(page: Page, profile: "Frente" | "Vuelto") {
-  await page.getByLabel("Formato de margen").selectOption({ label: profile });
+/** Descarga vía el flujo real: botón → diálogo → perfil → confirmar. */
+async function download(page: Page, profile?: MarginProfileLabel) {
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Descargar Word" }).click();
+  await confirmWordDownload(page, profile);
   const file = await downloadPromise;
   expect(file.suggestedFilename()).toMatch(/\.docx$/);
   return readFileSync(await file.path());
@@ -116,13 +122,53 @@ test.describe("document format: Frente / Vuelto", () => {
     await expect(page.getByRole("tabpanel").getByLabel("Derecho")).toHaveValue("5.5");
   });
 
-  test("C: exporting with Frente applies the Frente margins (default selection is Frente)", async ({
+  test("C: Descargar Word opens a dialog with Frente selected by default", async ({
     page,
   }) => {
     await page.goto(`/documents/${docId}`);
-    await expect(page.getByLabel("Formato de margen")).toHaveValue("front");
+    await page.getByRole("button", { name: "Descargar Word" }).click();
 
-    const margins = await pageMargins(await download(page, "Frente"));
+    const dialog = wordDownloadDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("radio", { name: "Frente" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Vuelto" })).not.toBeChecked();
+    // El foco cae dentro del diálogo, en la opción seleccionada.
+    await expect(dialog.getByRole("radio", { name: "Frente" })).toBeFocused();
+  });
+
+  test("D: cancelling downloads nothing, and the choice is not remembered", async ({
+    page,
+  }) => {
+    await page.goto(`/documents/${docId}`);
+    let downloads = 0;
+    page.on("download", () => downloads++);
+
+    await page.getByRole("button", { name: "Descargar Word" }).click();
+    const dialog = wordDownloadDialog(page);
+    await dialog.getByText("Vuelto", { exact: true }).click();
+    await expect(dialog.getByRole("radio", { name: "Vuelto" })).toBeChecked();
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(dialog).not.toBeVisible();
+    // El foco vuelve al botón que abrió el diálogo.
+    await expect(
+      page.getByRole("button", { name: "Descargar Word" }),
+    ).toBeFocused();
+    expect(downloads).toBe(0);
+
+    // Al reabrir vuelve a Frente (la elección no se recuerda).
+    await page.getByRole("button", { name: "Descargar Word" }).click();
+    await expect(
+      wordDownloadDialog(page).getByRole("radio", { name: "Frente" }),
+    ).toBeChecked();
+    await page.keyboard.press("Escape");
+    await expect(wordDownloadDialog(page)).not.toBeVisible();
+  });
+
+  test("E: confirming Frente generates the document with the Frente margins", async ({
+    page,
+  }) => {
+    await page.goto(`/documents/${docId}`);
+    const margins = await pageMargins(await download(page));
     expect(margins).toMatchObject({
       top: "1133", // 2 cm
       bottom: "1417", // 2.5 cm
@@ -132,9 +178,10 @@ test.describe("document format: Frente / Vuelto", () => {
     });
   });
 
-  test("D: exporting with Vuelto applies the Vuelto margins", async ({ page }) => {
+  test("F: confirming Vuelto generates the document with the Vuelto margins", async ({
+    page,
+  }) => {
     await page.goto(`/documents/${docId}`);
-
     const margins = await pageMargins(await download(page, "Vuelto"));
     expect(margins).toMatchObject({
       top: "2267", // 4 cm
@@ -145,17 +192,23 @@ test.describe("document format: Frente / Vuelto", () => {
     });
   });
 
-  test("E: the documents list also offers the Frente/Vuelto choice per row", async ({
+  test("G: the documents list keeps a clean Descargar Word action (no inline selector) that opens the dialog", async ({
     page,
   }) => {
     await page.goto("/documents");
     const row = page.getByRole("row", { name: new RegExp(docTitle) });
+    await expect(row.getByRole("combobox")).toHaveCount(0);
+    await expect(row.getByLabel(/Formato de margen/)).toHaveCount(0);
+
+    await row
+      .getByRole("button", { name: `Descargar Word de ${docTitle}` })
+      .click();
     await expect(
-      row.getByLabel(new RegExp(`Formato de margen — ${docTitle}`)),
-    ).toHaveValue("front");
+      wordDownloadDialog(page).getByRole("radio", { name: "Frente" }),
+    ).toBeChecked();
   });
 
-  test("F: an unknown margin profile is rejected by the export endpoint", async ({
+  test("H: an unknown margin profile is rejected by the export endpoint", async ({
     page,
   }) => {
     const response = await page.request.post(

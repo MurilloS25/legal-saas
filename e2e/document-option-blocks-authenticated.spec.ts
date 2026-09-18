@@ -8,6 +8,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { openAndConfirmWordDownload } from "./support/word-download";
 
 /**
  * Uso de Bloques de opciones en la Escritura: seleccionar una variante
@@ -203,7 +204,10 @@ test.describe("document option blocks", () => {
     // "Descargar Word" vive directo en el encabezado del workspace —
     // alcanzable sin importar el paso activo.
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Descargar Word" }).click();
+    await openAndConfirmWordDownload(
+      page,
+      page.getByRole("button", { name: "Descargar Word" }),
+    );
     const download = await downloadPromise;
     const buffer = readFileSync(await download.path());
     const text = await docxText(buffer);

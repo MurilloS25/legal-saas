@@ -6,11 +6,10 @@ import {
   FIXED_BODY_LINE_SPACING,
   LEGAL_PAGE_SIZE_TWIPS,
   FIXED_BODY_PARAGRAPH,
-  parseMarginProfile,
-  REFERENCE_MARGINS_CM,
   pointsToHalfPoints,
   resolveDocumentFormatting,
 } from "./formatting";
+import { DEFAULT_MARGINS_CM, parseMarginProfile } from "./margin-profile";
 
 describe("centimetersToTwip", () => {
   it("converts centimeters to twips (1 cm = 566.929... twips)", () => {
@@ -24,10 +23,10 @@ describe("centimetersToTwip", () => {
 
   it("reproduces the Word reference margins exactly (1.44\", 2.22\", 0.98\")", () => {
     const twipsOf = (inches: number) => Math.round(inches * 1440);
-    expect(centimetersToTwip(REFERENCE_MARGINS_CM.top)).toBe(twipsOf(1.44));
-    expect(centimetersToTwip(REFERENCE_MARGINS_CM.bottom)).toBe(twipsOf(2.22));
-    expect(centimetersToTwip(REFERENCE_MARGINS_CM.left)).toBe(twipsOf(0.98));
-    expect(centimetersToTwip(REFERENCE_MARGINS_CM.right)).toBe(twipsOf(0.98));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.top)).toBe(twipsOf(1.44));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.bottom)).toBe(twipsOf(2.22));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.left)).toBe(twipsOf(0.98));
+    expect(centimetersToTwip(DEFAULT_MARGINS_CM.front.right)).toBe(twipsOf(0.98));
     expect(twipsOf(1.44)).toBe(2074);
     expect(twipsOf(2.22)).toBe(3197);
     expect(twipsOf(0.98)).toBe(1411);
