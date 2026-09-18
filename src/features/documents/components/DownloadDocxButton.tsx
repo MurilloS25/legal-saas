@@ -81,7 +81,7 @@ export function DownloadDocxButton({
 
     try {
       const response = await fetch(`/api/documents/${documentId}/docx`, {
-        method: "GET",
+        method: "POST",
         headers: { Accept: "*/*" },
       });
 

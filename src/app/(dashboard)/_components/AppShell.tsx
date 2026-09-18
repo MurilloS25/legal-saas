@@ -32,23 +32,23 @@ import {
   UsersIcon,
   WalletIcon,
   XIcon,
-} from "./icons";
+} from "@/components/icons";
 
 // ------------------------------------------------------------------ nav config
 
 const NAV_LINKS = [
   { label: "Panel", href: "/dashboard", Icon: CompassIcon },
-  { label: "Clientes", href: "/dashboard/clients", Icon: UsersIcon },
-  { label: "Machotes", href: "/dashboard/templates", Icon: StackIcon },
-  { label: "Escrituras", href: "/dashboard/documents", Icon: ScrollIcon },
-  { label: "Índice Notarial", href: "/dashboard/notarial-index", Icon: BookmarkIcon },
-  { label: "Cuentas por cobrar", href: "/dashboard/receivables", Icon: WalletIcon },
+  { label: "Clientes", href: "/clients", Icon: UsersIcon },
+  { label: "Machotes", href: "/templates", Icon: StackIcon },
+  { label: "Escrituras", href: "/documents", Icon: ScrollIcon },
+  { label: "Índice Notarial", href: "/notarial-index", Icon: BookmarkIcon },
+  { label: "Cuentas por cobrar", href: "/receivables", Icon: WalletIcon },
 ] as const;
 
 const USER_MENU_ITEMS = [
-  { label: "Perfil", href: "/dashboard/settings?tab=profile", Icon: UsersIcon },
-  { label: "Configuración", href: "/dashboard/settings?tab=document", Icon: GearIcon },
-  { label: "Despacho", href: "/dashboard/settings?tab=workspace", Icon: BuildingIcon },
+  { label: "Perfil", href: "/settings?tab=profile", Icon: UsersIcon },
+  { label: "Configuración", href: "/settings?tab=document", Icon: GearIcon },
+  { label: "Despacho", href: "/settings?tab=workspace", Icon: BuildingIcon },
 ] as const;
 
 function isLinkActive(pathname: string, href: string): boolean {

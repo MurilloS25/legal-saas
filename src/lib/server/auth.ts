@@ -11,6 +11,7 @@ import {
   throwDataAccessError,
 } from "@/lib/server/errors";
 import type { WorkspaceRole } from "@/lib/server/permissions";
+import { isUserBanned } from "@/lib/auth/user-status";
 
 const getServerAuth = cache(async () => {
   const supabase = await createClient();
@@ -27,7 +28,7 @@ const getServerAuth = cache(async () => {
 /** Auth context for Server Components and Server Actions. */
 export async function requireUser() {
   const context = await getServerAuth();
-  if (!context.user) redirect("/login");
+  if (!context.user || isUserBanned(context.user)) redirect("/login");
   return { supabase: context.supabase, user: context.user };
 }
 
@@ -45,7 +46,7 @@ export async function requireApiUser() {
 
   if (isAuthSessionMissingError(error)) throw new UnauthorizedError();
   if (error) throwDataAccessError("authenticate API user", error);
-  if (!user) throw new UnauthorizedError();
+  if (!user || isUserBanned(user)) throw new UnauthorizedError();
   return { supabase, user };
 }
 
@@ -102,7 +103,16 @@ export const getWorkspaceAccess = cache(
 
     const rows = data ?? [];
 
-    const genuineActive = rows.find(
+    const activeRows = rows.filter((row) => row.status === "active");
+    if (activeRows.length > 1) {
+      // The database unique partial index prevents new violations. Keep this
+      // guard for legacy/drifted data so the application never selects an
+      // arbitrary Workspace and risks crossing an authorization boundary.
+      console.error("[workspace-access] multiple active memberships detected");
+      throw new DataAccessError("validate workspace access invariant");
+    }
+
+    const genuineActive = activeRows.find(
       (row) => row.status === "active" && row.workspace_id !== userId,
     );
     if (genuineActive) {
@@ -118,7 +128,7 @@ export const getWorkspaceAccess = cache(
       return { kind: "invited", workspaceId: invited.workspace_id };
     }
 
-    const bootstrapActive = rows.find(
+    const bootstrapActive = activeRows.find(
       (row) => row.status === "active" && row.workspace_id === userId,
     );
     if (bootstrapActive) {

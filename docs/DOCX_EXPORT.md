@@ -12,7 +12,7 @@ Lawyers can download a saved escritura draft as an editable Word (`.docx`) file.
 
 ## Supported format
 
-Legal paper (8.5 × 14 in) portrait, always — not a user preference, a fixed product default. Font family, font size, and the four margins come from the owner's saved `document_settings` row (`src/app/(dashboard)/dashboard/settings`), resolved through `resolveDocumentFormatting` (`src/lib/documents/docx/formatting.ts`) with product defaults (Times New Roman, 12pt, 4.7/4.7/3.2/3.2 cm margins) for anything missing or invalid — generation never fails because of a bad preference. The document body is always **justified** with **exactly 24pt line spacing** (`FIXED_BODY_ALIGNMENT`/`FIXED_BODY_LINE_SPACING`) — fixed, independent of the saved `line_spacing` preference (that field still exists in Configuración/`document_settings` but no longer affects DOCX output). Preserves paragraphs, empty lines, hard breaks, bold, italic, underline, and full Unicode (accents, `₡`, `§`, guillemets). Out of scope for now: headers/footers, page numbers, tables, images, imported `.docx` templates, per-run style overrides beyond bold/italic/underline, PDF.
+Legal paper (8.5 × 14 in) portrait, always — not a user preference, a fixed product default. Font family, font size, and the four margins come from the owner's saved `document_settings` row (`src/app/(dashboard)/settings`), resolved through `resolveDocumentFormatting` (`src/lib/documents/docx/formatting.ts`) with product defaults (Times New Roman, 12pt, 4.7/4.7/3.2/3.2 cm margins) for anything missing or invalid — generation never fails because of a bad preference. The document body is always **justified** with **exactly 24pt line spacing** (`FIXED_BODY_ALIGNMENT`/`FIXED_BODY_LINE_SPACING`) — fixed, independent of the saved `line_spacing` preference (that field still exists in Configuración/`document_settings` but no longer affects DOCX output). Preserves paragraphs, empty lines, hard breaks, bold, italic, underline, and full Unicode (accents, `₡`, `§`, guillemets). Out of scope for now: headers/footers, page numbers, tables, images, imported `.docx` templates, per-run style overrides beyond bold/italic/underline, PDF.
 
 ### Formatting preferences → DOCX
 
@@ -45,7 +45,7 @@ GET /api/documents/[id]/docx   (runtime: nodejs, dynamic)
   - `filename.ts` — safe filename (no path traversal, no reserved Windows names, no control chars/CRLF, accents kept, bounded length, fallback).
   - `http.ts` — MIME + `Content-Disposition` builder.
 - `src/app/api/documents/[id]/docx/route.ts` — the Route Handler.
-- `src/app/(dashboard)/dashboard/documents/_components/DownloadDocxButton.tsx` — the client button, unsaved-changes gate and pending-variables dialog.
+- `src/app/(dashboard)/documents/_components/DownloadDocxButton.tsx` — the client button, unsaved-changes gate and pending-variables dialog.
 
 Compatibility: new Escrituras retain variables, Option Blocks and formatting from their structured `template_snapshot`. Pre-migration rows retain the exact text of their last saved `rendered_content`; structure that was never persisted cannot be recovered and is not guessed from the current Machote.
 

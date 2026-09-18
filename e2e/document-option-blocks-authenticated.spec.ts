@@ -96,7 +96,7 @@ test.describe("document option blocks", () => {
   test("B: switching variants updates the document immediately, shows only the active variant's fields, and preserves the other variant's values", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
     await expect(documentRegion(page).getByText("número")).toBeVisible();
     await expect(documentRegion(page).getByText("CHASIS", { exact: true })).toHaveCount(0);
 
@@ -146,7 +146,7 @@ test.describe("document option blocks", () => {
   test("C: the selection and both variants' values persist after saving and reloading", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     await page
       .getByRole("button", { name: /Cambiar variante de Chasis, VIN y Serie/ })
@@ -172,7 +172,7 @@ test.describe("document option blocks", () => {
       .blur();
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     documentUrl = page.url();

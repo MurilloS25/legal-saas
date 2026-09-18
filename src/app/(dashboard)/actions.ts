@@ -2,9 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { clearLocalAuthCookies } from "@/lib/supabase/clear-auth-cookies";
+import { revokeAndClearSession } from "@/lib/auth/logout";
 
 export async function logoutAction(): Promise<never> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await revokeAndClearSession(supabase, clearLocalAuthCookies);
   redirect("/login");
 }

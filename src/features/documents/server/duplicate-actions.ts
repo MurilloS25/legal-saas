@@ -6,10 +6,7 @@ import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { DocumentIdSchema } from "../model/document-schema";
 import { buildDuplicateDocumentTitle } from "../model/duplicate";
-
-export type DuplicateDocumentState = {
-  message?: string;
-};
+import type { DuplicateDocumentState } from "../model/action-state";
 
 /**
  * Duplica una escritura propia (borrador o finalizada) como un borrador
@@ -83,6 +80,6 @@ export async function duplicateDocumentAction(
     return { message: "No fue posible duplicar la escritura. Intenta de nuevo." };
   }
 
-  revalidatePath("/dashboard/documents");
-  redirect(`/dashboard/documents/${copy.id}?lifecycle=duplicated`);
+  revalidatePath("/documents");
+  redirect(`/documents/${copy.id}?lifecycle=duplicated`);
 }

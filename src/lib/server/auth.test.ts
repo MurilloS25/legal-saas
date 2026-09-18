@@ -53,6 +53,24 @@ describe("requireApiUser", () => {
 
     await expect(requireApiUser()).rejects.toBeInstanceOf(DataAccessError);
   });
+
+  it("rejects an API request from a currently banned user", async () => {
+    createClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: {
+            user: {
+              id: "banned-user",
+              banned_until: new Date(Date.now() + 60_000).toISOString(),
+            },
+          },
+          error: null,
+        }),
+      },
+    });
+
+    await expect(requireApiUser()).rejects.toBeInstanceOf(UnauthorizedError);
+  });
 });
 
 function workspaceClient(result: {
@@ -84,5 +102,19 @@ describe("getWorkspaceAccess", () => {
     await expect(
       getWorkspaceAccess(supabase as never, "no-membership-user"),
     ).resolves.toEqual({ kind: "none" });
+  });
+
+  it("rejects ambiguous legacy data instead of choosing an active workspace", async () => {
+    const supabase = workspaceClient({
+      data: [
+        { workspace_id: "workspace-a", role: "asistente", status: "active" },
+        { workspace_id: "workspace-b", role: "administrador", status: "active" },
+      ],
+      error: null,
+    });
+
+    await expect(
+      getWorkspaceAccess(supabase as never, "member-user"),
+    ).rejects.toBeInstanceOf(DataAccessError);
   });
 });

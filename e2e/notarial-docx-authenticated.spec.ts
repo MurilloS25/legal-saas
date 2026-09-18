@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { countTableRows, extractDocxText, readDocx } from "../test/support/docx";
+import { restSelect } from "./support/supabase-api";
 import {
   CleanupRegistry,
   cleanupNotarialExports,
@@ -68,7 +69,7 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("selects a fortnight and warns without blocking export", async ({ page }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.goto(`/notarial-index?${selection}&search=${token}`);
     await expect(page.getByLabel("Año")).toHaveValue("2026");
     await expect(page.getByLabel("Mes")).toHaveValue("7");
     await expect(page.getByLabel("Quincena")).toHaveValue("FIRST_HALF");
@@ -85,7 +86,7 @@ test.describe("notarial index DOCX export", () => {
   test("clicking Exportar Word opens a confirmation dialog; Cancelar closes it without exporting", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.goto(`/notarial-index?${selection}&search=${token}`);
     await page.getByRole("button", { name: "Exportar Word" }).click();
 
     const dialog = page.getByRole("alertdialog", {
@@ -103,7 +104,7 @@ test.describe("notarial index DOCX export", () => {
   test("confirming the dialog downloads the Word file and stays on the Índice", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+    await page.goto(`/notarial-index?${selection}&search=${token}`);
     await page.getByRole("button", { name: "Exportar Word" }).click();
     const dialog = page.getByRole("alertdialog", {
       name: "¿Exportar Índice Notarial a Word?",
@@ -126,6 +127,7 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("downloads all selected rows as an ordered DOCX", async ({ page }) => {
+    const before = await restSelect<{ id: string }>("notarial_index_exports?select=id");
     const response = await page.request.get(`/api/notarial-index/export?${selection}`);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain(
@@ -141,6 +143,16 @@ test.describe("notarial index DOCX export", () => {
     expect(second).toBeGreaterThan(first);
     expect(text).not.toContain("800003");
     expect(text).toContain("NOTARIA PRUEBA E2E");
+    const after = await restSelect<{ id: string }>("notarial_index_exports?select=id");
+    expect(after).toHaveLength(before.length);
+  });
+
+  test("POST records exactly one auditable export", async ({ request }) => {
+    const before = await restSelect<{ id: string }>("notarial_index_exports?select=id");
+    const response = await request.post(`/api/notarial-index/export?${selection}`);
+    expect(response.status()).toBe(200);
+    const after = await restSelect<{ id: string }>("notarial_index_exports?select=id");
+    expect(after).toHaveLength(before.length + 1);
   });
 
   // Regresión de smoke: el export usaba `.gte()/.lte()` encadenados sobre
@@ -228,7 +240,7 @@ test.describe("notarial index DOCX export", () => {
   });
 
   test("removes CSV from the user-facing workflow", async ({ page }) => {
-    await page.goto(`/dashboard/notarial-index?${selection}`);
+    await page.goto(`/notarial-index?${selection}`);
     await expect(page.getByText(/CSV/i)).toHaveCount(0);
     await expect(page.getByRole("link", { name: /CSV/i })).toHaveCount(0);
   });
@@ -266,7 +278,7 @@ test.describe("notarial index DOCX export", () => {
   }) => {
     await removeTestLawyerProfile();
     try {
-      await page.goto(`/dashboard/notarial-index?${selection}&search=${token}`);
+      await page.goto(`/notarial-index?${selection}&search=${token}`);
       await page.getByRole("button", { name: "Exportar Word" }).click();
       const dialog = page.getByRole("alertdialog", {
         name: "¿Exportar Índice Notarial a Word?",

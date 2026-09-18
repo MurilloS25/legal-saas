@@ -178,8 +178,8 @@ export async function createTestDocument(
   const { userId } = getTestUserAuth();
   let templateSnapshot = options.template_snapshot;
   if (!("template_snapshot" in options)) {
-    const [template] = await restSelect<{ content_json: unknown }>(
-      `templates?select=content_json&id=eq.${templateId}`,
+    const [template] = await restSelect<{ content_json: unknown; name: string }>(
+      `templates?select=content_json,name&id=eq.${templateId}`,
     );
     const templateFields = await restSelect<{
       field_key: string;
@@ -203,6 +203,7 @@ export async function createTestDocument(
         })),
         resolved.templateText,
       ),
+      { templateName: template.name, configuration: null },
     );
   }
   const id = await restInsert("documents", {

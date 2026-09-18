@@ -18,13 +18,7 @@ import {
 } from "../model/lifecycle";
 import { resolveDocumentTemplateSnapshot } from "../model/document-template-snapshot";
 import { findUnresolvedDocumentVariables } from "@/lib/editor/variables";
-
-export type DocumentStatusState = {
-  message?: string;
-  success?: boolean;
-  /** Cantidad de variables pendientes cuando bloquean finalizar. */
-  pendingCount?: number;
-};
+import type { DocumentStatusState } from "../model/action-state";
 
 /**
  * Transición de estado del ciclo de vida. No acepta un estado arbitrario del
@@ -141,8 +135,8 @@ async function transitionDocument(
     };
   }
 
-  revalidatePath("/dashboard/documents");
-  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath("/documents");
+  revalidatePath(`/documents/${documentId}`);
   return { success: true };
 }
 
@@ -169,7 +163,7 @@ export async function markDocumentFinalAction(
     // (Completar → Cobro → Índice). Sin `section` explícito la página cae
     // en su default ("completar"), que parecería un retroceso justo
     // después de finalizar.
-    redirect(`/dashboard/documents/${documentId}?lifecycle=finalized&section=cobro`);
+    redirect(`/documents/${documentId}?lifecycle=finalized&section=cobro`);
   }
   return result;
 }
@@ -187,7 +181,7 @@ export async function reopenDocumentAction(
     // nuevo — vuelve a "Completar" (el paso por defecto; ya no hay un
     // paso "Revisar y finalizar" separado donde aterrizar), sin viaje
     // artificial a ningún otro lado.
-    redirect(`/dashboard/documents/${documentId}?lifecycle=reopened`);
+    redirect(`/documents/${documentId}?lifecycle=reopened`);
   }
   return result;
 }
@@ -256,8 +250,8 @@ export async function setNotarialIndexInclusionAction(
     return { message: "No se encontró la escritura." };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
 
   return {
     success: true,

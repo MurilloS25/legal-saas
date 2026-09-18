@@ -19,7 +19,7 @@ describe("extractSafeRedirectPath", () => {
 
   it.each([
     ["/dashboard", "/dashboard"],
-    ["/dashboard/settings?tab=profile", "/dashboard/settings?tab=profile"],
+    ["/settings?tab=profile", "/settings?tab=profile"],
     ["/accept-invite#details", "/accept-invite#details"],
   ])("keeps internal destination %s", (destination, expected) => {
     expect(extractSafeRedirectPath(destination)).toBe(expected);

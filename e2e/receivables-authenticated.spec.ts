@@ -26,9 +26,9 @@ async function openReceivableFromList(page: Page, text: string) {
   const link = page.getByRole("link").filter({ hasText: text }).first();
   await expect(link).toBeVisible();
   const href = await link.getAttribute("href");
-  expect(href).toMatch(/^\/dashboard\/receivables\/[0-9a-f-]{36}$/);
+  expect(href).toMatch(/^\/receivables\/[0-9a-f-]{36}$/);
   await page.goto(href!);
-  await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}$/);
 }
 
 test.describe("receivables module", () => {
@@ -64,7 +64,7 @@ test.describe("receivables module", () => {
       .getByRole("link", { name: "Cuentas por cobrar", exact: true })
       .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables/, {
+    await expect(page).toHaveURL(/\/receivables/, {
       timeout: 15_000,
     });
     await expect(
@@ -75,7 +75,7 @@ test.describe("receivables module", () => {
   test("C: user can create a receivable without a document", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Concepto").fill(concept);
@@ -89,7 +89,7 @@ test.describe("receivables module", () => {
     // limpia de la URL casi de inmediato (efecto de montaje en
     // `ReceivableWorkspace` que dispara el toast y limpia el parámetro con
     // history.replaceState), así que no se exige aquí.
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "receivables", "concept", concept);
@@ -111,19 +111,19 @@ test.describe("receivables module", () => {
   });
 
   test("D: created receivable appears in the list", async ({ page }) => {
-    await page.goto("/dashboard/receivables");
+    await page.goto("/receivables");
     await expect(page.getByText(concept).first()).toBeVisible();
   });
 
   test("E: user can edit the amount and link a document", async ({ page }) => {
-    await page.goto("/dashboard/receivables");
+    await page.goto("/receivables");
     await openReceivableFromList(page, concept);
 
     await page.getByLabel("Monto total").fill("175000.00");
     await page.getByLabel("Escritura").selectOption(documentId);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
     // La tarjeta de resumen refleja el nuevo saldo tras guardar.
@@ -135,7 +135,7 @@ test.describe("receivables module", () => {
   test("F: edited amount and activity persist after reload", async ({
     page,
   }) => {
-    await page.goto("/dashboard/receivables");
+    await page.goto("/receivables");
     await openReceivableFromList(page, concept);
     await page.reload();
 
@@ -158,7 +158,7 @@ test.describe("receivables module", () => {
     page,
   }) => {
     const secondConcept = uniqueName("receivables", "concepto2");
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Escritura").selectOption(documentId);
@@ -166,7 +166,7 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("50000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(
@@ -181,14 +181,14 @@ test.describe("receivables module", () => {
   });
 
   test("H: rejects a non-positive amount", async ({ page }) => {
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
     await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Concepto").fill(uniqueName("receivables", "malo"));
     await page.getByLabel("Monto total").fill("0");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
     // Permanece en el formulario y muestra un error de validación.
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/new$/);
+    await expect(page).toHaveURL(/\/receivables\/new$/);
     await expect(
       page.getByText("El monto debe ser mayor que cero"),
     ).toBeVisible();
@@ -199,7 +199,7 @@ test.describe("receivables module", () => {
   }) => {
     const freeName = uniqueName("receivables", "nombre-libre");
     const freeConcept = uniqueName("receivables", "concepto-libre");
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     await page.getByRole("radio", { name: "Escribir nombre" }).check();
     await page.getByLabel("Nombre del cliente").fill(freeName);
@@ -208,7 +208,7 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("30000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "receivables", "concept", freeConcept);
@@ -233,7 +233,7 @@ test.describe("receivables module", () => {
   }) => {
     const freeName = uniqueName("receivables", "nombre-libre2");
     const freeConcept = uniqueName("receivables", "concepto-libre2");
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
 
     await page.getByRole("radio", { name: "Escribir nombre" }).check();
     await page.getByLabel("Nombre del cliente").fill(freeName);
@@ -241,14 +241,14 @@ test.describe("receivables module", () => {
     await page.getByLabel("Monto total").fill("15000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "receivables", "concept", freeConcept);
     await page.reload();
     await expect(page.getByLabel("Nombre del cliente")).toHaveValue(freeName);
 
-    await page.goto("/dashboard/receivables");
+    await page.goto("/receivables");
     await expect(page.getByText(freeName).first()).toBeVisible();
   });
 
@@ -257,12 +257,12 @@ test.describe("receivables module", () => {
   }) => {
     const switchConcept = uniqueName("receivables", "concepto-switch");
     const freeName = uniqueName("receivables", "nombre-switch");
-    await page.goto("/dashboard/receivables/new");
+    await page.goto("/receivables/new");
     await page.getByLabel("Cliente", { exact: true }).selectOption(clientId);
     await page.getByLabel("Concepto").fill(switchConcept);
     await page.getByLabel("Monto total").fill("20000.00");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     await registerCreatedViaUi(registry, "receivables", "concept", switchConcept);
@@ -271,7 +271,7 @@ test.describe("receivables module", () => {
     await page.getByLabel("Nombre del cliente").fill(freeName);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/receivables\/[0-9a-f-]{36}$/, {
+    await expect(page).toHaveURL(/\/receivables\/[0-9a-f-]{36}$/, {
       timeout: 15_000,
     });
     await page.reload();

@@ -63,14 +63,14 @@ import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { TemplateDocument } from "@/lib/editor/types";
 import type { VariableTransformsMap } from "@/lib/editor/render";
 import { extractActiveDocumentVariables } from "@/lib/editor/variables";
-import type { FillableTemplateField } from "@/features/templates";
+import type { FillableTemplateField } from "@/features/templates/domain";
 import type { DocumentClientOption } from "../model/role-autofill";
 import { groupVariablesByRole } from "../model/role-autofill";
 import {
   createDocumentDraftAction,
   updateDocumentDraftAction,
-  type DocumentDraftState,
 } from "../server/content-actions";
+import type { DocumentDraftState } from "../model/action-state";
 import type { DocumentRow } from "../server/detail-queries";
 import type { DocumentActivityPage } from "../server/activity-queries";
 import {
@@ -96,12 +96,15 @@ import { useToast } from "@/components/feedback/Toast";
 import { stripSearchParams } from "@/lib/navigation/strip-search-params";
 import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumentPanel";
 import { DocumentSheet } from "@/components/document/DocumentSheet";
-import type { NotarialMetadata } from "@/features/notarial-index/model/notarial";
-import type { NotarialMetadataPrefill } from "@/features/notarial-index/model/prefill";
-import { NotarialMetadataSection } from "@/features/notarial-index";
+import {
+  NotarialMetadataSection,
+  type NotarialMetadata,
+  type NotarialMetadataPrefill,
+} from "@/features/notarial-index";
 import type { ReceivableEntry } from "@/features/receivables";
 import { DocumentReceivableStep } from "./DocumentReceivableStep";
 import { DocumentCompletarPanel } from "./DocumentCompletarPanel";
+import { DocumentNotarialInclusionSection } from "./DocumentNotarialInclusionSection";
 
 type SharedProps = {
   document: TemplateDocument;
@@ -472,7 +475,7 @@ export function DocumentComposer(props: Props) {
             {state.message}
             {isEdit && state.conflictUpdatedAt && (
               <div className="mt-3 flex flex-wrap gap-4">
-                <a href={`/dashboard/documents/${props.draft.id}`} target="_blank" rel="noopener noreferrer" className="underline">
+                <a href={`/documents/${props.draft.id}`} target="_blank" rel="noopener noreferrer" className="underline">
                   Revisar versión guardada (nueva pestaña)
                 </a>
                 <button type="submit" disabled={pending} className="underline disabled:opacity-50" onClick={() => {
@@ -572,21 +575,26 @@ export function DocumentComposer(props: Props) {
         hidden={section !== "notarial"}
       >
         {isEdit && notarialUnlocked ? (
-          <NotarialMetadataSection
+          <DocumentNotarialInclusionSection
             documentId={props.draft.id}
-            metadata={props.notarialMetadata}
-            prefill={props.notarialPrefill}
-            readOnly
-            canEdit={canEdit}
-            canResetParties={props.canResetParties}
-            actNamePreview={props.actNamePreview}
-            generatedPartiesPreview={props.generatedPartiesPreview}
-            reviewRequired={props.reviewRequired}
+            headingId="document-notarial-index-heading"
             includeInNotarialIndex={props.draft.include_in_notarial_index}
             canChangeInclusion={props.canConfirmNotarial}
-            canConfirm={props.canConfirmNotarial}
-            confirmedByName={props.notarialConfirmedByName}
-          />
+          >
+            <NotarialMetadataSection
+              documentId={props.draft.id}
+              metadata={props.notarialMetadata}
+              prefill={props.notarialPrefill}
+              readOnly
+              canEdit={canEdit}
+              canResetParties={props.canResetParties}
+              actNamePreview={props.actNamePreview}
+              generatedPartiesPreview={props.generatedPartiesPreview}
+              reviewRequired={props.reviewRequired}
+              canConfirm={props.canConfirmNotarial}
+              confirmedByName={props.notarialConfirmedByName}
+            />
+          </DocumentNotarialInclusionSection>
         ) : (
           <LockedStepPlaceholder
             title="Índice"

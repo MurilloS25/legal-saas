@@ -204,7 +204,7 @@ function ReceivableSummaryCard({
         )}
         <Link
           href={appendReturnTo(
-            `/dashboard/receivables/${receivable.id}`,
+            `/receivables/${receivable.id}`,
             buildDocumentReceivablesReturnTo(documentId),
           )}
           className="text-sm font-medium text-accent-700 hover:text-accent-800 focus:outline-none focus:underline"

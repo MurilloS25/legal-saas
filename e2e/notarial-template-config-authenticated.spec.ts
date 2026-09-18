@@ -102,12 +102,12 @@ function metadataSection(page: Page) {
 }
 
 async function open(page: Page, documentId: string) {
-  await page.goto(`/dashboard/documents/${documentId}?section=notarial`);
+  await page.goto(`/documents/${documentId}?section=notarial`);
   await expect(metadataSection(page)).toBeVisible();
 }
 
 async function openTemplate(page: Page) {
-  await page.goto(`/dashboard/templates/${templateId}?section=notarial`);
+  await page.goto(`/templates/${templateId}?section=notarial`);
   await expect(configurationSection(page)).toBeVisible();
 }
 
@@ -617,7 +617,7 @@ test.describe("template notarial index configuration", () => {
       section.getByLabel("Hora de autorización", { exact: true }),
     ).toHaveValue("10:20"); // hora.valor="diez", hora.minutos="veinte"
 
-    await page.goto(`/dashboard/documents/${firstDocumentId}`);
+    await page.goto(`/documents/${firstDocumentId}`);
     await page.getByRole("button", { name: "Reabrir escritura" }).click();
     await page
       .getByRole("alertdialog")

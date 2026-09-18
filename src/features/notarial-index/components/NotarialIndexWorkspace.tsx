@@ -40,13 +40,13 @@ export function NotarialIndexWorkspace({
   const pageHref = (targetPage: number) => {
     const params = notarialQueryToParams({ ...query, page: targetPage });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index";
+    return qs ? `/notarial-index?${qs}` : "/notarial-index";
   };
 
   const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
     const params = notarialQueryToParams({ ...query, page: 1, pageSize });
     const qs = new URLSearchParams(params).toString();
-    return qs ? `/dashboard/notarial-index?${qs}` : "/dashboard/notarial-index";
+    return qs ? `/notarial-index?${qs}` : "/notarial-index";
   });
 
   const rangeStart = page.total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
@@ -128,7 +128,7 @@ export function NotarialIndexWorkspace({
                 No hay escrituras finalizadas con esos filtros
               </p>
               <Link
-                href={`/dashboard/notarial-index?${periodQs}`}
+                href={`/notarial-index?${periodQs}`}
                 className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
               >
                 Limpiar filtros

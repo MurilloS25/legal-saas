@@ -12,7 +12,7 @@ import { restDelete, restSelect } from "./support/supabase-admin";
 
 /**
  * Escritura nueva: el stepper de 3 pasos (Completar / Cobro / Índice) es la
- * vista principal desde `/dashboard/documents/new/[templateId]` — no hay un
+ * vista principal desde `/documents/new/[templateId]` — no hay un
  * flujo alternativo de una sola página para creación, y la creación siempre
  * arranca en "Completar". "Completar" opera sobre estado local y ya es
  * completamente funcional antes de guardar — incluida la revisión en vivo
@@ -95,7 +95,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
       label: fieldLabel,
       required: true,
     });
-    await page.goto("/dashboard/documents/new");
+    await page.goto("/documents/new");
     await expect(
       page.locator("li").filter({ hasText: templateName }),
     ).toBeVisible();
@@ -110,13 +110,13 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     });
     const title = uniqueName("document-stepper-create", "escritura-b");
 
-    await page.goto("/dashboard/documents/new");
+    await page.goto("/documents/new");
     await page
       .locator("li")
       .filter({ hasText: templateName })
       .getByRole("link", { name: "Usar este machote" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
+    await expect(page).toHaveURL(/\/documents\/new\/[^/]+$/, {
       timeout: 15_000,
     });
 
@@ -205,7 +205,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     // primer guardado llega vía redirect del server action, no vía
     // `useActionState`), así que solo se afirma el id persistido, no ese
     // query param.
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await expect(
@@ -295,13 +295,13 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     });
     const title = uniqueName("document-stepper-create", "escritura-c");
 
-    await page.goto("/dashboard/documents/new");
+    await page.goto("/documents/new");
     await page
       .locator("li")
       .filter({ hasText: templateName })
       .getByRole("link", { name: "Usar este machote" })
       .click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/new\/[^/]+$/, {
+    await expect(page).toHaveURL(/\/documents\/new\/[^/]+$/, {
       timeout: 15_000,
     });
 
@@ -314,7 +314,7 @@ test.describe("escritura nueva: stepper visible desde la creación", () => {
     await fillFieldLive(page, fieldKey, "Cliente de Prueba Cobro");
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/(?!new)[^/?]+/, {
+    await expect(page).toHaveURL(/\/documents\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await registerCreatedViaUi(registry, "documents", "title", title);

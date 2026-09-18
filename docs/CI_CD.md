@@ -131,13 +131,18 @@ Current environments are:
 Environment rules:
 
 ```txt
-Local: Supabase local public URL/key; service-role only in server-side test tooling
+Local: Supabase local public URL/key; service-role in server-only app/test tooling
 Preview: no automatic access to Supabase Production
-Production: NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+Production: NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY + SUPABASE_SERVICE_ROLE_KEY (server-only)
 ```
 
-The application does not require a service-role key in Vercel. Any future use
-must remain server-only and requires a separate security review.
+Team invitations use the Supabase Admin API and therefore require
+`SUPABASE_SERVICE_ROLE_KEY` in Vercel Production. It must remain scoped to
+Production, must never use the `NEXT_PUBLIC_` prefix, and must never be emitted
+to logs or client bundles. Missing or unavailable Admin API configuration
+produces a controlled unavailability message. Existing accounts are resolved
+before sending email; a database failure compensates only an Auth user created
+by that same attempt, never an existing account.
 
 ## Release Flow
 
@@ -167,3 +172,15 @@ Supabase migrations are not pushed automatically by CI. They are versioned,
 tested locally and applied to Cloud only as an explicitly authorized,
 coordinated release step. See `docs/SUPABASE_PRODUCTION.md` and
 `docs/VERCEL_PRODUCTION.md` for dated operational state.
+
+For a migration-bearing PR, the pre-merge database gate is a clean local
+rebuild, the complete pgTAP suite, and empty output from both:
+
+```bash
+supabase db diff --local --schema public
+supabase db diff --local --schema public --use-migra
+```
+
+Applying Cloud migrations and promoting `main` belong to one authorized
+release window. A green Preview from `develop` does not authorize either
+Production action.

@@ -7,7 +7,7 @@ import type {
   NotarialMetadataPrefill,
   NotarialPrefillField,
 } from "../../model/prefill";
-import type { NotarialMetadataState } from "../../server/metadata-actions";
+import type { NotarialMetadataState } from "../../model/action-state";
 import { CollapsibleFieldRow } from "../CollapsibleFieldRow";
 import type { NotarialMetadataDraft } from "./useNotarialMetadataDraft";
 

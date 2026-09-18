@@ -16,7 +16,7 @@ import { useId, useState } from "react";
 import { FieldError } from "@/components/forms/FieldError";
 import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 import { FIELD_KEY_PATTERN } from "../model/template-fields";
-import type { LegacyVariableMatch } from "@/lib/editor/legacy-variables";
+import type { LegacyVariableMatch } from "../model/legacy-variables";
 import {
   VARIABLE_OUTPUT_TRANSFORMS,
   VARIABLE_OUTPUT_TRANSFORM_LABELS,

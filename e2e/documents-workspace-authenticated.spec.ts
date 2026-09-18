@@ -34,7 +34,7 @@ function row(page: Page, title: string) {
 
 async function search(page: Page, term: string) {
   await expect(async () => {
-    await page.goto("/dashboard/documents");
+    await page.goto("/documents");
     const searchbox = page.getByRole("searchbox", { name: "Buscar" });
     await searchbox.fill(term);
     await expect(searchbox).toHaveValue(term);
@@ -116,7 +116,7 @@ test.describe("documents workspace management", () => {
   test("E: filtering by client narrows results and survives reload", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents?client=${clientAlphaId}`);
+    await page.goto(`/documents?client=${clientAlphaId}`);
     await expect(row(page, titleAlpha)).toBeVisible();
     await expect(row(page, titleBeta)).toHaveCount(0);
 
@@ -126,7 +126,7 @@ test.describe("documents workspace management", () => {
   });
 
   test("F: filtering by template works", async ({ page }) => {
-    await page.goto(`/dashboard/documents?template=${templateDosId}`);
+    await page.goto(`/documents?template=${templateDosId}`);
     await expect(row(page, titleBeta)).toBeVisible();
     await expect(row(page, titleAlpha)).toHaveCount(0);
   });
@@ -146,9 +146,9 @@ test.describe("documents workspace management", () => {
   });
 
   test("H: clear filters resets the workspace", async ({ page }) => {
-    await page.goto(`/dashboard/documents?client=${clientAlphaId}`);
+    await page.goto(`/documents?client=${clientAlphaId}`);
     await page.getByRole("button", { name: "Limpiar filtros" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/documents$/, { timeout: 15_000 });
     await expect(row(page, titleBeta)).toBeVisible();
   });
 
@@ -160,12 +160,12 @@ test.describe("documents workspace management", () => {
       page.getByText("No encontramos escrituras con esos filtros"),
     ).toBeVisible();
     await page.getByRole("link", { name: "Limpiar filtros" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/documents$/, { timeout: 15_000 });
   });
 
   test("J: invalid query params are ignored safely", async ({ page }) => {
     await page.goto(
-      "/dashboard/documents?sort=DROP%20TABLE&status=bogus&page=-3&client=notauuid",
+      "/documents?sort=DROP%20TABLE&status=bogus&page=-3&client=notauuid",
     );
     // La página sigue funcionando con defaults.
     await expect(
@@ -187,7 +187,7 @@ test.describe("documents workspace management", () => {
 
   test("L: the toolbar is usable on a mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/dashboard/documents");
+    await page.goto("/documents");
     await expect(page.getByLabel("Buscar")).toBeVisible();
     await expect(page.getByLabel("Estado")).toBeVisible();
     await page.getByLabel("Buscar").fill(titleGamma);

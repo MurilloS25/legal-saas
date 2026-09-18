@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResourceIdSchema } from "@/lib/validation/resource-id";
 
 export const TEMPLATE_STATUS = ["draft", "active", "archived"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUS)[number];
@@ -41,9 +42,4 @@ export function templateStatusBadgeClass(status: string): string {
   );
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export const TemplateIdSchema = z
-  .string()
-  .regex(UUID_PATTERN, "El identificador no es válido");
+export const TemplateIdSchema = ResourceIdSchema;

@@ -104,12 +104,12 @@ select is(
 -- accept_workspace_invitation() (Iteración 5) al aceptar una invitación
 -- real, y lo que mantiene el invariante "1 Workspace activo por usuario"
 -- del que depende default_workspace_id_from_actor().
-insert into public.workspace_members (workspace_id, user_id, role, status)
-values ('a1111111-1111-1111-1111-111111111111', 'a2222222-2222-2222-2222-222222222222', 'asistente', 'active');
-
 delete from public.workspace_members
  where workspace_id = 'a2222222-2222-2222-2222-222222222222'
    and user_id = 'a2222222-2222-2222-2222-222222222222';
+
+insert into public.workspace_members (workspace_id, user_id, role, status)
+values ('a1111111-1111-1111-1111-111111111111', 'a2222222-2222-2222-2222-222222222222', 'asistente', 'active');
 
 -- Cliente de referencia, creado por el propietario.
 insert into public.clients (

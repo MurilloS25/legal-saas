@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient, findUserIdByEmail } from "@/lib/supabase/admin";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 import { ConfirmInviteForm } from "./ConfirmInviteForm";
 
@@ -42,12 +41,10 @@ type Props = {
 // Esta página atiende DOS casos distintos:
 //
 // A) Enlace fresco del correo (?token_hash&email, sin sesión): el token
-//    NO se consume aquí — un GET no debe tener efectos secundarios (ver
-//    src/app/auth/confirm/route.ts para el porqué). Solo se previsualiza
-//    la invitación (Workspace, correo, rol) leyendo workspace_members
-//    directamente por email vía la Admin API — sin tocar el token de
-//    Supabase — y se muestra un botón; verifyOtp + la aceptación real
-//    ocurren únicamente en el POST de ConfirmInviteForm.
+//    NO se consume aquí — un GET no debe tener efectos secundarios. Antes
+//    de verificarlo tampoco se consulta información privilegiada por email:
+//    un token inválido solo obtiene una pantalla genérica. verifyOtp + la
+//    aceptación real ocurren únicamente en el POST de ConfirmInviteForm.
 //
 // B) Un usuario que YA tiene sesión (inició sesión normal, sin pasar por
 //    el enlace) y tiene una fila 'invited' pendiente — p. ej. alguien
@@ -57,44 +54,7 @@ export default async function AcceptInvitePage({ searchParams }: Props) {
   const { token_hash, email } = await searchParams;
 
   if (token_hash && email) {
-    const userId = await findUserIdByEmail(email);
-    const pending = userId ? await lookupPendingInvite(userId) : null;
-
-    if (!pending) {
-      return (
-        <InvalidState
-          title="Invitación no válida o expirada"
-          message="Pide a quien te invitó que te envíe un nuevo enlace."
-        />
-      );
-    }
-
-    if (pending.status === "active") {
-      return (
-        <InvalidState
-          title="Esta invitación ya fue aceptada"
-          message="Ya formas parte de este Workspace. Inicia sesión normalmente."
-        />
-      );
-    }
-
-    if (pending.status === "revoked") {
-      return (
-        <InvalidState
-          title="Esta invitación fue revocada"
-          message="Pide a quien te invitó que te envíe una nueva invitación."
-        />
-      );
-    }
-
-    return (
-      <ConfirmInviteForm
-        tokenHash={token_hash}
-        email={email}
-        workspaceName={pending.workspaceName}
-        role={pending.role}
-      />
-    );
+    return <ConfirmInviteForm tokenHash={token_hash} email={email} />;
   }
 
   const supabase = await createClient();
@@ -123,48 +83,4 @@ export default async function AcceptInvitePage({ searchParams }: Props) {
       role={authedPending.role}
     />
   );
-}
-
-type PendingPreview = {
-  workspaceId: string;
-  workspaceName: string;
-  role: string;
-  status: string;
-};
-
-// Previsualización de solo lectura, sin tocar el token de Supabase: busca
-// la fila de workspace_members más reciente que NO sea el Workspace propio
-// (bootstrap, ver getWorkspaceAccess en lib/server/auth.ts) para este
-// usuario — es la invitación real a la que se refiere este correo. Usa el
-// cliente con service role porque, en el caso A, todavía no hay sesión y
-// RLS bloquearía cualquier lectura.
-async function lookupPendingInvite(
-  userId: string,
-): Promise<PendingPreview | null> {
-  const admin = createAdminClient();
-  const { data: row } = await admin
-    .from("workspace_members")
-    .select("workspace_id, role, status")
-    .eq("user_id", userId)
-    .neq("workspace_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!row) return null;
-
-  const { data: workspace } = await admin
-    .from("workspaces")
-    .select("name")
-    .eq("id", row.workspace_id)
-    .maybeSingle();
-
-  if (!workspace) return null;
-
-  return {
-    workspaceId: row.workspace_id,
-    workspaceName: workspace.name,
-    role: row.role,
-    status: row.status,
-  };
 }

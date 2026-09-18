@@ -19,7 +19,7 @@ let completeId = "";
 let editableId = "";
 
 function indexUrl() {
-  return `/dashboard/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${token}&pageSize=5`;
+  return `/notarial-index?year=2026&month=7&half=FIRST_HALF&search=${token}&pageSize=5`;
 }
 
 function toggle(page: Page, documentId: string) {
@@ -87,7 +87,7 @@ test.describe("notarial inline review", () => {
     await expect(detail.getByLabel("Notas internas (opcional)")).toHaveValue("Nota visible de prueba");
     await expect(detail.getByRole("link", { name: "Ver escritura" })).toHaveAttribute(
       "href",
-      `/dashboard/documents/${completeId}`,
+      `/documents/${completeId}`,
     );
   });
 
@@ -152,7 +152,7 @@ test.describe("notarial inline review", () => {
     const saveResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        new URL(response.url()).pathname === "/dashboard/notarial-index",
+        new URL(response.url()).pathname === "/notarial-index",
     );
     await detail.getByRole("button", { name: "Guardar datos" }).click();
     await saveResponse;

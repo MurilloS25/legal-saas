@@ -76,7 +76,7 @@ test.describe("notary identity and actor audit", () => {
     try {
       // ---- propietario modifica perfil (identidad notarial del Workspace)
       await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
-      await page.goto("/dashboard/settings?tab=workspace");
+      await page.goto("/settings?tab=workspace");
       await page.getByLabel("Nombre completo").fill("Lic. Notaria de Prueba");
       await page.getByLabel("Código profesional").fill("NP-9999");
       await page.getByRole("button", { name: "Guardar cambios" }).click();
@@ -138,21 +138,21 @@ test.describe("notary identity and actor audit", () => {
       templateId = template.id;
 
       // ---- el asistente genera un borrador (acción real vía la app).
-      await assistantPage.goto("/dashboard/documents/new");
+      await assistantPage.goto("/documents/new");
       await assistantPage
         .locator("li")
         .filter({ hasText: template.name })
         .getByRole("link", { name: "Usar este machote" })
         .click();
       await expect(assistantPage).toHaveURL(
-        /\/dashboard\/documents\/new\/[^/]+$/,
+        /\/documents\/new\/[^/]+$/,
         { timeout: 15_000 },
       );
       await assistantPage
         .getByRole("button", { name: "Guardar cambios" })
         .click();
       await expect(assistantPage).toHaveURL(
-        /\/dashboard\/documents\/(?!new)[^/]+/,
+        /\/documents\/(?!new)[^/]+/,
         { timeout: 30_000 },
       );
       const documentPath = new URL(assistantPage.url()).pathname;
@@ -160,7 +160,7 @@ test.describe("notary identity and actor audit", () => {
 
       // ---- el asistente no puede modificar la identidad notarial: el
       // formulario de Despacho (perfil profesional) le llega en modo lectura.
-      await assistantPage.goto("/dashboard/settings?tab=workspace");
+      await assistantPage.goto("/settings?tab=workspace");
       await expect(
         assistantPage.getByText(
           "Solo el propietario o un administrador pueden editar esta",

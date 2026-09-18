@@ -1,4 +1,5 @@
 export { CreateReceivableDialog } from "./components/CreateReceivableDialog";
+export { ClientReceivablesSection } from "./components/ClientReceivablesSection";
 export { DeleteReceivableButton } from "./components/DeleteReceivableButton";
 export { PaymentsSection } from "./components/PaymentsSection";
 export { ReceivableForm } from "./components/ReceivableForm";
@@ -9,7 +10,7 @@ export { ReceivablesTable } from "./components/ReceivablesTable";
 export { ReceivablesToolbar } from "./components/ReceivablesToolbar";
 export { ReceivableWorkspace } from "./components/ReceivableWorkspace";
 export type { ReceivableWorkspaceSection } from "./components/ReceivableWorkspaceHeader";
-export type { ReceivableState } from "./server/actions";
+export type { ReceivableState } from "./model/action-state";
 export type { ClientOption, DocumentOption } from "./model/types";
 export {
   formatMoney,

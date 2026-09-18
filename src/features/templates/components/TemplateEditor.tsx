@@ -18,7 +18,7 @@ import {
   detectLegacyVariables,
   humanizeLegacyLabel,
   type LegacyVariableMatch,
-} from "@/lib/editor/legacy-variables";
+} from "../model/legacy-variables";
 import type { TemplateWorkspaceVariable } from "../model/template-workspace";
 import { suggestAutofillSource } from "../model/variable-autofill";
 import { InsertVariableDialog } from "./InsertVariableDialog";

@@ -1,16 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { TemplateIdSchema } from "@/features/templates";
+import { ResourceIdSchema as TemplateIdSchema } from "@/lib/validation/resource-id";
 import { requireUser } from "@/lib/server/auth";
 import type { Database } from "@/lib/supabase/database.types";
 import { TemplateIndexConfigurationSchema } from "../model/template-index-configuration";
-
-export type TemplateIndexConfigurationState = {
-  errors?: Partial<Record<string, string>>;
-  message?: string;
-  success?: boolean;
-};
+import type { TemplateIndexConfigurationState } from "../model/action-state";
 
 export async function saveTemplateIndexConfigurationAction(
   templateId: string,
@@ -85,8 +80,8 @@ export async function saveTemplateIndexConfigurationAction(
     return { message: knownMessage };
   }
 
-  revalidatePath(`/dashboard/templates/${templateId}`);
-  revalidatePath("/dashboard/documents", "layout");
+  revalidatePath(`/templates/${templateId}`);
+  revalidatePath("/documents", "layout");
   return { success: true };
 }
 
@@ -133,6 +128,6 @@ export async function setTemplateNotarialIndexDefaultAction(
     };
   }
 
-  revalidatePath(`/dashboard/templates/${templateId}`);
+  revalidatePath(`/templates/${templateId}`);
   return { success: true, includeByDefault, updatedAt: updatedAt ?? undefined };
 }

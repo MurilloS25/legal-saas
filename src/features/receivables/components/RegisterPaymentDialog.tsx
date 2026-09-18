@@ -22,8 +22,8 @@ import { useActionState } from "react";
 import {
   registerPaymentAction,
   registerPaymentForDialogAction,
-  type PaymentState,
 } from "../server/payment-actions";
+import type { PaymentState } from "../model/action-state";
 import { formatMoney } from "../model/status";
 import { PAYMENT_METHODS, paymentMethodLabel } from "../model/payments";
 import { FieldError } from "@/components/forms/FieldError";

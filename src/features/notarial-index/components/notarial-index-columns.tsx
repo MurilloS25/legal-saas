@@ -180,7 +180,7 @@ export function createNotarialIndexColumns(): ColumnDef<NotarialIndexRow>[] {
       enableHiding: false,
       cell: ({ row }) => (
         <Link
-          href={`/dashboard/documents/${row.original.document_id}`}
+          href={`/documents/${row.original.document_id}`}
           className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 transition-colors hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500"
         >
           Ver escritura

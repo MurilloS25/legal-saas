@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FillableTemplateField } from "@/features/templates";
+import type { FillableTemplateField } from "@/features/templates/domain";
 import type { TemplateDocument } from "@/lib/editor/types";
 import {
   createDocumentTemplateSnapshot,
@@ -45,10 +45,14 @@ const fields: FillableTemplateField[] = [
 
 describe("document template snapshots", () => {
   it("captures the structured document and effective field catalog", () => {
-    const snapshot = createDocumentTemplateSnapshot(document, fields);
+    const notarial = {
+      templateName: "Compraventa v1",
+      configuration: null,
+    };
+    const snapshot = createDocumentTemplateSnapshot(document, fields, notarial);
 
     expect(snapshot).toEqual({
-      version: 1,
+      version: 2,
       document,
       fields: [{
         field_key: "persona.nombre",
@@ -58,11 +62,13 @@ describe("document template snapshots", () => {
         autofill_source: "client_full_name",
         output_transform: "none",
       }],
+      notarial,
     });
     expect(resolveDocumentTemplateSnapshot(snapshot, "ignored")).toEqual({
       document,
       fields,
       legacy: false,
+      notarial,
     });
   });
 
@@ -74,6 +80,7 @@ describe("document template snapshots", () => {
 
     expect(resolved.legacy).toBe(true);
     expect(resolved.fields).toEqual([]);
+    expect(resolved.notarial).toBeNull();
     expect(resolved.document).toEqual({
       type: "doc",
       content: [
@@ -88,9 +95,18 @@ describe("document template snapshots", () => {
     });
   });
 
+  it("keeps version-1 document snapshots readable without inventing notarial history", () => {
+    const resolved = resolveDocumentTemplateSnapshot(
+      { version: 1, document, fields: [] },
+      "ignored",
+    );
+    expect(resolved.document).toEqual(document);
+    expect(resolved.notarial).toBeNull();
+  });
+
   it("does not fall back to the current template when a stored snapshot is invalid", () => {
     expect(() =>
-      resolveDocumentTemplateSnapshot({ version: 1, document: {}, fields: [] }, "Guardado"),
+      resolveDocumentTemplateSnapshot({ version: 2, document: {}, fields: [] }, "Guardado"),
     ).toThrow(/snapshot/i);
   });
 });

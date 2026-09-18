@@ -6,7 +6,6 @@ export {
   listDocumentsByClient,
 } from "./server/detail-queries";
 export type {
-  ClientDocumentRow,
   DocumentListRow,
   DocumentRow,
 } from "./server/detail-queries";
@@ -25,6 +24,7 @@ export type {
 } from "./server/activity-queries";
 export {
   DocumentExportError,
+  prepareAndRecordDocumentDocxExport,
   prepareDocumentDocxExport,
 } from "./server/export-actions";
 export type { BinaryExport } from "./server/export-actions";

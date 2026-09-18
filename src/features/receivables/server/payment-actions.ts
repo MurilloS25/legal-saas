@@ -12,25 +12,7 @@ import {
   appendReturnTo,
   parseDocumentReceivablesReturnTo,
 } from "@/lib/navigation/context-return";
-
-// ------------------------------------------------------------------ types
-
-export type PaymentState = {
-  errors?: {
-    amount?: string;
-    paid_at?: string;
-    method?: string;
-    reference?: string;
-  };
-  message?: string;
-  /** Solo poblado por `registerPaymentForDialogAction` (modo diálogo,
-   * registro contextual desde una Escritura, que nunca redirige). */
-  success?: boolean;
-};
-
-export type VoidPaymentState = {
-  error?: string;
-};
+import type { PaymentState, VoidPaymentState } from "../model/action-state";
 
 // Traduce el SQLSTATE de la RPC a un mensaje accionable para el usuario.
 function registerErrorMessage(code: string | undefined): string {
@@ -99,7 +81,7 @@ async function registerPaymentRow(
     return { ok: false, state: { message: registerErrorMessage(error.code) } };
   }
 
-  revalidatePath(`/dashboard/receivables/${receivableId}`);
+  revalidatePath(`/receivables/${receivableId}`);
   return { ok: true };
 }
 
@@ -116,7 +98,7 @@ export async function registerPaymentAction(
   );
   redirect(
     appendReturnTo(
-      `/dashboard/receivables/${receivableId}?section=payments&paid=1`,
+      `/receivables/${receivableId}?section=payments&paid=1`,
       returnTo,
     ),
   );
@@ -136,7 +118,7 @@ export async function registerPaymentForDialogAction(
   const result = await registerPaymentRow(receivableId, formData);
   if (!result.ok) return result.state;
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath(`/documents/${documentId}`);
   return { success: true };
 }
 
@@ -171,13 +153,13 @@ export async function voidPaymentAction(
     return { error: message };
   }
 
-  revalidatePath(`/dashboard/receivables/${receivableId}`);
+  revalidatePath(`/receivables/${receivableId}`);
   const returnTo = parseDocumentReceivablesReturnTo(
     formData.get("returnTo") as string | null,
   );
   redirect(
     appendReturnTo(
-      `/dashboard/receivables/${receivableId}?section=payments`,
+      `/receivables/${receivableId}?section=payments`,
       returnTo,
     ),
   );

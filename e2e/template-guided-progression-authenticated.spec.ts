@@ -45,7 +45,7 @@ test.describe("template guided progression", () => {
       content: "ESCRITURA de prueba.",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}`);
+    await page.goto(`/templates/${template.id}`);
     await expect(tab(page, "Información")).toHaveAttribute(
       "aria-selected",
       "true",
@@ -90,7 +90,7 @@ test.describe("template guided progression", () => {
       content: "ESCRITURA de prueba.",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}`);
+    await page.goto(`/templates/${template.id}`);
     await expect(tab(page, "Información")).toHaveAttribute(
       "aria-selected",
       "true",
@@ -127,7 +127,7 @@ test.describe("template guided progression", () => {
       content: "ESCRITURA de prueba.",
     });
 
-    await page.goto(`/dashboard/templates/${template.id}`);
+    await page.goto(`/templates/${template.id}`);
 
     // Edita Información sin guardar y navega a Documento — el cambio local
     // no se pierde ni exige guardar antes de moverse.

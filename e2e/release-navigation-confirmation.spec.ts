@@ -26,7 +26,7 @@ for (const kind of ["documents", "templates"] as const) {
     const data = await fixture(page);
     try {
       const row = kind === "documents" ? data.document : data.template;
-      const path = `/dashboard/${kind}/${row.id}`;
+      const path = `/${kind}/${row.id}`;
       const input = page.getByLabel(kind === "documents" ? "Título de la escritura" : "Nombre del machote");
       await page.goto(path);
       await input.fill("Edición pendiente");
@@ -77,7 +77,7 @@ for (const kind of ["documents", "templates"] as const) {
     try {
       await page.setViewportSize({ width: 390, height: 844 });
       const row = kind === "documents" ? data.document : data.template;
-      await page.goto(`/dashboard/${kind}/${row.id}`);
+      await page.goto(`/${kind}/${row.id}`);
       const input = page.getByLabel(kind === "documents" ? "Título de la escritura" : "Nombre del machote");
       await input.fill("Edición móvil");
       for (const name of ["Panel", "Perfil", "Configuración", "Despacho", "Cerrar sesión"]) {
@@ -98,11 +98,11 @@ for (const kind of ["documents", "templates"] as const) {
 test("confirmation: save visible snapshot, reject stale version, correct and reopen", async ({ page, context }) => {
   const data = await fixture(page);
   try {
-    await page.goto(`/dashboard/documents/${data.document.id}`);
+    await page.goto(`/documents/${data.document.id}`);
     await page.getByRole("button", { name: "Finalizar escritura", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Finalizar escritura", exact: true }).click();
     await expect.poll(async () => (await restSelect<{status: string}>("documents", `id=eq.${data.document.id}`))[0]?.status).toBe("final");
-    await page.goto(`/dashboard/documents/${data.document.id}?section=notarial`);
+    await page.goto(`/documents/${data.document.id}?section=notarial`);
     const section = page.getByRole("region", { name: "Datos para índice" });
     for (const [row, fields] of [
       ["Número de instrumento", [["Número de instrumento", "101"]]],
@@ -129,7 +129,7 @@ test("confirmation: save visible snapshot, reject stale version, correct and reo
     await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeEnabled();
     const other = await context.newPage();
     try {
-      await other.goto(`/dashboard/documents/${data.document.id}?section=notarial`);
+      await other.goto(`/documents/${data.document.id}?section=notarial`);
       await section.getByRole("textbox", { name: /Notas internas/ }).fill("Nota C");
       await section.getByRole("button", { name: "Guardar datos del índice" }).click();
       await expect.poll(async () => (await restSelect<{notes: string}>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]?.notes).toBe("Nota C");

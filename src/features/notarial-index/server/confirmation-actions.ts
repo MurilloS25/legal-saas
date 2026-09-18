@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
 import { hasPermission } from "@/lib/server/permissions";
-import { DocumentIdSchema } from "@/features/documents";
+import { ResourceIdSchema as DocumentIdSchema } from "@/lib/validation/resource-id";
 import { isNotarialComplete } from "../model/notarial";
 
 export type NotarialConfirmationActionState = {
@@ -107,8 +107,8 @@ export async function confirmNotarialMetadataAction(
     };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
   return { success: true, version: updated.version };
 }
 
@@ -167,7 +167,7 @@ export async function startNotarialCorrectionAction(
     };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
   return { success: true, version: updated.version };
 }

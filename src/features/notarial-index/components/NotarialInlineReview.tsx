@@ -29,8 +29,8 @@ import {
 } from "../server/inline-detail-actions";
 import {
   saveNotarialMetadataAction,
-  type NotarialMetadataState,
 } from "../server/metadata-actions";
+import type { NotarialMetadataState } from "../model/action-state";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
@@ -273,7 +273,7 @@ function NotarialInlineReviewForm({
             </button>
           )}
           <Link
-            href={`/dashboard/documents/${row.document_id}`}
+            href={`/documents/${row.document_id}`}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1"
           >
             Ver escritura

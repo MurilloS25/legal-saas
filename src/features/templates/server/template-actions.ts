@@ -11,6 +11,7 @@ import { buildTemplateContentJson } from "@/lib/editor/content";
 import { TemplateIdSchema } from "../model/templates";
 import { listTemplateFields } from "./detail-queries";
 import type { Database } from "@/lib/supabase/database.types";
+import type { TemplateWorkspaceState } from "../model/action-state";
 
 // Mínima copia del orden del stepper — usada solo para calcular a qué paso
 // avanzar tras el primer guardado (create → edit). `TemplateWorkspace.tsx`
@@ -32,21 +33,6 @@ function nextTemplateSection(current: string): string {
     ? TEMPLATE_STEP_ORDER[index + 1]
     : current;
 }
-
-// ------------------------------------------------------------------ types
-
-export type TemplateWorkspaceState = {
-  errors?: {
-    name?: string;
-    description?: string;
-    status?: string;
-    document?: string;
-    variables?: string;
-  };
-  message?: string;
-  success?: boolean;
-  updatedAt?: string;
-};
 
 const GENERIC_SAVE_ERROR =
   "No fue posible guardar el machote. Intenta de nuevo.";
@@ -105,7 +91,7 @@ export async function createTemplateWorkspaceAction(
 
   if (error || !created) return { message: saveError(error?.code) };
 
-  revalidatePath("/dashboard/templates");
+  revalidatePath("/templates");
   // "Guardar y continuar" avanza al siguiente paso del flujo guiado, no
   // preserva el paso activo — el único botón que dispara este primer
   // guardado siempre implica "continuar". "notarial" nunca es el destino
@@ -114,7 +100,7 @@ export async function createTemplateWorkspaceAction(
   const section = String(formData.get("section") ?? "information");
   const next = nextTemplateSection(section);
   const sectionParam = next && next !== "information" ? `&section=${next}` : "";
-  redirect(`/dashboard/templates/${created.template_id}?created=1${sectionParam}`);
+  redirect(`/templates/${created.template_id}?created=1${sectionParam}`);
 }
 
 // ------------------------------------------------------------------ update
@@ -155,8 +141,8 @@ export async function updateTemplateWorkspaceAction(
 
   if (error || !saved) return { message: saveError(error?.code) };
 
-  revalidatePath("/dashboard/templates");
-  revalidatePath(`/dashboard/templates/${templateId}`);
+  revalidatePath("/templates");
+  revalidatePath(`/templates/${templateId}`);
   return { success: true, updatedAt: saved.updated_at };
 }
 

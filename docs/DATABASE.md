@@ -450,7 +450,10 @@ Rules:
   RPC `save_template_index_mapping_with_block_source`.
 - RLS is Workspace- and role-aware on both tables; anonymous access is not allowed.
 - The configuration stores no client values or escritura text. Generated
-  `Partes` is snapshotted only in the document's notarial metadata.
+  `Partes` is snapshotted in the document's notarial metadata when saved. For
+  new Escrituras, the minimal mapping that produces it is also frozen inside
+  `documents.template_snapshot` using stable field keys, so a later Machote
+  edit cannot change the historical prefill before metadata is saved.
 - Existing variable mappings remain valid. Historical blocks without
   `structuredOutput` continue to render normally but are not offered as an
   index source.
@@ -466,13 +469,27 @@ Decision:
 - `documents` is for editable drafts, not generated Word/PDF storage.
 - `field_values` stores a flat `field_key -> text` map.
 - `rendered_content` stores the server-rendered plain-text result of the last save.
-- `template_snapshot` stores one versioned JSON object containing the canonical structured document and only its configured field metadata (labels, required flags, autofill sources and output transforms). Variables without explicit configuration are derived again from the snapshotted document, so they are not duplicated in JSON. The snapshot is fixed when the Escritura is created and is the shared source for later preview, edits, finalization and DOCX export.
+- `template_snapshot` stores one versioned JSON object containing the canonical
+  structured document and only its configured field metadata (labels, required
+  flags, autofill sources and output transforms). Version 2 additionally stores
+  the Machote name and the minimal notarial configuration: simple mappings,
+  ordered Partes mappings expressed as stable field keys, separator, optional
+  suffix, explicit-empty decision, Option Block time source and reconciliation
+  state. It does not duplicate current field values or generated Partes.
+  Variables without explicit configuration are derived again from the
+  snapshotted document. The snapshot is fixed when the Escritura is created and
+  is the shared source for later preview, edits, finalization, DOCX and
+  historical notarial preparation.
 - `status` supports `draft`, historical `ready`, and `final`. New rows start as
   `draft`; valid drafts may finalize directly, while `ready` remains for
   compatibility with existing rows.
 - Editing a machote must not silently rewrite saved draft snapshots.
 - Saving a draft again regenerates `rendered_content` from its own `template_snapshot` and saved values, never from the current Machote.
 - Rows created before `template_snapshot` remain `null`. They use their historical `rendered_content` as a deterministic plain-text compatibility document; the missing variable/Option Block/formatting structure is not reconstructed from the current Machote.
+- Version-1 snapshots preserve their historical document exactly but have no
+  historical notarial mapping. They retain the explicit compatibility fallback
+  to the current Machote configuration/name; no backfill fabricates historical
+  values that were never stored.
 - Unknown historical `field_values` should be preserved unless a future explicit deletion workflow is approved.
 
 Candidate fields:
@@ -899,6 +916,15 @@ only by the 6 new team-management RPCs (`invite_workspace_member`,
 activity history. Full design rationale, the role hierarchy rules, and
 the "1 workspace per user" invariant are in
 `docs/WORKSPACE_MULTIUSER_ARCHITECTURE.md` §12.
+
+`20260917174844_enforce_single_active_workspace_membership.sql` convierte la
+regla de producto "un Workspace activo por usuario" en una invariante de base
+de datos mediante un índice único parcial en `workspace_members(user_id)` para
+`status = 'active'`. La aceptación de una invitación bloquea las membresías del
+usuario, conserva como `revoked` la membresía real anterior y activa el destino
+en la misma transacción. Solo elimina el Workspace de bootstrap si está vacío;
+un propietario con datos o equipo debe transferir la propiedad antes de poder
+cambiar de Workspace.
 
 ### Actor identity and audit snapshots (added, Iteration 6)
 

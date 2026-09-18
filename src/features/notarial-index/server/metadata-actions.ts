@@ -3,20 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/server/auth";
 import { throwDataAccessError } from "@/lib/server/errors";
-import { DocumentIdSchema } from "@/features/documents";
+import { ResourceIdSchema as DocumentIdSchema } from "@/lib/validation/resource-id";
 import { parseNotarialFormData } from "../model/notarial-schema";
-import { generateConfiguredParties } from "./parties-generation";
+import {
+  generateConfiguredParties,
+  generateConfiguredPartiesFromConfiguration,
+} from "./parties-generation";
+import { readDocumentNotarialSnapshot } from "@/lib/documents/notarial-snapshot";
+import { resolveDocumentNotarialSnapshot } from "../model/document-notarial-snapshot";
 import { isNotarialComplete } from "../model/notarial";
 import { notarialSaveErrorMessage } from "./notarial-save-error";
 import { hasPermission } from "@/lib/server/permissions";
-
-export type NotarialMetadataState = {
-  errors?: Partial<Record<string, string>>;
-  message?: string;
-  success?: boolean;
-  successMessage?: string;
-  resetParties?: boolean;
-};
+import type { NotarialMetadataState } from "../model/action-state";
 
 /**
  * Guarda (crea o actualiza) la metadata del índice notarial de una Escritura.
@@ -40,7 +38,7 @@ export async function saveNotarialMetadataAction(
 
   const { data: document, error: documentError } = await supabase
     .from("documents")
-    .select("id, template_id, field_values, templates(name)")
+    .select("id, template_id, field_values, template_snapshot, templates(name)")
     .eq("id", documentId)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -61,12 +59,29 @@ export async function saveNotarialMetadataAction(
     throwDataAccessError("load existing notarial metadata", existingError);
   }
 
-  const generated = await generateConfiguredParties(
-    supabase,
-    workspaceId,
-    document.template_id,
-    document.field_values,
-  );
+  let historicalNotarial = null;
+  try {
+    const notarialSnapshot = readDocumentNotarialSnapshot(
+      document.template_snapshot,
+    );
+    historicalNotarial = notarialSnapshot
+      ? resolveDocumentNotarialSnapshot(notarialSnapshot)
+      : null;
+  } catch {
+    return { message: "No fue posible leer la configuración histórica del machote." };
+  }
+  const generated = historicalNotarial
+    ? generateConfiguredPartiesFromConfiguration(
+        historicalNotarial.configuration,
+        historicalNotarial.availableFields,
+        document.field_values,
+      )
+    : await generateConfiguredParties(
+        supabase,
+        workspaceId,
+        document.template_id,
+        document.field_values,
+      );
   if (formData.get("intent") === "reset-parties") {
     if (!existing) {
       return { message: "Guarda primero los datos del índice." };
@@ -101,7 +116,7 @@ export async function saveNotarialMetadataAction(
           "Los datos cambiaron en otra sesión. Recarga la página antes de continuar.",
       };
     }
-    revalidatePath(`/dashboard/documents/${documentId}`);
+    revalidatePath(`/documents/${documentId}`);
     return {
       success: true,
       successMessage: "Partes restablecidas desde el machote.",
@@ -120,12 +135,8 @@ export async function saveNotarialMetadataAction(
   }
 
   const { version, ...values } = parsed.data;
-  // Siempre el nombre ACTUAL del machote, nunca el que había la primera vez
-  // que se guardó — si no, "Acto o contrato" queda congelado igual que el
-  // resto de campos derivados antes de esta corrección (ver
-  // `resolveDerivedPrecedence`; `act_name_override` sigue siendo la única
-  // forma de fijar un valor distinto a mano).
-  const actNameSnapshot = document.templates?.name ?? null;
+  const actNameSnapshot =
+    historicalNotarial?.templateName ?? document.templates?.name ?? null;
   const generatedParties =
     generated.status === "ready"
       ? generated.value
@@ -178,8 +189,8 @@ export async function saveNotarialMetadataAction(
     };
   }
 
-  revalidatePath(`/dashboard/documents/${documentId}`);
-  revalidatePath("/dashboard/notarial-index");
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/notarial-index");
 
   // El mismo guardado nunca debe leerse como "la Escritura ya quedó
   // agregada al Índice" si todavía faltan campos — el Índice se deriva de

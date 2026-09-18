@@ -86,6 +86,9 @@ describe("helpers", () => {
     expect(notarialSearchHasNoSafeTerm("%_(),'\"\\")).toBe(true);
     expect(notarialSearchHasNoSafeTerm("")).toBe(false);
     expect(notarialSearchTerm("Compraventa %")).toBe("Compraventa");
+    expect(
+      notarialSearchTerm("x%,workspace_id.eq.attacker),title.ilike.%"),
+    ).toBe("x workspace id eq attacker title ilike");
   });
 
   it("keeps the selected fortnight in links", () => {

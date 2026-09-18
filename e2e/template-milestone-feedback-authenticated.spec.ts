@@ -25,14 +25,14 @@ function contentEditor(page: Page) {
 }
 
 async function createTemplateViaUi(page: Page, name: string) {
-  await page.goto("/dashboard/templates/new");
+  await page.goto("/templates/new");
   await page.getByRole("tab", { name: "Información", exact: true }).click();
   await page.getByLabel("Nombre del machote").fill(name);
   await page.getByRole("tab", { name: "Documento", exact: true }).click();
   await contentEditor(page).click();
   await page.keyboard.type("Contenido de prueba del hito.");
   await page.getByRole("button", { name: "Crear machote" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/]+/, {
+  await expect(page).toHaveURL(/\/templates\/(?!new)[^/]+/, {
     timeout: 30_000,
   });
 }

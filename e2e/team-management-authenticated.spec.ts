@@ -4,6 +4,7 @@ import {
   createDisposableUser,
   deleteUser,
   restDelete,
+  restInsert,
   restSelect,
 } from "./support/supabase-admin";
 import { waitForLatestEmail, extractFirstLink } from "./support/mailpit";
@@ -31,6 +32,7 @@ test.setTimeout(120_000);
 // aplica esos permisos.
 
 const PASSWORD = "Segura!DePrueba9";
+const TRANSITION_PASSWORD = "Segura!DePrueba10";
 
 function uniqueEmail(label: string): string {
   return `e2e-team-${label}-${randomUUID()}@example.com`;
@@ -79,7 +81,7 @@ test.describe("team management", () => {
       // "Mi equipo" ahora vive dentro de Despacho (menú de usuario), no en
       // su propia ruta de navegación — /dashboard/team redirige ahí.
       await page.goto("/dashboard/team");
-      await expect(page).toHaveURL(/\/dashboard\/settings\?tab=workspace$/);
+      await expect(page).toHaveURL(/\/settings\?tab=workspace$/);
       await expect(
         page.getByRole("heading", { name: "Equipo", level: 2 }),
       ).toBeVisible();
@@ -108,9 +110,9 @@ test.describe("team management", () => {
       const memberPage = await memberContext.newPage();
       await memberPage.goto(link);
       await expect(
-        memberPage.getByRole("heading", { name: /Te invitaron a/ }),
+        memberPage.getByRole("heading", { name: "Confirmar invitación" }),
       ).toBeVisible();
-      await expect(memberPage.getByText("Asistente")).toBeVisible();
+      await expect(memberPage.getByText(memberEmail)).toHaveCount(0);
 
       // Página intermedia (GET, sin sesión): el token todavía no se
       // consumió — solo se consume al enviar este botón, en un POST.
@@ -132,9 +134,16 @@ test.describe("team management", () => {
         .getByRole("navigation", { name: "Navegación principal" })
         .waitFor();
 
-      // Un asistente no puede gestionar miembros: la propia página redirige.
+      // La ruta legacy lleva a Despacho, pero un asistente solo ve la
+      // información en modo lectura y no recibe controles de equipo.
       await memberPage.goto("/dashboard/team");
-      await expect(memberPage).toHaveURL(/\/dashboard$/);
+      await expect(memberPage).toHaveURL(/\/settings\?tab=workspace$/);
+      await expect(
+        memberPage.getByText(/Solo el propietario o un administrador/),
+      ).toBeVisible();
+      await expect(
+        memberPage.getByRole("heading", { name: "Equipo", level: 2 }),
+      ).not.toBeVisible();
       await memberContext.close();
 
       // El propietario cambia el rol a administrador, y ahora sí puede
@@ -150,7 +159,7 @@ test.describe("team management", () => {
       const asAdminPage = await adminContext.newPage();
       await loginAndExpectDashboard(asAdminPage, memberEmail, PASSWORD);
       await asAdminPage.goto("/dashboard/team");
-      await expect(asAdminPage).toHaveURL(/\/dashboard\/settings\?tab=workspace$/);
+      await expect(asAdminPage).toHaveURL(/\/settings\?tab=workspace$/);
       await expect(
         asAdminPage.getByRole("heading", { name: "Equipo", level: 2 }),
       ).toBeVisible();
@@ -182,7 +191,7 @@ test.describe("team management", () => {
       // No tiene acceso a los datos del Workspace del que fue suspendido:
       // navegar directo a una ruta de negocio también rebota aquí, nunca
       // muestra datos ajenos ni cae en /login.
-      await suspendedPage.goto("/dashboard/receivables");
+      await suspendedPage.goto("/receivables");
       await expect(suspendedPage).toHaveURL(/\/workspace-unavailable$/);
 
       // La pantalla permite cerrar sesión.
@@ -357,6 +366,84 @@ test.describe("team management", () => {
       await restDelete("workspace_activity", `workspace_id=eq.${ownerId}`);
       await deleteUser(memberId);
       await deleteUser(ownerId);
+    }
+  });
+
+  test("D: aceptar B desde una membresía activa en A hace una transición atómica y conserva A como revocada", async ({
+    page,
+    browser,
+  }) => {
+    const ownerAEmail = uniqueEmail("transition-owner-a");
+    const ownerBEmail = uniqueEmail("transition-owner-b");
+    const memberEmail = uniqueEmail("transition-member");
+    const ownerAId = await createDisposableUser(ownerAEmail, PASSWORD);
+    const ownerBId = await createDisposableUser(ownerBEmail, PASSWORD);
+    const memberId = await createDisposableUser(memberEmail, PASSWORD);
+
+    try {
+      // Fixture state: the member is already settled in Workspace A. Remove
+      // the empty bootstrap membership first so the fixture obeys the same
+      // one-active-Workspace invariant as production.
+      await restDelete(
+        "workspace_members",
+        `workspace_id=eq.${memberId}&user_id=eq.${memberId}`,
+      );
+      await restInsert("workspace_members", {
+        workspace_id: ownerAId,
+        user_id: memberId,
+        role: "asistente",
+        status: "active",
+        invited_by: ownerAId,
+      });
+
+      await loginAndExpectDashboard(page, ownerBEmail, PASSWORD);
+      await page.goto("/dashboard/team");
+      await page.getByLabel("Correo electrónico").fill(memberEmail);
+      await page.getByRole("button", { name: "Invitar" }).click();
+      await expect(
+        page.getByText("este correo ya tiene cuenta en LexCR"),
+      ).toBeVisible();
+
+      const memberContext = await browser.newContext();
+      const memberPage = await memberContext.newPage();
+      await loginAndExpectDashboard(memberPage, memberEmail, PASSWORD);
+      await memberPage.goto("/accept-invite");
+      await expect(
+        memberPage.getByRole("heading", { name: /Te invitaron a/ }),
+      ).toBeVisible();
+      await memberPage
+        .getByLabel("Contraseña", { exact: true })
+        .fill(TRANSITION_PASSWORD);
+      await memberPage
+        .getByLabel("Confirmar contraseña")
+        .fill(TRANSITION_PASSWORD);
+      await memberPage.getByRole("button", { name: "Unirme al equipo" }).click();
+      // A user without profile data may be redirected immediately from the
+      // dashboard to Settings onboarding after the successful acceptance.
+      await memberPage.waitForURL(/\/(dashboard|settings)(?:\?|$)/, {
+        timeout: 15_000,
+      });
+      await memberContext.close();
+
+      const memberships = await restSelect<{
+        workspace_id: string;
+        status: string;
+      }>(
+        "workspace_members",
+        `user_id=eq.${memberId}&select=workspace_id,status&order=workspace_id.asc`,
+      );
+      expect(memberships).toEqual([
+        { workspace_id: ownerAId, status: "revoked" },
+        { workspace_id: ownerBId, status: "active" },
+      ].sort((a, b) => a.workspace_id.localeCompare(b.workspace_id)));
+      expect(memberships.filter((membership) => membership.status === "active"))
+        .toHaveLength(1);
+    } finally {
+      await restDelete("workspace_activity", `workspace_id=eq.${ownerAId}`);
+      await restDelete("workspace_activity", `workspace_id=eq.${ownerBId}`);
+      await deleteUser(memberId);
+      await deleteUser(ownerAId);
+      await deleteUser(ownerBId);
     }
   });
 });

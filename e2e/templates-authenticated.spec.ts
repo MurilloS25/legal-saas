@@ -106,7 +106,7 @@ test.describe("templates module", () => {
       .getByRole("link", { name: "Machotes", exact: true })
       .click();
 
-    await expect(page).toHaveURL(/\/dashboard\/templates/, {
+    await expect(page).toHaveURL(/\/templates/, {
       timeout: 15_000,
     });
     await expect(
@@ -117,7 +117,7 @@ test.describe("templates module", () => {
   test("B: new template workspace is reachable and unified", async ({
     page,
   }) => {
-    await page.goto("/dashboard/templates");
+    await page.goto("/templates");
 
     const newTemplateLink = page
       .getByRole("link", { name: /Nuevo machote|Crear machote/ })
@@ -125,10 +125,10 @@ test.describe("templates module", () => {
 
     await expect(newTemplateLink).toHaveAttribute(
       "href",
-      "/dashboard/templates/new",
+      "/templates/new",
     );
     await newTemplateLink.click();
-    await expect(page).toHaveURL(/\/dashboard\/templates\/new$/, {
+    await expect(page).toHaveURL(/\/templates\/new$/, {
       timeout: 30_000,
     });
 
@@ -174,7 +174,7 @@ test.describe("templates module", () => {
   }) => {
     createdTemplateName = uniqueName("templates", "machote");
 
-    await page.goto("/dashboard/templates/new");
+    await page.goto("/templates/new");
     await waitForWorkspace(page);
 
     // El nombre/descripción viven en el paso "Información" del stepper,
@@ -247,7 +247,7 @@ test.describe("templates module", () => {
     await goToTab(page, "Publicar");
     await page.getByRole("button", { name: "Crear machote" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/?]+/, {
+    await expect(page).toHaveURL(/\/templates\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
     await expect(
@@ -308,7 +308,7 @@ test.describe("templates module", () => {
 
     // El breadcrumb regresa al listado.
     await page.getByRole("link", { name: "‹ Machotes" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/templates$/);
+    await expect(page).toHaveURL(/\/templates$/);
   });
 
   test("D: created template persists after reload with its variable", async ({
@@ -395,7 +395,7 @@ test.describe("templates module", () => {
   test("G: edited template appears in the list with updated status", async ({
     page,
   }) => {
-    await page.goto("/dashboard/templates");
+    await page.goto("/templates");
     await expect(
       page.getByRole("heading", { name: "Machotes", exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -433,7 +433,7 @@ test.describe("templates module", () => {
   test("I: a nonexistent template returns the not-found page", async ({
     page,
   }) => {
-    await page.goto("/dashboard/templates/00000000-0000-0000-0000-000000000000");
+    await page.goto("/templates/00000000-0000-0000-0000-000000000000");
     await expect(page.getByText("404")).toBeVisible();
   });
 });

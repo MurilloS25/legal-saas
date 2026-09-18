@@ -9,31 +9,27 @@ import {
   DocumentValuesSchema,
   DocumentVersionSchema,
 } from "../model/document-schema";
-import { buildFillableFields, TemplateIdSchema } from "@/features/templates";
+import { buildFillableFields, TemplateIdSchema } from "@/features/templates/domain";
 import {
   toVariableAutofillSource,
   toVariableOutputTransform,
-} from "@/features/templates/model/variable-autofill";
+} from "@/features/templates/domain";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import {
   createDocumentTemplateSnapshot,
   resolveDocumentTemplateSnapshot,
 } from "../model/document-template-snapshot";
+import { createDocumentNotarialSnapshot } from "@/features/notarial-index";
+import { queryTemplateIndexConfiguration } from "@/features/notarial-index/server";
 import { isReadOnlyStatus } from "../model/lifecycle";
 import { resolveOptionalClientId } from "./client-actions";
 import {
   validateDraftInput,
-  type DocumentDraftState,
 } from "./document-draft-validation";
-
-export type { DocumentDraftState } from "./document-draft-validation";
-
-// ------------------------------------------------------------------ types
-
-export type DeleteDocumentState = {
-  message?: string;
-  success?: boolean;
-};
+import type {
+  DeleteDocumentState,
+  DocumentDraftState,
+} from "../model/action-state";
 
 // ------------------------------------------------------------------ helpers
 
@@ -62,7 +58,7 @@ async function loadOwnedTemplateWithFields(
   const { data: fields, error } = await supabase
     .from("template_fields")
     .select(
-      "field_key, label, field_type, required, autofill_source, output_transform",
+      "id, field_key, label, field_type, required, autofill_source, output_transform",
     )
     .eq("template_id", templateId)
     .eq("workspace_id", workspaceId)
@@ -77,16 +73,22 @@ async function loadOwnedTemplateWithFields(
 
   // Los campos llenables incluyen las variables del contenido sin campo
   // configurado: un machote sin campos ya no bloquea la creación.
+  const configuredFields = (fields ?? []).map((field) => ({
+    ...field,
+    autofill_source: toVariableAutofillSource(field.autofill_source),
+    output_transform: toVariableOutputTransform(field.output_transform),
+  }));
+
   return {
     template,
     fields: buildFillableFields(
-      (fields ?? []).map((field) => ({
-        ...field,
-        autofill_source: toVariableAutofillSource(field.autofill_source),
-        output_transform: toVariableOutputTransform(field.output_transform),
-      })),
+      configuredFields,
       templateText,
     ),
+    notarialFields: configuredFields.map((field) => ({
+      id: field.id,
+      fieldKey: field.field_key,
+    })),
     document,
   };
 }
@@ -128,6 +130,12 @@ export async function createDocumentDraftAction(
   );
   if ("error" in client) return { message: client.error };
 
+  const notarialConfiguration = await queryTemplateIndexConfiguration(
+    supabase,
+    workspaceId,
+    templateId,
+  );
+
   const { data, error } = await supabase
     .from("documents")
     .insert({
@@ -143,6 +151,11 @@ export async function createDocumentDraftAction(
       template_snapshot: createDocumentTemplateSnapshot(
         loaded.document,
         loaded.fields,
+        createDocumentNotarialSnapshot(
+          loaded.template.name,
+          notarialConfiguration,
+          loaded.notarialFields,
+        ),
       ),
       // El snapshot del default del Machote lo garantiza el trigger
       // `documents_notarial_index_snapshot` (ver 20260822090000) — cualquier
@@ -157,12 +170,12 @@ export async function createDocumentDraftAction(
     return { message: "No fue posible guardar el borrador. Intenta de nuevo." };
   }
 
-  revalidatePath("/dashboard/documents");
+  revalidatePath("/documents");
   // "Completar" es el único paso editable antes de que la Escritura exista
   // y también donde vive el resto del workspace (revisión del documento,
   // Finalizar) desde que "Revisar y finalizar" se retiró como paso propio
   // — así que la transición create → edit permanece ahí, sin `section`.
-  redirect(`/dashboard/documents/${data.id}?saved=1`);
+  redirect(`/documents/${data.id}?saved=1`);
 }
 
 // ------------------------------------------------------------------ update draft
@@ -264,8 +277,8 @@ export async function updateDocumentDraftAction(
     };
   }
 
-  revalidatePath("/dashboard/documents");
-  revalidatePath(`/dashboard/documents/${documentId}`);
+  revalidatePath("/documents");
+  revalidatePath(`/documents/${documentId}`);
   return { success: true, updatedAt: updated.updated_at };
 }
 
@@ -314,6 +327,6 @@ export async function deleteDocumentDraftAction(
     return { message: "No se pudo eliminar el borrador. Intenta de nuevo." };
   }
 
-  revalidatePath("/dashboard/documents");
+  revalidatePath("/documents");
   return { success: true };
 }

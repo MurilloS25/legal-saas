@@ -8,7 +8,7 @@ import {
 
 /**
  * Machote nuevo: el stepper (Información / Documento / Variables / Índice /
- * Publicar) es la vista principal desde `/dashboard/templates/new` — no hay
+ * Publicar) es la vista principal desde `/templates/new` — no hay
  * un flujo alternativo de una sola página para creación. Solo "Índice" está
  * bloqueado antes del primer guardado (depende de `template_id`); el resto
  * de los pasos opera sobre estado local y ya es completamente funcional. El
@@ -50,7 +50,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
   }) => {
     const name = uniqueName("template-stepper-create", "machote-a");
 
-    await page.goto("/dashboard/templates/new");
+    await page.goto("/templates/new");
 
     // Los 5 pasos son visibles desde el inicio — no hay pantalla previa
     // de una sola página.
@@ -119,7 +119,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     // El `?created=1` es efímero — el propio workspace lo limpia de la URL
     // apenas monta el banner de hito (ver `template-milestone-feedback`),
     // así que solo se afirma el id persistido, no ese query param.
-    await expect(page).toHaveURL(/\/dashboard\/templates\/(?!new)[^/?]+/, {
+    await expect(page).toHaveURL(/\/templates\/(?!new)[^/?]+/, {
       timeout: 30_000,
     });
 
@@ -161,7 +161,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
   }) => {
     const name = uniqueName("template-stepper-create", "machote-b");
 
-    await page.goto("/dashboard/templates/new");
+    await page.goto("/templates/new");
     await goToTab(page, "Información");
     await page.getByLabel("Nombre del machote").fill(name);
     await goToTab(page, "Documento");
@@ -178,7 +178,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     // ya no preserva el paso activo, avanza uno (Variables → Índice) según
     // el orden fijo del stepper.
     await expect(page).toHaveURL(
-      /\/dashboard\/templates\/(?!new)[^/?]+\?.*section=notarial/,
+      /\/templates\/(?!new)[^/?]+\?.*section=notarial/,
       { timeout: 30_000 },
     );
     await expect(indexTab(page)).toHaveAttribute("aria-selected", "true");
@@ -201,7 +201,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
   test("C: /new abre en Información por defecto, sin encabezado duplicado", async ({
     page,
   }) => {
-    await page.goto("/dashboard/templates/new");
+    await page.goto("/templates/new");
 
     // "Información" es el primer paso definido — sin clic previo, ya debe
     // estar seleccionado.
@@ -225,7 +225,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     const variableLabel = "Parte única";
     const variableKey = "parte.unica";
 
-    await page.goto("/dashboard/templates/new");
+    await page.goto("/templates/new");
     await goToTab(page, "Información");
     await page.getByLabel("Nombre del machote").fill(name);
 
@@ -258,7 +258,7 @@ test.describe("machote nuevo: stepper visible desde la creación", () => {
     // mismo guardado que confirma la completitud recién comprobada.
     await page.getByRole("button", { name: "Crear machote" }).click();
     await expect(page).toHaveURL(
-      /\/dashboard\/templates\/(?!new)[^/?]+\?.*section=variables/,
+      /\/templates\/(?!new)[^/?]+\?.*section=variables/,
       { timeout: 30_000 },
     );
     await registerCreatedViaUi(registry, "templates", "name", name);

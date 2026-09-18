@@ -26,12 +26,20 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password, e
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('fa000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000000','authenticated','authenticated','release-a-5@example.test','fake-hash',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('fa000000-0000-0000-0000-000000000006','00000000-0000-0000-0000-000000000000','authenticated','authenticated','release-a-6@example.test','fake-hash',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('fa000000-0000-0000-0000-000000000007','00000000-0000-0000-0000-000000000000','authenticated','authenticated','release-a-7@example.test','fake-hash',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
+delete from public.workspace_members
+ where workspace_id = user_id
+   and user_id in (
+     'fa000000-0000-0000-0000-000000000002',
+     'fa000000-0000-0000-0000-000000000003',
+     'fa000000-0000-0000-0000-000000000004',
+     'fa000000-0000-0000-0000-000000000007'
+   );
 insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000001','fa000000-0000-0000-0000-000000000002','administrador','active');
 insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000001','fa000000-0000-0000-0000-000000000003','asistente','active');
 insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000001','fa000000-0000-0000-0000-000000000004','solo_lectura','active');
 insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000001','fa000000-0000-0000-0000-000000000005','asistente','revoked');
 insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000001','fa000000-0000-0000-0000-000000000007','administrador','active');
-insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000006','fa000000-0000-0000-0000-000000000002','administrador','active');
+insert into public.workspace_members (workspace_id,user_id,role,status) values ('fa000000-0000-0000-0000-000000000006','fa000000-0000-0000-0000-000000000002','administrador','revoked');
 reset role;
 select set_config('request.jwt.claim.sub','fa000000-0000-0000-0000-000000000003',true);
 set local role authenticated;
@@ -138,9 +146,9 @@ reset role;
 select set_config('request.jwt.claim.sub','fa000000-0000-0000-0000-000000000002',true);
 set local role authenticated;
 select is(release_security_test.probe($q$update public.clients set owner_id='fa000000-0000-0000-0000-000000000002' where id='fa000000-0000-0000-0000-000000000101'$q$),'23514','A1 clients: provenance immutable');
-select is(release_security_test.probe($q$update public.clients set workspace_id='fa000000-0000-0000-0000-000000000006' where id='fa000000-0000-0000-0000-000000000101'$q$),'23514','A1 clients: workspace immutable even with both memberships');
+select is(release_security_test.probe($q$update public.clients set workspace_id='fa000000-0000-0000-0000-000000000006' where id='fa000000-0000-0000-0000-000000000101'$q$),'23514','A1 clients: workspace immutable across memberships');
 select is(release_security_test.probe($q$update public.templates set owner_id='fa000000-0000-0000-0000-000000000002' where id='fa000000-0000-0000-0000-000000000102'$q$),'23514','A1 templates: provenance immutable');
-select is(release_security_test.probe($q$update public.templates set workspace_id='fa000000-0000-0000-0000-000000000006' where id='fa000000-0000-0000-0000-000000000102'$q$),'23514','A1 templates: workspace immutable even with both memberships');
+select is(release_security_test.probe($q$update public.templates set workspace_id='fa000000-0000-0000-0000-000000000006' where id='fa000000-0000-0000-0000-000000000102'$q$),'23514','A1 templates: workspace immutable across memberships');
 select is(release_security_test.probe($q$update public.template_fields set owner_id='fa000000-0000-0000-0000-000000000002' where id='fa000000-0000-0000-0000-000000000103'$q$),'23514','A1 template_fields: provenance immutable');
 select is(release_security_test.probe($q$update public.template_fields set workspace_id='fa000000-0000-0000-0000-000000000006' where id='fa000000-0000-0000-0000-000000000103'$q$),'23514','A1 template_fields: workspace immutable even with both memberships');
 select is(release_security_test.probe($q$update public.template_index_configurations set owner_id='fa000000-0000-0000-0000-000000000002' where id='fa000000-0000-0000-0000-000000000104'$q$),'23514','A1 template_index_configurations: provenance immutable');

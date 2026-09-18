@@ -45,6 +45,8 @@ export type ClientDocumentRow = {
   templates: { name: string } | null;
 };
 
+export const RELATED_DOCUMENTS_LIMIT = 10;
+
 /** Borradores del usuario, el modificado más recientemente primero. */
 export async function listDocuments(): Promise<DocumentListRow[]> {
   const { supabase, workspaceId } = await requireWorkspace();
@@ -118,7 +120,8 @@ export async function listDocumentsByClient(
     .select("id, title, status, updated_at, templates(name)")
     .eq("workspace_id", workspaceId)
     .eq("client_id", clientId)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(RELATED_DOCUMENTS_LIMIT);
 
   if (error) throwDataAccessError("list documents by client", error);
   return data ?? [];

@@ -45,7 +45,7 @@ test.describe("create a client from the document workspace", () => {
   test("B: the dialog is reachable next to the client selector and does not compete with the main action", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     await openClientPrincipalPopover(page);
     await expect(
@@ -59,7 +59,7 @@ test.describe("create a client from the document workspace", () => {
   test("C: cancelling the dialog preserves the rest of the form and creates nothing", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     const title = uniqueName("doc-client-dialog", "titulo-cancelado");
     await page.getByLabel("Título de la escritura").fill(title);
@@ -86,7 +86,7 @@ test.describe("create a client from the document workspace", () => {
   test("D: Escape also closes the dialog without side effects", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     await openClientPrincipalPopover(page);
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
@@ -100,7 +100,7 @@ test.describe("create a client from the document workspace", () => {
   test("E: an invalid submission keeps the dialog open with the typed values and does not select anything", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     await openClientPrincipalPopover(page);
     await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
@@ -123,7 +123,7 @@ test.describe("create a client from the document workspace", () => {
   test("F: creating a client selects it immediately and preserves the rest of the composer", async ({
     page,
   }) => {
-    await page.goto(`/dashboard/documents/new/${templateId}`);
+    await page.goto(`/documents/new/${templateId}`);
 
     const title = uniqueName("doc-client-dialog", "titulo-creado");
     await page.getByLabel("Título de la escritura").fill(title);
@@ -153,7 +153,7 @@ test.describe("create a client from the document workspace", () => {
 
     // Guarda y confirma que la asociación persiste tras recargar.
     await page.getByRole("button", { name: "Crear escritura" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/documents\/[0-9a-f-]{36}/, {
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
       timeout: 15_000,
     });
     const documentId = page.url().match(/documents\/([0-9a-f-]{36})/)![1];
@@ -184,7 +184,7 @@ test.describe("create a client from the document workspace", () => {
       status: "final",
     });
 
-    await page.goto(`/dashboard/documents/${doc.id}`);
+    await page.goto(`/documents/${doc.id}`);
 
     await expect(
       page.getByRole("button", { name: "+ Crear nuevo cliente" }),

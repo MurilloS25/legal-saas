@@ -2,7 +2,7 @@
 
 ## Architectural Decision
 
-LEGAL-SAAS is a modular monolith organized by feature.
+LexCR is a feature-oriented modular monolith built on the Next.js App Router.
 
 The application remains:
 
@@ -54,17 +54,18 @@ strategy. Supabase Cloud must not be touched without explicit authorization.
 ## Current State
 
 The application is organized primarily below `src/features`, with `src/app`
-responsible for App Router composition, route loading and error boundaries.
-Feature modules contain reusable UI, models, queries and Server Actions and
-expose intentional public entry points. Route-private components remain
-colocated when they are specific to one route, such as the settings workspace.
+responsible for App Router routes, layouts, Route Handlers, boundaries and
+composition. Feature modules contain their product-specific UI, models, hooks,
+queries, validations and Server Actions and expose intentional public entry
+points. Route-private components and helpers remain colocated when they belong
+only to one screen, such as the dashboard summary blocks and presenters.
 
 The former `src/domain`, `src/application`, and `src/infrastructure`
 placeholder trees were removed because they did not represent the implemented
 architecture. `src/features` remains the destination for feature modules; new
 directories are created only when concrete code requires them.
 
-## Target Source Layout
+## Source Layout
 
 ```txt
 src/
@@ -80,20 +81,26 @@ src/
 |  |- receivables/
 |  `- settings/
 |- components/
+|  |- document/
+|  |- feedback/
 |  |- forms/
 |  |- layout/
-|  `- ui/
+|  |- navigation/
+|  |- ui/
+|  `- workspace/
 `- lib/
    |- supabase/
    |- editor/
    |- documents/
-   |- templates/
-   |- receivables/
-   `- shared/
+   |- forms/
+   |- navigation/
+   |- server/
+   |- validation/
+   `- validations/
 ```
 
-This is a direction, not a requirement to create every folder immediately.
-Create only the folders justified by actual code.
+This diagram describes the implemented conceptual structure. It is not a
+folder checklist: create only directories justified by concrete code.
 
 ## Responsibility Of `src/app`
 
@@ -120,6 +127,18 @@ Pragmatic rule:
 > Code specific to one route may remain near that route. Reusable, business, or
 > shared feature code belongs outside `app`.
 
+### Composition Roots
+
+`app` is the correct owner when a screen integrates several features and none
+of them should own the complete workflow. For example,
+`clients/[id]/page.tsx` composes Clients, Documents and Receivables into one
+client-detail screen through their public APIs.
+
+Do not move every integration into `app`. When a relationship is part of one
+feature's own workflow, that feature keeps the composition. Documents, for
+example, owns its receivable step and its notarial-index inclusion controls,
+while consuming the corresponding public feature contracts.
+
 ## Feature Modules
 
 A feature owns the UI, model, and server behavior for one product capability.
@@ -141,52 +160,85 @@ src/features/receivables/
 `- index.ts
 ```
 
-Not every feature needs every folder. A small feature can contain only an
-`index.ts`, one server module, and one component.
+Not every feature needs every folder. A small feature can contain only the
+directories and entry points required by its responsibilities. Consistency
+means stable boundaries and dependency direction, not artificial symmetry.
 
-### Internal Module Entry Point
+### Public Feature APIs
 
-Each feature may expose a small `index.ts` as its repository-internal entry
-point. It is not an HTTP API, does not create an endpoint, and does not change
-authentication, authorization, or data exposure.
+Each current feature exposes a small `index.ts` as its repository-internal
+public API for UI and client-safe model contracts. Server-only queries,
+mutations and export preparation are exposed separately through `server.ts`,
+which starts with `import "server-only"`.
 
 ```ts
 export { ReceivableMiniList } from "./components/ReceivableMiniList";
-export { getReceivablesForClient } from "./server/detail-queries";
 ```
 
-Other modules consume only the symbols intentionally exported:
+```ts
+// features/receivables/server.ts
+import "server-only";
+
+export { listReceivablesByClient } from "./server/detail-queries";
+```
+
+Consumers use only the symbols intentionally exported:
 
 ```ts
-import {
-  ReceivableMiniList,
-  getReceivablesForClient,
-} from "@/features/receivables";
+import { ReceivableMiniList } from "@/features/receivables";
+import { listReceivablesByClient } from "@/features/receivables/server";
 ```
 
 Do not export every internal symbol. The entry point is a boundary, not a giant
 barrel file.
 
+`features/templates/domain.ts` is a deliberate additional contract. It exports
+pure template types and transformations without React or `server-only`, so
+Documents can reuse the Machote document model, variables and Option Block
+rules without importing Templates internals. Do not generalize this exception
+into a barrel for every feature.
+
+## Feature Ownership
+
+- **Clients:** client data, validation, lifecycle and client-specific UI.
+- **Documents:** Escrituras, editing and lifecycle, immutable historical
+  Machote snapshots, DOCX generation, and inclusion of an Escritura in the
+  Notarial Index.
+- **Templates:** Machotes, variables, Option Blocks, autofill and reusable
+  template configuration.
+- **Notarial Index:** notarial metadata and mappings, template-level notarial
+  configuration, confirmation and correction, workspace review, and export.
+- **Receivables:** Cobros, payments and their financial lifecycle.
+- **Settings:** profile presentation, workspace/Despacho settings, team
+  members and invitations.
+
 ## Import Rules
 
 Allowed:
 
-- `app` imports from feature entry points.
-- A feature imports shared code from `lib` and `components`.
-- A feature imports another feature through its `index.ts` when there is a real
-  product integration.
+- `app -> features`, through `index.ts`, `server.ts` or an explicitly documented
+  pure contract such as `templates/domain.ts`.
+- `app -> components` and `app -> lib`.
+- `features -> components` and `features -> lib`.
+- A feature imports another feature through its public API when there is a real
+  domain relationship.
 - Internal feature code uses relative imports within that feature.
 
 Avoid:
 
+- `lib -> features` in runtime code.
+- Shared `components -> features`.
+- `features -> app`.
 - Deep imports into another feature's private structure.
 - Imports from one route implementation into another route.
 - Circular feature dependencies.
 - Importing server-only modules from Client Components.
 - Re-exporting unrelated modules through a global barrel.
 
-Shared pure code must not import from `app`. Server-only feature modules should
-use `server-only` where it protects the client/server boundary.
+Shared pure code must not import from `app` or feature implementations.
+Server-only feature entry points use `server-only` to protect the client/server
+boundary. Tests that compare a shared engine with a legacy feature contract may
+form a test-only compatibility edge; that edge must not enter runtime code.
 
 ## Shared Code
 
@@ -195,9 +247,11 @@ Feature-specific UI belongs in the feature.
 
 Use `src/lib` for stable shared capabilities and pure engines, including:
 
-- Supabase client construction and future typed server authentication helpers.
+- Supabase client construction and typed server authentication helpers.
+- Authentication, permissions, errors and other server helpers.
 - The structured editor and variable processing engine.
 - DOCX generation and document transformations.
+- Navigation, pagination and shared form-state contracts.
 - Shared parsing, formatting, and validation primitives.
 
 Do not turn `lib` into a miscellaneous folder. Product behavior used by only one
@@ -248,17 +302,14 @@ directly. Prefer composition over inheritance.
 
 ## Supabase Boundaries
 
-Future foundation work will:
+The implemented foundation includes generated database types, typed browser
+and server clients, request-scoped authentication through `requireUser()`,
+permission helpers and typed server errors. Routes add error boundaries where
+the screen needs specific recovery behavior. New code should extend these
+foundations instead of creating route-local authentication or untyped database
+access.
 
-- Generate strict database types from Supabase local.
-- Type browser and server clients.
-- Reduce `as unknown as` casts.
-- Centralize request-scoped server authentication through a helper such as
-  `requireUser()`.
-- Distinguish empty data from query failures with typed errors.
-- Add route-level error boundaries where appropriate.
-
-These changes must preserve:
+These foundations preserve:
 
 - RLS as the primary data authorization control.
 - Explicit server-side Workspace membership and permission checks as defense in depth.
@@ -281,6 +332,17 @@ code. See `docs/DOCX_EXPORT.md`.
 
 ## Current Workspace Flows
 
+Authenticated application routes share the existing `(dashboard)` route-group
+layout. The group name is organizational and does not appear in URLs. `/dashboard`
+is the overview only; feature workspaces use the canonical top-level paths
+`/clients`, `/templates`, `/documents`, `/notarial-index`, `/receivables`, and
+`/settings`. Compatibility redirects keep former `/dashboard/<module>` bookmarks
+working while preserving nested IDs and query parameters.
+The root `/` is the public landing page. Auth screens live under the `(auth)`
+route group while retaining stable public URLs such as `/login`,
+`/accept-invite` and `/reset-password`; `src/proxy.ts` owns the authenticated
+route boundary rather than physical nesting below `/dashboard`.
+
 - The dashboard shell uses a desktop top navbar and a mobile drawer. Account
   actions open Perfil, Configuración or Despacho; team management is part of
   Despacho and remains permission-gated.
@@ -299,7 +361,9 @@ code. See `docs/DOCX_EXPORT.md`.
   non-cancelable history behavior.
 - Document saves and finalization use optimistic concurrency based on the
   expected `updated_at`. Each new Escritura captures an immutable structured
-  Machote snapshot used by preview, later edits, finalization and DOCX.
+  Machote snapshot used by preview, later edits, finalization and DOCX. Snapshot
+  version 2 also freezes the Machote name and minimal notarial mapping in stable
+  field keys, so later Machote edits do not change the historical Index view.
 
 ## State And Data Libraries
 
@@ -383,6 +447,25 @@ removed after the feature-based architecture was adopted. Do not recreate
 empty architectural layers or generic repository placeholders. Add a concrete
 directory only when implemented code has a real responsibility there.
 
+## Final Boundary Verification
+
+The architecture closure review after the feature extractions found:
+
+- No runtime dependency from `lib` or shared `components` into a feature.
+- No circular dependencies.
+- No deep imports into another feature's private folders.
+- No imports between route implementations; route-private dashboard modules
+  remain inside their own composition root.
+- UI-consumed action state belongs in pure model/form modules rather than being
+  declared by Server Action files.
+- Empty placeholder files are not used to manufacture a symmetric structure.
+
+Two editor tests retain test-only compatibility imports from the Templates
+public API. They compare the shared structured editor with legacy template
+behavior and do not alter the runtime graph. Relocating them is optional and
+should happen only if those legacy comparisons are reorganized for a concrete
+testing reason.
+
 ## Pull Request Rules For Refactors
 
 - Keep one principal reason for change per PR.
@@ -432,6 +515,12 @@ history and must not be read as a current backlog.
 Each phase must preserve behavior, security, accessibility, and relevant unit,
 RLS, build, and E2E coverage. A failed or oversized phase should be reduced,
 not solved by a repository-wide rewrite.
+
+## Product and UX operational debt
+
+The public landing route and global `not-found.tsx` are implemented. Custom
+SMTP, the definitive production domain and transactional email templates remain
+operational debt and require a separate product/release decision.
 
 ## Unsaved workspace navigation
 

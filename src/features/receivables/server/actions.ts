@@ -15,35 +15,13 @@ import {
 } from "@/lib/navigation/context-return";
 import { receivableHasPaymentHistory } from "./payment-queries";
 import { getReceivableEntry } from "./detail-queries";
-import type { ReceivableEntry } from "../model/types";
+import type {
+  DeleteReceivableState,
+  ReceivableState,
+} from "../model/action-state";
 
 type ReceivableInsert = Database["public"]["Tables"]["receivables"]["Insert"];
 type ReceivableUpdate = Database["public"]["Tables"]["receivables"]["Update"];
-
-// ------------------------------------------------------------------ types
-
-export type ReceivableState = {
-  errors?: {
-    client_id?: string;
-    client_name?: string;
-    document_id?: string;
-    concept?: string;
-    currency?: string;
-    amount_total?: string;
-    issued_at?: string;
-    due_at?: string;
-    notes?: string;
-  };
-  message?: string;
-  success?: boolean;
-  /** Solo poblado por `createReceivableForDialogAction` (modo diálogo,
-   * creación contextual desde una Escritura, que nunca redirige). */
-  receivable?: ReceivableEntry;
-};
-
-export type DeleteReceivableState = {
-  message?: string;
-};
 
 // ------------------------------------------------------------------ helpers
 
@@ -145,7 +123,7 @@ async function createReceivableRow(
     };
   }
 
-  revalidatePath("/dashboard/receivables");
+  revalidatePath("/receivables");
   return { ok: true, id: data.id, documentId: result.data.document_id };
 }
 
@@ -164,7 +142,7 @@ export async function createReceivableAction(
   );
 
   redirect(
-    appendReturnTo(`/dashboard/receivables/${result.id}?created=1`, returnTo),
+    appendReturnTo(`/receivables/${result.id}?created=1`, returnTo),
   );
 }
 
@@ -181,7 +159,7 @@ export async function createReceivableForDialogAction(
   if (!result.ok) return result.state;
 
   if (result.documentId) {
-    revalidatePath(`/dashboard/documents/${result.documentId}`);
+    revalidatePath(`/documents/${result.documentId}`);
   }
 
   const receivable = await getReceivableEntry(result.id);
@@ -259,12 +237,12 @@ export async function updateReceivableAction(
     };
   }
 
-  revalidatePath(`/dashboard/receivables/${id}`);
-  revalidatePath("/dashboard/receivables");
+  revalidatePath(`/receivables/${id}`);
+  revalidatePath("/receivables");
   const returnTo = parseDocumentReceivablesReturnTo(
     formData.get("returnTo") as string | null,
   );
-  redirect(appendReturnTo(`/dashboard/receivables/${id}`, returnTo));
+  redirect(appendReturnTo(`/receivables/${id}`, returnTo));
 }
 
 // ------------------------------------------------------------------ delete
@@ -296,6 +274,6 @@ export async function deleteReceivableAction(
     };
   }
 
-  revalidatePath("/dashboard/receivables");
-  redirect("/dashboard/receivables");
+  revalidatePath("/receivables");
+  redirect("/receivables");
 }

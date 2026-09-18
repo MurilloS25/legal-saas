@@ -91,7 +91,7 @@ async function directPatchDocumentStatus(
   page: Page,
   documentId: string,
   status: string,
-): Promise<{ ok: boolean; status: number }> {
+): Promise<{ ok: boolean; status: number; affected: number }> {
   const accessToken = await getSessionAccessToken(page);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
@@ -105,7 +105,12 @@ async function directPatchDocumentStatus(
       body: JSON.stringify({ status }),
     },
   );
-  return { ok: response.ok, status: response.status };
+  const body = (await response.json().catch(() => null)) as unknown;
+  return {
+    ok: response.ok,
+    status: response.status,
+    affected: Array.isArray(body) ? body.length : 0,
+  };
 }
 
 /** Invoca una RPC directamente vía PostgREST (`/rest/v1/rpc/<name>`), bypassando la app. */
@@ -185,6 +190,14 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     assistantId = await createDisposableUser(assistantEmail, PASSWORD);
     readerId = await createDisposableUser(readerEmail, PASSWORD);
 
+    await restDelete(
+      "workspace_members",
+      `workspace_id=eq.${assistantId}&user_id=eq.${assistantId}`,
+    );
+    await restDelete(
+      "workspace_members",
+      `workspace_id=eq.${readerId}&user_id=eq.${readerId}`,
+    );
     await restInsert("workspace_members", {
       workspace_id: ownerId,
       user_id: assistantId,
@@ -312,7 +325,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     page,
   }) => {
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
-    await page.goto(`/dashboard/templates/${templateId}`);
+    await page.goto(`/templates/${templateId}`);
 
     await expect(
       page.getByText("Tu rol no permite editar machotes"),
@@ -350,7 +363,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     expect(rows[0].name).not.toBe("Nombre manipulado por DOM");
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
-    await page.goto(`/dashboard/templates/${templateId}`);
+    await page.goto(`/templates/${templateId}`);
     await expect(
       page.getByText("Tu rol no permite editar machotes"),
     ).not.toBeVisible();
@@ -367,7 +380,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     page,
   }) => {
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${documentId}`);
+    await page.goto(`/documents/${documentId}`);
 
     await expect(
       page.getByText("Tu rol no permite editar escrituras"),
@@ -404,7 +417,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     expect(rows[0].title).not.toBe("Título manipulado por DOM");
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${documentId}`);
+    await page.goto(`/documents/${documentId}`);
     await expect(
       page.getByText("Tu rol no permite editar escrituras"),
     ).not.toBeVisible();
@@ -425,7 +438,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     page,
   }) => {
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${secondDocumentId}`);
+    await page.goto(`/documents/${secondDocumentId}`);
     // Finalizar vive en "Completar" (paso por defecto); Reabrir vive en el
     // encabezado del workspace.
     await page.getByRole("button", { name: "Finalizar escritura" }).click();
@@ -445,7 +458,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${secondDocumentId}`);
+    await page.goto(`/documents/${secondDocumentId}`);
     await expect(page.getByText("Finalizada es de solo lectura")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
@@ -463,11 +476,11 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
 
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${secondDocumentId}`);
+    await page.goto(`/documents/${secondDocumentId}`);
     await expect(
       page.getByRole("button", { name: "Reabrir escritura" }),
     ).not.toBeVisible();
-    await page.goto(`/dashboard/documents/${secondDocumentId}?section=notarial`);
+    await page.goto(`/documents/${secondDocumentId}?section=notarial`);
     await expect(
       page.getByText("Tu rol no permite editar los datos del índice"),
     ).toBeVisible();
@@ -498,7 +511,10 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       reopenTargetDocumentId,
       "draft",
     );
-    expect(readerAttempt.ok).toBe(false);
+    // RLS hides the row completely from solo_lectura. PostgREST represents a
+    // filtered PATCH as 200 + [] rather than an authorization error; the
+    // security invariant is that no row was affected.
+    expect(readerAttempt).toMatchObject({ ok: true, status: 200, affected: 0 });
 
     const stillFinal = await restSelect<{ status: string }>(
       "documents",
@@ -513,6 +529,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       "draft",
     );
     expect(ownerAttempt.ok).toBe(true);
+    expect(ownerAttempt.affected).toBe(1);
 
     const reopened = await restSelect<{ status: string }>(
       "documents",
@@ -533,7 +550,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     // lo contrario; se invierte para asistente y se agrega solo_lectura
     // como el rol realmente bloqueado.
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
-    await page.goto("/dashboard/notarial-index");
+    await page.goto("/notarial-index");
     await expect(
       page.getByText("Tu rol no permite generar el índice notarial"),
     ).not.toBeVisible();
@@ -542,7 +559,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     ).toBeVisible();
 
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
-    await page.goto("/dashboard/notarial-index");
+    await page.goto("/notarial-index");
     await expect(
       page.getByText("Tu rol no permite generar el índice notarial"),
     ).toBeVisible();
@@ -554,13 +571,13 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     // exportación directamente, sin pasar por el enlace oculto.
     // export-actions.ts valida notarial_index.generate server-side — debe
     // rechazarlo igual.
-    const readerResponse = await page.request.get(
-      "/api/notarial-index/export?year=2026&month=7&half=first",
+    const readerResponse = await page.request.post(
+      "/api/notarial-index/export?year=2026&month=7&half=FIRST_HALF",
     );
-    expect(readerResponse.ok()).toBe(false);
+    expect(readerResponse.status()).toBe(403);
 
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
-    await page.goto("/dashboard/notarial-index");
+    await page.goto("/notarial-index");
     await expect(
       page.getByRole("button", { name: "Exportar Word" }),
     ).toBeVisible();
@@ -624,7 +641,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     page,
   }) => {
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
-    await page.goto(`/dashboard/receivables/${receivableId}`);
+    await page.goto(`/receivables/${receivableId}`);
 
     await expect(
       page.getByText("Tu rol no permite editar cuentas por cobrar"),
@@ -658,7 +675,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     expect(rows[0].concept).not.toBe("Concepto manipulado por DOM");
 
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
-    await page.goto(`/dashboard/receivables/${receivableId}`);
+    await page.goto(`/receivables/${receivableId}`);
     await expect(page.getByLabel("Concepto")).toBeEnabled();
     await expect(
       page.getByRole("button", { name: /^Guardar cambios$/ }),
@@ -672,7 +689,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     await expect(page.getByRole("button", { name: "Anular" })).not.toBeVisible();
 
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
-    await page.goto(`/dashboard/receivables/${receivableId}?section=payments`);
+    await page.goto(`/receivables/${receivableId}?section=payments`);
     await expect(page.getByRole("button", { name: "Anular" })).toBeVisible();
   });
 
@@ -680,7 +697,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     page,
   }) => {
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    await page.goto(`/documents/${documentId}?section=cobro`);
     const cobroSection = page.getByRole("region", {
       name: "Cuentas por cobrar de la escritura",
     });
@@ -700,7 +717,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     page,
   }) => {
     await loginAndExpectDashboard(page, assistantEmail, PASSWORD);
-    await page.goto(`/dashboard/documents/${documentId}?section=cobro`);
+    await page.goto(`/documents/${documentId}?section=cobro`);
     await page
       .getByRole("button", { name: "Crear cuenta por cobrar" })
       .click();
@@ -717,7 +734,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     // Nunca navega fuera de la Escritura — mismo documentId en la URL.
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}`),
+      new RegExp(`/documents/${documentId}`),
     );
     await expect(createDialog).toBeHidden();
     await expect(page.getByText("Honorarios gating cobro")).toBeVisible();
@@ -737,7 +754,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
 
     // Tampoco navega fuera al registrar el pago — sigue en la Escritura.
     await expect(page).toHaveURL(
-      new RegExp(`/dashboard/documents/${documentId}`),
+      new RegExp(`/documents/${documentId}`),
     );
     await expect(payDialog).toBeHidden();
     await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
@@ -750,19 +767,19 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
   }) => {
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
 
-    await page.goto("/dashboard/templates/new");
-    await expect(page).toHaveURL(/\/dashboard\/templates$/);
+    await page.goto("/templates/new");
+    await expect(page).toHaveURL(/\/templates$/);
 
-    await page.goto("/dashboard/documents/new");
-    await expect(page).toHaveURL(/\/dashboard\/documents$/);
+    await page.goto("/documents/new");
+    await expect(page).toHaveURL(/\/documents$/);
 
-    await page.goto(`/dashboard/documents/new/${templateId}`);
-    await expect(page).toHaveURL(/\/dashboard\/documents$/);
+    await page.goto(`/documents/new/${templateId}`);
+    await expect(page).toHaveURL(/\/documents$/);
 
-    await page.goto("/dashboard/receivables/new");
-    await expect(page).toHaveURL(/\/dashboard\/receivables$/);
+    await page.goto("/receivables/new");
+    await expect(page).toHaveURL(/\/receivables$/);
 
-    await page.goto("/dashboard/clients/new");
-    await expect(page).toHaveURL(/\/dashboard\/clients$/);
+    await page.goto("/clients/new");
+    await expect(page).toHaveURL(/\/clients$/);
   });
 });

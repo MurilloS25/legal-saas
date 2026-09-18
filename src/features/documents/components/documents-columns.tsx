@@ -94,7 +94,7 @@ export function createDocumentsColumns(
         return (
           <div className="flex items-center justify-end gap-1">
             <Link
-              href={`/dashboard/documents/${doc.id}`}
+              href={`/documents/${doc.id}`}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-colors"
             >
               {doc.status === "final" ? "Ver" : "Continuar"}

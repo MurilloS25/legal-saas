@@ -3,7 +3,26 @@ import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+export class AdminConfigurationError extends Error {
+  constructor() {
+    super("Supabase Admin API is not configured");
+    this.name = "AdminConfigurationError";
+  }
+}
+
+export class AdminRequestError extends Error {
+  constructor() {
+    super("Supabase Admin API request failed");
+    this.name = "AdminRequestError";
+  }
+}
+
+function getAdminConfiguration(): { supabaseUrl: string; serviceRoleKey: string } {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) throw new AdminConfigurationError();
+  return { supabaseUrl, serviceRoleKey };
+}
 
 /**
  * Cliente con la service role key — solo para operaciones de la Admin API
@@ -13,10 +32,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
  * cada Server Action que lo use debe validar auth/rol ANTES de invocarlo.
  */
 export function createAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-  }
+  const { supabaseUrl, serviceRoleKey } = getAdminConfiguration();
   return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -32,10 +48,7 @@ export function createAdminClient() {
  * aunque no esté tipado en el cliente JS).
  */
 export async function findUserIdByEmail(email: string): Promise<string | null> {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-  }
+  const { supabaseUrl, serviceRoleKey } = getAdminConfiguration();
   const response = await fetch(
     `${supabaseUrl}/auth/v1/admin/users?filter=${encodeURIComponent(email)}`,
     {
@@ -45,7 +58,7 @@ export async function findUserIdByEmail(email: string): Promise<string | null> {
       },
     },
   );
-  if (!response.ok) return null;
+  if (!response.ok) throw new AdminRequestError();
   const body = (await response.json()) as { users: { id: string; email?: string }[] };
   const match = body.users.find(
     (u) => u.email?.toLowerCase() === email.toLowerCase(),

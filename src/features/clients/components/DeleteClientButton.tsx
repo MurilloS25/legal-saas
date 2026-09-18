@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import {
   deleteClientAction,
-  type DeleteClientState,
 } from "../server/actions";
+import type { DeleteClientState } from "../model/action-state";
 
 // ------------------------------------------------------------------ props
 

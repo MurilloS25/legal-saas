@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ForgotPasswordSchema,
+  ChangePasswordSchema,
   LoginSchema,
   SignupSchema,
   UpdatePasswordSchema,
@@ -204,5 +205,30 @@ describe("UpdatePasswordSchema", () => {
         errors.confirmPassword?.some((m) => m.includes("no coinciden")),
       ).toBe(true);
     }
+  });
+});
+
+describe("ChangePasswordSchema", () => {
+  it("requires the current password for an ordinary authenticated change", () => {
+    const result = ChangePasswordSchema.safeParse({
+      currentPassword: "",
+      password: VALID_PASSWORD,
+      confirmPassword: VALID_PASSWORD,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.currentPassword).toBeDefined();
+    }
+  });
+
+  it("accepts current and matching strong new passwords", () => {
+    expect(
+      ChangePasswordSchema.safeParse({
+        currentPassword: "Anterior!Segura8",
+        password: VALID_PASSWORD,
+        confirmPassword: VALID_PASSWORD,
+      }).success,
+    ).toBe(true);
   });
 });

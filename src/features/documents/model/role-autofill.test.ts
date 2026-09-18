@@ -4,7 +4,7 @@ import {
   groupVariablesByRole,
   mapClientToRoleVariables,
 } from "./role-autofill";
-import type { FillableTemplateField } from "@/features/templates";
+import type { FillableTemplateField } from "@/features/templates/domain";
 
 function field(
   field_key: string,

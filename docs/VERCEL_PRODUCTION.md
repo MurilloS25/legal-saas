@@ -7,12 +7,18 @@ configuración pública.
 
 ## Estado conocido vigente
 
-Última reconciliación documental: **2026-09-11**. El proyecto y la URL
+Última reconciliación documental: **2026-09-17**. El proyecto y la URL
 Production existen y `main` es la rama productiva. Esta reconciliación no
 consultó ni modificó Vercel Production, por lo que el deployment exacto debe
 revalidarse en Vercel antes de un release. El último deployment verificado se
 conserva abajo como historial; el HEAD actual conocido de `main` en Git es
-`0c0b355ec9a47aed23ebfabc623ebcd731e2dc3f`.
+`4fb7169a5cd966e66ed5fe54cba87fa86f883344`.
+
+El routing vigente sirve la landing pública en `/`, agrupa las pantallas de
+Auth sin alterar sus URLs y protege las rutas de producto canónicas
+(`/dashboard`, `/clients`, `/templates`, `/documents`, `/notarial-index`,
+`/receivables`, `/settings`) mediante el proxy. Los nombres de route groups de
+App Router no aparecen en la URL.
 
 ## Proyecto
 
@@ -61,8 +67,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   (preferida, el código la intenta primero
 NEXT_PUBLIC_SUPABASE_ANON_KEY          (fallback legacy, solo si la anterior no está)
 ```
 
-**`SUPABASE_SERVICE_ROLE_KEY`:** en esa auditoría no se encontró ninguna
-referencia en `src/` y no se configuró en Vercel.
+**`SUPABASE_SERVICE_ROLE_KEY`:** ahora la usa exclusivamente el módulo
+server-only de invitaciones de equipo (`src/lib/supabase/admin.ts`). El
+2026-09-17 se verificó por Vercel CLI autenticada, sin leer el valor, que existe
+como `Secret` y está limitada al entorno `Production`.
 
 Solo se configuró `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (no también
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`): el código ya prioriza la publishable
@@ -70,21 +78,23 @@ key, así que agregar ambas sería redundante sin necesidad real (regla
 explícita de la tarea: no configurar las dos claves públicas salvo que
 el código realmente use ambas a la vez).
 
-## Variables configuradas (Production only)
+## Variables configuradas
 
 | Variable | Entorno | Clasificación | Origen del valor |
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Production | Pública (URL del proyecto) | Supabase → `lexcr-production` → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Production | Pública (diseñada para llegar al navegador) | Supabase → `lexcr-production` → Settings → API → Publishable key |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Production, Preview | Pública (diseñada para llegar al navegador) | Supabase → `lexcr-production` → Settings → API → Publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production | Secreta, solo servidor | Supabase → `lexcr-production` → Settings → API |
 
-No se copiaron a Preview (regla explícita: las ramas Preview no deben
-tener acceso automático a producción). El usuario configuró estas dos
-variables directamente en el dashboard de Vercel — ningún tool
-disponible en este entorno puede leer/escribir variables de entorno de
-un proyecto Vercel existente, así que no se pudo verificar el scope
-"Production only" de forma automatizada; se confirma **funcionalmente**
-más abajo (la conexión a Supabase funciona en producción, lo que
-requiere que ambas estén presentes ahí).
+La verificación automatizada mostró que la publishable key también está en
+Preview; no se cambió su scope en esta remediación. La service-role key no está
+en Preview. El código valida su presencia en el servidor antes de llamar a la
+Admin API y responde con un mensaje controlado si falta, sin registrar valores,
+correos ni payloads del proveedor. La invitación resuelve primero usuarios
+existentes; si este intento crea un usuario nuevo y luego falla el alta de la
+membresía, intenta eliminar únicamente ese usuario recién creado. Nunca borra
+una cuenta preexistente, y un fallo de compensación queda registrado mediante
+un código seguro para permitir reconciliación en el retry.
 
 ## Historial: deployment verificado el 2026-07-22
 
@@ -158,7 +168,7 @@ autorizado real, una vez el usuario complete la invitación:
    página (F5) y confirmar que la sesión se mantiene (no vuelve a
    `/login`).
 3. **Acceso directo a ruta protegida:** con sesión iniciada, ir
-   directamente a `https://lexcr.vercel.app/dashboard/clients` (o
+   directamente a `https://lexcr.vercel.app/clients` (o
    cualquier ruta bajo `/dashboard`) y confirmar que carga sin
    redirigir a `/login`.
 4. **Logout:** cerrar sesión desde el menú de la aplicación y
