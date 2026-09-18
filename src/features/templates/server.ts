@@ -1,6 +1,10 @@
 import "server-only";
 
-export { listTemplates, listTemplatesPage } from "./server/workspace-queries";
+export {
+  getTemplateDashboardCounts,
+  listTemplates,
+  listTemplatesPage,
+} from "./server/workspace-queries";
 export type { TemplateListRow, TemplatesPage } from "./server/workspace-queries";
 export {
   getTemplateById,

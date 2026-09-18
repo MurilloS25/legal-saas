@@ -7,12 +7,15 @@ import {
 } from "@/components/icons";
 import { requireWorkspace } from "@/lib/server/auth";
 import { hasPermission, type Permission } from "@/lib/server/permissions";
-import { listClients } from "@/features/clients/server";
-import { listTemplates } from "@/features/templates/server";
-import { listDocuments } from "@/features/documents/server";
+import { listClientsPage } from "@/features/clients/server";
+import { parseClientsQuery } from "@/features/clients";
+import { getTemplateDashboardCounts } from "@/features/templates/server";
+import { listDocumentsPage } from "@/features/documents/server";
+import { parseDocumentsQuery } from "@/features/documents";
 import {
   getReceivablesSummary,
-  listReceivables,
+  listAttentionReceivables,
+  listReceivablesWorkspace,
 } from "@/features/receivables/server";
 import { parseReceivablesQuery } from "@/features/receivables";
 import { listNotarialIndex } from "@/features/notarial-index/server";
@@ -25,7 +28,6 @@ import {
   type DashboardQuickAction,
 } from "./_components/DashboardTop";
 import { DashboardLists } from "./_components/DashboardLists";
-import { selectAttentionReceivables } from "./_lib/dashboard-presenters";
 
 export const metadata = {
   title: "Panel — LexCR",
@@ -68,14 +70,22 @@ export default async function DashboardPage() {
   const visibleQuickActions = QUICK_ACTIONS.filter(({ permission }) =>
     hasPermission(role, permission),
   );
+  const dueThrough = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(now.getTime() + 7 * 86_400_000));
 
   const [
     profileResult,
-    clients,
-    templates,
-    documents,
+    clientsPage,
+    templateCounts,
+    documentsPage,
+    draftDocumentsPage,
     receivablesSummary,
-    receivables,
+    attentionReceivables,
+    overdueReceivables,
     notarialFortnightAll,
     notarialFortnightIncomplete,
   ] = await Promise.all([
@@ -84,27 +94,20 @@ export default async function DashboardPage() {
       .select("full_name, professional_code")
       .eq("workspace_id", workspaceId)
       .maybeSingle(),
-    listClients(),
-    listTemplates(),
-    listDocuments(),
+    listClientsPage(parseClientsQuery({ pageSize: "5" })),
+    getTemplateDashboardCounts(),
+    listDocumentsPage(parseDocumentsQuery({ pageSize: "5" })),
+    listDocumentsPage(parseDocumentsQuery({ status: "draft", pageSize: "5" })),
     getReceivablesSummary(parseReceivablesQuery({})),
-    listReceivables(),
+    listAttentionReceivables(dueThrough),
+    listReceivablesWorkspace(
+      parseReceivablesQuery({ status: "overdue", pageSize: "5" }),
+    ),
     listNotarialIndex(parseNotarialQuery({})),
     listNotarialIndex(parseNotarialQuery({ completeness: "incomplete" })),
   ]);
 
   const profile = profileResult.data;
-  const activeTemplates = templates.filter(
-    (template) => template.status === "active",
-  ).length;
-  const draftDocuments = documents.filter(
-    (document) => document.status === "draft",
-  ).length;
-  const attentionReceivables = selectAttentionReceivables(receivables, now);
-  const overdueCount = receivables.filter(
-    (receivable) => receivable.status === "overdue",
-  ).length;
-
   return (
     <PageContainer>
       <DashboardHeader
@@ -115,18 +118,18 @@ export default async function DashboardPage() {
       <DashboardQuickActions actions={visibleQuickActions} />
       <DashboardSummaryGrid
         receivablesSummary={receivablesSummary}
-        overdueCount={overdueCount}
+        overdueCount={overdueReceivables.totalCount}
         fortnightTotal={notarialFortnightAll.total}
         fortnightIncomplete={notarialFortnightIncomplete.total}
-        clientCount={clients.length}
-        templateCount={templates.length}
-        activeTemplates={activeTemplates}
-        documentCount={documents.length}
-        draftDocuments={draftDocuments}
+        clientCount={clientsPage.total}
+        templateCount={templateCounts.total}
+        activeTemplates={templateCounts.active}
+        documentCount={documentsPage.total}
+        draftDocuments={draftDocumentsPage.total}
       />
       <DashboardLists
         attentionReceivables={attentionReceivables}
-        recentDocuments={documents.slice(0, 5)}
+        recentDocuments={documentsPage.rows}
         now={now}
         canCreateDocuments={canCreateDocuments}
       />

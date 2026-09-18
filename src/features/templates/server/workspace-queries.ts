@@ -47,6 +47,29 @@ export type TemplatesPage = {
   pageCount: number;
 };
 
+export async function getTemplateDashboardCounts(): Promise<{
+  total: number;
+  active: number;
+}> {
+  const { supabase, workspaceId } = await requireWorkspace();
+  const [all, active] = await Promise.all([
+    supabase
+      .from("templates")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId),
+    supabase
+      .from("templates")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("status", "active"),
+  ]);
+  if (all.error) throwDataAccessError("count dashboard templates", all.error);
+  if (active.error) {
+    throwDataAccessError("count active dashboard templates", active.error);
+  }
+  return { total: all.count ?? 0, active: active.count ?? 0 };
+}
+
 /** Página del listado de machotes para el listado principal (server-paginado). */
 export async function listTemplatesPage(
   query: TemplatesQuery,

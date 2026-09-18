@@ -10,6 +10,13 @@ export class AdminConfigurationError extends Error {
   }
 }
 
+export class AdminRequestError extends Error {
+  constructor() {
+    super("Supabase Admin API request failed");
+    this.name = "AdminRequestError";
+  }
+}
+
 function getAdminConfiguration(): { supabaseUrl: string; serviceRoleKey: string } {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -51,7 +58,7 @@ export async function findUserIdByEmail(email: string): Promise<string | null> {
       },
     },
   );
-  if (!response.ok) return null;
+  if (!response.ok) throw new AdminRequestError();
   const body = (await response.json()) as { users: { id: string; email?: string }[] };
   const match = body.users.find(
     (u) => u.email?.toLowerCase() === email.toLowerCase(),

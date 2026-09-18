@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { ForbiddenError, UnauthorizedError } from "@/lib/server/errors";
 import {
   DocumentExportError,
+  prepareAndRecordDocumentDocxExport,
   prepareDocumentDocxExport,
 } from "@/features/documents/server";
 
@@ -15,14 +16,16 @@ function genericError(status: number): NextResponse {
   );
 }
 
-export async function GET(
-  _request: NextRequest,
+async function handleExport(
   { params }: { params: Promise<{ id: string }> },
+  recordActivity: boolean,
 ): Promise<NextResponse> {
   const { id } = await params;
 
   try {
-    const result = await prepareDocumentDocxExport(id);
+    const result = await (recordActivity
+      ? prepareAndRecordDocumentDocxExport(id)
+      : prepareDocumentDocxExport(id));
     return new NextResponse(result.body, {
       status: 200,
       headers: {
@@ -40,4 +43,18 @@ export async function GET(
     console.error("[docx] export request failed");
     return genericError(500);
   }
+}
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  return handleExport(context, false);
+}
+
+export async function POST(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  return handleExport(context, true);
 }

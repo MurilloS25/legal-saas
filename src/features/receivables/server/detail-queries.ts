@@ -14,6 +14,7 @@ import {
 } from "./mappers";
 
 const ACTIVITY_LIMIT = 50;
+export const RELATED_RECEIVABLES_LIMIT = 10;
 
 export async function getReceivableEntry(
   id: string,
@@ -58,7 +59,8 @@ export async function listReceivablesByClient(
     .select(ENTRY_COLUMNS)
     .eq("workspace_id", workspaceId)
     .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(RELATED_RECEIVABLES_LIMIT);
 
   if (error) throwDataAccessError("list receivables by client", error);
   return mapReceivableEntries(data);
@@ -73,7 +75,8 @@ export async function listReceivablesByDocument(
     .select(ENTRY_COLUMNS)
     .eq("workspace_id", workspaceId)
     .eq("document_id", documentId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(RELATED_RECEIVABLES_LIMIT);
 
   if (error) throwDataAccessError("list receivables by document", error);
   return mapReceivableEntries(data);

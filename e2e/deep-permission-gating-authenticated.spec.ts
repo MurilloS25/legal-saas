@@ -91,7 +91,7 @@ async function directPatchDocumentStatus(
   page: Page,
   documentId: string,
   status: string,
-): Promise<{ ok: boolean; status: number }> {
+): Promise<{ ok: boolean; status: number; affected: number }> {
   const accessToken = await getSessionAccessToken(page);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
@@ -105,7 +105,12 @@ async function directPatchDocumentStatus(
       body: JSON.stringify({ status }),
     },
   );
-  return { ok: response.ok, status: response.status };
+  const body = (await response.json().catch(() => null)) as unknown;
+  return {
+    ok: response.ok,
+    status: response.status,
+    affected: Array.isArray(body) ? body.length : 0,
+  };
 }
 
 /** Invoca una RPC directamente vía PostgREST (`/rest/v1/rpc/<name>`), bypassando la app. */
@@ -506,7 +511,10 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       reopenTargetDocumentId,
       "draft",
     );
-    expect(readerAttempt.ok).toBe(false);
+    // RLS hides the row completely from solo_lectura. PostgREST represents a
+    // filtered PATCH as 200 + [] rather than an authorization error; the
+    // security invariant is that no row was affected.
+    expect(readerAttempt).toMatchObject({ ok: true, status: 200, affected: 0 });
 
     const stillFinal = await restSelect<{ status: string }>(
       "documents",
@@ -521,6 +529,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       "draft",
     );
     expect(ownerAttempt.ok).toBe(true);
+    expect(ownerAttempt.affected).toBe(1);
 
     const reopened = await restSelect<{ status: string }>(
       "documents",
@@ -562,10 +571,10 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
     // exportación directamente, sin pasar por el enlace oculto.
     // export-actions.ts valida notarial_index.generate server-side — debe
     // rechazarlo igual.
-    const readerResponse = await page.request.get(
-      "/api/notarial-index/export?year=2026&month=7&half=first",
+    const readerResponse = await page.request.post(
+      "/api/notarial-index/export?year=2026&month=7&half=FIRST_HALF",
     );
-    expect(readerResponse.ok()).toBe(false);
+    expect(readerResponse.status()).toBe(403);
 
     await loginAndExpectDashboard(page, ownerEmail, PASSWORD);
     await page.goto("/notarial-index");

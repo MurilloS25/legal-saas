@@ -130,9 +130,7 @@ test.describe("dashboard panel", () => {
       .getByRole("link", { name: /^Clientes/ });
     await expect(clientsCard).toBeVisible();
     // Click cerca del icono del encabezado, lejos del texto "Ver clientes".
-    const box = await clientsCard.boundingBox();
-    expect(box).not.toBeNull();
-    await page.mouse.click(box!.x + 12, box!.y + 12);
+    await clientsCard.click({ position: { x: 12, y: 12 } });
 
     await expect(page).toHaveURL(/\/clients$/);
   });

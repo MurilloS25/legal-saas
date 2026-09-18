@@ -3,7 +3,11 @@ import "server-only";
 import { contentDispositionAttachment, DOCX_MIME } from "@/lib/documents/docx/http";
 import { loadDocumentFormattingPreferences } from "@/lib/documents/docx/settings-loader";
 import { requireApiWorkspace } from "@/lib/server/auth";
-import { throwDataAccessError, ValidationError } from "@/lib/server/errors";
+import {
+  ForbiddenError,
+  throwDataAccessError,
+  ValidationError,
+} from "@/lib/server/errors";
 import { hasPermission } from "@/lib/server/permissions";
 import type { Database } from "@/lib/supabase/database.types";
 import { generateNotarialIndexDocx } from "../export/notarial-docx";
@@ -26,8 +30,9 @@ export type NotarialDocxExport = {
   contentDisposition: string;
 };
 
-export async function prepareNotarialDocxExport(
+async function prepareNotarialDocxExportInternal(
   rawQuery: RawNotarialExportQuery,
+  recordActivity: boolean,
 ): Promise<NotarialDocxExport> {
   const selection = parseFortnightSelection(rawQuery);
   if (!selection) {
@@ -37,9 +42,7 @@ export async function prepareNotarialDocxExport(
 
   const { supabase, workspaceId, role } = await requireApiWorkspace();
   if (!hasPermission(role, "notarial_index.generate")) {
-    throw new ValidationError(
-      "No tienes permiso para generar el Índice Notarial.",
-    );
+    throw new ForbiddenError("No tienes permiso para generar el Índice Notarial.");
   }
   const [{ data: profile, error: profileError }, exportData, formatting] =
     await Promise.all([
@@ -71,22 +74,24 @@ export async function prepareNotarialDocxExport(
     query.selection.half,
   );
 
-  type LogExportArgs =
-    Database["public"]["Functions"]["log_notarial_index_export"]["Args"];
-  const args = {
-    p_format: "docx",
-    p_from: bounds.from,
-    p_to: bounds.to,
-    p_row_count: exportData.total,
-  };
-  const { error: activityError } = await supabase.rpc(
-    "log_notarial_index_export",
-    args as LogExportArgs,
-  );
-  if (activityError) {
-    console.error(
-      `[notarial-export] activity logging failed (${activityError.code ?? "unknown"})`,
+  if (recordActivity) {
+    type LogExportArgs =
+      Database["public"]["Functions"]["log_notarial_index_export"]["Args"];
+    const args = {
+      p_format: "docx",
+      p_from: bounds.from,
+      p_to: bounds.to,
+      p_row_count: exportData.total,
+    };
+    const { error: activityError } = await supabase.rpc(
+      "log_notarial_index_export",
+      args as LogExportArgs,
     );
+    if (activityError) {
+      console.error(
+        `[notarial-export] activity logging failed (${activityError.code ?? "unknown"})`,
+      );
+    }
   }
 
   const filename = notarialIndexFilename(query.selection);
@@ -95,4 +100,18 @@ export async function prepareNotarialDocxExport(
     contentType: DOCX_MIME,
     contentDisposition: contentDispositionAttachment(filename),
   };
+}
+
+/** Read-only preparation used by GET; it never records an export. */
+export function prepareNotarialDocxExport(
+  rawQuery: RawNotarialExportQuery,
+): Promise<NotarialDocxExport> {
+  return prepareNotarialDocxExportInternal(rawQuery, false);
+}
+
+/** Explicit export command used by POST; records exactly one export. */
+export function prepareAndRecordNotarialDocxExport(
+  rawQuery: RawNotarialExportQuery,
+): Promise<NotarialDocxExport> {
+  return prepareNotarialDocxExportInternal(rawQuery, true);
 }

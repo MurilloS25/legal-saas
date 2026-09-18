@@ -22,6 +22,7 @@ export function ClientReceivablesSection({
             : undefined
         }
         emptyText="Este cliente todavía no tiene cuentas por cobrar."
+        allHref={`/receivables?client=${clientId}`}
       />
     </section>
   );

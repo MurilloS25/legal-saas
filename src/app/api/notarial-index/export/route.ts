@@ -1,14 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { publicErrorDetails } from "@/lib/server/errors";
-import { prepareNotarialDocxExport } from "@/features/notarial-index/server";
+import {
+  prepareAndRecordNotarialDocxExport,
+  prepareNotarialDocxExport,
+} from "@/features/notarial-index/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleExport(
+  request: NextRequest,
+  recordActivity: boolean,
+): Promise<NextResponse> {
   const searchParams = request.nextUrl.searchParams;
   try {
-    const result = await prepareNotarialDocxExport({
+    const prepare = recordActivity
+      ? prepareAndRecordNotarialDocxExport
+      : prepareNotarialDocxExport;
+    const result = await prepare({
       year: searchParams.get("year") ?? undefined,
       month: searchParams.get("month") ?? undefined,
       half: searchParams.get("half") ?? undefined,
@@ -36,4 +45,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { status: details.status },
     );
   }
+}
+
+export function GET(request: NextRequest): Promise<NextResponse> {
+  return handleExport(request, false);
+}
+
+export function POST(request: NextRequest): Promise<NextResponse> {
+  return handleExport(request, true);
 }
