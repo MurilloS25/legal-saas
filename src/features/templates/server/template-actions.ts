@@ -3,14 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/server/auth";
-import {
-  parseTemplateWorkspacePayload,
-  type TemplateWorkspaceVariable,
-} from "../model/template-workspace";
-import { buildTemplateContentJson } from "@/lib/editor/content";
+import { parseTemplateWorkspacePayload } from "../model/template-workspace";
 import { TemplateIdSchema } from "../model/templates";
 import { listTemplateFields } from "./detail-queries";
-import type { Database } from "@/lib/supabase/database.types";
+import { buildSaveTemplateWorkspaceArgs } from "./template-workspace-rpc";
 import type { TemplateWorkspaceState } from "../model/action-state";
 
 // Mínima copia del orden del stepper — usada solo para calcular a qué paso
@@ -37,21 +33,6 @@ function nextTemplateSection(current: string): string {
 const GENERIC_SAVE_ERROR =
   "No fue posible guardar el machote. Intenta de nuevo.";
 
-type SaveTemplateArgs =
-  Database["public"]["Functions"]["save_template_workspace"]["Args"];
-
-function rpcFields(variables: TemplateWorkspaceVariable[]) {
-  return variables.map(
-    ({ field_key, label, required, autofill_source, output_transform }) => ({
-      field_key,
-      label,
-      required,
-      autofill_source,
-      output_transform,
-    }),
-  );
-}
-
 function saveError(code: string | undefined): string {
   if (code === "40001") {
     return "El machote cambió en otra pestaña. Recarga la página antes de guardar.";
@@ -72,21 +53,17 @@ export async function createTemplateWorkspaceAction(
   if (!result.success) return { errors: result.errors };
 
   const { name, description, status, document, variables } = result.payload;
-  const contentJson = buildTemplateContentJson(document);
-
-  const args = {
-    p_template_id: null,
-    p_expected_updated_at: null,
-    p_name: name,
-    p_description: description ?? null,
-    p_status: status,
-    p_content_json: contentJson,
-    p_text_preview: contentJson.text.slice(0, 300),
-    p_fields: rpcFields(variables),
-  };
-  // Generated function args do not encode nullable PostgreSQL parameters.
+  const args = buildSaveTemplateWorkspaceArgs({
+    templateId: null,
+    expectedUpdatedAt: null,
+    name,
+    description,
+    status,
+    document,
+    variables,
+  });
   const { data: created, error } = await supabase
-    .rpc("save_template_workspace", args as unknown as SaveTemplateArgs)
+    .rpc("save_template_workspace", args)
     .single();
 
   if (error || !created) return { message: saveError(error?.code) };
@@ -120,23 +97,17 @@ export async function updateTemplateWorkspaceAction(
   if (!result.success) return { errors: result.errors };
 
   const { name, description, status, document, variables } = result.payload;
-  const contentJson = buildTemplateContentJson(document);
-
-  const args = {
-    p_template_id: templateId,
-    p_expected_updated_at: String(
-      formData.get("expected_updated_at") ?? "",
-    ),
-    p_name: name,
-    p_description: description ?? null,
-    p_status: status,
-    p_content_json: contentJson,
-    p_text_preview: contentJson.text.slice(0, 300),
-    p_fields: rpcFields(variables),
-  };
-  // Generated function args do not encode nullable PostgreSQL parameters.
+  const args = buildSaveTemplateWorkspaceArgs({
+    templateId,
+    expectedUpdatedAt: String(formData.get("expected_updated_at") ?? ""),
+    name,
+    description,
+    status,
+    document,
+    variables,
+  });
   const { data: saved, error } = await supabase
-    .rpc("save_template_workspace", args as unknown as SaveTemplateArgs)
+    .rpc("save_template_workspace", args)
     .single();
 
   if (error || !saved) return { message: saveError(error?.code) };
