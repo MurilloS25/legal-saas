@@ -46,7 +46,7 @@ describe("normalizeExtractedText", () => {
   });
 
   it("removes zero-width characters and BOM", () => {
-    expect(normalizeExtractedText("﻿Ho​la")).toBe("Hola");
+    expect(normalizeExtractedText("\ufeffHo\u200bla")).toBe("Hola");
   });
 });
 
