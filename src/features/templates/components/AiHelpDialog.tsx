@@ -90,10 +90,10 @@ export function AiHelpDialog({ onClose }: Props) {
               Crea tu machote con ayuda de IA
             </h2>
             <p className="text-xs text-slate-500 mt-1.5">
-              LexCR todavía no genera machotes automáticamente con
-              inteligencia artificial. Mientras tanto, puedes utilizar
-              ChatGPT, Claude, Gemini u otra herramienta para preparar una
-              primera versión compatible con LexCR.
+              Si prefieres usar tu propia herramienta, puedes preparar una
+              primera versión compatible con LexCR en ChatGPT, Claude,
+              Gemini u otra. Para que LexCR lo haga por ti, usa «Crear con
+              IA» en la lista de Machotes.
             </p>
           </div>
 

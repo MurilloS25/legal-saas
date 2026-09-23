@@ -2,8 +2,12 @@ import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TablePagination } from "@/components/ui/TablePagination";
 import Link from "next/link";
-import { listTemplatesPage } from "@/features/templates/server";
 import {
+  getAiTemplateGenerationAvailability,
+  listTemplatesPage,
+} from "@/features/templates/server";
+import {
+  CreateWithAiButton,
   TemplatesTable,
   parseTemplatesQuery,
   templatesQueryToParams,
@@ -28,6 +32,7 @@ export default async function TemplatesPage({ searchParams }: Props) {
   const canWrite = hasPermission(role, "templates.write");
   const query = parseTemplatesQuery(await searchParams);
   const page = await listTemplatesPage(query);
+  const aiLimits = canWrite ? getAiTemplateGenerationAvailability() : null;
 
   const pageHref = (targetPage: number) => {
     const params = templatesQueryToParams({ page: targetPage, pageSize: query.pageSize });
@@ -59,9 +64,11 @@ export default async function TemplatesPage({ searchParams }: Props) {
           </p>
         </div>
         {canWrite && (
+          <div className="ml-4 flex shrink-0 flex-wrap justify-end gap-2">
+          {aiLimits && <CreateWithAiButton limits={aiLimits} />}
           <Link
             href="/templates/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0 ml-4"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors shrink-0"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -80,6 +87,7 @@ export default async function TemplatesPage({ searchParams }: Props) {
             </svg>
             Nuevo machote
           </Link>
+          </div>
         )}
       </div>
 
@@ -113,12 +121,15 @@ export default async function TemplatesPage({ searchParams }: Props) {
             Crea tu primer machote para empezar a gestionar tus plantillas legales.
           </p>
           {canWrite && (
-            <Link
-              href="/templates/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
-            >
-              Crear machote
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link
+                href="/templates/new"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+              >
+                Crear machote
+              </Link>
+              {aiLimits && <CreateWithAiButton limits={aiLimits} />}
+            </div>
           )}
         </div>
       ) : (
