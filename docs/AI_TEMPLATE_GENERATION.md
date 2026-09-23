@@ -406,85 +406,315 @@ Referencia medida (`claude-sonnet-5`, effort `low`, escritura ficticia de
 ~2.100 caracteres): 22,6 s, 5.834 tokens de entrada y 3.333 de salida,
 ≈ $0,045.
 
-## 5. Seguridad
+## 5. Modelo de seguridad
 
-### 5.1 Fronteras de confianza
+Esta sección explica, capa por capa, cómo se protege la función. El
+principio que las une: **no se confía en que el modelo se comporte bien.**
+Se asume que un documento puede contener instrucciones maliciosas y que el
+modelo podría obedecerlas; por eso el diseño busca que, aun en ese caso,
+el modelo **no tenga ninguna capacidad** para producir un efecto peligroso.
 
 ```text
-Navegador ──(no confiable: archivo, texto, indicaciones)──► Route Handler
-Route Handler ──(auth, permiso, límites)──► extracción en memoria
-Servicio ──(solo párrafos + indicaciones)──► Proveedor IA (no confiable)
-Proveedor ──(JSON no confiable)──► parse + Zod + build + validadores
-Servicio ──(borrador validado)──► RPC existente con la sesión del usuario
-Servicio ──(metadata)──► RPCs del libro (service role, sin contenido)
+Navegador ──(NO CONFIABLE: archivo, texto, "Variantes")──► Route Handler
+Route Handler ──(Origin, sesión, templates.write, límites)──► extracción en memoria
+Servicio ──(solo párrafos + indicaciones, sin secretos)──► Proveedor IA (NO CONFIABLE)
+Proveedor ──(JSON NO CONFIABLE)──► JSON.parse + Zod estricto + reconstrucción + validadores
+Servicio ──(borrador validado, status draft)──► RPC existente con la sesión del usuario (RLS)
+Servicio ──(metadata sin contenido)──► RPCs del libro de cuota (solo service_role)
 ```
 
-### 5.2 Mínimo privilegio del modelo
+### A. Frontera de confianza
 
-- **Herramientas disponibles al LLM: ninguna.** No se envía `tools`; no hay
-  function calling, navegación, SQL, filesystem ni publicación.
-- **Secretos accesibles al LLM: ninguno.** El prompt no contiene claves,
-  variables de entorno, IDs de usuario/Workspace ni datos de otros módulos
-  (clientes, escrituras, cobros, otros usuarios). La API key solo viaja en
-  la cabecera HTTP hacia el proveedor, nunca en el contenido.
-- El modelo no escribe en la base de datos: lo hace el backend, después de
-  validar, y con la **sesión del usuario** (RLS y permisos actuales).
-- No hay ruta de publicación: el status `draft` está fijado en el adapter de
-  persistencia y `finish_ai_template_generation` exige un borrador del mismo
-  Workspace.
+Son **input no confiable**: el archivo subido, el texto pegado y el campo
+"Variantes del documento". Aunque contengan frases como "ignora todas las
+instrucciones anteriores", siguen siendo **datos**: el documento que se
+convierte en Machote. Nunca sustituyen las instrucciones de LexCR. También
+es no confiable **la respuesta del modelo**: se trata exactamente igual que
+un formulario enviado por un atacante.
 
-### 5.3 Prompt injection (defensa en profundidad)
+### B. Separación entre instrucciones y datos
 
-No se afirma que pueda eliminarse al 100 %. Capas:
+El request al proveedor (`server/ai-generation/prompt.ts`, común a todos
+los proveedores) separa cuatro cosas:
 
-1. Separación canal de sistema / datos; documento e indicaciones entre
-   delimitadores con **nonce aleatorio por solicitud** (un documento no
-   puede cerrar su propio bloque).
-2. Instrucción explícita: nada dentro de los bloques cambia objetivo,
-   schema, reglas ni alcance; las órdenes se tratan como texto y generan la
-   advertencia `document_contains_instructions`.
-3. Salida forzada a JSON Schema estricto (sin propiedades extra; advertencias
-   solo de una lista cerrada).
-4. Revalidación server-side con Zod `.strict()` y rechazo de claves de
-   prototipo: texto conversacional, código, "tool calls" o un campo
-   `system_prompt` se rechazan.
-5. Reconstrucción desde el texto original: aunque el modelo "obedezca" una
-   inyección, no puede introducir texto en el cuerpo del documento; solo
-   puede proponer referencias que deben existir literalmente.
-6. Sin herramientas ni secretos: una inyección exitosa no tiene nada que
-   ejecutar ni exfiltrar.
-7. El campo "Variantes del documento" solo influye en Bloques de opciones
-   con base `user_instruction`; preguntas fuera de tema no cambian la tarea
-   (el resultado sigue siendo una propuesta de Machote o un error).
+1. **Instrucciones de LexCR** — en el canal de sistema (`system` en
+   Anthropic, `instructions` en OpenAI). Definen la única tarea, las reglas
+   de fidelidad, las bases admitidas para Bloques de opciones y el Índice.
+   Nunca incluyen texto del usuario.
+2. **Contrato de generación** — el JSON Schema, enviado como formato de
+   salida estructurada (parámetro separado, no texto del prompt).
+3. **Documento** — en el mensaje de usuario, con cada párrafo numerado
+   (`[P1]`, `[P2]`…) y encerrado entre delimitadores
+   `<<<DOCUMENTO_{nonce}>>> … <<<FIN_DOCUMENTO_{nonce}>>>`.
+4. **Indicaciones del abogado** — también en el mensaje de usuario, entre
+   `<<<INDICACIONES_DEL_ABOGADO_{nonce}>>> …`.
 
-### 5.4 Modelo de amenazas
+El `nonce` es aleatorio por solicitud (16 hex): un documento no puede
+"cerrar" su bloque adivinando el delimitador e inyectar texto que parezca
+instrucción. Las instrucciones de sistema dicen explícitamente que nada
+dentro de esos bloques cambia el objetivo, el schema, las reglas ni el
+alcance, y que las órdenes encontradas se tratan como texto (advertencia
+`document_contains_instructions`).
 
-| Amenaza | Mitigación |
+**Esta capa sola no elimina la inyección**: un modelo puede ignorar
+instrucciones. Reduce la probabilidad; las capas siguientes limitan el
+impacto.
+
+### C. Sin herramientas
+
+El modelo recibe **0 tools, 0 function calls, 0 servidores MCP, 0
+navegador, 0 web, 0 shell, 0 filesystem, 0 SQL, 0 acceso a Supabase**. Los
+adapters no envían `tools`, `tool_choice`, `mcp_servers` ni `metadata`
+(verificado por tests de ambos adapters). La interfaz `AiTemplateProvider`
+tampoco tiene callbacks: recibe texto y devuelve texto.
+
+Por qué importa: la mayoría de los daños de una inyección (leer datos,
+llamar APIs, borrar, enviar, navegar) requieren **capacidades**. Un modelo
+sin herramientas que "obedece" una inyección solo puede **escribir texto**,
+y ese texto no se ejecuta: se valida como datos (F–I).
+
+### D. Sin secretos
+
+El modelo **no recibe** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, la service
+role de Supabase, otros secretos, variables de entorno, tokens de sesión ni
+credenciales. La API key solo existe en el servidor y se usa para
+autenticar la llamada HTTP (cabecera `x-api-key` / `Authorization`); nunca
+forma parte del contenido. Por eso, si el documento dice "devuélveme la API
+key", el modelo **no dispone de ella**. Tests verifican que el cuerpo
+enviado no contiene la clave y que ni el prompt ni los nombres de secretos
+llegan al bundle del navegador.
+
+### E. Abstracción de proveedor
+
+La lógica de Machotes depende de `AiTemplateProvider` (dominio), no de
+Anthropic ni de OpenAI. Cada adapter traduce su API a ese contrato y
+normaliza errores sin exponer detalles del proveedor. Esto permite cambiar
+de proveedor o de modelo por configuración (`AI_PROVIDER`,
+`ANTHROPIC_MODEL`, `OPENAI_MODEL`), aplicar políticas por proveedor (p. ej.
+`effort` en Anthropic, `store:false` en OpenAI) y **reemplazar un proveedor
+problemático o comprometido** sin reescribir la lógica de Machotes, la
+validación ni la persistencia.
+
+### F. Salida estructurada (JSON Schema `lexcr.template_generation.v2`)
+
+El modelo no puede devolver "acciones": solo una estructura limitada con
+variables (clave, etiqueta, tipo semántico, transformación, apariciones),
+referencias a fragmentos del texto, Bloques de opciones con bases cerradas,
+el patrón Chasis/VIN/Serie, mapeos del Índice y códigos de advertencia de
+una lista cerrada. Todo objeto es cerrado (`additionalProperties: false`)
+y no existe ningún campo de texto libre para "respuestas", ni un campo de
+folio final. Anthropic no admite `pattern` ni uniones de tipo; recibe una
+copia compatible del mismo contrato. **Esa limitación del proveedor no
+reduce la validación de LexCR**: el contrato completo se aplica igual en el
+servidor.
+
+### G. Segunda validación con Zod
+
+El JSON Schema del proveedor **no es la defensa**; es una ayuda para que el
+modelo acierte la forma. Aunque la respuesta parezca cumplirlo, LexCR:
+
+1. limita el tamaño del JSON crudo antes de parsearlo;
+2. parsea con un reviver que **rechaza `__proto__`, `constructor` y
+   `prototype`** (contaminación de prototipos);
+3. valida con Zod `.strict()`: tipos, enums, patrones de clave, longitudes,
+   cantidades máximas y **ningún campo extra** (un `system_prompt`, una
+   "tool call" o texto conversacional se rechazan).
+
+Si falla, hay un único retry técnico; si vuelve a fallar, no se escribe
+nada.
+
+### H. Validadores del dominio
+
+Después de Zod se ejecutan los validadores reales de LexCR: el documento
+canónico del editor (`validateTemplateDocument`), las variables del
+workspace (`TemplateWorkspaceVariableSchema`), los Bloques de opciones
+(variantes, ids, salida estructurada de hora con claves presentes), las
+referencias (cada fragmento debe existir literalmente), los mapeos del
+Índice (solo claves del catálogo final, un destino por campo) y las
+normalizaciones. Una salida "válida para el LLM" puede ser inválida para
+LexCR; en ese caso **no se persiste**. Finalmente, la RPC existente
+`save_template_workspace` vuelve a validar en la base de datos.
+
+### I. Reconstrucción determinista
+
+Es una de las protecciones más importantes. El modelo **no devuelve una
+versión nueva del documento**; devuelve referencias: número de párrafo,
+fragmento literal exacto, número de aparición y la clave a usar. LexCR toma
+el **texto original** extraído y:
+
+1. localiza cada fragmento en su párrafo (si no está literalmente, se
+   descarta: nunca se adivina una posición);
+2. resuelve solapamientos de forma determinista (el más largo primero; un
+   cruce parcial con un bloque se descarta);
+3. copia literalmente todo el texto no referenciado y sustituye solo los
+   fragmentos referenciados por nodos de variable o de bloque.
+
+Consecuencias: el modelo no puede reescribir el lenguaje jurídico, resumir,
+inventar cláusulas ni borrar párrafos; en el peor caso **deja de marcar**
+una variable (que el abogado agrega después). Un documento con una frase
+de inyección conserva esa frase como texto literal — verificado por tests
+y por la prueba real.
+
+### J. Option Blocks deterministas (Chasis / VIN / Serie)
+
+En la prueba real, cuando el modelo redactaba las variantes, fusionó
+chasis y VIN en una clave y usó en la alternativa una clave no declarada:
+la validación descartó el bloque (comportamiento correcto, resultado
+inútil). Desde la v2, para este patrón conocido el modelo **solo
+identifica** el fragmento, el caso que muestra el documento y las tres
+claves. **LexCR construye** las cinco variantes con redacción estándar
+(la del documento como predeterminada), reutilizando las mismas tres
+variables. El modelo ya no inventa texto jurídico en ese bloque. Para los
+demás bloques solo se aceptan bases verificables (patrón de hora con
+evidencia, evidencia del documento, indicación explícita del abogado) y
+alternativas que usan únicamente claves declaradas.
+
+### K. Normalizaciones deterministas
+
+El modelo solo **clasifica** el dato (tipo semántico) y propone una de las
+transformaciones existentes. La conversión final —número completo en
+palabras, carácter por carácter, fechas, horas— la hace el código existente
+de LexCR (`applyVariableTransform`) al renderizar cada Escritura. Además,
+LexCR corrige propuestas incoherentes: los números completos nunca van
+dígito por dígito, y los identificadores técnicos sin transformación
+reciben la de carácter por carácter. **El modelo nunca escribe la versión
+final de los números.**
+
+### L. Autorización
+
+- **UI**: el botón "Crear con IA" solo se muestra con `templates.write`.
+  Es comodidad, no seguridad.
+- **Servidor**: el Route Handler resuelve la sesión y el Workspace
+  (`requireApiWorkspace`) y exige `templates.write` en cada solicitud,
+  aunque el botón no exista.
+- **Base de datos**: `save_template_workspace` (SECURITY DEFINER existente)
+  exige membresía activa con rol de escritura; RLS mantiene el aislamiento;
+  `begin_ai_template_generation` vuelve a exigir la membresía.
+
+Nunca se confía en controles del lado del cliente.
+
+### M. Aislamiento por Workspace
+
+La generación pertenece únicamente al Workspace activo del actor: la RPC
+deriva el Workspace de la membresía activa y el libro se escribe con ese
+Workspace. **No existe ninguna operación del modelo para elegir otro
+Workspace**, y el modelo no recibe datos de otros clientes, Machotes,
+Escrituras ni Workspaces: solo el documento de la solicitud. La lectura del
+libro está protegida por RLS de membresía (verificado con pgTAP y E2E).
+
+### N. Borrador obligatorio
+
+La IA **nunca publica**. El estado `draft` está fijado en el código del
+adapter de persistencia (no es un parámetro del modelo) y la RPC de cierre
+rechaza un Machote que no sea borrador del mismo Workspace. No existe una
+API ni una herramienta que el modelo pueda invocar para publicar.
+
+### O. Humano en el ciclo
+
+Aviso previo con aceptación obligatoria → resumen de lo detectado →
+revisión en el stepper normal (Documento, Variables, Índice) con un aviso
+visible de "revisar" y las claves marcadas por el modelo → guardado humano
+(el aviso pasa a una marca histórica discreta) → publicación humana en el
+paso Publicar → trazabilidad permanente (libro + auditoría). La IA es
+**asistencia**; la decisión final y la responsabilidad profesional son del
+abogado.
+
+### P. Seguridad de la carga de archivos
+
+Un solo archivo por generación; solo `.docx` y PDF con capa de texto
+(`.doc`, imágenes, OCR y múltiples archivos no se admiten); tipo real por
+extensión **y** MIME **y** firma binaria (magic bytes); límite de bytes
+(verificado con `content-length` antes de leer y con el tamaño del
+archivo), de páginas y de caracteres, más un tope de tokens estimados; DOCX
+con límite de entradas ZIP y descompresión en streaming con tope de bytes
+(zip bombs), rechazo de `<!DOCTYPE` y solo entidades XML estándar (sin
+XXE/SSRF); PDF.js sin acceso a red (sin range/stream/autofetch), sin XFA,
+con páginas validadas antes de extraer; timeout de extracción.
+
+### Q. No persistencia del documento
+
+El documento original y su texto extraído **no se guardan** en la base de
+datos, en Storage, en el filesystem, en la actividad ni en los logs: se
+procesan en memoria durante la solicitud. Queda: el **Machote generado**
+(como cualquier Machote manual), y metadata técnica (proveedor, modelo,
+versión de schema, tiempos, tokens, tamaños, códigos de error, claves
+marcadas para revisión) más el evento de auditoría.
+
+### R. Logging sanitizado
+
+El log operativo (`ai_template_generation`) acepta solo una lista cerrada
+de campos: ids de usuario/Workspace, proveedor, modelo, tiempos, tokens,
+estado y categoría de error, tamaños y el guard que rechazó. No acepta
+documento, texto, indicaciones, prompt, respuesta, PII ni secretos. Los
+errores del proveedor se reducen a una categoría, un estado HTTP y un
+identificador de tipo; nunca su mensaje.
+
+### S. Límite de uso y costos (denial-of-wallet)
+
+2 generaciones por usuario y día (configurable, override por Workspace sin
+cambios de código), 1 generación activa por usuario, 1 retry técnico
+máximo que **no** consume otra unidad, y timeouts que no se reintentan. La
+cuota se decide en la base de datos con un lock por usuario y un índice
+único parcial (resiste varias pestañas o solicitudes concurrentes). Las
+RPCs de cuota solo las ejecuta `service_role`: el usuario no puede
+consultar ni modificar su contador desde el Data API. Esto evita el abuso
+deliberado y los costos accidentales (reintentos, dobles clics).
+
+### T. CSRF / Origin
+
+El endpoint `POST /api/templates/ai-generation` exige que la cabecera
+`Origin` coincida con el host (además de las cookies de sesión
+`SameSite`): un sitio de terceros no puede disparar generaciones con la
+sesión del usuario.
+
+### U. Sanitización de la salida / XSS
+
+Lo que devuelve el modelo nunca se renderiza como HTML: se convierte al
+modelo estructurado permitido del editor (párrafos, texto, variables,
+bloques; sin enlaces, scripts ni atributos), pasa por los validadores y
+React lo muestra como texto escapado. No se usa `dangerouslySetInnerHTML`.
+Las advertencias mostradas son códigos cerrados, no texto del modelo.
+
+### V. Filtración del system prompt
+
+El prompt de sistema vive solo en el servidor (no aparece en el bundle del
+navegador — verificado tras el build), no contiene secretos, y el schema no
+tiene ningún campo donde devolverlo: una respuesta que lo incluya se
+rechaza como salida fuera de contrato. Aunque el usuario lo pida, **no
+existe una operación autorizada** que devuelva el prompt al cliente. Si se
+filtrara, no expondría credenciales: describe las reglas de la tarea.
+
+### W. Limitaciones y postura honesta
+
+**No afirmamos que la inyección de prompts esté resuelta al 100 %.** Un
+modelo puede seguir una instrucción maliciosa del documento (por ejemplo,
+marcar mal variables, omitir datos o proponer un bloque inadecuado). La
+defensa es en profundidad y el punto central es de **capacidades**: aun si
+el modelo obedece, no tiene herramientas, secretos, base de datos,
+filesystem ni navegador; no puede publicar; no escribe directamente en
+ningún sistema; y su respuesta debe pasar parseo seguro, Zod, la
+reconstrucción desde el texto original y los validadores de dominio antes
+de convertirse en un **borrador** que una persona revisa. El impacto
+residual es de calidad (un borrador incorrecto), no de seguridad.
+
+### Resumen de amenazas y mitigaciones
+
+| Amenaza | Mitigación (capa) |
 |---|---|
-| Inyección desde el documento | §5.3; texto preservado literal; sin tools |
-| Inyección desde "Variantes" | mismo canal no confiable; solo afecta bases `user_instruction`; límite 1.000 caracteres |
-| Extraer el system prompt | schema estricto sin campo libre; el prompt no contiene secretos; salida fuera de schema rechazada |
-| Exfiltración de secretos | ningún secreto en el prompt/contexto; errores del proveedor sanitizados; clave solo server-side (sin `NEXT_PUBLIC_`) |
-| Uso como IA de propósito general | sin chat; una sola tarea; respuestas conversacionales fallan la validación |
-| Acceso cross-workspace | Workspace resuelto con la sesión; RPC existente deriva el Workspace del actor; libro con RLS por membresía; `begin` re-verifica membresía |
-| Archivos maliciosos | tipo real por firma + extensión + MIME; `.doc`/imágenes rechazados; parsers acotados; sin disco |
-| Archivos enormes | 10 MB, 5 páginas, caracteres máximos, `content-length` antes de parsear |
-| Parser bombs | ZIP en streaming con tope, máx. entradas; PDF con páginas validadas primero y timeout de extracción |
-| Denial-of-wallet | 2 generaciones/usuario/día (configurable), 1 activa por usuario, 1 retry técnico máximo, tokens de salida acotados, límites de entrada |
-| Bypass concurrente de cuota | `pg_advisory_xact_lock` por usuario + índice único parcial `running`; RPCs solo `service_role` (el usuario no puede reembolsarse cuota) |
-| Output injection / XSS almacenado | el output se convierte solo a nodos permitidos del documento; React escapa texto; sin `dangerouslySetInnerHTML`, URLs, scripts ni atributos HTML |
-| Salida estructurada inválida | 1 retry técnico; luego error y nada se escribe |
-| SSRF | ninguna librería recibe URLs; PDF.js sin red; DOCX sin DTD/entidades externas; única salida de red: URL fija del proveedor |
-| Logs con datos sensibles | log con lista cerrada de campos; errores genéricos en `console.error`; sin cuerpo de respuesta del proveedor |
-| CSRF sobre el Route Handler | verificación de `Origin` = host, además de cookies `SameSite` |
-
-### 5.5 Autorización
-
-- UI: botón solo con `templates.write`.
-- Servidor: `requireApiWorkspace()` + `hasPermission(role, "templates.write")`.
-- Base de datos: `save_template_workspace` exige rol de escritura en el
-  Workspace activo; `begin_ai_template_generation` vuelve a exigir
-  membresía activa con rol propietario/administrador/asistente.
+| Inyección desde el documento | B, C, D, G, I, W |
+| Inyección desde "Variantes" | A, B; solo afecta bloques `user_instruction` |
+| Extraer el system prompt | F, G, V |
+| Exfiltración de secretos | D, R; clave solo server-side |
+| Uso como IA de propósito general | F, G (sin chat ni campos libres) |
+| Acceso cross-workspace | L, M |
+| Archivos maliciosos, enormes o bombas | P |
+| Denial-of-wallet / cuota concurrente | S |
+| Output injection / XSS | U, I |
+| Salida estructurada inválida | G, H (nada se escribe) |
+| SSRF | P (sin URLs, sin red en parsers) |
+| Logs con datos sensibles | R |
+| CSRF | T |
+| Publicación sin revisión | N, O |
 
 ## 6. Privacidad
 
