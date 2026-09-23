@@ -188,6 +188,21 @@ Do not expand E2E coverage until the faster test layers already cover the small 
 - Do not add Playwright to CI unless a task explicitly asks for it.
 - If Playwright is added to CI later, do it as a separate task with browser installation, environment variables, and a clear Supabase local/test strategy.
 
+## AI-Assisted Machote Generation Tests
+
+- Never call a real AI provider in unit tests, E2E or CI. Provider adapters
+  are tested with a mocked `fetch`; the generation service with in-memory
+  fakes for provider, quota and persistence.
+- E2E `e2e/template-ai-generation-authenticated.spec.ts` (project
+  `chromium-template-ai-generation`) uses `AI_PROVIDER=fake`, a
+  deterministic simulated provider refused in production builds. Playwright
+  injects it into the dev server it starts; when reusing an existing server
+  (`PLAYWRIGHT_REUSE_EXISTING_SERVER=true`) that server must have been
+  started with `AI_PROVIDER=fake` (for example via an uncommitted
+  `.env.development.local`). The spec creates its own disposable users, so
+  the daily quota starts clean on every run.
+- pgTAP: `supabase/tests/ai_template_generation.test.sql`.
+
 ## Validation Matrix
 
 Agents must choose validation commands based on the type of change.

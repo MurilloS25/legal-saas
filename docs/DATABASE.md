@@ -52,7 +52,8 @@ The database must avoid storing:
 - Full escritura text outside the approved persistent draft workflow.
 - Secrets or credentials.
 - Unnecessary legal transaction detail.
-- AI prompts, AI responses, or AI legal advice content.
+- AI prompts, AI responses, AI source documents, or AI legal advice content.
+  `ai_template_generations` stores operational metadata only (see below).
 
 ## First Migration Scope
 
@@ -993,6 +994,30 @@ Migration files must:
 
 Future migrations require an explicit approved database task and must extend
 the versioned model described here.
+
+### AI template generation ledger (added)
+
+Migration `20260923120000_ai_template_generation.sql` (design in
+`docs/AI_TEMPLATE_GENERATION.md`):
+
+- `ai_template_generations`: one row per user-requested generation
+  (technical retries only increment `attempts`). Workspace, actor,
+  resulting template (`on delete set null`), status, source type,
+  provider, model, schema version, input size, tokens, error code,
+  `counts_toward_quota`, `review_summary` (variable keys and closed
+  warning codes only) and timings. No document text, prompt or response.
+  RLS: select for Workspace members; no writes for `anon`/`authenticated`.
+  Partial unique index: one `running` row per user.
+- `workspace_ai_settings`: optional per-Workspace override of the daily
+  per-user limit. No access for `anon`/`authenticated`; administered via
+  SQL/service role.
+- `begin_ai_template_generation` / `finish_ai_template_generation`:
+  `SECURITY INVOKER`, pinned `search_path`, executable only by
+  `service_role`. `begin` re-checks active write membership, locks per
+  user, closes stale rows and enforces the Costa Rica calendar-day quota;
+  `finish` requires a draft template of the same Workspace and writes the
+  `template_ai_generated` event in `workspace_activity`.
+- pgTAP: `supabase/tests/ai_template_generation.test.sql`.
 
 ### Notarial index export history
 

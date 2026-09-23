@@ -9,6 +9,87 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_template_generations: {
+        Row: {
+          actor_user_id: string
+          attempts: number
+          counts_toward_quota: boolean
+          duration_ms: number | null
+          error_code: string | null
+          finished_at: string | null
+          id: string
+          input_chars: number
+          input_tokens: number | null
+          model: string
+          output_tokens: number | null
+          provider: string
+          review_summary: Json
+          schema_version: string
+          source_type: string
+          started_at: string
+          status: string
+          template_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          actor_user_id: string
+          attempts?: number
+          counts_toward_quota?: boolean
+          duration_ms?: number | null
+          error_code?: string | null
+          finished_at?: string | null
+          id?: string
+          input_chars: number
+          input_tokens?: number | null
+          model: string
+          output_tokens?: number | null
+          provider: string
+          review_summary?: Json
+          schema_version: string
+          source_type: string
+          started_at?: string
+          status?: string
+          template_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          actor_user_id?: string
+          attempts?: number
+          counts_toward_quota?: boolean
+          duration_ms?: number | null
+          error_code?: string | null
+          finished_at?: string | null
+          id?: string
+          input_chars?: number
+          input_tokens?: number | null
+          model?: string
+          output_tokens?: number | null
+          provider?: string
+          review_summary?: Json
+          schema_version?: string
+          source_type?: string
+          started_at?: string
+          status?: string
+          template_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_template_generations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_template_generations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -1029,6 +1110,32 @@ export type Database = {
           },
         ]
       }
+      workspace_ai_settings: {
+        Row: {
+          ai_template_daily_limit_per_user: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_template_daily_limit_per_user?: number | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ai_template_daily_limit_per_user?: number | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_ai_settings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -1201,8 +1308,37 @@ export type Database = {
         Args: { p_caller_role: string; p_target_role: string }
         Returns: undefined
       }
+      begin_ai_template_generation: {
+        Args: {
+          p_actor_user_id: string
+          p_default_daily_limit: number
+          p_input_chars: number
+          p_model: string
+          p_provider: string
+          p_schema_version: string
+          p_source_type: string
+          p_stale_after_seconds: number
+          p_workspace_id: string
+        }
+        Returns: string
+      }
       change_workspace_member_role: {
         Args: { p_role: string; p_user_id: string; p_workspace_id: string }
+        Returns: undefined
+      }
+      finish_ai_template_generation: {
+        Args: {
+          p_attempts: number
+          p_counts_toward_quota: boolean
+          p_duration_ms: number
+          p_error_code: string
+          p_generation_id: string
+          p_input_tokens: number
+          p_output_tokens: number
+          p_review_summary: Json
+          p_status: string
+          p_template_id: string
+        }
         Returns: undefined
       }
       get_pending_workspace_invitation: {

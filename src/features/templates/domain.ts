@@ -31,3 +31,10 @@ export {
   TEMPLATES_PAGE_SIZE,
 } from "./model/workspace-query";
 export type { RawTemplatesQuery, TemplatesQuery } from "./model/workspace-query";
+export {
+  AI_GENERATION_ERROR_STATUS,
+  aiGenerationErrorMessage,
+} from "./model/ai-generation/errors";
+export type { AiGenerationErrorCode } from "./model/ai-generation/errors";
+export { aiNoticeState } from "./model/ai-generation/notice";
+export type { AiNoticeState } from "./model/ai-generation/notice";

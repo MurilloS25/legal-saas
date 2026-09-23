@@ -34,9 +34,21 @@ This application is not:
 - An official notarial index submission system.
 - A long-term custody system for generated legal documents.
 - A legal advice system.
-- An AI legal assistant.
+- An AI legal assistant. The single AI feature ("Crear con IA") only proposes
+  the structure of a new draft Machote from one document; see
+  `docs/AI_TEMPLATE_GENERATION.md`.
 
 ## Included In MVP
+
+### AI-Assisted Machote Generation (bounded)
+
+- "Crear con IA" creates a new **draft** Machote from one pasted text, one
+  `.docx` or one text-layer PDF, reusing the existing Machote model
+  (variables, Option Blocks, normalizations, Notarial Index mapping).
+- The AI never publishes, never edits existing Machotes, has no tools and
+  no chat. Human review and publication are mandatory.
+- The source document is processed in memory and never persisted.
+- Details, limits and security model: `docs/AI_TEMPLATE_GENERATION.md`.
 
 ### Authentication And User Profile
 
@@ -204,7 +216,9 @@ The following features are intentionally excluded:
 - Official legal submissions.
 - Official notarial index submission.
 - Legal advice or legal decision-making.
-- AI product features.
+- AI product features other than the bounded "Crear con IA" draft generation
+  (no AI chat, legal advice, RAG, OCR, multi-document analysis or AI editing
+  of existing Machotes).
 - Complex multi-firm account hierarchy.
 - Full accounting.
 - Electronic invoicing.
@@ -225,7 +239,7 @@ These may be considered after the MVP:
 - Electronic invoicing integration.
 - Advanced reports.
 - Official platform integrations, only if legally and technically appropriate.
-- AI-assisted template suggestions, only after the core product is stable and legal risks are reviewed.
+- AI improvements to existing Machotes (analysis, correction, chat), only after the v1 generation is reviewed in real use.
 
 ## Data Boundaries
 

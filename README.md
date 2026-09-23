@@ -59,6 +59,7 @@ pnpm build
 - [CI/CD](docs/CI_CD.md)
 - [Docker](docs/DOCKER.md)
 - [AI workflow](docs/AI_WORKFLOW.md)
+- [AI-assisted Machote generation](docs/AI_TEMPLATE_GENERATION.md)
 - [Product rules](docs/PRODUCT_RULES.md)
 
 ## Current Status
