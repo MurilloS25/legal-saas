@@ -9,7 +9,7 @@ import {
   buildTemplateDraftFromProposal,
   type AiTemplateDraft,
 } from "./build-draft";
-import type { AiProposalOptionBlock, AiTemplateProposal } from "./proposal";
+import { AI_OPTION_BLOCK_BASES, type AiProposalOptionBlock, type AiTemplateProposal } from "./proposal";
 import { FAKE_SOURCE_TEXT, fakeProposal } from "./test-proposal";
 
 function sequentialIds() {
@@ -62,21 +62,15 @@ function optionBlocks(document: TemplateDocument): TemplateOptionBlockNode[] {
   );
 }
 
-const vinBlock: AiProposalOptionBlock = {
-  name: "Chasis, VIN y Serie",
-  basis: "known_pattern_vin_chassis_serial",
+/** Fragmento del documento ficticio: "chasis y VIN ABC123 y serie ABC123". */
+const vehicleIdentifiers: NonNullable<AiTemplateProposal["vehicle_identifiers"]> = {
   paragraph: 2,
   text: "chasis y VIN ABC123 y serie ABC123",
   occurrence: 1,
-  original_variant_label: "Chasis y VIN iguales, serie igual",
-  alternative_variants: [
-    {
-      label: "Todos distintos",
-      content:
-        "chasis {{vehiculo.chasis}}, VIN {{vehiculo.vin}} y serie {{vehiculo.serie}}",
-    },
-  ],
-  time_output: null,
+  original_case: "chassis_vin_equal",
+  chassis_key: "vehiculo.chasis",
+  vin_key: "vehiculo.vin",
+  serial_key: "vehiculo.serie",
 };
 
 const vehicleVariables: AiTemplateProposal["variables"] = [
@@ -254,50 +248,9 @@ describe("buildTemplateDraftFromProposal — fidelity and variables", () => {
 });
 
 describe("buildTemplateDraftFromProposal — Option Blocks", () => {
-  it("creates a known-pattern VIN/chassis/serial block whose default variant is the original text", () => {
-    const proposal = fakeProposal({
-      variables: [...fakeProposal().variables, ...vehicleVariables],
-      option_blocks: [vinBlock],
-    });
-    const draft = mustBuild(proposal);
-    const [block] = optionBlocks(draft.document);
-    expect(block.attrs.name).toBe("Chasis, VIN y Serie");
-    expect(block.attrs.defaultVariantId).toBe(block.attrs.variants[0].id);
-    expect(templateText(draft.document)).toContain(
-      "el vehiculo con [chasis y VIN {{vehiculo.vin}} y serie {{vehiculo.serie}}].",
-    );
-    expect(block.attrs.variants[1].label).toBe("Todos distintos");
-    // Variable que solo aparece en la alternativa: entra al catálogo.
-    expect(draft.variables.map((v) => v.field_key)).toContain("vehiculo.chasis");
-    expect(draft.summary.optionBlockCount).toBe(1);
-  });
-
-  it("discards a known-pattern block when the span has no related evidence", () => {
-    const proposal = fakeProposal({
-      option_blocks: [{ ...vinBlock, paragraph: 1, text: "mayor, casado, abogado" }],
-    });
-    const draft = mustBuild(proposal);
-    expect(optionBlocks(draft.document)).toHaveLength(0);
-    expect(draft.warnings).toContain("option_block_discarded");
-  });
-
-  it("discards alternatives that reference undeclared variables", () => {
-    const proposal = fakeProposal({
-      variables: [...fakeProposal().variables, ...vehicleVariables],
-      option_blocks: [
-        {
-          ...vinBlock,
-          alternative_variants: [{ label: "Otra", content: "chasis {{no_declarada}}" }],
-        },
-      ],
-    });
-    const draft = mustBuild(proposal);
-    expect(optionBlocks(draft.document)).toHaveLength(0);
-    expect(draft.warnings).toEqual(
-      expect.arrayContaining(["option_variant_discarded", "option_block_discarded"]),
-    );
-    // Sin bloque, las variables internas siguen como variables normales.
-    expect(templateText(draft.document)).toContain("chasis y VIN {{vehiculo.vin}}");
+  it("no longer lets the model author Chasis/VIN/Serie alternatives as a generic option block", () => {
+    // v2: el patrón ya no es una base de option_blocks; el contrato lo rechaza.
+    expect(AI_OPTION_BLOCK_BASES).not.toContain("known_pattern_vin_chassis_serial");
   });
 
   it("accepts a user_instruction block only when the lawyer provided instructions", () => {
@@ -403,6 +356,145 @@ describe("buildTemplateDraftFromProposal — Option Blocks", () => {
     expect(draft.warnings).toEqual(
       expect.arrayContaining(["time_output_discarded", "index_mapping_discarded"]),
     );
+  });
+});
+
+describe("buildTemplateDraftFromProposal — Chasis/VIN/Serie known pattern", () => {
+  const withVehicle = (overrides: Partial<AiTemplateProposal> = {}) =>
+    fakeProposal({
+      variables: [...fakeProposal().variables, ...vehicleVariables],
+      vehicle_identifiers: vehicleIdentifiers,
+      ...overrides,
+    });
+
+  it("creates the block automatically without any lawyer instruction", () => {
+    const draft = mustBuild(withVehicle(), { instructionsProvided: false });
+    const blocks = optionBlocks(draft.document);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].attrs.name).toBe("Chasis, VIN y serie");
+    expect(draft.summary.optionBlockCount).toBe(1);
+    expect(draft.warnings).not.toContain("vehicle_identifier_block_missing");
+  });
+
+  it("covers the five cases with the document wording as the default variant", () => {
+    const [block] = optionBlocks(mustBuild(withVehicle()).document);
+    const variants = block.attrs.variants;
+    expect(variants).toHaveLength(5);
+    expect(block.attrs.defaultVariantId).toBe(variants[0].id);
+    expect(variants.map((variant) => variant.label)).toEqual([
+      "Chasis y VIN iguales; serie diferente (según el documento)",
+      "Chasis, VIN y serie iguales",
+      "VIN y serie iguales; chasis diferente",
+      "Chasis y serie iguales; VIN diferente",
+      "Chasis, VIN y serie diferentes",
+    ]);
+    const text = (index: number) =>
+      variants[index].content
+        .map((node) => (node.type === "text" ? node.text : node.type === "templateVariable" ? `{{${node.attrs.key}}}` : ""))
+        .join("");
+    // Variante original: texto literal del documento con sus variables.
+    expect(text(0)).toBe("chasis y VIN {{vehiculo.vin}} y serie {{vehiculo.serie}}");
+    expect(text(1)).toBe("chasis, VIN y serie número {{vehiculo.vin}}");
+    expect(text(2)).toBe("chasis número {{vehiculo.chasis}}, y VIN y serie número {{vehiculo.vin}}");
+    expect(text(3)).toBe("chasis y serie número {{vehiculo.chasis}}, y VIN número {{vehiculo.vin}}");
+    expect(text(4)).toBe(
+      "chasis número {{vehiculo.chasis}}, VIN número {{vehiculo.vin}} y serie número {{vehiculo.serie}}",
+    );
+  });
+
+  it("reuses the same three variables across every variant and declares missing ones", () => {
+    const draft = mustBuild(
+      withVehicle({ variables: fakeProposal().variables.concat(vehicleVariables.filter((v) => v.key === "vehiculo.vin")) }),
+    );
+    const vehicleKeys = draft.variables.map((v) => v.field_key).filter((key) => key.startsWith("vehiculo."));
+    expect(vehicleKeys.sort()).toEqual(["vehiculo.chasis", "vehiculo.serie", "vehiculo.vin"]);
+    for (const key of vehicleKeys) {
+      expect(draft.variables.find((v) => v.field_key === key)?.output_transform).toBe("digits_to_words");
+    }
+  });
+
+  it("falls back to canonical keys when the model merges roles into one key", () => {
+    const draft = mustBuild(
+      withVehicle({
+        vehicle_identifiers: { ...vehicleIdentifiers, chassis_key: "vehiculo.chasis_vin", vin_key: "vehiculo.chasis_vin" },
+      }),
+    );
+    const [block] = optionBlocks(draft.document);
+    const allKeys = new Set(
+      block.attrs.variants.slice(1).flatMap((variant) =>
+        variant.content.flatMap((node) => (node.type === "templateVariable" ? [node.attrs.key] : [])),
+      ),
+    );
+    expect([...allKeys].sort()).toEqual(["vehiculo.chasis", "vehiculo.serie", "vehiculo.vin"]);
+  });
+
+  it("does not create the block when the document has no chasis/VIN", () => {
+    const draft = mustBuild(
+      withVehicle({ vehicle_identifiers: { ...vehicleIdentifiers, paragraph: 1, text: "mayor, casado, abogado" } }),
+    );
+    expect(optionBlocks(draft.document)).toHaveLength(0);
+
+    const noVehicle = FAKE_SOURCE_TEXT.replace("con chasis y VIN ABC123 y serie ABC123", "descrito");
+    const plain = mustBuild(fakeProposal(), { sourceText: noVehicle });
+    expect(optionBlocks(plain.document)).toHaveLength(0);
+    expect(plain.warnings).not.toContain("vehicle_identifier_block_missing");
+  });
+
+  it("flags for review when the document mentions chasis/VIN but no block could be built", () => {
+    const draft = mustBuild(fakeProposal({ vehicle_identifiers: null }));
+    expect(draft.warnings).toContain("vehicle_identifier_block_missing");
+  });
+
+  it("stays valid for the current editor validators and the Escritura renderer", () => {
+    const draft = mustBuild(withVehicle());
+    expect(validateTemplateDocument(draft.document).ok).toBe(true);
+  });
+});
+
+describe("buildTemplateDraftFromProposal — identifier normalization", () => {
+  const withVariable = (variable: Partial<AiTemplateProposal["variables"][number]>) => {
+    const proposal = fakeProposal();
+    proposal.variables.push({
+      key: "vehiculo.modelo_motor",
+      label: "Modelo de motor",
+      semantic_type: "text",
+      output_transform: "none",
+      required: true,
+      needs_review: true,
+      occurrences: [{ paragraph: 2, text: "ABC123", occurrence: 2 }],
+      ...variable,
+    });
+    return mustBuild(proposal).variables.find((v) => v.field_key === (variable.key ?? "vehiculo.modelo_motor"));
+  };
+
+  it("spells alphanumeric technical identifiers character by character (modelo de motor)", () => {
+    expect(withVariable({})?.output_transform).toBe("digits_to_words");
+  });
+
+  it.each([
+    ["vehiculo.numero_motor", "text"],
+    ["vehiculo.placa", "text"],
+    ["comprador.cedula", "text"],
+    ["finca.matricula", "text"],
+    ["vehiculo.dato", "vehicle_identifier"],
+    ["comprador.dato", "identification"],
+  ] as const)("%s (%s) gets digits_to_words when the model left it untransformed", (key, semanticType) => {
+    expect(withVariable({ key, semantic_type: semanticType })?.output_transform).toBe("digits_to_words");
+  });
+
+  it("does not touch non-identifier text such as brand or color", () => {
+    expect(withVariable({ key: "vehiculo.marca" })?.output_transform).toBe("none");
+  });
+
+  it("hours and minutes keep whole-number words even if named like an identifier", () => {
+    expect(
+      withVariable({ key: "minutos_otorgamiento", semantic_type: "time_minutes", output_transform: "digits_to_words" })
+        ?.output_transform,
+    ).toBe("number_to_words");
+    expect(
+      withVariable({ key: "hora_otorgamiento", semantic_type: "time_hour", output_transform: "number_to_words" })
+        ?.output_transform,
+    ).toBe("number_to_words");
   });
 });
 

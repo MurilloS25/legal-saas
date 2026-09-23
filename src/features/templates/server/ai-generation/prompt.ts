@@ -45,19 +45,25 @@ VARIABLES
 
 NORMALIZACIÓN ("output_transform": elige solo entre las opciones existentes)
 - "number_to_words": números que en la escritura se expresan como número completo en palabras (horas, minutos, días, años, cantidades, montos, folios, número de escritura). Ej.: 30 minutos -> TREINTA, nunca TRES CERO. También para una fecha completa: el sistema convierte "25 de julio de 2026" a palabras.
-- "digits_to_words": solo identificadores que se leen carácter por carácter (cédulas, VIN, chasis, serie, motor, placas) cuando el documento los expresa así.
+- "digits_to_words": identificadores técnicos que se leen carácter por carácter, aunque combinen letras y números (cédulas, VIN, chasis, serie, número y modelo de motor, placas, matrículas). Ej.: 1AJK203 -> UNO A J K DOS CERO TRES. Nunca para horas, minutos, cantidades ni montos.
 - "none": nombres, estados civiles, profesiones, direcciones y cualquier dato que se copia tal cual.
 - "semantic_type": describe qué es el dato; para una hora usa "time_hour" y para minutos "time_minutes" en variables separadas; para una fecha completa usa "date".
 
 BLOQUES DE OPCIONES (sin creatividad jurídica)
 Solo puedes proponer un Bloque de opciones con una de estas bases ("basis"):
-1. "known_pattern_vin_chassis_serial": el documento contiene chasis, VIN o serie de un vehículo; el bloque permite redactar el caso en que son iguales o distintos.
-2. "known_pattern_time_minutes": el documento indica una hora; el bloque permite "a las X horas" o "a las X horas con Y minutos". Incluye "time_output" con la clave de hora y de minutos (null si esa variante no tiene minutos) para la variante original y cada alternativa, en el mismo orden.
-3. "document_evidence": el propio documento muestra alternativas o redacciones mutuamente excluyentes para el mismo punto.
-4. "user_instruction": las indicaciones del abogado piden explícitamente esa variante.
-Evalúa 1 y 2 automáticamente solo si el documento contiene esa información. Si hay duda, NO crees el bloque.
+1. "known_pattern_time_minutes": el documento indica una hora; el bloque permite "a las X horas" o "a las X horas con Y minutos". Incluye "time_output" con la clave de hora y de minutos (null si esa variante no tiene minutos) para la variante original y cada alternativa, en el mismo orden.
+2. "document_evidence": el propio documento muestra alternativas o redacciones mutuamente excluyentes para el mismo punto.
+3. "user_instruction": las indicaciones del abogado piden explícitamente esa variante.
+Evalúa 1 automáticamente solo si el documento indica una hora. Si hay duda, NO crees el bloque.
 - "text": el fragmento literal exacto (dentro de un solo párrafo) que varía; la redacción del documento es la variante original ("original_variant_label" la describe).
 - "alternative_variants": redacciones alternativas del MISMO fragmento, con {{clave}} para las variables (todas declaradas en "variables"). No inventes escenarios, cláusulas ni reglas "porque normalmente se hace así".
+
+CHASIS / VIN / SERIE (patrón conocido de LexCR; se evalúa siempre, sin que el abogado lo pida)
+- Si el documento menciona chasis, VIN o serie de un vehículo, completa "vehicle_identifiers" (si no, usa null). NO lo pongas en "option_blocks".
+- "text": el fragmento literal exacto, dentro de un solo párrafo, que menciona esos identificadores y sus valores (p. ej. "chasis y VIN ABC123 y serie ABC123").
+- "original_case": qué caso muestra el documento: "all_equal" (los tres iguales), "chassis_vin_equal" (chasis = VIN, serie distinta), "vin_serial_equal" (VIN = serie, chasis distinto), "chassis_serial_equal" (chasis = serie, VIN distinto) o "all_different".
+- "chassis_key", "vin_key", "serial_key": tres claves DISTINTAS (recomendadas: vehiculo.chasis, vehiculo.vin, vehiculo.serie). Dentro del fragmento, marca cada valor como variable con la clave de su dato; un valor compartido usa vin_key (o chassis_key cuando chasis = serie).
+- LexCR redacta las demás combinaciones; no las escribas tú.
 
 ÍNDICE NOTARIAL (solo con alta confianza; si hay ambigüedad usa null)
 - instrument_number_key: número de la escritura. authorized_date_key: fecha de otorgamiento. authorized_time_key: hora (o bien authorized_time_option_block: índice, desde 0, del Bloque de hora en "option_blocks"; nunca ambos). protocol_book_key: tomo del protocolo. initial_folio_key: folio inicial. party_keys: claves de los nombres de los otorgantes/partes, en orden.

@@ -21,6 +21,11 @@
  *
  * El folio final no existe en este contrato a propósito: no puede inferirse
  * desde un Machote (depende de cómo termine impresa la escritura).
+ *
+ * v2: el patrón conocido Chasis/VIN/Serie tiene su propia estructura
+ * (`vehicle_identifiers`). El modelo solo identifica el fragmento, el caso
+ * que muestra el documento y las tres claves; LexCR construye las cinco
+ * variantes de forma determinista (ver `build-draft.ts`).
  */
 
 import { z } from "zod";
@@ -29,7 +34,7 @@ import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 import { VARIABLE_OUTPUT_TRANSFORMS } from "@/lib/editor/text-transforms";
 import { AI_PROPOSAL_LIMITS as L } from "./limits";
 
-export const AI_TEMPLATE_SCHEMA_VERSION = "lexcr.template_generation.v1";
+export const AI_TEMPLATE_SCHEMA_VERSION = "lexcr.template_generation.v2";
 
 /** Tipo semántico del dato: guía normalizaciones y mapeos del Índice. */
 export const AI_VARIABLE_SEMANTIC_TYPES = [
@@ -62,7 +67,6 @@ export type AiVariableSemanticType = (typeof AI_VARIABLE_SEMANTIC_TYPES)[number]
  * una categoría "creatividad jurídica": sin una de estas bases, no se crea.
  */
 export const AI_OPTION_BLOCK_BASES = [
-  "known_pattern_vin_chassis_serial",
   "known_pattern_time_minutes",
   "document_evidence",
   "user_instruction",
@@ -81,6 +85,19 @@ export const AI_PROPOSAL_WARNING_CODES = [
   "low_text_quality",
 ] as const;
 export type AiProposalWarningCode = (typeof AI_PROPOSAL_WARNING_CODES)[number];
+
+/**
+ * Caso de Chasis/VIN/Serie que muestra el documento original. LexCR genera
+ * las otras cuatro combinaciones como variantes del mismo bloque.
+ */
+export const AI_VEHICLE_IDENTIFIER_CASES = [
+  "all_equal",
+  "chassis_vin_equal",
+  "vin_serial_equal",
+  "chassis_serial_equal",
+  "all_different",
+] as const;
+export type AiVehicleIdentifierCase = (typeof AI_VEHICLE_IDENTIFIER_CASES)[number];
 
 const keyString = z
   .string()
@@ -146,6 +163,18 @@ const OptionBlockSchema = z
   })
   .strict();
 
+const VehicleIdentifiersSchema = z
+  .object({
+    paragraph: positiveInt,
+    text: shortText(L.maxBlockSpanChars),
+    occurrence: positiveInt,
+    original_case: z.enum(AI_VEHICLE_IDENTIFIER_CASES),
+    chassis_key: keyString,
+    vin_key: keyString,
+    serial_key: keyString,
+  })
+  .strict();
+
 const NotarialIndexSchema = z
   .object({
     instrument_number_key: keyString.nullable(),
@@ -169,6 +198,7 @@ export const AiTemplateProposalSchema = z
       .strict(),
     variables: z.array(VariableSchema).max(L.maxVariables),
     option_blocks: z.array(OptionBlockSchema).max(L.maxOptionBlocks),
+    vehicle_identifiers: VehicleIdentifiersSchema.nullable(),
     notarial_index: NotarialIndexSchema,
     warnings: z.array(z.enum(AI_PROPOSAL_WARNING_CODES)).max(L.maxWarnings),
   })
@@ -177,6 +207,7 @@ export const AiTemplateProposalSchema = z
 export type AiTemplateProposal = z.infer<typeof AiTemplateProposalSchema>;
 export type AiProposalVariable = AiTemplateProposal["variables"][number];
 export type AiProposalOptionBlock = AiTemplateProposal["option_blocks"][number];
+export type AiProposalVehicleIdentifiers = NonNullable<AiTemplateProposal["vehicle_identifiers"]>;
 
 // ------------------------------------------------------------ JSON Schema
 
@@ -208,6 +239,7 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
     "template",
     "variables",
     "option_blocks",
+    "vehicle_identifiers",
     "notarial_index",
     "warnings",
   ],
@@ -312,6 +344,33 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
           },
         },
       },
+    },
+    vehicle_identifiers: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "paragraph",
+            "text",
+            "occurrence",
+            "original_case",
+            "chassis_key",
+            "vin_key",
+            "serial_key",
+          ],
+          properties: {
+            paragraph: { type: "integer" },
+            text: { type: "string" },
+            occurrence: { type: "integer" },
+            original_case: { type: "string", enum: [...AI_VEHICLE_IDENTIFIER_CASES] },
+            chassis_key: jsonKey,
+            vin_key: jsonKey,
+            serial_key: jsonKey,
+          },
+        },
+        { type: "null" },
+      ],
     },
     notarial_index: {
       type: "object",

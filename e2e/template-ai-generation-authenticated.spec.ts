@@ -28,6 +28,7 @@ const ownerEmail = `e2e-ai-owner-${randomUUID()}@example.com`;
 const readerEmail = `e2e-ai-reader-${randomUUID()}@example.com`;
 let ownerId: string;
 let readerId: string;
+let generatedTemplateUrl = "";
 
 const FAKE_DOCUMENT = [
   "ESCRITURA NUMERO SIETE. Ante mi, notario de prueba, comparecen TEST PERSONA UNO, mayor, casado, y TEST PERSONA DOS, mayor, soltera.",
@@ -144,9 +145,14 @@ test("generates a draft, shows the summary and opens the normal stepper with the
     timeout: 30_000,
   });
 
-  const notice = page.getByRole("region", { name: "Generado con asistencia de IA" });
-  await expect(notice).toContainText("puede contener errores u omisiones");
+  // Recién generado: aviso compacto y neutral con la revisión pendiente.
+  const notice = page.getByRole("region", {
+    name: /Generado con asistencia de inteligencia artificial/,
+  });
+  await expect(notice).toContainText("Puede contener errores u omisiones");
+  await expect(notice).toContainText("Revise el contenido, las variables y la configuración notarial");
   await expect(notice).toContainText("vendedor.nombre");
+  generatedTemplateUrl = page.url();
   await expect(page.getByText("Borrador", { exact: true }).first()).toBeVisible();
 
   // Borrador real en DB, del Workspace del actor, y la instrucción inyectada
@@ -170,6 +176,32 @@ test("generates a draft, shows the summary and opens the normal stepper with the
   expect(ledger).toHaveLength(1);
   expect(ledger[0].status).toBe("succeeded");
   expect(JSON.stringify(ledger)).not.toContain("TEST PERSONA");
+});
+
+test("after a human save the warning becomes discreet traceability only", async ({ page }) => {
+  await login(page, ownerEmail);
+  await page.goto(generatedTemplateUrl.replace(/\?.*$/, ""));
+  await page.getByLabel("Nombre del machote").fill(`Compraventa revisada ${Date.now()}`);
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(page.getByText("Guardado", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+
+  await page.reload();
+  await expect(
+    page.getByRole("note", { name: "Generado con asistencia de inteligencia artificial" }),
+  ).toContainText("Creado originalmente con asistencia de inteligencia artificial.");
+  await expect(
+    page.getByRole("region", { name: /Generado con asistencia de inteligencia artificial/ }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Revise el contenido, las variables")).toHaveCount(0);
+
+  // La trazabilidad no desaparece.
+  const ledger = await restSelect<{ status: string; provider: string; model: string }>(
+    "ai_template_generations",
+    `workspace_id=eq.${ownerId}&select=status,provider,model`,
+  );
+  expect(ledger).toEqual([{ status: "succeeded", provider: "fake", model: "fake-deterministic" }]);
+  const audit = await restSelect("workspace_activity", `workspace_id=eq.${ownerId}&event_type=eq.template_ai_generated&select=id`);
+  expect(audit).toHaveLength(1);
 });
 
 test("invalid model output never creates a template", async ({ page }) => {

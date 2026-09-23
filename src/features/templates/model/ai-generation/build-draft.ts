@@ -46,9 +46,11 @@ import { AI_PROPOSAL_LIMITS } from "./limits";
 import type {
   AiProposalOptionBlock,
   AiProposalVariable,
+  AiProposalVehicleIdentifiers,
   AiProposalWarningCode,
   AiTemplateProposal,
   AiVariableSemanticType,
+  AiVehicleIdentifierCase,
 } from "./proposal";
 
 export const AI_BUILDER_WARNING_CODES = [
@@ -59,6 +61,7 @@ export const AI_BUILDER_WARNING_CODES = [
   "time_output_discarded",
   "transform_corrected",
   "index_mapping_discarded",
+  "vehicle_identifier_block_missing",
 ] as const;
 export type AiBuilderWarningCode = (typeof AI_BUILDER_WARNING_CODES)[number];
 export type AiDraftWarningCode = AiProposalWarningCode | AiBuilderWarningCode;
@@ -153,16 +156,48 @@ const WHOLE_NUMBER_TYPES = new Set<AiVariableSemanticType>([
   "instrument_number",
 ]);
 
+/**
+ * Identificadores técnicos alfanuméricos (cédula, VIN, chasis, serie, motor,
+ * placa, matrícula…). En la escritura se expresan carácter por carácter con
+ * la transformación existente `digits_to_words` ("1AJK203" →
+ * "UNO A J K DOS CERO TRES"), nunca como número completo.
+ */
+const IDENTIFIER_TYPES = new Set<AiVariableSemanticType>([
+  "identification",
+  "vehicle_identifier",
+  "plate",
+  "property_identifier",
+]);
+const IDENTIFIER_KEY_PATTERN =
+  /(^|_)(motor|chasis|vin|serie|placa|matricula|cedula|identificacion|pasaporte|dimex)(_|$)/;
+
+/** true si la clave (su último segmento) nombra un identificador técnico. */
+export function isIdentifierKey(key: string): boolean {
+  const data = key.split(".").pop() ?? key;
+  return IDENTIFIER_KEY_PATTERN.test(stripDiacritics(data).toLowerCase());
+}
+
 function resolveTransform(
   variable: AiProposalVariable,
   warnings: Set<AiDraftWarningCode>,
 ): VariableOutputTransform {
+  // 1) Número completo: nunca dígito por dígito (30 minutos → TREINTA).
+  if (WHOLE_NUMBER_TYPES.has(variable.semantic_type)) {
+    if (variable.output_transform === "digits_to_words") {
+      warnings.add("transform_corrected");
+      return "number_to_words";
+    }
+    return variable.output_transform;
+  }
+  // 2) Identificador técnico sin transformación: carácter por carácter. Un
+  //    identificador con letras NO queda sin transformar solo por no ser un
+  //    número puro; `digits_to_words` conserva las letras.
   if (
-    variable.output_transform === "digits_to_words" &&
-    WHOLE_NUMBER_TYPES.has(variable.semantic_type)
+    variable.output_transform === "none" &&
+    (IDENTIFIER_TYPES.has(variable.semantic_type) || isIdentifierKey(variable.key))
   ) {
     warnings.add("transform_corrected");
-    return "number_to_words";
+    return "digits_to_words";
   }
   return variable.output_transform;
 }
@@ -172,13 +207,68 @@ function hasKnownPatternEvidence(
   span: string,
 ): boolean {
   const normalized = stripDiacritics(span).toLowerCase();
-  if (basis === "known_pattern_vin_chassis_serial") {
-    return /\b(chasis|vin|serie)\b/.test(normalized);
-  }
   if (basis === "known_pattern_time_minutes") {
     return /\bhoras?\b/.test(normalized);
   }
   return true;
+}
+
+// ------------------------------------------------ patrón Chasis/VIN/Serie
+
+/** El texto menciona chasis o VIN ("serie" sola es ambigua). */
+export function mentionsVehicleIdentifiers(text: string): boolean {
+  return /\b(chasis|vin)\b/.test(stripDiacritics(text).toLowerCase());
+}
+
+export const VEHICLE_IDENTIFIER_CASE_LABELS: Record<AiVehicleIdentifierCase, string> = {
+  all_equal: "Chasis, VIN y serie iguales",
+  chassis_vin_equal: "Chasis y VIN iguales; serie diferente",
+  vin_serial_equal: "VIN y serie iguales; chasis diferente",
+  chassis_serial_equal: "Chasis y serie iguales; VIN diferente",
+  all_different: "Chasis, VIN y serie diferentes",
+};
+
+/**
+ * Redacción estándar de LexCR para cada caso. Un valor compartido usa la
+ * clave del VIN (o la del chasis cuando chasis = serie), de modo que cada
+ * dato real se escribe una sola vez en la Escritura.
+ */
+export function vehicleIdentifierVariantText(
+  variantCase: AiVehicleIdentifierCase,
+  keys: { chassis: string; vin: string; serial: string },
+): string {
+  const v = (key: string) => `{{${key}}}`;
+  switch (variantCase) {
+    case "all_equal":
+      return `chasis, VIN y serie número ${v(keys.vin)}`;
+    case "chassis_vin_equal":
+      return `chasis y VIN número ${v(keys.vin)}, y serie número ${v(keys.serial)}`;
+    case "vin_serial_equal":
+      return `chasis número ${v(keys.chassis)}, y VIN y serie número ${v(keys.vin)}`;
+    case "chassis_serial_equal":
+      return `chasis y serie número ${v(keys.chassis)}, y VIN número ${v(keys.vin)}`;
+    case "all_different":
+      return `chasis número ${v(keys.chassis)}, VIN número ${v(keys.vin)} y serie número ${v(keys.serial)}`;
+  }
+}
+
+const VEHICLE_KEY_DEFAULTS = {
+  chassis: { key: "vehiculo.chasis", label: "Número de chasis" },
+  vin: { key: "vehiculo.vin", label: "Número VIN" },
+  serial: { key: "vehiculo.serie", label: "Número de serie" },
+} as const;
+
+/** Claves del patrón: las del modelo si son distintas entre sí; si no, las canónicas. */
+function resolveVehicleKeys(vehicle: AiProposalVehicleIdentifiers) {
+  const proposed = [vehicle.chassis_key, vehicle.vin_key, vehicle.serial_key];
+  if (new Set(proposed).size === 3) {
+    return { chassis: vehicle.chassis_key, vin: vehicle.vin_key, serial: vehicle.serial_key };
+  }
+  return {
+    chassis: VEHICLE_KEY_DEFAULTS.chassis.key,
+    vin: VEHICLE_KEY_DEFAULTS.vin.key,
+    serial: VEHICLE_KEY_DEFAULTS.serial.key,
+  };
 }
 
 type VarSpan = { start: number; end: number; key: string };
@@ -230,11 +320,69 @@ export function buildTemplateDraftFromProposal(
 
   // ---- bloques candidatos: base admitida + alternativas con claves declaradas
   type CandidateBlock = {
+    /** Índice en `proposal.option_blocks`; -1 para el bloque Chasis/VIN/Serie. */
     blockIndex: number;
+    name: string;
+    originalLabel: string;
     span: BlockSpan & { paragraphIndex: number };
     alternatives: Array<{ label: string; content: TemplateVariantContentNode[]; originalIndex: number }>;
+    /** Alternativas propuestas originalmente (para validar `time_output`). */
+    proposedAlternativeCount: number;
+    timeOutput: AiProposalOptionBlock["time_output"];
   };
   const candidateBlocks: CandidateBlock[] = [];
+
+  // ---- patrón conocido Chasis/VIN/Serie: variantes construidas por LexCR
+  const vehicle = proposal.vehicle_identifiers;
+  if (vehicle) {
+    const paragraphIndex = vehicle.paragraph - 1;
+    const paragraph = paragraphs[paragraphIndex];
+    const start =
+      paragraph === undefined || vehicle.text.trim() === ""
+        ? -1
+        : findNth(paragraph, vehicle.text, vehicle.occurrence);
+    if (start < 0 || !mentionsVehicleIdentifiers(vehicle.text)) {
+      warnings.add("option_block_discarded");
+    } else {
+      const keys = resolveVehicleKeys(vehicle);
+      const roles = [
+        ["chassis", keys.chassis],
+        ["vin", keys.vin],
+        ["serial", keys.serial],
+      ] as const;
+      for (const [role, key] of roles) {
+        if (!declared.has(key)) {
+          // Clave usada solo por variantes alternativas: se declara aquí.
+          declared.set(key, {
+            key,
+            label: VEHICLE_KEY_DEFAULTS[role].label,
+            semantic_type: "vehicle_identifier",
+            output_transform: "digits_to_words",
+            required: true,
+            needs_review: false,
+            occurrences: [],
+          });
+          labels.set(key, VEHICLE_KEY_DEFAULTS[role].label);
+        }
+      }
+      const cases = (
+        Object.keys(VEHICLE_IDENTIFIER_CASE_LABELS) as AiVehicleIdentifierCase[]
+      ).filter((variantCase) => variantCase !== vehicle.original_case);
+      candidateBlocks.push({
+        blockIndex: -1,
+        name: "Chasis, VIN y serie",
+        originalLabel: `${VEHICLE_IDENTIFIER_CASE_LABELS[vehicle.original_case]} (según el documento)`,
+        span: { start, end: start + vehicle.text.length, blockIndex: -1, paragraphIndex },
+        alternatives: cases.map((variantCase, originalIndex) => ({
+          label: VEHICLE_IDENTIFIER_CASE_LABELS[variantCase],
+          content: parseVariantContentText(vehicleIdentifierVariantText(variantCase, keys)),
+          originalIndex,
+        })),
+        proposedAlternativeCount: cases.length,
+        timeOutput: null,
+      });
+    }
+  }
   proposal.option_blocks.forEach((block, blockIndex) => {
     const paragraphIndex = block.paragraph - 1;
     const paragraph = paragraphs[paragraphIndex];
@@ -273,8 +421,12 @@ export function buildTemplateDraftFromProposal(
     }
     candidateBlocks.push({
       blockIndex,
+      name: block.name,
+      originalLabel: block.original_variant_label,
       span: { start, end: start + block.text.length, blockIndex, paragraphIndex },
       alternatives,
+      proposedAlternativeCount: block.alternative_variants.length,
+      timeOutput: block.time_output,
     });
   });
 
@@ -393,7 +545,6 @@ export function buildTemplateDraftFromProposal(
       }
 
       const { block } = item;
-      const proposalBlock = proposal.option_blocks[block.blockIndex];
       const innerSpans = accepted.filter((span) => contains(block.span, span));
       const originalContent = buildRun(
         paragraph.slice(block.span.start, block.span.end),
@@ -405,7 +556,7 @@ export function buildTemplateDraftFromProposal(
         {
           id: originalId,
           label:
-            sanitizeLabel(proposalBlock.original_variant_label, AI_PROPOSAL_LIMITS.maxLabelChars) ||
+            sanitizeLabel(block.originalLabel, AI_PROPOSAL_LIMITS.maxLabelChars) ||
             "Según el documento",
           content: originalContent,
         },
@@ -423,10 +574,10 @@ export function buildTemplateDraftFromProposal(
       ];
 
       let structuredOutput: TemplateOptionBlockStructuredOutput | null = null;
-      const timeOutput = proposalBlock.time_output;
+      const timeOutput = block.timeOutput;
       if (timeOutput) {
         const allAlternativesKept =
-          block.alternatives.length === proposalBlock.alternative_variants.length &&
+          block.alternatives.length === block.proposedAlternativeCount &&
           timeOutput.alternatives.length === block.alternatives.length;
         const keySets = [timeOutput.original, ...timeOutput.alternatives];
         const valid =
@@ -458,7 +609,7 @@ export function buildTemplateDraftFromProposal(
       const attrs: TemplateOptionBlockAttrs = {
         blockId,
         name:
-          sanitizeLabel(proposalBlock.name, TEMPLATE_DOC_LIMITS.maxOptionBlockNameLength) ||
+          sanitizeLabel(block.name, TEMPLATE_DOC_LIMITS.maxOptionBlockNameLength) ||
           "Bloque de opciones",
         variants,
         defaultVariantId: originalId,
@@ -478,6 +629,9 @@ export function buildTemplateDraftFromProposal(
   };
 
   if (usedKeys.length === 0) return { ok: false, code: "no_variables" };
+  if (mentionsVehicleIdentifiers(sourceText) && !blockIdsByIndex.has(-1)) {
+    warnings.add("vehicle_identifier_block_missing");
+  }
 
   // ---- catálogo final: solo claves realmente usadas en el documento
   const variables: TemplateWorkspaceVariable[] = [];

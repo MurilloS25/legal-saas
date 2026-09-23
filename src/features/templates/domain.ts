@@ -36,3 +36,5 @@ export {
   aiGenerationErrorMessage,
 } from "./model/ai-generation/errors";
 export type { AiGenerationErrorCode } from "./model/ai-generation/errors";
+export { aiNoticeState } from "./model/ai-generation/notice";
+export type { AiNoticeState } from "./model/ai-generation/notice";

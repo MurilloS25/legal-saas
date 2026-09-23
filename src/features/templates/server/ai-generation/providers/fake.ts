@@ -94,6 +94,7 @@ export function buildFakeProposal(request: TemplateGenerationRequest): AiTemplat
     template: { name: "Machote de prueba (IA simulada)", description: null },
     variables,
     option_blocks: [],
+    vehicle_identifiers: null,
     notarial_index: {
       instrument_number_key: instrumentKey,
       authorized_date_key: null,

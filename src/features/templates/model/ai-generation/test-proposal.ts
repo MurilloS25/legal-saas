@@ -107,6 +107,7 @@ export function fakeProposal(
       },
     ],
     option_blocks: [],
+    vehicle_identifiers: null,
     notarial_index: {
       instrument_number_key: "numero_escritura",
       authorized_date_key: "fecha_otorgamiento",

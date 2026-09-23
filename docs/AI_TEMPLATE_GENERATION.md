@@ -55,10 +55,29 @@ Machotes ──► [Crear con IA]  (también en /templates/new y en el estado va
   verificar el permiso en cada solicitud.
 - Sin configuración válida el diálogo informa que la función no está
   disponible; el resto de Machotes funciona igual.
-- En el Machote generado se muestra una advertencia persistente y no
-  invasiva ("Generado con asistencia de IA"), con las claves que el modelo
-  marcó para revisión. **No se muestran porcentajes de confianza**: no hay
-  una calibración real que los respalde.
+- Indicador de IA en el Machote (`AiGeneratedTemplateNotice`), en dos
+  estados (`model/ai-generation/notice.ts`):
+  - **Pendiente de revisión** (recién generado): callout neutral y compacto
+    (gris, icono pequeño; no es un banner de error) — "Generado con
+    asistencia de inteligencia artificial. Puede contener errores u
+    omisiones." + "Revise el contenido, las variables y la configuración
+    notarial antes de utilizarlo o publicarlo", las claves marcadas para
+    revisión y la metadata (fecha · proveedor · modelo).
+  - **Revisado**: una sola línea discreta — "Creado originalmente con
+    asistencia de inteligencia artificial." (metadata en el `title`).
+  - **Señal de revisión humana:** `templates.updated_at >
+    ai_template_generations.finished_at`, es decir, el Machote se guardó con
+    cambios (o se publicó) después de la generación. Es la señal más simple
+    y segura del lifecycle actual: la generación cierra el libro después de
+    crear el borrador (un Machote recién generado nunca cuenta como
+    revisado); `save_template_workspace` solo actualiza la fila cuando algo
+    cambió; abrir el Machote, guardar sin cambios o guardar solo el Índice
+    no cuentan. No hay workflow de aprobación ni columna nueva.
+  - **No se muestran porcentajes de confianza**: no hay una calibración real
+    que los respalde.
+  - La trazabilidad no cambia: la fila del libro (proveedor, modelo, versión
+    de schema, fecha) y el evento `template_ai_generated` se conservan
+    siempre; solo cambia la presentación.
 - No hay botón Cancelar durante la generación: cancelar la petición en el
   navegador no detiene el costo ya incurrido en el proveedor, así que no se
   simula. Cerrar con Escape se ignora mientras hay una solicitud en curso.
@@ -151,7 +170,7 @@ httpStatus }` sin cuerpo, cabeceras ni request IDs del proveedor.
   del entorno.
 - La salida estructurada de Anthropic no admite `pattern` ni uniones de
   tipo (`["string","null"]`). Se envía el **mismo** contrato
-  `lexcr.template_generation.v1` transformado (`toAnthropicJsonSchema`:
+  `lexcr.template_generation.v2` transformado (`toAnthropicJsonSchema`:
   quita `pattern`, convierte uniones nulas en `anyOf`). La validación
   Zod server-side es idéntica para ambos proveedores y sigue exigiendo los
   patrones de clave.
@@ -241,7 +260,8 @@ y número de aparición dentro del párrafo). `build-draft.ts`:
 - pasa el resultado por `validateTemplateDocument`,
   `TemplateWorkspaceVariableSchema` y los límites de `TEMPLATE_DOC_LIMITS`.
 
-Schema (`lexcr.template_generation.v1`, resumido):
+Schema (`lexcr.template_generation.v2`, resumido; v2 agregó
+`vehicle_identifiers` y retiró la base de bloque `known_pattern_vin_chassis_serial`):
 
 ```text
 { schema_version, template:{name, description|null},
@@ -252,6 +272,8 @@ Schema (`lexcr.template_generation.v1`, resumido):
                    alternative_variants:[{label, content "{{clave}}"}],
                    time_output: {original:{hour_key,minute_key|null},
                                  alternatives:[…]} | null }],
+  vehicle_identifiers: { paragraph, text, occurrence, original_case,
+                         chassis_key, vin_key, serial_key } | null,
   notarial_index:{ instrument_number_key, authorized_date_key,
                    authorized_time_key, authorized_time_option_block,
                    protocol_book_key, initial_folio_key, party_keys[] },
@@ -274,11 +296,28 @@ para el abogado.
   roles distintos usa claves distintas, distinguidas por `occurrence`.
 - **Normalizaciones**: solo las transformaciones existentes
   (`none`, `digits_to_words`, `number_to_words`); el render sigue siendo el
-  motor determinista actual (`applyVariableTransform`). Regla defensiva: si
-  el modelo propone `digits_to_words` para horas, minutos, días, años,
-  cantidades, montos, folios o número de escritura, LexCR lo corrige a
-  `number_to_words` (30 minutos → TREINTA, nunca TRES CERO). Identificadores
-  (cédula, VIN, chasis, serie, placa) pueden usar `digits_to_words`.
+  motor determinista actual (`applyVariableTransform`). Reglas
+  deterministas de LexCR sobre la propuesta del modelo (`resolveTransform`):
+  1. **Número completo:** horas, minutos, días, años, cantidades, montos,
+     folios y número de escritura nunca usan `digits_to_words`; si el modelo
+     lo propone se corrige a `number_to_words` (30 minutos → TREINTA, nunca
+     TRES CERO).
+  2. **Identificadores técnicos:** si el tipo semántico es identificación,
+     identificador de vehículo, placa o identificador de finca, o la clave
+     nombra un identificador (`motor`, `chasis`, `vin`, `serie`, `placa`,
+     `matricula`, `cedula`, `identificacion`, `pasaporte`, `dimex` como
+     palabra del último segmento, p. ej. `vehiculo.modelo_motor`) y el modelo
+     no asignó transformación, LexCR asigna `digits_to_words` (carácter por
+     carácter: "1AJK203" → "UNO A J K DOS CERO TRES"). Tener letras no deja a
+     un identificador sin transformar.
+  3. Todo lo demás (nombres, marca, color, direcciones) queda como lo
+     propuso el modelo.
+  Limitación real del motor actual: `digits_to_words` separa también las
+  letras con espacios ("AJK" → "A J K") y elimina guiones; no existe una
+  transformación que conserve bloques de letras juntos ("AJK"). Si la
+  práctica notarial exige ese formato, la variable debe dejarse en `none`
+  (el abogado lo ajusta en el panel de Variables) o agregarse una
+  transformación nueva en un cambio aparte.
 - **Fechas y horas**: el modelo solo clasifica (`date`, `time_hour`,
   `time_minutes`); no hay tipo de campo nuevo. La fecha completa usa
   `number_to_words` (el motor actual convierte "25 de julio de 2026"); hora
@@ -288,15 +327,44 @@ para el abogado.
 - **Autollenado desde Clientes**: no lo decide el modelo; se usa la
   inferencia determinista existente (`suggestAutofillSource`).
 - **Bloques de opciones**: solo con una base admitida:
-  1. `known_pattern_vin_chassis_serial` (el fragmento debe mencionar chasis,
-     VIN o serie — verificado por LexCR);
-  2. `known_pattern_time_minutes` (el fragmento debe mencionar horas —
+  1. `known_pattern_time_minutes` (el fragmento debe mencionar horas —
      verificado);
-  3. `document_evidence` (alternativas presentes en el documento);
-  4. `user_instruction` (solo si el abogado escribió "Variantes del
+  2. `document_evidence` (alternativas presentes en el documento);
+  3. `user_instruction` (solo si el abogado escribió "Variantes del
      documento" — verificado).
   Sin base, o con alternativas que usan claves no declaradas, el bloque se
   descarta. Ante duda, no se crea: el abogado puede agregarlo después.
+- **Patrón conocido Chasis / VIN / Serie** (se evalúa siempre, sin
+  indicación del abogado): el modelo devuelve `vehicle_identifiers` con el
+  fragmento literal, el caso que muestra el documento y las tres claves.
+  **LexCR construye el bloque de forma determinista** con el modelo actual
+  de Option Blocks (un nodo `optionBlock`, sin mecanismo nuevo):
+  - variante predeterminada = el texto original del documento con sus
+    variables, etiquetada con su caso "(según el documento)";
+  - las otras cuatro combinaciones con redacción estándar de LexCR:
+
+    | Caso | Redacción |
+    |---|---|
+    | Chasis, VIN y serie iguales | `chasis, VIN y serie número {{vin}}` |
+    | Chasis y VIN iguales; serie diferente | `chasis y VIN número {{vin}}, y serie número {{serie}}` |
+    | VIN y serie iguales; chasis diferente | `chasis número {{chasis}}, y VIN y serie número {{vin}}` |
+    | Chasis y serie iguales; VIN diferente | `chasis y serie número {{chasis}}, y VIN número {{vin}}` |
+    | Chasis, VIN y serie diferentes | `chasis número {{chasis}}, VIN número {{vin}} y serie número {{serie}}` |
+
+  - las mismas tres variables (por defecto `vehiculo.chasis`,
+    `vehiculo.vin`, `vehiculo.serie`, con `digits_to_words`) se reutilizan
+    en todas las variantes; un valor compartido se escribe una sola vez. Si
+    el modelo repite una clave para dos roles, LexCR usa las canónicas; si
+    falta alguna declaración, LexCR la crea.
+  - Solo se crea si el fragmento existe literalmente y menciona chasis o
+    VIN. Si el documento menciona chasis/VIN pero no se pudo crear el
+    bloque, la generación agrega la advertencia
+    `vehicle_identifier_block_missing`.
+  - Causa del fallo anterior (v1): el modelo redactaba las alternativas y
+    fusionó chasis+VIN en una clave (`vehiculo.chasis_vin`) mientras la
+    alternativa usaba `vehiculo.vin`, no declarada; la validación descartó
+    la alternativa y con ella el bloque. v2 retira esa responsabilidad del
+    modelo.
 - **Índice Notarial**: solo mapeos de alta confianza a los destinos
   existentes (número de instrumento, fecha, hora, tomo, folio inicial,
   partes). Se guardan con la RPC existente
@@ -306,6 +374,37 @@ para el abogado.
   nombre breve del acto.
 - **Human-in-the-loop**: todo resultado es `draft`, se revisa en el stepper
   normal y solo una persona publica.
+
+## 4.1 Comparar modelos o proveedores (guía manual)
+
+Cambiar de modelo es solo configuración (`ANTHROPIC_MODEL=claude-opus-5`
+↔ `ANTHROPIC_MODEL=claude-sonnet-5`, o `AI_PROVIDER` + `OPENAI_*`); no
+requiere cambios de código. Para comparar calidad y costo sobre los mismos
+documentos:
+
+1. Elegir 3–5 escrituras de prueba **ficticias o anonimizadas**
+   representativas (vehículo con chasis/VIN/serie, inmueble, poder, etc.) y
+   usarlas siempre iguales.
+2. Para cada modelo: configurar `ANTHROPIC_MODEL`, reiniciar el servidor y
+   generar un Machote por documento (considerar la cuota diaria; en local
+   puede ampliarse con `workspace_ai_settings`).
+3. Registrar por generación, desde el resumen del diálogo y la línea de log
+   `ai_template_generation`: variables detectadas, bloques de opciones,
+   configuraciones de Índice, advertencias (fila del libro,
+   `review_summary`), `inputTokens`, `outputTokens`, `providerDurationMs`
+   y `attempts`.
+4. Revisar manualmente cada borrador: variables faltantes o sobrantes,
+   claves correctas por rol, normalizaciones, bloque Chasis/VIN/Serie y
+   mapeos del Índice.
+5. Costo estimado = `inputTokens` × precio de entrada + `outputTokens` ×
+   precio de salida (precios por millón de tokens publicados por el
+   proveedor; referencia a 2026-09: Claude Opus 5 $5 / $25, Claude Sonnet 5
+   $2 / $10 — verificar la tabla vigente antes de decidir). LexCR no guarda
+   precios en configuración.
+
+Referencia medida (`claude-sonnet-5`, effort `low`, escritura ficticia de
+~2.100 caracteres): 22,6 s, 5.834 tokens de entrada y 3.333 de salida,
+≈ $0,045.
 
 ## 5. Seguridad
 
@@ -590,6 +689,10 @@ producción (lo usan los E2E); en builds de producción/Preview se rechaza.
   de párrafos.
 - Un dato cuyo literal cruza un salto de línea no puede convertirse en
   variable (las referencias son por párrafo).
+- `digits_to_words` separa también las letras de un identificador ("AJK" →
+  "A J K"); no existe hoy una transformación que conserve grupos de letras.
+- Las cuatro variantes estándar de Chasis/VIN/Serie usan redacción de LexCR
+  (minúsculas, "número"); el abogado puede ajustarlas en el editor.
 - No se calcula costo monetario (solo tokens).
 - No hay cancelación de una generación en curso.
 - La calidad depende del modelo configurado; la revisión humana es

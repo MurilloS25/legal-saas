@@ -9,9 +9,11 @@ import {
 import { AiGeneratedTemplateNotice, TemplateWorkspace } from "@/features/templates";
 import type { TemplateWorkspaceSection } from "@/features/templates";
 import { getTemplateIndexConfiguration } from "@/features/notarial-index/server";
+import { formatCostaRicaDate } from "@/features/notarial-index";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import {
+  aiNoticeState,
   toVariableAutofillSource,
   toVariableOutputTransform,
 } from "@/features/templates/domain";
@@ -73,8 +75,14 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
     <PageContainer>
       {aiGeneration && (
         <AiGeneratedTemplateNotice
+          state={aiNoticeState({
+            templateUpdatedAt: template.updated_at,
+            generatedAt: aiGeneration.generatedAt,
+          })}
           reviewKeys={aiGeneration.reviewKeys}
-          isDraft={template.status === "draft"}
+          generatedAtLabel={formatCostaRicaDate(aiGeneration.generatedAt)}
+          provider={aiGeneration.provider}
+          model={aiGeneration.model}
         />
       )}
       <TemplateWorkspace

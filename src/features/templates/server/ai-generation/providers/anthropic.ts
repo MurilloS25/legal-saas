@@ -23,7 +23,7 @@ import "server-only";
  *
  * Diferencia con OpenAI: la salida estructurada de Anthropic no admite
  * `pattern` ni uniones de tipo (`["string", "null"]`). Se envía una copia del
- * MISMO schema `lexcr.template_generation.v1` adaptada a esas limitaciones
+ * MISMO schema `lexcr.template_generation.*` adaptada a esas limitaciones
  * (`toAnthropicJsonSchema`); la validación Zod server-side sigue aplicando el
  * contrato completo, incluidos los patrones de clave.
  */

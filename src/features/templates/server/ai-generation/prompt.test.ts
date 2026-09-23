@@ -43,7 +43,8 @@ describe("buildTemplateGenerationPrompt", () => {
 
   it("states the fidelity rule, the admitted option-block bases and the final-folio rule", () => {
     expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain("NO lo reescribas");
-    expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain("known_pattern_vin_chassis_serial");
+    expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain("vehicle_identifiers");
+    expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain("se evalúa siempre, sin que el abogado lo pida");
     expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain("known_pattern_time_minutes");
     expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain("El folio final NO se infiere nunca");
     expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).not.toMatch(/sk-|api[_ ]?key\s*[:=]/i);
