@@ -17,6 +17,7 @@
     "e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
     "@tanstack/react-table": "8.21.3",

@@ -351,3 +351,42 @@ describe("runTemplateGeneration — security-directed inputs", () => {
     expect(JSON.stringify(env.quota.rows)).not.toContain("SENTINEL");
   });
 });
+
+describe("runTemplateGeneration — provider-agnostic (Anthropic adapter, mocked)", () => {
+  it("works unchanged over the Anthropic adapter: one retry, one quota unit, validated draft", async () => {
+    const { createAnthropicTemplateProvider } = await import("./providers/anthropic");
+    const replies = ["no es json", JSON.stringify(fakeProposal())];
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: "msg_test",
+          type: "message",
+          role: "assistant",
+          model: "anthropic-model-from-env",
+          content: [{ type: "text", text: replies.shift() }],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: { input_tokens: 300, output_tokens: 120 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const env = setup([]);
+    env.deps.provider = createAnthropicTemplateProvider(
+      { apiKey: "sk-ant-test", model: "anthropic-model-from-env", timeoutMs: 1_000, maxOutputTokens: 1_000 },
+      { fetch: fetchMock as unknown as typeof fetch },
+    );
+
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(env.quota.gateway.begin).toHaveBeenCalledTimes(1);
+    expect(env.quota.rows[0].finish).toMatchObject({
+      status: "succeeded",
+      attempts: 2,
+      inputTokens: 600,
+      outputTokens: 240,
+    });
+    expect(env.logs.at(-1)).toMatchObject({ provider: "anthropic", model: "anthropic-model-from-env" });
+  });
+});

@@ -80,10 +80,42 @@ describe("readAiTemplateConfig", () => {
     expect(readAiTemplateConfig({ ...base, AI_PROVIDER: "fake", NODE_ENV: "development" }).available).toBe(true);
   });
 
-  it("rejects unknown providers (Anthropic is not wired yet)", () => {
-    expect(readAiTemplateConfig({ ...base, AI_PROVIDER: "anthropic" })).toEqual({
+  it("rejects unknown providers", () => {
+    expect(readAiTemplateConfig({ ...base, AI_PROVIDER: "gemini" })).toEqual({
       available: false,
       reason: "invalid",
     });
+  });
+
+  it("builds the Anthropic configuration from its own variables only", () => {
+    const result = readAiTemplateConfig({
+      ...base,
+      AI_PROVIDER: "anthropic",
+      ANTHROPIC_API_KEY: "a",
+      ANTHROPIC_MODEL: "anthropic-model-from-env",
+      OPENAI_API_KEY: "o",
+      OPENAI_MODEL: "openai-model",
+    });
+    expect(result.available && result.config).toMatchObject({
+      provider: "anthropic",
+      apiKey: "a",
+      model: "anthropic-model-from-env",
+      dailyLimitPerUser: 2,
+      providerTimeoutMs: 120_000,
+    });
+  });
+
+  it("requires ANTHROPIC_API_KEY and ANTHROPIC_MODEL (no hardcoded default)", () => {
+    expect(
+      readAiTemplateConfig({ ...base, AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "a" }),
+    ).toEqual({ available: false, reason: "missing_credentials" });
+    expect(
+      readAiTemplateConfig({
+        ...base,
+        AI_PROVIDER: "anthropic",
+        ANTHROPIC_MODEL: "m",
+        OPENAI_API_KEY: "o",
+      }),
+    ).toEqual({ available: false, reason: "missing_credentials" });
   });
 });

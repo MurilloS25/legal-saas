@@ -100,9 +100,11 @@ un código seguro para permitir reconciliación en el retry.
 
 | Variable | Entorno sugerido | Clasificación |
 |---|---|---|
-| `AI_PROVIDER` | Production (y Preview solo si se desea probar) | Server-only, no secreta (`openai`) |
+| `AI_PROVIDER` | Production (y Preview solo si se desea probar) | Server-only, no secreta (`openai` o `anthropic`) |
 | `OPENAI_API_KEY` | Production | **Secreta**, solo servidor |
 | `OPENAI_MODEL` | Production | Server-only, no secreta; sin valor por defecto en código |
+| `ANTHROPIC_API_KEY` | Production (si `AI_PROVIDER=anthropic`) | **Secreta**, solo servidor |
+| `ANTHROPIC_MODEL` | Production (si `AI_PROVIDER=anthropic`) | Server-only, no secreta; sin valor por defecto en código |
 | `AI_TEMPLATE_*` (opcionales) | Production | Server-only |
 
 Sin `AI_PROVIDER`/clave/modelo, o sin `SUPABASE_SERVICE_ROLE_KEY` en el

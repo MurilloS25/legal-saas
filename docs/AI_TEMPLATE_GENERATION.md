@@ -78,6 +78,7 @@ features/templates/server/ai-generation/          (server-only)
   provider.ts           AiTemplateProvider (interfaz de dominio) + errores
   prompt.ts             prompt neutral de proveedor, datos no confiables
   providers/openai.ts   adapter OpenAI (Responses API vía fetch)
+  providers/anthropic.ts adapter Anthropic (Messages API vía SDK oficial)
   providers/fake.ts     proveedor simulado (solo dev/E2E)
   providers/index.ts    único punto de elección del adapter
   adapters.ts           persistencia (sesión del usuario) + cuota (service role)
@@ -107,8 +108,8 @@ cuerpo **solo en esta ruta**: subir el límite global de las Server Actions
 
 ```ts
 interface AiTemplateProvider {
-  readonly id: string;     // "openai"
-  readonly model: string;  // de OPENAI_MODEL, nunca hardcodeado
+  readonly id: string;     // "openai" | "anthropic"
+  readonly model: string;  // de OPENAI_MODEL / ANTHROPIC_MODEL, nunca hardcodeado
   generateTemplate(request: TemplateGenerationRequest): Promise<TemplateGenerationResult>;
 }
 type TemplateGenerationRequest = { paragraphs: string[]; variantInstructions: string | null };
@@ -134,21 +135,61 @@ httpStatus }` sin cuerpo, cabeceras ni request IDs del proveedor.
   rechazo; `incomplete` por `max_output_tokens` → salida inválida (no se
   reintenta, daría lo mismo).
 
-### 3.3 Cambiar a Anthropic u otro proveedor
+### 3.3 Adapter Anthropic
 
-1. Crear `providers/anthropic.ts` que implemente `AiTemplateProvider`
-   (Messages API con salida estructurada/JSON y **sin tools**), mapeando sus
-   errores a `AiProviderError`.
-2. Agregar `"anthropic"` a `SUPPORTED_PROVIDERS` y leer
-   `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` en `config.ts`.
-3. Agregar el `case` en `providers/index.ts`.
-4. Configurar `AI_PROVIDER=anthropic` + variables.
+- `POST https://api.anthropic.com/v1/messages` con el SDK oficial
+  `@anthropic-ai/sdk` (errores tipados). `maxRetries: 0`: el SDK no
+  reintenta por su cuenta; el único retry técnico lo decide
+  `runTemplateGeneration`. Petición no streaming con timeout explícito
+  (`AI_TEMPLATE_TIMEOUT_MS`).
+- `system` = reglas de LexCR; `messages[0]` (user) = los mismos datos no
+  confiables con delimitadores y nonce (`prompt.ts` compartido).
+- Salida estructurada `output_config.format = { type: "json_schema",
+  schema }` (GA, sin header beta). **Sin `tools`, `tool_choice`,
+  `metadata` ni servidores MCP.** La credencial viaja solo en la cabecera
+  `x-api-key`; `authToken: null` evita que el SDK tome otras credenciales
+  del entorno.
+- La salida estructurada de Anthropic no admite `pattern` ni uniones de
+  tipo (`["string","null"]`). Se envía el **mismo** contrato
+  `lexcr.template_generation.v1` transformado (`toAnthropicJsonSchema`:
+  quita `pattern`, convierte uniones nulas en `anyOf`). La validación
+  Zod server-side es idéntica para ambos proveedores y sigue exigiendo los
+  patrones de clave.
+- Mapeo: `stop_reason: "refusal"` → rechazo; `"max_tokens"` → salida
+  inválida (no se reintenta); texto vacío → reintentable; bloques
+  `thinking` se ignoran. HTTP 429 → rate limit (no se reintenta); 500 y
+  529 `overloaded_error` → no disponible (reintentable, no facturado);
+  401/402/403/404 → configuración (clave, saldo, permiso o modelo); 400/413
+  → entrada rechazada; red → no disponible; timeout → timeout.
+- Retención: la Messages API no tiene un flag `store` por solicitud; la
+  retención del lado de Anthropic la define la configuración de la
+  organización (p. ej. Zero Data Retention). LexCR no afirma más.
 
-Nada más cambia: prompt, contrato, validación, construcción, persistencia,
-cuota y UI son neutrales de proveedor. Cambiar solo de **modelo** es
-cambiar `OPENAI_MODEL` (queda registrado por generación).
+### 3.4 Cambiar de proveedor (OpenAI ↔ Anthropic)
 
-### 3.4 Extracción (`lib/documents/extraction`)
+Solo configuración; no hay cambios de código:
+
+```env
+# OpenAI
+AI_PROVIDER=openai
+OPENAI_API_KEY=...
+OPENAI_MODEL=...
+
+# Anthropic
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=...     # p. ej. claude-opus-5
+```
+
+Reiniciar el servidor (o redeploy en Vercel). Cada generación registra
+`provider`/`model` en `ai_template_generations` y en el evento de
+auditoría. Prompt, contrato, validación, construcción, persistencia,
+cuota, límites, retry, logs y UI son idénticos para ambos. Para agregar un
+tercer proveedor: nuevo archivo en `providers/` que implemente
+`AiTemplateProvider`, su id en `SUPPORTED_PROVIDERS` + variables en
+`config.ts` y el `case` en `providers/index.ts`.
+
+### 3.5 Extracción (`lib/documents/extraction`)
 
 | Fuente | Implementación | Defensas |
 |---|---|---|
@@ -160,7 +201,7 @@ Tipo real = extensión **y** MIME declarado **y** firma binaria coherentes.
 `.doc` (OLE), imágenes y cualquier otra extensión se rechazan. El nombre del
 archivo solo se usa para leer la extensión; nada se escribe en disco.
 
-### 3.5 Contrato estructurado y fidelidad
+### 3.6 Contrato estructurado y fidelidad
 
 El modelo **no devuelve el texto del documento**. Devuelve referencias:
 `{ paragraph, text, occurrence }` (número de párrafo `[Pn]`, literal exacto
@@ -430,9 +471,11 @@ on conflict (workspace_id) do update
 ### 10.1 Variables de entorno (server-only)
 
 ```env
-AI_PROVIDER=openai          # vacío = feature apagada
-OPENAI_API_KEY=             # secreto
+AI_PROVIDER=openai          # openai | anthropic; vacío = feature apagada
+OPENAI_API_KEY=             # secreto (si AI_PROVIDER=openai)
 OPENAI_MODEL=               # obligatorio, sin valor por defecto
+ANTHROPIC_API_KEY=          # secreto (si AI_PROVIDER=anthropic)
+ANTHROPIC_MODEL=            # obligatorio, sin valor por defecto
 # Opcionales (solo pueden endurecer los defaults):
 AI_TEMPLATE_MAX_FILE_BYTES=
 AI_TEMPLATE_MAX_PAGES=
@@ -450,8 +493,8 @@ producción (lo usan los E2E); en builds de producción/Preview se rechaza.
 
 | Síntoma | Causa probable |
 |---|---|
-| "La creación con IA no está disponible" | `AI_PROVIDER` vacío/inválido, falta `OPENAI_API_KEY`/`OPENAI_MODEL`/service role, o un override numérico fuera de rango |
-| `provider_unavailable` constante | clave inválida (401), modelo inexistente (404) o caída del proveedor — ver `providerHttpStatus` en el log `ai_template_generation` |
+| "La creación con IA no está disponible" | `AI_PROVIDER` vacío/inválido, faltan la clave/modelo del proveedor elegido (`OPENAI_*` o `ANTHROPIC_*`) o la service role, o un override numérico fuera de rango |
+| `provider_unavailable` constante | clave inválida (401), sin saldo (402 en Anthropic), modelo inexistente (404) o caída/sobrecarga del proveedor (5xx, 529) — ver `providerHttpStatus` en el log `ai_template_generation` |
 | `invalid_output` frecuente | el modelo configurado no respeta bien el schema; probar otro modelo |
 | `quota_exceeded` | cuota diaria alcanzada; override por Workspace (§9) |
 | `generation_in_progress` persistente | fila `running` de un proceso caído; se libera sola a los 10 min |
@@ -461,8 +504,10 @@ producción (lo usan los E2E); en builds de producción/Preview se rechaza.
 - Unitarias: extracción (DOCX/PDF/zip bomb/MIME/escaneado/límites),
   contrato y JSON Schema, reconstrucción (fidelidad, deduplicación, roles,
   solapamientos, normalizaciones, Bloques, Índice, inyección como texto),
-  prompt (separación y nonce), adapter OpenAI (request sin tools, mapeo de
-  errores sin fugas, timeout), configuración, servicio (retry máx. 1, cuota
+  prompt (separación y nonce), adapters OpenAI y Anthropic con `fetch`
+  simulado (request sin tools, schema adaptado, mapeo de errores sin fugas,
+  sin reintentos propios del SDK, timeout), servicio sobre el adapter
+  Anthropic simulado, configuración, servicio (retry máx. 1, cuota
   no duplicada, borrador, errores del proveedor, entradas de seguridad, logs
   sin contenido), parseo de solicitud (un documento), same-origin.
 - pgTAP: `supabase/tests/ai_template_generation.test.sql`.

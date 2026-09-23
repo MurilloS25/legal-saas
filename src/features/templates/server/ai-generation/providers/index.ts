@@ -2,6 +2,7 @@ import "server-only";
 
 import type { AiTemplateConfig } from "../config";
 import type { AiTemplateProvider } from "../provider";
+import { createAnthropicTemplateProvider } from "./anthropic";
 import { createFakeTemplateProvider } from "./fake";
 import { createOpenAiTemplateProvider } from "./openai";
 
@@ -14,6 +15,14 @@ export function createAiTemplateProvider(config: AiTemplateConfig): AiTemplatePr
     case "openai":
       if (!config.apiKey) throw new Error("ai_provider_misconfigured");
       return createOpenAiTemplateProvider({
+        apiKey: config.apiKey,
+        model: config.model,
+        timeoutMs: config.providerTimeoutMs,
+        maxOutputTokens: config.maxOutputTokens,
+      });
+    case "anthropic":
+      if (!config.apiKey) throw new Error("ai_provider_misconfigured");
+      return createAnthropicTemplateProvider({
         apiKey: config.apiKey,
         model: config.model,
         timeoutMs: config.providerTimeoutMs,

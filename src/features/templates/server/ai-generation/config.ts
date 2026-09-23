@@ -4,9 +4,11 @@ import "server-only";
  * Configuración server-only de "Crear con IA", leída de variables de
  * entorno SIN prefijo `NEXT_PUBLIC_` (nunca llegan al navegador).
  *
- *   AI_PROVIDER=openai            # proveedor activo; vacío = feature apagada
- *   OPENAI_API_KEY=...            # secreto; solo servidor
+ *   AI_PROVIDER=openai|anthropic  # proveedor activo; vacío = feature apagada
+ *   OPENAI_API_KEY=...            # secreto; solo servidor (AI_PROVIDER=openai)
  *   OPENAI_MODEL=...              # obligatorio; no hay modelo por defecto
+ *   ANTHROPIC_API_KEY=...         # secreto; solo servidor (AI_PROVIDER=anthropic)
+ *   ANTHROPIC_MODEL=...           # obligatorio; no hay modelo por defecto
  *   AI_TEMPLATE_MAX_FILE_BYTES=   # opcional, <= 10 MB
  *   AI_TEMPLATE_MAX_PAGES=        # opcional, <= 5
  *   AI_TEMPLATE_DAILY_LIMIT=      # opcional, default 2 por usuario/día
@@ -18,14 +20,14 @@ import "server-only";
  * Si falta algo, la feature queda "no disponible" de forma controlada y el
  * resto de Machotes (creación manual incluida) sigue funcionando.
  *
- * Para agregar Anthropic u otro proveedor: añadir su id a
- * `SUPPORTED_PROVIDERS`, leer sus variables aquí y crear su adapter en
- * `providers/`. Nada fuera de esta carpeta cambia.
+ * Para agregar otro proveedor: añadir su id a `SUPPORTED_PROVIDERS`, leer
+ * sus variables aquí y crear su adapter en `providers/`. Nada fuera de esta
+ * carpeta cambia.
  */
 
 import { AI_TEMPLATE_DEFAULTS } from "../../model/ai-generation/limits";
 
-export const SUPPORTED_PROVIDERS = ["openai", "fake"] as const;
+export const SUPPORTED_PROVIDERS = ["openai", "anthropic", "fake"] as const;
 export type AiProviderId = (typeof SUPPORTED_PROVIDERS)[number];
 
 export type AiTemplateConfig = {
@@ -77,9 +79,10 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
 
   let model: string;
   let apiKey: string | null = null;
-  if (provider === "openai") {
-    apiKey = env.OPENAI_API_KEY?.trim() || null;
-    model = env.OPENAI_MODEL?.trim() ?? "";
+  if (provider === "openai" || provider === "anthropic") {
+    const prefix = provider === "openai" ? "OPENAI" : "ANTHROPIC";
+    apiKey = env[`${prefix}_API_KEY`]?.trim() || null;
+    model = env[`${prefix}_MODEL`]?.trim() ?? "";
     if (!apiKey || model === "") {
       return { available: false, reason: "missing_credentials" };
     }
