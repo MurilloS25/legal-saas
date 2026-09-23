@@ -1,13 +1,19 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTemplateById, listTemplateFields } from "@/features/templates/server";
-import { TemplateWorkspace } from "@/features/templates";
+import {
+  getTemplateAiGenerationInfo,
+  getTemplateById,
+  listTemplateFields,
+} from "@/features/templates/server";
+import { AiGeneratedTemplateNotice, TemplateWorkspace } from "@/features/templates";
 import type { TemplateWorkspaceSection } from "@/features/templates";
 import { getTemplateIndexConfiguration } from "@/features/notarial-index/server";
+import { formatCostaRicaDate } from "@/features/notarial-index";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
 import {
+  aiNoticeState,
   toVariableAutofillSource,
   toVariableOutputTransform,
 } from "@/features/templates/domain";
@@ -50,9 +56,10 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
 
   if (!template) notFound();
 
-  const [fields, indexConfiguration] = await Promise.all([
+  const [fields, indexConfiguration, aiGeneration] = await Promise.all([
     listTemplateFields(template.id),
     getTemplateIndexConfiguration(template.id),
+    getTemplateAiGenerationInfo(template.id),
   ]);
   // Contenido estructurado si existe; machotes legacy se convierten al
   // cargar (sin tocar el registro hasta que el usuario guarde). Las
@@ -66,6 +73,18 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
 
   return (
     <PageContainer>
+      {aiGeneration && (
+        <AiGeneratedTemplateNotice
+          state={aiNoticeState({
+            templateUpdatedAt: template.updated_at,
+            generatedAt: aiGeneration.generatedAt,
+          })}
+          reviewKeys={aiGeneration.reviewKeys}
+          generatedAtLabel={formatCostaRicaDate(aiGeneration.generatedAt)}
+          provider={aiGeneration.provider}
+          model={aiGeneration.model}
+        />
+      )}
       <TemplateWorkspace
         mode="edit"
         template={{

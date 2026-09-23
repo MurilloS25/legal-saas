@@ -251,6 +251,21 @@ Rules:
 - Keep export adapters server-side.
 - Validate all input before export.
 
+## AI-Assisted Machote Generation Security
+
+"Crear con IA" treats the uploaded document, the pasted text, the optional
+variant instructions and the model output as untrusted input. The model has
+no tools and no secrets, returns strict JSON that LexCR re-validates, and
+never writes to the database; the backend creates a draft with the user's
+session after validation, and publication stays human. Source documents are
+processed in memory and never persisted or logged. Quotas are enforced by
+service-role-only RPCs. The full layered security model (trust boundary,
+instruction/data separation, no tools, no secrets, structured output + Zod,
+domain validators, deterministic reconstruction, authorization, Workspace
+isolation, draft-only, upload security, logging, quotas, CSRF, XSS, prompt
+leakage and honest limitations) is section 5 of
+`docs/AI_TEMPLATE_GENERATION.md`.
+
 ## Logging Rules
 
 Logs must not include:
@@ -262,6 +277,7 @@ Logs must not include:
 - Credentials.
 - Complete sensitive transaction details.
 - Full client identification details unless explicitly required for safe debugging.
+- AI source documents, extracted text, variant instructions, prompts or model responses.
 
 Logs may include:
 

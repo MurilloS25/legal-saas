@@ -285,6 +285,14 @@ export default defineConfig({
 
     // Stepper always visible from template creation (Información/Documento/
     // Variables/Índice/Publicar) — authenticated.
+    // "Crear con IA" con el proveedor simulado. Autocontenido (usuarios
+    // desechables propios, cuota limpia en cada ejecución): no usa
+    // storageState ni depende de `setup`.
+    {
+      name: "chromium-template-ai-generation",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /template-ai-generation-authenticated.spec.ts/,
+    },
     {
       name: "chromium-template-stepper-create",
       use: {
@@ -728,6 +736,9 @@ export default defineConfig({
   webServer: {
     command: "pnpm dev",
     url: "http://localhost:3000",
+    // E2E nunca llama a un proveedor de IA real: el servidor que levanta
+    // Playwright usa el proveedor simulado (rechazado en producción).
+    env: { AI_PROVIDER: process.env.E2E_AI_PROVIDER ?? "fake" },
     reuseExistingServer:
       !process.env.CI &&
       process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "true",

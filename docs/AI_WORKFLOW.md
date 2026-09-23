@@ -45,7 +45,7 @@ AI agents must understand:
 - The app does not store generated Word/PDF files, signed documents, official submissions, or generated document storage paths.
 - The app does not provide legal advice.
 - The app does not submit official legal documents.
-- The app does not include AI product features in the MVP.
+- The only AI product feature is the bounded "Crear con IA" draft Machote generation (`docs/AI_TEMPLATE_GENERATION.md`); do not add others without explicit scope approval.
 - Security, accessibility, and data minimization are mandatory.
 
 ## Agent Instruction Files
