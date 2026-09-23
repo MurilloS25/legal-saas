@@ -346,6 +346,13 @@ route boundary rather than physical nesting below `/dashboard`.
 - The dashboard shell uses a desktop top navbar and a mobile drawer. Account
   actions open Perfil, Configuración or Despacho; team management is part of
   Despacho and remains permission-gated.
+- "Crear con IA" (`POST /api/templates/ai-generation`, a Route Handler so
+  the upload body limit stays scoped to that route) creates a draft Machote
+  and then opens this same stepper. Generic document text extraction lives
+  in `src/lib/documents/extraction`; provider abstraction, prompt,
+  validation and draft reconstruction live in
+  `features/templates/{model,server}/ai-generation`. See
+  `docs/AI_TEMPLATE_GENERATION.md`.
 - Machotes use Información → Documento → Variables → Índice → Publicar. One
   persistent Guardar action coordinates the workspace without auto-advancing.
   Option Blocks contribute variables from every variant to the global catalog;

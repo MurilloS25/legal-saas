@@ -96,6 +96,27 @@ membresía, intenta eliminar únicamente ese usuario recién creado. Nunca borra
 una cuenta preexistente, y un fallo de compensación queda registrado mediante
 un código seguro para permitir reconciliación en el retry.
 
+### Variables de "Crear con IA" (pendientes de configurar por el responsable)
+
+| Variable | Entorno sugerido | Clasificación |
+|---|---|---|
+| `AI_PROVIDER` | Production (y Preview solo si se desea probar) | Server-only, no secreta (`openai`) |
+| `OPENAI_API_KEY` | Production | **Secreta**, solo servidor |
+| `OPENAI_MODEL` | Production | Server-only, no secreta; sin valor por defecto en código |
+| `AI_TEMPLATE_*` (opcionales) | Production | Server-only |
+
+Sin `AI_PROVIDER`/clave/modelo, o sin `SUPABASE_SERVICE_ROLE_KEY` en el
+entorno (hoy solo Production), la función se muestra como no disponible y
+la creación manual sigue igual. Nunca usar prefijo `NEXT_PUBLIC_`.
+`AI_PROVIDER=fake` se rechaza en builds de Vercel (`NODE_ENV=production`).
+
+La ruta `POST /api/templates/ai-generation` declara `maxDuration = 300`
+(hasta dos llamadas al proveedor). Verificar en Settings → Functions que el
+plan/Fluid Compute del proyecto lo admite; si no, reducirlo junto con
+`AI_TEMPLATE_TIMEOUT_MS`. El cuerpo de las funciones de Vercel está
+limitado (~4,5 MB), por lo que ese es el tamaño efectivo máximo de archivo
+en producción. Detalles: `docs/AI_TEMPLATE_GENERATION.md`.
+
 ## Historial: deployment verificado el 2026-07-22
 
 - **Commit desplegado en esa verificación:** `24cd5d66c3005e089f835b8cb77b27ba4e9e33d4` (rama `main`). No se debe asumir que sigue siendo el deployment activo sin consultar Vercel.

@@ -22,13 +22,25 @@ The MVP must not include:
 - Official legal submissions.
 - Official notarial index submission.
 - AI-generated legal advice.
-- AI product features.
+- AI product features other than "Crear con IA" (draft Machote generation,
+  `docs/AI_TEMPLATE_GENERATION.md`).
 - Storage of generated Word/PDF files, signed documents, official submission payloads, or generated document storage paths.
 - Full escritura storage outside the approved persistent draft workflow.
 - Full legal case management.
 - Full accounting.
 - Electronic invoicing.
 - Enterprise multi-firm management.
+
+## AI-Assisted Machote Rules
+
+- The AI proposes structure only; the original document text is the source
+  of truth and is reconstructed literally by LexCR.
+- Every AI-generated Machote starts as `draft` and shows a visible AI
+  warning; only a person publishes it through the normal step.
+- Option Blocks require a known LexCR pattern, document evidence or an
+  explicit lawyer instruction; in doubt, none is created.
+- The Notarial Index final folio is never inferred.
+- No confidence percentages are shown.
 
 ## Data Storage Rules
 

@@ -14,7 +14,10 @@ This repository is the MVP foundation for a legal productivity SaaS for independ
 
 The application helps lawyers manage reusable legal document templates ("machotes"), generate editable Word documents from approved templates, reuse client metadata, prepare notarial index metadata, and track basic accounts receivable.
 
-AI tools are used to assist development. AI is not part of the product MVP.
+AI tools are used to assist development. The only AI product feature is the
+explicitly approved, bounded "Crear con IA" Machote generation (new drafts
+only, no tools, human publication) documented in
+`docs/AI_TEMPLATE_GENERATION.md`. Any other AI product feature is out of scope.
 
 ## How To Use This File
 
@@ -39,6 +42,7 @@ Use this guide before starting any task:
 | Accessibility, forms, keyboard navigation, focus, errors | `docs/ACCESSIBILITY.md` |
 | UI implementation, visual design, app layout, components | `docs/UI_GUIDELINES.md`, `DESIGN.md` (repo root — color tokens, components) |
 | Word (`.docx`) export: generation, download endpoint, privacy | `docs/DOCX_EXPORT.md`, `docs/SECURITY.md` |
+| AI-assisted Machote generation ("Crear con IA"), AI providers, prompts, quotas | `docs/AI_TEMPLATE_GENERATION.md`, `docs/SECURITY.md` |
 | Testing, TDD rules, unit tests, E2E tests | `docs/TESTING.md` |
 | CI/CD, GitHub Actions, Dependabot, deployment flow | `docs/CI_CD.md` |
 | Docker usage and local development strategy | `docs/DOCKER.md` |
@@ -67,7 +71,7 @@ The application must not:
 - Submit official notarial index information.
 - Provide legal advice or legal judgment.
 - Act as a legal authority or document custody system.
-- Add AI product features unless the product scope changes explicitly.
+- Add AI product features beyond the approved "Crear con IA" scope unless the product scope changes explicitly.
 
 The application may store only structured metadata required for:
 
