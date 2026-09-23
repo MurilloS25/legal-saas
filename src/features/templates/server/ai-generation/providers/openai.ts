@@ -100,14 +100,24 @@ function errorFromStatus(status: number, body: ResponsesBody | null): AiProvider
     return new AiProviderError("unavailable", { retryable: true, httpStatus: status, billable: false });
   }
   const code = typeof body?.error?.code === "string" ? body.error.code : "";
-  if (code === "context_length_exceeded") {
-    return new AiProviderError("input_rejected", { retryable: false, httpStatus: status, billable: false });
+  if (code === "context_length_exceeded" || status === 413) {
+    return new AiProviderError("input_too_large", {
+      retryable: false,
+      httpStatus: status,
+      billable: false,
+      providerErrorType: code || undefined,
+    });
   }
   if (status === 404) {
     // Modelo inexistente o sin acceso: configuración, no culpa del usuario.
     return new AiProviderError("misconfigured", { retryable: false, httpStatus: status, billable: false });
   }
-  return new AiProviderError("input_rejected", { retryable: false, httpStatus: status, billable: false });
+  return new AiProviderError("input_rejected", {
+    retryable: false,
+    httpStatus: status,
+    billable: false,
+    providerErrorType: code || undefined,
+  });
 }
 
 /** Mapea el cuerpo de una respuesta 200 al contrato de dominio. */

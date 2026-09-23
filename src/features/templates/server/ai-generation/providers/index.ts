@@ -27,6 +27,7 @@ export function createAiTemplateProvider(config: AiTemplateConfig): AiTemplatePr
         model: config.model,
         timeoutMs: config.providerTimeoutMs,
         maxOutputTokens: config.maxOutputTokens,
+        workspaceId: config.workspaceId,
       });
     case "fake":
       return createFakeTemplateProvider({ delayMs: 600 });

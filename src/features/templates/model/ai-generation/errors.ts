@@ -27,6 +27,7 @@ export const AI_GENERATION_ERROR_CODES = [
   "provider_timeout",
   "provider_rate_limited",
   "provider_refused",
+  "provider_rejected",
   "invalid_output",
   "no_variables",
   "internal_error",
@@ -66,6 +67,8 @@ export const AI_GENERATION_ERROR_MESSAGES: Record<AiGenerationErrorCode, string>
   provider_rate_limited:
     "El servicio de IA está recibiendo demasiadas solicitudes. Intenta de nuevo en unos minutos.",
   provider_refused: "El servicio de IA no pudo procesar este documento.",
+  provider_rejected:
+    "El servicio de IA rechazó la solicitud por un problema de configuración del proveedor. No se creó ningún machote. Puedes crear el machote manualmente.",
   invalid_output:
     "La IA devolvió una propuesta que LexCR no pudo validar. No se creó ningún machote. Puedes intentarlo de nuevo.",
   no_variables:
@@ -104,6 +107,7 @@ export const AI_GENERATION_ERROR_STATUS: Record<AiGenerationErrorCode, number> =
   provider_timeout: 504,
   provider_rate_limited: 503,
   provider_refused: 422,
+  provider_rejected: 502,
   invalid_output: 502,
   no_variables: 422,
   internal_error: 500,

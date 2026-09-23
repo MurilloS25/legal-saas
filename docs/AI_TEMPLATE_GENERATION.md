@@ -161,6 +161,17 @@ httpStatus }` sin cuerpo, cabeceras ni request IDs del proveedor.
   529 `overloaded_error` → no disponible (reintentable, no facturado);
   401/402/403/404 → configuración (clave, saldo, permiso o modelo); 400/413
   → entrada rechazada; red → no disponible; timeout → timeout.
+- **400 ≠ documento largo.** Un 400 `invalid_request_error` (p. ej. API key
+  de organización sin workspace, parámetro o schema no aceptado) se reporta
+  como `provider_rejected` ("El servicio de IA rechazó la solicitud por un
+  problema de configuración del proveedor"); solo un 413
+  `request_too_large` (o `context_length_exceeded` en OpenAI) se reporta
+  como "texto demasiado largo". El log registra `providerHttpStatus` y
+  `providerErrorType` (solo el identificador, nunca el mensaje).
+- **API key sin workspace:** si Anthropic responde "This API key is not
+  scoped to a workspace…", usar una API key creada dentro de un workspace
+  (recomendado) o definir `ANTHROPIC_WORKSPACE_ID` (opcional, no secreto),
+  que se envía como cabecera `anthropic-workspace-id`.
 - Retención: la Messages API no tiene un flag `store` por solicitud; la
   retención del lado de Anthropic la define la configuración de la
   organización (p. ej. Zero Data Retention). LexCR no afirma más.
@@ -387,8 +398,12 @@ No se afirma que pueda eliminarse al 100 %. Capas:
 
 Campos permitidos (`logging.ts`): outcome, código de error, user/workspace
 id, proveedor, modelo, tipo de fuente, caracteres de entrada, duración,
-intentos, tokens de entrada/salida, categoría y estado HTTP del error del
-proveedor. Nunca: documento, texto extraído, indicaciones, prompt,
+intentos, tokens de entrada/salida, categoría, estado HTTP y tipo del error
+del proveedor, y diagnóstico numérico: `documentChars`,
+`instructionsChars`, `estimatedInputTokens`, `maxDocumentChars`,
+`maxInputTokens`, `fileBytes`, `pages` y `rejectedBy` (guard que rechazó:
+`extraction:<código>`, `input_token_estimate`, `quota:<código>`,
+`provider:<tipo>`, `proposal:<código>`). Nunca: documento, texto extraído, indicaciones, prompt,
 respuesta, PII del documento, secretos ni API keys. El costo no se calcula
 en v1 (depende de tarifas por modelo); los tokens registrados permiten
 calcularlo después.
@@ -426,7 +441,7 @@ Trazabilidad: el Machote muestra que fue generado con IA leyendo
 | Páginas | 5 | `AI_TEMPLATE_MAX_PAGES` (solo menor) |
 | Texto pegado | 12.000 caracteres (~3 páginas) | constante |
 | Texto extraído | 20.000 caracteres (4.000 × páginas) | derivado |
-| Tokens estimados de entrada | ~6.000 (3,5 caracteres/token) | derivado |
+| Tokens estimados de entrada | techo del documento + indicaciones: ⌈(12.000 + 1.000)/3,5⌉ = 3.715 para texto pegado; ⌈(20.000 + 1.000)/3,5⌉ = 6.000 para archivos. Solo cuenta lo que aporta el usuario (documento + "Variantes"); el prompt de sistema y el schema son fijos y **no** cuentan. Es una segunda barrera de costo coherente con los límites de caracteres (no puede rechazar algo que ya pasó el límite de caracteres de su fuente). | derivado |
 | Variantes del documento | 1.000 caracteres | constante |
 | Tokens de salida pedidos | 24.000 | constante |
 | Timeout por llamada al proveedor | 120 s | `AI_TEMPLATE_TIMEOUT_MS` (5–240 s) |
@@ -476,6 +491,7 @@ OPENAI_API_KEY=             # secreto (si AI_PROVIDER=openai)
 OPENAI_MODEL=               # obligatorio, sin valor por defecto
 ANTHROPIC_API_KEY=          # secreto (si AI_PROVIDER=anthropic)
 ANTHROPIC_MODEL=            # obligatorio, sin valor por defecto
+ANTHROPIC_WORKSPACE_ID=     # opcional: solo para keys sin workspace
 # Opcionales (solo pueden endurecer los defaults):
 AI_TEMPLATE_MAX_FILE_BYTES=
 AI_TEMPLATE_MAX_PAGES=
@@ -495,6 +511,7 @@ producción (lo usan los E2E); en builds de producción/Preview se rechaza.
 |---|---|
 | "La creación con IA no está disponible" | `AI_PROVIDER` vacío/inválido, faltan la clave/modelo del proveedor elegido (`OPENAI_*` o `ANTHROPIC_*`) o la service role, o un override numérico fuera de rango |
 | `provider_unavailable` constante | clave inválida (401), sin saldo (402 en Anthropic), modelo inexistente (404) o caída/sobrecarga del proveedor (5xx, 529) — ver `providerHttpStatus` en el log `ai_template_generation` |
+| "El servicio de IA rechazó la solicitud…" (`provider_rejected`) | el proveedor respondió 400: revisar `providerErrorType` en el log; causa típica en Anthropic: API key de organización sin workspace (ver §3.3) |
 | `invalid_output` frecuente | el modelo configurado no respeta bien el schema; probar otro modelo |
 | `quota_exceeded` | cuota diaria alcanzada; override por Workspace (§9) |
 | `generation_in_progress` persistente | fila `running` de un proceso caído; se libera sola a los 10 min |

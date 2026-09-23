@@ -43,6 +43,9 @@ export type AnthropicProviderConfig = {
   model: string;
   timeoutMs: number;
   maxOutputTokens: number;
+  /** Solo para API keys de organización no asociadas a un workspace:
+   * se envía como cabecera `anthropic-workspace-id`. */
+  workspaceId?: string | null;
 };
 
 type JsonSchemaNode = Record<string, unknown>;
@@ -84,11 +87,13 @@ export const ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA = toAnthropicJsonSchema(
 
 /** Construye el cuerpo de la request. Exportada para pruebas. */
 export function buildAnthropicRequestBody(
-  config: Pick<AnthropicProviderConfig, "model" | "maxOutputTokens">,
+  config: Pick<AnthropicProviderConfig, "model" | "maxOutputTokens" | "workspaceId">,
   request: TemplateGenerationRequest,
 ): Anthropic.MessageCreateParamsNonStreaming {
   const prompt = buildTemplateGenerationPrompt(request);
   return {
+    // El SDK lo retira del cuerpo y lo envía como cabecera.
+    ...(config.workspaceId ? { workspace_id: config.workspaceId } : {}),
     model: config.model,
     max_tokens: config.maxOutputTokens,
     system: prompt.system,
@@ -148,23 +153,31 @@ export function anthropicErrorToProviderError(error: unknown): AiProviderError {
   }
   if (error instanceof Anthropic.APIError) {
     const status = typeof error.status === "number" ? error.status : null;
+    // Solo el TIPO de error (identificador), nunca su mensaje.
+    const body = error.error as { error?: { type?: unknown } } | undefined;
+    const providerErrorType = body?.error?.type;
     if (status === 429) {
-      return new AiProviderError("rate_limited", { retryable: false, httpStatus: status, billable: false });
+      return new AiProviderError("rate_limited", { retryable: false, httpStatus: status, billable: false, providerErrorType });
     }
     if (status === 401 || status === 402 || status === 403 || status === 404) {
       // Clave inválida, sin saldo, sin permiso o modelo inexistente:
       // configuración, no culpa del usuario.
-      return new AiProviderError("misconfigured", { retryable: false, httpStatus: status, billable: false });
+      return new AiProviderError("misconfigured", { retryable: false, httpStatus: status, billable: false, providerErrorType });
     }
     if (status === 408) {
       return new AiProviderError("timeout", { retryable: true, httpStatus: status });
     }
     if (status !== null && status >= 500) {
       // 500 api_error y 529 overloaded_error.
-      return new AiProviderError("unavailable", { retryable: true, httpStatus: status, billable: false });
+      return new AiProviderError("unavailable", { retryable: true, httpStatus: status, billable: false, providerErrorType });
     }
-    // 400 invalid_request_error, 413 request_too_large, etc.
-    return new AiProviderError("input_rejected", { retryable: false, httpStatus: status, billable: false });
+    if (status === 413) {
+      return new AiProviderError("input_too_large", { retryable: false, httpStatus: status, billable: false, providerErrorType });
+    }
+    // 400 invalid_request_error y otros 4xx: la solicitud fue rechazada por
+    // configuración de la cuenta, parámetros o schema — NO por el tamaño del
+    // documento (p. ej. API key de organización sin workspace).
+    return new AiProviderError("input_rejected", { retryable: false, httpStatus: status, billable: false, providerErrorType });
   }
   return new AiProviderError("unavailable", { retryable: false });
 }

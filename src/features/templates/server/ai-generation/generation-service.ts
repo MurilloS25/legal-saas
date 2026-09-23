@@ -42,7 +42,7 @@ import {
   parseAiTemplateProposal,
 } from "../../model/ai-generation/proposal";
 import type { AiTemplateConfig } from "./config";
-import type { AiGenerationLogger } from "./logging";
+import type { AiGenerationDiagnostics, AiGenerationLogger } from "./logging";
 import {
   AiProviderError,
   type AiTemplateProvider,
@@ -145,8 +145,12 @@ function providerErrorCode(error: AiProviderError): AiGenerationErrorCode {
       return "provider_refused";
     case "invalid_output":
       return "invalid_output";
-    case "input_rejected":
+    case "input_too_large":
       return "text_too_long";
+    case "input_rejected":
+      // Rechazo del proveedor por configuración/parámetros: nunca se atribuye
+      // al tamaño del documento.
+      return "provider_rejected";
     case "misconfigured":
     case "unavailable":
       return "provider_unavailable";
@@ -171,12 +175,28 @@ export async function runTemplateGeneration(
     model: provider.model,
   };
 
+  // Diagnóstico seguro (solo números y nombres de guard, nunca contenido).
+  const diagnostics: AiGenerationDiagnostics = {
+    documentChars: null,
+    instructionsChars: null,
+    estimatedInputTokens: null,
+    maxDocumentChars: input.source.kind === "text" ? config.maxPastedChars : config.maxExtractedChars,
+    maxInputTokens: null,
+    fileBytes: input.source.kind === "file" ? input.source.bytes.byteLength : null,
+    pages: null,
+    rejectedBy: null,
+    providerErrorType: null,
+  };
+
   const reject = (
     code: AiGenerationErrorCode,
+    guard: string,
     extra: { sourceType?: ExtractedDocument["sourceType"] | null; inputChars?: number | null } = {},
   ): GenerationOutcome => {
+    diagnostics.rejectedBy = guard;
     deps.log({
       ...logBase,
+      ...diagnostics,
       outcome: "rejected",
       errorCode: code,
       sourceType: extra.sourceType ?? null,
@@ -192,14 +212,15 @@ export async function runTemplateGeneration(
   };
 
   // ---- 1. consentimiento e indicaciones
-  if (!input.consentAccepted) return reject("consent_required");
+  if (!input.consentAccepted) return reject("consent_required", "consent");
   const instructionsRaw = input.variantInstructions ?? "";
   if (instructionsRaw.length > config.maxVariantInstructionsChars * 2) {
-    return reject("instructions_too_long");
+    return reject("instructions_too_long", "instructions_raw_length");
   }
   const instructions = normalizeExtractedText(instructionsRaw);
+  diagnostics.instructionsChars = instructions.length;
   if (instructions.length > config.maxVariantInstructionsChars) {
-    return reject("instructions_too_long");
+    return reject("instructions_too_long", "instructions_length");
   }
 
   // ---- 2. extracción temporal, en memoria
@@ -225,21 +246,27 @@ export async function runTemplateGeneration(
           );
   } catch (error) {
     if (error instanceof DocumentExtractionError) {
-      return reject(EXTRACTION_TO_ERROR[error.code], {
+      return reject(EXTRACTION_TO_ERROR[error.code], `extraction:${error.code}`, {
         sourceType: input.source.kind === "text" ? "text" : null,
       });
     }
-    return reject("corrupt_file");
+    return reject("corrupt_file", "extraction:unexpected");
   }
 
   const sourceType = extracted.sourceType;
   const inputChars = extracted.charCount + instructions.length;
-  // Tope determinista adicional de tokens estimados (control de costo).
-  if (
-    estimateInputTokens(inputChars) >
-    estimateInputTokens(config.maxExtractedChars + config.maxVariantInstructionsChars)
-  ) {
-    return reject("text_too_long", { sourceType, inputChars });
+  diagnostics.documentChars = extracted.charCount;
+  diagnostics.pages = extracted.pageCount;
+  // Tope determinista adicional de tokens estimados (control de costo). Se
+  // calcula SOLO sobre lo que aporta el usuario (documento + indicaciones),
+  // con el mismo máximo de caracteres de la fuente usada: el prompt de
+  // sistema y el schema son fijos y no cuentan contra el documento.
+  diagnostics.estimatedInputTokens = estimateInputTokens(inputChars);
+  diagnostics.maxInputTokens = estimateInputTokens(
+    (diagnostics.maxDocumentChars ?? 0) + config.maxVariantInstructionsChars,
+  );
+  if (diagnostics.estimatedInputTokens > diagnostics.maxInputTokens) {
+    return reject("text_too_long", "input_token_estimate", { sourceType, inputChars });
   }
 
   // ---- 3. reserva de cuota (una unidad por solicitud del usuario)
@@ -257,9 +284,9 @@ export async function runTemplateGeneration(
     }));
   } catch (error) {
     if (error instanceof QuotaRejectedError) {
-      return reject(error.code, { sourceType, inputChars });
+      return reject(error.code, `quota:${error.code}`, { sourceType, inputChars });
     }
-    return reject("internal_error", { sourceType, inputChars });
+    return reject("internal_error", "quota:begin_failed", { sourceType, inputChars });
   }
 
   // ---- 4. proveedor + validación (máximo 1 retry técnico)
@@ -351,8 +378,15 @@ export async function runTemplateGeneration(
     } catch {
       // La fila queda "running" y se cierra como abandonada más tarde.
     }
+    diagnostics.rejectedBy = providerError
+      ? `provider:${providerError.kind}`
+      : code === "invalid_output" || code === "no_variables"
+        ? `proposal:${code}`
+        : code;
+    diagnostics.providerErrorType = providerError?.providerErrorType ?? null;
     deps.log({
       ...logBase,
+      ...diagnostics,
       outcome: "failed",
       errorCode: code,
       sourceType,
@@ -409,6 +443,7 @@ export async function runTemplateGeneration(
   }
   deps.log({
     ...logBase,
+    ...diagnostics,
     outcome: "succeeded",
     errorCode: null,
     sourceType,

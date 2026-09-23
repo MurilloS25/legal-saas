@@ -24,6 +24,7 @@ const config: AiTemplateConfig = {
   provider: "fake",
   model: "fake-deterministic",
   apiKey: null,
+  workspaceId: null,
   maxFileBytes: 1_000_000,
   maxPages: 5,
   maxPastedChars: 12_000,
@@ -388,5 +389,139 @@ describe("runTemplateGeneration — provider-agnostic (Anthropic adapter, mocked
       outputTokens: 240,
     });
     expect(env.logs.at(-1)).toMatchObject({ provider: "anthropic", model: "anthropic-model-from-env" });
+  });
+});
+
+// ------------------------------------------------------------------------
+// Regresión: "El texto del documento es demasiado largo" con documentos
+// pequeños. Causa raíz: un 400 del proveedor (API key de organización sin
+// workspace) se mapeaba a `text_too_long`. Los límites reales de tamaño
+// siguen aplicando solo al contenido aportado por el usuario.
+
+/** Texto ficticio de largo exacto que el proveedor simulado sabe procesar. */
+function fakeDocumentOfLength(chars: number): string {
+  const head = "ESCRITURA NUMERO DOS. Comparece TEST PERSONA UNO y TEST PERSONA DOS.";
+  const filler = " Clausula de prueba sin datos reales.";
+  let text = head;
+  while (text.length < chars) text += filler;
+  return text.slice(0, chars);
+}
+
+function fakeProviderDeps() {
+  const env = setup([]);
+  env.deps.provider = {
+    id: "fake",
+    model: "fake-deterministic",
+    generateTemplate: async (request) => ok(JSON.stringify(buildFakeProposal(request))),
+  };
+  return env;
+}
+
+describe("runTemplateGeneration — document size regression", () => {
+  it.each([2_100, 11_999, 12_000])("accepts pasted text of %i characters", async (chars) => {
+    const env = fakeProviderDeps();
+    const text = fakeDocumentOfLength(chars);
+    expect(text).toHaveLength(chars);
+    const outcome = await runTemplateGeneration(textInput({ source: { kind: "text", text } }), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.logs.at(-1)).toMatchObject({
+      outcome: "succeeded",
+      documentChars: chars,
+      maxDocumentChars: 12_000,
+      rejectedBy: null,
+    });
+  });
+
+  it("accepts ~2,100 characters plus the maximum variant instructions", async () => {
+    const env = fakeProviderDeps();
+    const outcome = await runTemplateGeneration(
+      textInput({
+        source: { kind: "text", text: fakeDocumentOfLength(2_100) },
+        variantInstructions: "v".repeat(1_000),
+      }),
+      env.deps,
+    );
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("rejects pasted text over 12,000 characters at the extraction guard, before any cost", async () => {
+    const env = fakeProviderDeps();
+    const outcome = await runTemplateGeneration(
+      textInput({ source: { kind: "text", text: fakeDocumentOfLength(12_001) } }),
+      env.deps,
+    );
+    expect(outcome).toEqual({ ok: false, code: "text_too_long" });
+    expect(env.logs.at(-1)).toMatchObject({ rejectedBy: "extraction:text_too_long" });
+    expect(env.quota.gateway.begin).not.toHaveBeenCalled();
+  });
+
+  it("accepts a one-page DOCX of a few KB with the same text", async () => {
+    const bytes = await buildDocx({ paragraphs: [fakeDocumentOfLength(2_100)], pages: 1 });
+    expect(bytes.byteLength).toBeLessThan(10_000);
+    const env = fakeProviderDeps();
+    const outcome = await runTemplateGeneration(
+      textInput({
+        source: {
+          kind: "file",
+          fileName: "escritura.docx",
+          declaredMime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          bytes,
+        },
+      }),
+      env.deps,
+    );
+    expect(outcome.ok).toBe(true);
+    expect(env.logs.at(-1)).toMatchObject({
+      documentChars: 2_100,
+      pages: 1,
+      fileBytes: bytes.byteLength,
+      maxDocumentChars: 20_000,
+    });
+  });
+
+  it("does not report a provider 400 (e.g. key without workspace) as a long document", async () => {
+    const env = setup([
+      new AiProviderError("input_rejected", {
+        retryable: false,
+        httpStatus: 400,
+        billable: false,
+        providerErrorType: "invalid_request_error",
+      }),
+    ]);
+    const outcome = await runTemplateGeneration(
+      textInput({ source: { kind: "text", text: fakeDocumentOfLength(2_100) } }),
+      env.deps,
+    );
+    expect(outcome).toEqual({ ok: false, code: "provider_rejected" });
+    expect(env.logs.at(-1)).toMatchObject({
+      rejectedBy: "provider:input_rejected",
+      providerHttpStatus: 400,
+      providerErrorType: "invalid_request_error",
+      documentChars: 2_100,
+    });
+    expect(env.quota.rows[0].counts).toBe(false);
+  });
+
+  it("still reports text_too_long when the provider explicitly says the input is too large", async () => {
+    const env = setup([
+      new AiProviderError("input_too_large", { retryable: false, httpStatus: 413, billable: false }),
+    ]);
+    expect(await runTemplateGeneration(textInput(), env.deps)).toEqual({
+      ok: false,
+      code: "text_too_long",
+    });
+  });
+
+  it("diagnostics never include document text", async () => {
+    const env = fakeProviderDeps();
+    await runTemplateGeneration(
+      textInput({ source: { kind: "text", text: `${fakeDocumentOfLength(500)} SENTINEL-DOC` } }),
+      env.deps,
+    );
+    const line = serializeAiGenerationLog(env.logs.at(-1)!);
+    expect(line).toContain('"estimatedInputTokens"');
+    expect(line).toContain('"maxInputTokens"');
+    expect(line).not.toContain("SENTINEL");
+    expect(line).not.toContain("TEST PERSONA");
   });
 });

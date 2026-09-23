@@ -9,6 +9,7 @@ import "server-only";
  *   OPENAI_MODEL=...              # obligatorio; no hay modelo por defecto
  *   ANTHROPIC_API_KEY=...         # secreto; solo servidor (AI_PROVIDER=anthropic)
  *   ANTHROPIC_MODEL=...           # obligatorio; no hay modelo por defecto
+ *   ANTHROPIC_WORKSPACE_ID=...    # opcional; solo para keys sin workspace
  *   AI_TEMPLATE_MAX_FILE_BYTES=   # opcional, <= 10 MB
  *   AI_TEMPLATE_MAX_PAGES=        # opcional, <= 5
  *   AI_TEMPLATE_DAILY_LIMIT=      # opcional, default 2 por usuario/día
@@ -34,6 +35,8 @@ export type AiTemplateConfig = {
   provider: AiProviderId;
   model: string;
   apiKey: string | null;
+  /** Solo Anthropic: cabecera `anthropic-workspace-id` (no secreta). */
+  workspaceId: string | null;
   maxFileBytes: number;
   maxPages: number;
   maxPastedChars: number;
@@ -79,6 +82,7 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
 
   let model: string;
   let apiKey: string | null = null;
+  let workspaceId: string | null = null;
   if (provider === "openai" || provider === "anthropic") {
     const prefix = provider === "openai" ? "OPENAI" : "ANTHROPIC";
     apiKey = env[`${prefix}_API_KEY`]?.trim() || null;
@@ -88,6 +92,12 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
     }
     if (!/^[A-Za-z0-9._:-]{1,120}$/.test(model)) {
       return { available: false, reason: "invalid" };
+    }
+    if (provider === "anthropic") {
+      workspaceId = env.ANTHROPIC_WORKSPACE_ID?.trim() || null;
+      if (workspaceId !== null && !/^[A-Za-z0-9_-]{1,120}$/.test(workspaceId)) {
+        return { available: false, reason: "invalid" };
+      }
     }
   } else {
     model = "fake-deterministic";
@@ -122,6 +132,7 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
       provider: provider as AiProviderId,
       model,
       apiKey,
+      workspaceId,
       maxFileBytes,
       maxPages,
       maxPastedChars: AI_TEMPLATE_DEFAULTS.maxPastedChars,

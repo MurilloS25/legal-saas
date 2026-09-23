@@ -105,6 +105,15 @@ describe("readAiTemplateConfig", () => {
     });
   });
 
+  it("reads the optional ANTHROPIC_WORKSPACE_ID and rejects malformed values", () => {
+    const env = { ...base, AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "a", ANTHROPIC_MODEL: "m" };
+    const none = readAiTemplateConfig(env);
+    expect(none.available && none.config.workspaceId).toBeNull();
+    const withId = readAiTemplateConfig({ ...env, ANTHROPIC_WORKSPACE_ID: "wrkspc_01abc" });
+    expect(withId.available && withId.config.workspaceId).toBe("wrkspc_01abc");
+    expect(readAiTemplateConfig({ ...env, ANTHROPIC_WORKSPACE_ID: "bad id!" }).available).toBe(false);
+  });
+
   it("requires ANTHROPIC_API_KEY and ANTHROPIC_MODEL (no hardcoded default)", () => {
     expect(
       readAiTemplateConfig({ ...base, AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "a" }),

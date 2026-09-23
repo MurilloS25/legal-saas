@@ -32,6 +32,11 @@ export const AI_PROVIDER_ERROR_KINDS = [
   "timeout",
   "rate_limited",
   "refused",
+  /** El proveedor indicó explícitamente que la entrada excede su límite. */
+  "input_too_large",
+  /** El proveedor rechazó la solicitud (400) por otro motivo: configuración
+   * de la cuenta, parámetros o schema. NO significa que el documento sea
+   * demasiado largo. */
   "input_rejected",
   "invalid_output",
 ] as const;
@@ -48,10 +53,18 @@ export class AiProviderError extends Error {
   readonly httpStatus: number | null;
   /** true si el proveedor seguramente no facturó (p. ej. no alcanzable). */
   readonly billable: boolean;
+  /** Código de tipo de error del proveedor (p. ej. `invalid_request_error`),
+   * solo si es un identificador seguro; nunca su mensaje. Para diagnóstico. */
+  readonly providerErrorType: string | null;
 
   constructor(
     kind: AiProviderErrorKind,
-    options: { retryable: boolean; httpStatus?: number | null; billable?: boolean },
+    options: {
+      retryable: boolean;
+      httpStatus?: number | null;
+      billable?: boolean;
+      providerErrorType?: unknown;
+    },
   ) {
     super(`ai_provider_error:${kind}`);
     this.name = "AiProviderError";
@@ -59,6 +72,11 @@ export class AiProviderError extends Error {
     this.retryable = options.retryable;
     this.httpStatus = options.httpStatus ?? null;
     this.billable = options.billable ?? true;
+    this.providerErrorType =
+      typeof options.providerErrorType === "string" &&
+      /^[a-z_]{1,60}$/.test(options.providerErrorType)
+        ? options.providerErrorType
+        : null;
   }
 }
 

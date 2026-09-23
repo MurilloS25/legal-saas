@@ -6,6 +6,7 @@ import {
   createAnthropicTemplateProvider,
   mapAnthropicMessage,
   toAnthropicJsonSchema,
+  type AnthropicProviderConfig,
 } from "./anthropic";
 import { buildFakeProposal } from "./fake";
 import { parseAiTemplateProposal } from "../../../model/ai-generation/proposal";
@@ -45,7 +46,7 @@ function message(text: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-function providerWith(fetchMock: ReturnType<typeof vi.fn>, overrides: Partial<typeof config> = {}) {
+function providerWith(fetchMock: ReturnType<typeof vi.fn>, overrides: Partial<AnthropicProviderConfig> = {}) {
   return createAnthropicTemplateProvider(
     { ...config, ...overrides },
     { fetch: fetchMock as unknown as typeof fetch },
@@ -165,6 +166,7 @@ describe("createAnthropicTemplateProvider", () => {
     [402, "billing_error", "misconfigured", false],
     [404, "not_found_error", "misconfigured", false],
     [400, "invalid_request_error", "input_rejected", false],
+    [413, "request_too_large", "input_too_large", false],
   ])(
     "maps HTTP %i (%s) to %s (retryable=%s) with a single call and no leaked details",
     async (status, type, kind, retryable) => {
@@ -181,8 +183,22 @@ describe("createAnthropicTemplateProvider", () => {
       expect(error.message).not.toContain("raw provider detail");
       expect(error.message).not.toContain("req_secret_123");
       expect(error.httpStatus).toBe(status);
+      expect(error.providerErrorType).toBe(type);
     },
   );
+
+  it("sends anthropic-workspace-id only when ANTHROPIC_WORKSPACE_ID is configured", async () => {
+    const withWorkspace = vi.fn(async () => jsonResponse(200, message("{}")));
+    await providerWith(withWorkspace, { workspaceId: "wrkspc_test" }).generateTemplate(request);
+    const [, initWith] = withWorkspace.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(initWith.headers).get("anthropic-workspace-id")).toBe("wrkspc_test");
+    expect(JSON.parse(String(initWith.body))).not.toHaveProperty("workspace_id");
+
+    const without = vi.fn(async () => jsonResponse(200, message("{}")));
+    await providerWith(without).generateTemplate(request);
+    const [, initWithout] = without.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(initWithout.headers).has("anthropic-workspace-id")).toBe(false);
+  });
 
   it("maps network failures to a retryable, non-billable unavailable error", async () => {
     const fetchMock = vi.fn(async () => {
