@@ -6,21 +6,31 @@ ni claves — solo nombres y configuración pública.
 
 ## Estado conocido vigente
 
-Última reconciliación documental: **2026-09-17**. No se consultó ni modificó
-Cloud durante esta reconciliación; el estado indicado es el último confirmado
-durante la release productiva anterior.
+Última verificación en vivo: **2026-09-23**, vía Supabase MCP (release de
+"Crear con IA").
 
-- Proyecto Cloud y conexión con Vercel: existentes.
-- Último conteo confirmado en Cloud: **43 migrations**, hasta
-  `20260915040113_remove_legacy_notarial_tables.sql` inclusive.
-- Supabase local en esta rama: **45 migrations**.
-- Pendientes deliberadas para el próximo release coordinado con el código:
-  `20260917174844_enforce_single_active_workspace_membership.sql` y
-  `20260917193555_document_notarial_configuration_snapshot.sql`.
+- Proyecto `lexcr-production`: `ACTIVE_HEALTHY`, Postgres 17.6.
+- **47 migrations** registradas en Cloud, la última
+  `20260923220331 ai_template_generation` (archivo local
+  `20260923120000_ai_template_generation.sql`; la MCP registra su propia
+  marca de tiempo, igual que en releases anteriores).
+- Aplicada con `apply_migration` (sin `db push`, `migration repair` ni
+  `db reset`; el historial legacy sigue pendiente en el issue #231).
+- Verificación posterior: +2 tablas (`ai_template_generations`,
+  `workspace_ai_settings`), +2 funciones (`begin_/finish_ai_template_generation`,
+  `SECURITY INVOKER`, `search_path` fijo, EXECUTE solo `postgres`/`service_role`),
+  +1 política (lectura por membresía), +6 índices; sin cambios en triggers,
+  objetos ni filas existentes. RLS habilitada en ambas tablas; `anon` y
+  `authenticated` sin escritura; `workspace_ai_settings` sin acceso de
+  cliente (el Security Advisor lo informa como INFO `rls_enabled_no_policy`,
+  intencional).
+- Backup: el plan Free no ofrece backups descargables ni PITR y la
+  migración es solo aditiva; como respaldo operativo se registró el conteo
+  de objetos y filas antes/después. Rollback (si fuera necesario): eliminar
+  las dos funciones y las dos tablas nuevas.
 - No ejecutar `supabase db push`, `apply_migration` ni cambios del Dashboard
   sin autorización explícita. Antes de un release se debe volver a consultar
-  el estado real; este documento no convierte el último dato conocido en una
-  verificación en vivo.
+  el estado real.
 
 ## Proyecto
 
