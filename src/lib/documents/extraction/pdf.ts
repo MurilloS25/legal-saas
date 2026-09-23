@@ -3,8 +3,8 @@
  * serverless de PDF.js, sin dependencias nativas).
  *
  * Defensas:
- * - `isEvalSupported: false`: PDF.js nunca compila código a partir de
- *   fuentes del PDF (mitiga la clase de CVE-2024-4367);
+ * - la build de PDF.js incluida ya no compila fuentes con `eval`/`Function`
+ *   (la clase de CVE-2024-4367 no aplica) y XFA queda desactivado;
  * - sin rango/streaming/autofetch: el documento se procesa solo desde los
  *   bytes en memoria, sin peticiones de red (no hay SSRF);
  * - el número de páginas se valida ANTES de extraer texto, y el texto se
@@ -51,7 +51,7 @@ export async function extractPdfText(
   try {
     // PDF.js transfiere/muta el buffer: se le pasa una copia.
     pdf = await getDocumentProxy(new Uint8Array(bytes), {
-      isEvalSupported: false,
+      enableXfa: false,
       disableAutoFetch: true,
       disableStream: true,
       disableRange: true,

@@ -29,6 +29,16 @@ const CONTENT_TYPES_MAX_BYTES = 64 * 1024;
 const WORD_MAIN_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
 
+/** `internalStream` es API pública de JSZip, pero falta en sus tipos. */
+type ZipStream = {
+  on(event: "data", handler: (chunk: Uint8Array) => void): ZipStream;
+  on(event: "error", handler: (error: unknown) => void): ZipStream;
+  on(event: "end", handler: () => void): ZipStream;
+  pause(): ZipStream;
+  resume(): ZipStream;
+};
+type ZipEntryWithStream = { internalStream(type: "uint8array"): ZipStream };
+
 function readEntryCapped(
   file: JSZip.JSZipObject,
   maxBytes: number,
@@ -37,7 +47,7 @@ function readEntryCapped(
     const chunks: Uint8Array[] = [];
     let total = 0;
     let settled = false;
-    const stream = file.internalStream("uint8array");
+    const stream = (file as unknown as ZipEntryWithStream).internalStream("uint8array");
     stream
       .on("data", (chunk: Uint8Array) => {
         if (settled) return;
