@@ -38,11 +38,18 @@ import {
   type TemplateGenerationResult,
 } from "../provider";
 
+export const ANTHROPIC_EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type AnthropicEffort = (typeof ANTHROPIC_EFFORT_LEVELS)[number];
+
 export type AnthropicProviderConfig = {
   apiKey: string;
   model: string;
   timeoutMs: number;
   maxOutputTokens: number;
+  /** Esfuerzo/razonamiento del modelo. `null` omite el parámetro (modelos
+   * sin soporte de effort). Default de LexCR: `low` — la tarea es de
+   * extracción estructurada; ver docs/AI_TEMPLATE_GENERATION.md §3.3. */
+  effort?: AnthropicEffort | null;
   /** Solo para API keys de organización no asociadas a un workspace:
    * se envía como cabecera `anthropic-workspace-id`. */
   workspaceId?: string | null;
@@ -87,7 +94,7 @@ export const ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA = toAnthropicJsonSchema(
 
 /** Construye el cuerpo de la request. Exportada para pruebas. */
 export function buildAnthropicRequestBody(
-  config: Pick<AnthropicProviderConfig, "model" | "maxOutputTokens" | "workspaceId">,
+  config: Pick<AnthropicProviderConfig, "model" | "maxOutputTokens" | "workspaceId" | "effort">,
   request: TemplateGenerationRequest,
 ): Anthropic.MessageCreateParamsNonStreaming {
   const prompt = buildTemplateGenerationPrompt(request);
@@ -100,6 +107,7 @@ export function buildAnthropicRequestBody(
     messages: [{ role: "user", content: prompt.user }],
     output_config: {
       format: { type: "json_schema", schema: ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA },
+      ...(config.effort !== null ? { effort: config.effort ?? "low" } : {}),
     },
   };
 }
@@ -142,11 +150,14 @@ export function mapAnthropicMessage(message: {
 /** Normaliza errores del SDK sin conservar su mensaje ni su cuerpo. */
 export function anthropicErrorToProviderError(error: unknown): AiProviderError {
   if (error instanceof AiProviderError) return error;
+  // Timeout propio: el SDK aborta la solicitud al cumplirse
+  // AI_TEMPLATE_TIMEOUT_MS. Anthropic pudo haber procesado (y facturado) la
+  // generación: no se reintenta, para no duplicar costo.
   if (error instanceof Anthropic.APIConnectionTimeoutError) {
-    return new AiProviderError("timeout", { retryable: true });
+    return new AiProviderError("timeout", { retryable: false, providerErrorType: "client_timeout" });
   }
   if (error instanceof Anthropic.APIUserAbortError) {
-    return new AiProviderError("timeout", { retryable: true });
+    return new AiProviderError("timeout", { retryable: false, providerErrorType: "client_abort" });
   }
   if (error instanceof Anthropic.APIConnectionError) {
     return new AiProviderError("unavailable", { retryable: true, billable: false });
@@ -165,7 +176,7 @@ export function anthropicErrorToProviderError(error: unknown): AiProviderError {
       return new AiProviderError("misconfigured", { retryable: false, httpStatus: status, billable: false, providerErrorType });
     }
     if (status === 408) {
-      return new AiProviderError("timeout", { retryable: true, httpStatus: status });
+      return new AiProviderError("timeout", { retryable: false, httpStatus: status, providerErrorType: "http_408" });
     }
     if (status !== null && status >= 500) {
       // 500 api_error y 529 overloaded_error.

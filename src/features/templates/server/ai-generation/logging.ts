@@ -22,8 +22,12 @@ export type AiGenerationDiagnostics = {
   /** Identificador del guard (p. ej. `extraction:text_too_long`,
    * `input_token_estimate`, `provider:input_rejected`). */
   rejectedBy: string | null;
-  /** Tipo de error del proveedor (p. ej. `invalid_request_error`). */
+  /** Tipo de error del proveedor (p. ej. `invalid_request_error`) o
+   * origen del timeout (`client_timeout` = AI_TEMPLATE_TIMEOUT_MS de LexCR,
+   * `http_408` = el proveedor). */
   providerErrorType: string | null;
+  /** Tiempo total esperando al proveedor (todas las llamadas). */
+  providerDurationMs: number | null;
 };
 
 export type AiGenerationLogEntry = AiGenerationDiagnostics & {
@@ -69,6 +73,7 @@ const ALLOWED_KEYS: ReadonlyArray<keyof AiGenerationLogEntry> = [
   "maxInputTokens",
   "fileBytes",
   "pages",
+  "providerDurationMs",
 ];
 
 /** Serializa solo las claves permitidas (defensa ante objetos ampliados). */

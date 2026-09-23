@@ -168,6 +168,18 @@ httpStatus }` sin cuerpo, cabeceras ni request IDs del proveedor.
   `request_too_large` (o `context_length_exceeded` en OpenAI) se reporta
   como "texto demasiado largo". El log registra `providerHttpStatus` y
   `providerErrorType` (solo el identificador, nunca el mensaje).
+- **Esfuerzo de razonamiento:** se envía `output_config.effort = "low"` por
+  defecto (`ANTHROPIC_EFFORT` lo cambia; `off` lo omite para modelos sin
+  soporte de effort, p. ej. Haiku 4.5). Motivo medido (2026-09-23,
+  `claude-sonnet-5`, escritura ficticia de ~2.100 caracteres, mismo prompt
+  y schema): con el effort por defecto la respuesta tardó **129,8 s** y
+  usó 16.483 tokens de salida, de los cuales **13.053 eran razonamiento
+  interno** (el JSON empezó a los 109,9 s); con `low` tardó **22,6 s**,
+  3.333 tokens de salida y 0 de razonamiento, y la propuesta pasó la
+  validación completa (28 variables, 2 Bloques por patrón conocido, 6
+  mapeos de Índice). La tarea es de extracción estructurada: el
+  razonamiento extendido añadía ~4× costo y ~6× latencia sin beneficio
+  observable. Subir el effort solo si la calidad lo exige y medirlo.
 - **API key sin workspace:** si Anthropic responde "This API key is not
   scoped to a workspace…", usar una API key creada dentro de un workspace
   (recomendado) o definir `ANTHROPIC_WORKSPACE_ID` (opcional, no secreto),
@@ -403,7 +415,10 @@ del proveedor, y diagnóstico numérico: `documentChars`,
 `instructionsChars`, `estimatedInputTokens`, `maxDocumentChars`,
 `maxInputTokens`, `fileBytes`, `pages` y `rejectedBy` (guard que rechazó:
 `extraction:<código>`, `input_token_estimate`, `quota:<código>`,
-`provider:<tipo>`, `proposal:<código>`). Nunca: documento, texto extraído, indicaciones, prompt,
+`provider:<tipo>`, `proposal:<código>`), `providerDurationMs` (tiempo
+esperando al proveedor) y, en timeouts, `providerErrorType` `client_timeout`
+(timeout propio de LexCR, `AI_TEMPLATE_TIMEOUT_MS`) o `http_408` (del
+proveedor). Nunca: documento, texto extraído, indicaciones, prompt,
 respuesta, PII del documento, secretos ni API keys. El costo no se calcula
 en v1 (depende de tarifas por modelo); los tokens registrados permiten
 calcularlo después.
@@ -462,9 +477,16 @@ el límite efectivo de archivo es ese**. Una escritura de ≤ 5 páginas en
 - Una unidad de cuota por generación solicitada por el usuario. El retry
   técnico interno usa la misma fila y la misma unidad.
 - Solo se reintenta (una vez) ante: salida estructurada inválida, salida
-  vacía, error transitorio del proveedor (5xx, red, timeout). No se
-  reintenta: archivo inválido, PDF sin texto, rate limit, entrada demasiado
-  grande, permiso denegado, rechazo del modelo, truncado por tokens.
+  vacía, error transitorio del proveedor antes de procesar (5xx, 529
+  overloaded, red). **Un timeout nunca se reintenta** (política central en
+  `runTemplateGeneration`): la solicitud pudo haberse procesado y
+  facturado, y repetirla duplicaría costo y latencia. Tampoco se reintenta:
+  archivo inválido, PDF sin texto, rate limit, entrada demasiado grande,
+  permiso denegado, rechazo del modelo, truncado por tokens.
+- Un timeout consume la unidad de cuota (puede haber costo). LexCR aborta
+  su conexión HTTP al cumplirse `AI_TEMPLATE_TIMEOUT_MS`; no puede
+  garantizar que el proveedor detenga la generación de su lado, por lo que
+  el costo de ese intento puede existir aunque el usuario vea el error.
 - Una generación que nunca llegó a facturarse (proveedor no alcanzable,
   rate limit, credenciales) no consume cuota; si algún intento obtuvo
   respuesta del proveedor, sí la consume.

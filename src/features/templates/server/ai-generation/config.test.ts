@@ -114,6 +114,17 @@ describe("readAiTemplateConfig", () => {
     expect(readAiTemplateConfig({ ...env, ANTHROPIC_WORKSPACE_ID: "bad id!" }).available).toBe(false);
   });
 
+  it("defaults ANTHROPIC_EFFORT to low, accepts valid levels and off, rejects others", () => {
+    const env = { ...base, AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "a", ANTHROPIC_MODEL: "m" };
+    const byDefault = readAiTemplateConfig(env);
+    expect(byDefault.available && byDefault.config.anthropicEffort).toBe("low");
+    const high = readAiTemplateConfig({ ...env, ANTHROPIC_EFFORT: "HIGH" });
+    expect(high.available && high.config.anthropicEffort).toBe("high");
+    const off = readAiTemplateConfig({ ...env, ANTHROPIC_EFFORT: "off" });
+    expect(off.available && off.config.anthropicEffort).toBeNull();
+    expect(readAiTemplateConfig({ ...env, ANTHROPIC_EFFORT: "turbo" }).available).toBe(false);
+  });
+
   it("requires ANTHROPIC_API_KEY and ANTHROPIC_MODEL (no hardcoded default)", () => {
     expect(
       readAiTemplateConfig({ ...base, AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "a" }),

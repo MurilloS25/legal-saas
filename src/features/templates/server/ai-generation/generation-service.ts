@@ -186,6 +186,7 @@ export async function runTemplateGeneration(
     pages: null,
     rejectedBy: null,
     providerErrorType: null,
+    providerDurationMs: null,
   };
 
   const reject = (
@@ -300,12 +301,15 @@ export async function runTemplateGeneration(
   while (attempts < MAX_PROVIDER_ATTEMPTS) {
     attempts += 1;
     let result: TemplateGenerationResult;
+    const attemptStartedAt = now();
     try {
       result = await provider.generateTemplate({
         paragraphs,
         variantInstructions: instructions === "" ? null : instructions,
       });
+      diagnostics.providerDurationMs = (diagnostics.providerDurationMs ?? 0) + (now() - attemptStartedAt);
     } catch (error) {
+      diagnostics.providerDurationMs = (diagnostics.providerDurationMs ?? 0) + (now() - attemptStartedAt);
       const providerError =
         error instanceof AiProviderError
           ? error
@@ -314,7 +318,10 @@ export async function runTemplateGeneration(
       last = {
         ok: false,
         code: providerErrorCode(providerError),
-        retryable: providerError.retryable,
+        // Política central: un timeout nunca se reintenta, aunque un adapter
+        // lo marque como recuperable — la solicitud pudo procesarse y
+        // facturarse, y repetirla duplicaría costo y latencia.
+        retryable: providerError.retryable && providerError.kind !== "timeout",
         billable: providerError.billable,
         providerError,
       };

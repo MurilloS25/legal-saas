@@ -25,6 +25,7 @@ const config: AiTemplateConfig = {
   model: "fake-deterministic",
   apiKey: null,
   workspaceId: null,
+  anthropicEffort: "low",
   maxFileBytes: 1_000_000,
   maxPages: 5,
   maxPastedChars: 12_000,
@@ -523,5 +524,63 @@ describe("runTemplateGeneration — document size regression", () => {
     expect(line).toContain('"maxInputTokens"');
     expect(line).not.toContain("SENTINEL");
     expect(line).not.toContain("TEST PERSONA");
+  });
+});
+
+// ------------------------------------------------------------------------
+// Regresión: un timeout del cliente (AI_TEMPLATE_TIMEOUT_MS) disparaba el
+// retry técnico → segunda llamada facturada y otro timeout.
+
+describe("runTemplateGeneration — timeout regression", () => {
+  it("never retries a timeout: one billed call, provider_timeout, quota consumed", async () => {
+    const env = setup([
+      // Aunque un adapter lo marque como recuperable, la política central gana.
+      new AiProviderError("timeout", { retryable: true, providerErrorType: "client_timeout" }),
+      ok(JSON.stringify(fakeProposal())),
+    ]);
+    let clock = 0;
+    env.deps.now = () => (clock += 60_000);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome).toEqual({ ok: false, code: "provider_timeout" });
+    expect(env.requests).toHaveLength(1);
+    expect(env.quota.rows[0]).toMatchObject({ status: "failed", counts: true });
+    expect(env.quota.rows[0].finish).toMatchObject({ attempts: 1, errorCode: "provider_timeout" });
+    expect(env.logs.at(-1)).toMatchObject({
+      rejectedBy: "provider:timeout",
+      providerErrorKind: "timeout",
+      providerErrorType: "client_timeout",
+    });
+    expect(env.logs.at(-1)?.providerDurationMs).toBeGreaterThan(0);
+  });
+
+  it("shows the timeout message for a real timeout", async () => {
+    const { aiGenerationErrorMessage } = await import("../../model/ai-generation/errors");
+    expect(aiGenerationErrorMessage("provider_timeout")).toBe(
+      "El servicio de IA tardó demasiado en responder. Intenta de nuevo más tarde.",
+    );
+  });
+
+  it("keeps a slow but valid response and records the provider duration", async () => {
+    const env = setup([]);
+    env.deps.provider = {
+      id: "p",
+      model: "m",
+      generateTemplate: () =>
+        new Promise((resolve) => setTimeout(() => resolve(ok(JSON.stringify(fakeProposal()))), 120)),
+    };
+    env.deps.now = Date.now;
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.logs.at(-1)?.providerDurationMs).toBeGreaterThanOrEqual(100);
+  });
+
+  it("still retries once a transient, non-billed provider failure", async () => {
+    const env = setup([
+      new AiProviderError("unavailable", { retryable: true, billable: false, httpStatus: 529 }),
+      ok(JSON.stringify(fakeProposal())),
+    ]);
+    expect((await runTemplateGeneration(textInput(), env.deps)).ok).toBe(true);
+    expect(env.requests).toHaveLength(2);
+    expect(env.quota.rows).toHaveLength(1);
   });
 });

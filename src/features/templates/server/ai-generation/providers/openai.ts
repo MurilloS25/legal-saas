@@ -94,7 +94,7 @@ function errorFromStatus(status: number, body: ResponsesBody | null): AiProvider
     return new AiProviderError("rate_limited", { retryable: false, httpStatus: status, billable: false });
   }
   if (status === 408) {
-    return new AiProviderError("timeout", { retryable: true, httpStatus: status });
+    return new AiProviderError("timeout", { retryable: false, httpStatus: status, providerErrorType: "http_408" });
   }
   if (status >= 500) {
     return new AiProviderError("unavailable", { retryable: true, httpStatus: status, billable: false });
@@ -183,7 +183,9 @@ export function createOpenAiTemplateProvider(
       } catch {
         clearTimeout(timer);
         if (controller.signal.aborted) {
-          throw new AiProviderError("timeout", { retryable: true });
+          // Timeout propio (AbortController con AI_TEMPLATE_TIMEOUT_MS). La
+          // solicitud pudo haberse procesado y facturado: no se reintenta.
+          throw new AiProviderError("timeout", { retryable: false, providerErrorType: "client_timeout" });
         }
         throw new AiProviderError("unavailable", { retryable: true, billable: false });
       }
@@ -203,7 +205,9 @@ export function createOpenAiTemplateProvider(
       } catch (error) {
         if (error instanceof AiProviderError) throw error;
         if (controller.signal.aborted) {
-          throw new AiProviderError("timeout", { retryable: true });
+          // Timeout propio (AbortController con AI_TEMPLATE_TIMEOUT_MS). La
+          // solicitud pudo haberse procesado y facturado: no se reintenta.
+          throw new AiProviderError("timeout", { retryable: false, providerErrorType: "client_timeout" });
         }
         throw new AiProviderError("unavailable", { retryable: true });
       } finally {

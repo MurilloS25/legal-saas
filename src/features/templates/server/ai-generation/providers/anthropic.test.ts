@@ -105,6 +105,13 @@ describe("buildAnthropicRequestBody", () => {
     });
   });
 
+  it("sends effort low by default, a configured level, or omits it when off", () => {
+    expect(body.output_config?.effort).toBe("low");
+    expect(buildAnthropicRequestBody({ ...config, effort: "medium" }, request).output_config?.effort).toBe("medium");
+    expect(buildAnthropicRequestBody({ ...config, effort: null }, request).output_config).not.toHaveProperty("effort");
+    expect(body).not.toHaveProperty("thinking");
+  });
+
   it("exposes no tools, tool choice, metadata or MCP servers to the model", () => {
     expect(body).not.toHaveProperty("tools");
     expect(body).not.toHaveProperty("tool_choice");
@@ -218,11 +225,27 @@ describe("createAnthropicTemplateProvider", () => {
           );
         }),
     );
-    await expectProviderError(
+    const error = await expectProviderError(
       providerWith(fetchMock, { timeoutMs: 20 }).generateTemplate(request),
       "timeout",
-      true,
+      false,
     );
+    // Origen exacto: el timeout propio de LexCR (AI_TEMPLATE_TIMEOUT_MS vía SDK).
+    expect(error.providerErrorType).toBe("client_timeout");
+    // El SDK no reintenta por su cuenta.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not discard a valid response that arrives late but within the timeout", async () => {
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) =>
+          setTimeout(() => resolve(jsonResponse(200, message('{"ok":1}'))), 150),
+        ),
+    );
+    const result = await providerWith(fetchMock, { timeoutMs: 2_000 }).generateTemplate(request);
+    expect(result.rawOutput).toBe('{"ok":1}');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

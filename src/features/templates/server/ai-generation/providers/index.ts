@@ -28,6 +28,7 @@ export function createAiTemplateProvider(config: AiTemplateConfig): AiTemplatePr
         timeoutMs: config.providerTimeoutMs,
         maxOutputTokens: config.maxOutputTokens,
         workspaceId: config.workspaceId,
+        effort: config.anthropicEffort,
       });
     case "fake":
       return createFakeTemplateProvider({ delayMs: 600 });

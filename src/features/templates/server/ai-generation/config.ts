@@ -10,6 +10,8 @@ import "server-only";
  *   ANTHROPIC_API_KEY=...         # secreto; solo servidor (AI_PROVIDER=anthropic)
  *   ANTHROPIC_MODEL=...           # obligatorio; no hay modelo por defecto
  *   ANTHROPIC_WORKSPACE_ID=...    # opcional; solo para keys sin workspace
+ *   ANTHROPIC_EFFORT=low          # opcional: low (default) | medium | high |
+ *                                 # xhigh | max | off (omite el parámetro)
  *   AI_TEMPLATE_MAX_FILE_BYTES=   # opcional, <= 10 MB
  *   AI_TEMPLATE_MAX_PAGES=        # opcional, <= 5
  *   AI_TEMPLATE_DAILY_LIMIT=      # opcional, default 2 por usuario/día
@@ -37,6 +39,8 @@ export type AiTemplateConfig = {
   apiKey: string | null;
   /** Solo Anthropic: cabecera `anthropic-workspace-id` (no secreta). */
   workspaceId: string | null;
+  /** Solo Anthropic: `output_config.effort`; `null` = omitido. */
+  anthropicEffort: "low" | "medium" | "high" | "xhigh" | "max" | null;
   maxFileBytes: number;
   maxPages: number;
   maxPastedChars: number;
@@ -83,6 +87,7 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
   let model: string;
   let apiKey: string | null = null;
   let workspaceId: string | null = null;
+  let anthropicEffort: AiTemplateConfig["anthropicEffort"] = "low";
   if (provider === "openai" || provider === "anthropic") {
     const prefix = provider === "openai" ? "OPENAI" : "ANTHROPIC";
     apiKey = env[`${prefix}_API_KEY`]?.trim() || null;
@@ -96,6 +101,14 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
     if (provider === "anthropic") {
       workspaceId = env.ANTHROPIC_WORKSPACE_ID?.trim() || null;
       if (workspaceId !== null && !/^[A-Za-z0-9_-]{1,120}$/.test(workspaceId)) {
+        return { available: false, reason: "invalid" };
+      }
+      const effort = (env.ANTHROPIC_EFFORT ?? "").trim().toLowerCase();
+      if (effort === "off") anthropicEffort = null;
+      else if (effort === "") anthropicEffort = "low";
+      else if (["low", "medium", "high", "xhigh", "max"].includes(effort)) {
+        anthropicEffort = effort as NonNullable<AiTemplateConfig["anthropicEffort"]>;
+      } else {
         return { available: false, reason: "invalid" };
       }
     }
@@ -133,6 +146,7 @@ export function readAiTemplateConfig(env: Env = process.env): AiTemplateConfigRe
       model,
       apiKey,
       workspaceId,
+      anthropicEffort,
       maxFileBytes,
       maxPages,
       maxPastedChars: AI_TEMPLATE_DEFAULTS.maxPastedChars,

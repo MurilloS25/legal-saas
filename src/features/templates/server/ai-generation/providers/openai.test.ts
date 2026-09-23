@@ -133,7 +133,8 @@ describe("createOpenAiTemplateProvider", () => {
       { ...config, timeoutMs: 10 },
       fetchMock as unknown as typeof fetch,
     );
-    await expectProviderError(provider.generateTemplate(request), "timeout", true);
+    const error = await expectProviderError(provider.generateTemplate(request), "timeout", false);
+    expect(error.providerErrorType).toBe("client_timeout");
   });
 });
 
