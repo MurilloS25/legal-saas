@@ -10,3 +10,7 @@ export type TemplateWorkspaceState = {
   success?: boolean;
   updatedAt?: string;
 };
+
+export type DuplicateTemplateState = {
+  message?: string;
+};

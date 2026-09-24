@@ -135,7 +135,7 @@ export default async function TemplatesPage({ searchParams }: Props) {
       ) : (
         /* ---- templates table ---- */
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <TemplatesTable rows={page.rows} />
+          <TemplatesTable rows={page.rows} canDuplicate={canWrite} />
 
           <TablePagination
             page={query.page}

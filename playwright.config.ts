@@ -452,6 +452,17 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Duplicate a Machote from the templates list — authenticated.
+    {
+      name: "chromium-template-duplication",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-duplication-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Clients as legal entities (cédula jurídica) + full client autofill
     // (estado civil, ocupación, sociedades) — authenticated.
     {
