@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import {
   CleanupRegistry,
   createTestClient,
@@ -252,5 +252,35 @@ test.describe("clients — persona jurídica", () => {
       `clients?select=marital_status&id=eq.${id}`,
     );
     expect(row.marital_status).toBe("Unión libre");
+  });
+
+  test("F: the visible marital status options are the approved canonical list in create, edit and the contextual dialog", async ({
+    page,
+  }) => {
+    const expected = [
+      "Soltero/a",
+      "Casado/a una vez",
+      "Casado/a dos veces",
+      "Casado/a tres veces",
+      "Divorciado/a",
+      "Divorciado/a dos veces",
+      "Divorciado/a tres veces",
+      "Viudo/a",
+      "Unión libre",
+    ];
+    const visibleOptions = (select: Locator) =>
+      select.locator("option:not([disabled])").allTextContents();
+
+    await page.goto("/clients/new");
+    expect(await visibleOptions(page.getByLabel("Estado civil"))).toEqual(expected);
+
+    await openClientFromList(page, personName);
+    expect(await visibleOptions(page.getByLabel("Estado civil"))).toEqual(expected);
+
+    await page.goto("/receivables/new");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
+    const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
+    expect(await visibleOptions(dialog.getByLabel("Estado civil"))).toEqual(expected);
   });
 });
