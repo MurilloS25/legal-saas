@@ -16,6 +16,7 @@ import type { FillableTemplateField } from "@/features/templates/domain";
 import {
   NATURAL_PERSON_ONLY_AUTOFILL_SOURCES,
   resolveAutofillSource,
+  stripDiacritics,
   type VariableAutofillSource,
 } from "@/features/templates/domain";
 
@@ -204,5 +205,69 @@ export function fieldsToOverwrite(
 ): string[] {
   return Object.keys(proposedValues).filter(
     (key) => (currentValues[key] ?? "").trim() !== "",
+  );
+}
+
+export type RoleAutofillPlan = ClientAutofillResult & {
+  /**
+   * Variables de datos personales que se vacían porque el Cliente elegido
+   * es una persona jurídica y el rol tenía un valor (p. ej. el estado civil
+   * de la persona física seleccionada antes): nunca se deja un dato
+   * personal ajeno atribuido a una sociedad.
+   */
+  clearedFields: string[];
+  /** Variables con valor actual que se reemplazan o vacían: requieren confirmación. */
+  overwriteFields: string[];
+};
+
+/**
+ * Plan completo de autollenado de un rol: los valores a copiar del Cliente
+ * y, si es una persona jurídica, el vaciado de los datos personales que
+ * no le aplican pero que el rol todavía contiene. Todo reemplazo o vaciado
+ * de un valor existente pasa por la misma confirmación.
+ */
+export function planRoleAutofill(
+  client: AutofillClient,
+  variables: ResolvedRoleVariable[],
+  currentValues: Record<string, string>,
+): RoleAutofillPlan {
+  const result = mapClientToRoleVariables(client, variables);
+  const clearedFields = result.notApplicable.filter(
+    (key) => (currentValues[key] ?? "").trim() !== "",
+  );
+  const values = { ...result.values };
+  for (const key of clearedFields) values[key] = "";
+
+  const overwriteFields = variables
+    .map((variable) => variable.field_key)
+    .filter((key) => key in values && (currentValues[key] ?? "").trim() !== "");
+
+  return { ...result, values, clearedFields, overwriteFields };
+}
+
+function comparableIdentification(value: string): string {
+  return value.toLowerCase().replace(/[-\s]/g, "");
+}
+
+/**
+ * Búsqueda del selector de Clientes: por nombre (sin distinguir mayúsculas
+ * ni tildes) o por identificación sin importar guiones ni espacios — una
+ * cédula jurídica guardada como "3-101-123456" se encuentra escribiendo
+ * "3101123456", y una física guardada sin guiones con "1-0888-0777".
+ */
+export function matchesClientSearch(
+  client: Pick<AutofillClient, "full_name" | "identification_number">,
+  query: string,
+): boolean {
+  const trimmed = query.trim();
+  if (trimmed === "") return true;
+  const normalizedQuery = stripDiacritics(trimmed).toLowerCase();
+  if (stripDiacritics(client.full_name).toLowerCase().includes(normalizedQuery)) {
+    return true;
+  }
+  const idQuery = comparableIdentification(trimmed);
+  return (
+    idQuery !== "" &&
+    comparableIdentification(client.identification_number).includes(idQuery)
   );
 }

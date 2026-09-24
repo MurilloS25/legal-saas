@@ -26,13 +26,15 @@ import type {
   DocumentClientOption,
   RoleVariableGroup,
 } from "../model/role-autofill";
-import { fieldsToOverwrite, mapClientToRoleVariables } from "../model/role-autofill";
+import { planRoleAutofill } from "../model/role-autofill";
 import { ClientCombobox } from "./ClientCombobox";
 
 type PendingConfirmation = {
   client: DocumentClientOption;
   values: Record<string, string>;
   overwriteFields: string[];
+  /** Subconjunto de `overwriteFields` que se vacía (no aplica a una sociedad). */
+  clearedFields: string[];
 };
 
 type Props = {
@@ -66,17 +68,23 @@ export function RoleAutofillFields({
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
 
   function handleSelect(client: DocumentClientOption) {
-    const result = mapClientToRoleVariables(client, group.variables);
-    const overwriteFields = fieldsToOverwrite(result.values, values);
+    // Incluye el vaciado de datos personales que no aplican a una persona
+    // jurídica (p. ej. el estado civil de la persona elegida antes).
+    const plan = planRoleAutofill(client, group.variables, values);
 
-    setIncomplete(result.incomplete);
-    setNotApplicable(result.notApplicable);
-    if (overwriteFields.length > 0) {
-      setConfirmation({ client, values: result.values, overwriteFields });
+    setIncomplete(plan.incomplete);
+    setNotApplicable(plan.notApplicable);
+    if (plan.overwriteFields.length > 0) {
+      setConfirmation({
+        client,
+        values: plan.values,
+        overwriteFields: plan.overwriteFields,
+        clearedFields: plan.clearedFields,
+      });
       return;
     }
 
-    onApply(result.values);
+    onApply(plan.values);
     setReferenceClient(client);
   }
 
@@ -165,9 +173,20 @@ export function RoleAutofillFields({
                   id={dialogDescId}
                   className="text-sm text-slate-600 leading-relaxed"
                 >
-                  Al continuar se reemplazarán únicamente los campos que
-                  puedan completarse con el Cliente seleccionado:{" "}
-                  {confirmation.overwriteFields.join(", ")}.
+                  {(() => {
+                    const replaced = confirmation.overwriteFields.filter(
+                      (key) => !confirmation.clearedFields.includes(key),
+                    );
+                    return (
+                      <>
+                        {replaced.length > 0 &&
+                          `Al continuar se reemplazarán únicamente los campos que puedan completarse con el Cliente seleccionado: ${replaced.join(", ")}.`}
+                        {replaced.length > 0 && confirmation.clearedFields.length > 0 && " "}
+                        {confirmation.clearedFields.length > 0 &&
+                          `Se vaciarán porque no aplican a una persona jurídica: ${confirmation.clearedFields.join(", ")}.`}
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
               <div className="flex gap-3 border-t border-slate-100 px-6 py-4">

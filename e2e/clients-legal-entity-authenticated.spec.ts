@@ -283,4 +283,130 @@ test.describe("clients — persona jurídica", () => {
     const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
     expect(await visibleOptions(dialog.getByLabel("Estado civil"))).toEqual(expected);
   });
+
+  test("G: replacing a persona física with a sociedad in the same role clears the personal data, with confirmation", async ({
+    page,
+  }) => {
+    await page.goto(`/documents/new/${templateId}`);
+    await expect(roleChip(page, "Vendedor")).toBeVisible();
+
+    // Primero una persona física en Vendedor: su estado civil llega al rol.
+    await completeRoleFromClient(page, "Vendedor", personName);
+    await expect(fieldValue(page, "vendedor.estado_civil")).toHaveValue("Casado/a una vez");
+
+    // Después la sociedad en el mismo rol: nunca debe quedar ese estado civil.
+    await completeRoleFromClient(page, "Vendedor", companyName);
+    const dialog = page.getByRole("alertdialog", { name: "Este rol ya contiene información" });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByText(/Se vaciarán porque no aplican a una persona jurídica: vendedor\.estado_civil/),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Reemplazar campos" }).click();
+
+    await expect(fieldValue(page, "vendedor.nombre")).toHaveValue(companyName);
+    await expect(fieldValue(page, "vendedor.cedula_juridica")).toHaveValue(companyId);
+    await expect(fieldValue(page, "vendedor.estado_civil")).toHaveValue("");
+  });
+
+  test("H: the Clientes selector finds a sociedad by cédula jurídica typed without hyphens", async ({
+    page,
+  }) => {
+    await page.goto(`/documents/new/${templateId}`);
+    await roleChip(page, "Vendedor").click();
+    await roleBlock(page, "Vendedor")
+      .getByLabel("Completar desde Cliente registrado")
+      .fill(companyId.replace(/-/g, ""));
+    const option = page.getByRole("listbox").getByRole("option", { name: new RegExp(companyName) });
+    await expect(option).toBeVisible();
+    await expect(option).toContainText(`Cédula jurídica: ${companyId}`);
+  });
+
+  test("I: a sociedad created from the role's contextual dialog fills any role, keeping hyphens and inventing nothing", async ({
+    page,
+  }) => {
+    const template = await createTestTemplate(registry, {
+      name: uniqueName("clients-legal-entity", "poder"),
+      content:
+        "Comparece {{apoderado.nombre}}, cédula {{apoderado.cedula}}, domiciliada en {{apoderado.domicilio}}, {{apoderado.estado_civil}}, {{apoderado.ocupacion}}.",
+    });
+    for (const [index, key] of [
+      "apoderado.nombre",
+      "apoderado.cedula",
+      "apoderado.domicilio",
+      "apoderado.estado_civil",
+      "apoderado.ocupacion",
+    ].entries()) {
+      await createTestTemplateField(registry, template.id, { field_key: key, label: key, sort_order: index });
+    }
+    const newCompany = uniqueName("clients-legal-entity", "Nueva S.R.L.");
+    const newCompanyId = "3-102-765432";
+
+    await page.goto(`/documents/new/${template.id}`);
+    await page.waitForLoadState("networkidle");
+    await roleChip(page, "Apoderado").click();
+    await roleBlock(page, "Apoderado").getByRole("button", { name: "+ Crear nuevo cliente" }).click();
+    const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
+    await dialog.getByLabel("Tipo de identificación").selectOption({ label: "Cédula jurídica" });
+    await dialog.getByLabel("Razón social").fill(newCompany);
+    await dialog.getByLabel("Cédula jurídica").fill(newCompanyId);
+    await dialog.getByLabel("Domicilio").fill("Alajuela, centro");
+    await dialog.getByRole("button", { name: "Crear cliente" }).click();
+    await expect(dialog).toHaveCount(0, { timeout: 15_000 });
+    await registerCreatedViaUi(registry, "clients", "full_name", newCompany);
+
+    await expect(fieldValue(page, "apoderado.nombre")).toHaveValue(newCompany);
+    await expect(fieldValue(page, "apoderado.cedula")).toHaveValue(newCompanyId);
+    await expect(fieldValue(page, "apoderado.domicilio")).toHaveValue("Alajuela, centro");
+    await expect(fieldValue(page, "apoderado.estado_civil")).toHaveValue("");
+    await expect(fieldValue(page, "apoderado.ocupacion")).toHaveValue("");
+    await expect(
+      roleBlock(page, "Apoderado").getByText(/No aplican a una persona jurídica/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Documento", exact: true }).getByText(newCompanyId).first(),
+    ).toBeVisible();
+  });
+
+  test("J: a Machote with sociedad.* variables shows a Sociedad Parte that fills only the sociedad data", async ({
+    page,
+  }) => {
+    const template = await createTestTemplate(registry, {
+      name: uniqueName("clients-legal-entity", "constitucion"),
+      content:
+        "Comparece {{sociedad.razon_social}}, cédula jurídica {{sociedad.cedula_juridica}}, domiciliada en {{sociedad.direccion}}.",
+    });
+    for (const [index, key] of [
+      "sociedad.razon_social",
+      "sociedad.cedula_juridica",
+      "sociedad.direccion",
+    ].entries()) {
+      await createTestTemplateField(registry, template.id, { field_key: key, label: key, sort_order: index });
+    }
+
+    await page.goto(`/documents/new/${template.id}`);
+    // 1. El rol aparece como Parte seleccionable (mismo mecanismo de roles).
+    await expect(roleChip(page, "Sociedad")).toBeVisible();
+
+    // 2. Se selecciona una sociedad Cliente.
+    await completeRoleFromClient(page, "Sociedad", companyName);
+
+    // 3-4. Los tres campos se completan y la cédula jurídica conserva guiones.
+    await expect(fieldValue(page, "sociedad.razon_social")).toHaveValue(companyName);
+    await expect(fieldValue(page, "sociedad.cedula_juridica")).toHaveValue(companyId);
+    await expect(fieldValue(page, "sociedad.direccion")).toHaveValue(
+      "Heredia, Belén, domicilio editado",
+    );
+
+    // 5. No se crean ni rellenan campos personales: el Machote no los
+    // tiene y la Escritura solo contiene las tres variables del rol.
+    const roleInputs = page.locator('input[name^="sociedad."]');
+    await expect(roleInputs).toHaveCount(3);
+    await expect(page.locator('input[name="sociedad.estado_civil"]')).toHaveCount(0);
+    await expect(
+      roleBlock(page, "Sociedad").getByText(/No aplican a una persona jurídica/),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "Documento", exact: true }).getByText(companyId).first(),
+    ).toBeVisible();
+  });
 });
