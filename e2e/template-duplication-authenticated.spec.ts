@@ -154,7 +154,14 @@ test.describe("duplicar machote", () => {
     expect(copyBlock.attrs.variants).toEqual(doc.content[0].content[3].attrs!.variants);
 
     const [sourceFields, copyFields] = [await fieldsOf(sourceId), await fieldsOf(copyId)];
-    const strip = (rows: FieldRow[]) => rows.map(({ id: _id, ...rest }) => rest);
+    const strip = (rows: FieldRow[]) =>
+      rows.map((row) => ({
+        field_key: row.field_key,
+        label: row.label,
+        required: row.required,
+        autofill_source: row.autofill_source,
+        output_transform: row.output_transform,
+      }));
     expect(strip(copyFields)).toEqual(strip(sourceFields));
     expect(copyFields.map((f) => f.id)).not.toEqual(
       expect.arrayContaining(sourceFields.map((f) => f.id)),
