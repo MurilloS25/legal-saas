@@ -9,6 +9,7 @@ export type {
   TemplateIndexConfigurationHandle,
 } from "./components/TemplateIndexConfigurationSection";
 export type { TemplateIndexConfiguration } from "./model/template-index-configuration";
+export type { NotarialDockState } from "./model/dock-state";
 export { isTemplateIndexConfigurationResolved } from "./model/template-index-configuration";
 export { generateConfiguredPartiesPreview } from "./model/parties";
 export { resolveNotarialMetadataPrefill } from "./model/prefill";

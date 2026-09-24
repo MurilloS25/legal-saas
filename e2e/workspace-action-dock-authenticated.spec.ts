@@ -100,7 +100,7 @@ test.describe("workspace action dock", () => {
     }
   });
 
-  test("C: bringing the Índice primary action into view never leaves it under the dock", async ({
+  test("C: bringing the last Índice control into view never leaves it under the dock", async ({
     page,
   }) => {
     const target = targets.find((t) => t.name.startsWith("Escritura finalizada"))!;
@@ -108,15 +108,27 @@ test.describe("workspace action dock", () => {
       await page.setViewportSize(viewport);
       await page.goto(target.url);
       await page.waitForLoadState("networkidle");
-      const save = page
+      const last = page
         .getByRole("region", { name: "Datos para índice" })
-        .getByRole("button", { name: "Guardar datos del índice" });
-      await save.evaluate((el) => el.scrollIntoView({ block: "end" }));
-      const [button, dock] = await Promise.all([
-        save.boundingBox(),
+        .getByRole("button")
+        .last();
+      await last.evaluate((el) => el.scrollIntoView({ block: "end" }));
+      const [control, dock] = await Promise.all([
+        last.boundingBox(),
         page.locator("[data-workspace-action-dock]").boundingBox(),
       ]);
-      expect(button!.y + button!.height).toBeLessThanOrEqual(dock!.y);
+      expect(control!.y + control!.height).toBeLessThanOrEqual(dock!.y);
     }
+  });
+
+  test("D: a finalized Escritura has a single Guardar (the dock) and no duplicate CTAs", async ({
+    page,
+  }) => {
+    const target = targets.find((t) => t.name.startsWith("Escritura finalizada"))!;
+    await page.setViewportSize(VIEWPORTS[0]);
+    await page.goto(target.url);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("button", { name: /^Guardar/ })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /Confirmar/ })).toHaveCount(0);
   });
 });

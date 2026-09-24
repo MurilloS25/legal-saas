@@ -452,6 +452,17 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Índice flow: the dock is the only Guardar; Confirmar Índice is lifecycle.
+    {
+      name: "chromium-notarial-index-dock-flow",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-index-dock-flow-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Floating workspace action dock never hides page controls — authenticated.
     {
       name: "chromium-workspace-action-dock",

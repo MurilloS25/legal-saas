@@ -119,28 +119,28 @@ test("confirmation: save visible snapshot, reject stale version, correct and reo
         await input.fill(value);
       }
     }
-    await section.getByRole("button", { name: "Guardar datos del índice" }).click();
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }).click();
     await expect.poll(async () => (await restSelect<{notes: string}>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]?.notes).toBe("Nota A");
-    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeEnabled();
+    await expect(page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })).toBeEnabled();
     await section.getByRole("textbox", { name: /Notas internas/ }).fill("Nota B");
-    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toHaveCount(0);
+    await expect(page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })).toHaveCount(0);
     expect((await restSelect<{ notes: string; notarial_confirmed_at: string | null }>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]).toMatchObject({ notes: "Nota A", notarial_confirmed_at: null });
-    await section.getByRole("button", { name: "Guardar datos del índice" }).click();
-    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeEnabled();
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }).click();
+    await expect(page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })).toBeEnabled();
     const other = await context.newPage();
     try {
       await other.goto(`/documents/${data.document.id}?section=notarial`);
       await section.getByRole("textbox", { name: /Notas internas/ }).fill("Nota C");
-      await section.getByRole("button", { name: "Guardar datos del índice" }).click();
+      await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }).click();
       await expect.poll(async () => (await restSelect<{notes: string}>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]?.notes).toBe("Nota C");
-      await other.getByRole("button", { name: "Confirmar datos del Índice" }).click();
-      await other.getByRole("alertdialog").getByRole("button", { name: "Confirmar datos", exact: true }).click();
+      await other.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" }).click();
+      await other.getByRole("alertdialog").getByRole("button", { name: "Confirmar Índice", exact: true }).click();
       await expect(other.getByRole("alert").filter({ hasText: "cambiaron en otra sesión" })).toBeVisible();
       expect((await restSelect<{notarial_confirmed_at: string | null}>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]?.notarial_confirmed_at).toBeNull();
     } finally { await other.close(); }
     async function confirm() {
-      await section.getByRole("button", { name: "Confirmar datos del Índice" }).click();
-      await page.getByRole("alertdialog").getByRole("button", { name: "Confirmar datos", exact: true }).click();
+      await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Confirmar Índice", exact: true }).click();
       await expect(section.getByText("Datos del Índice confirmados", { exact: true })).toBeVisible();
     }
     await confirm();
@@ -149,8 +149,8 @@ test("confirmation: save visible snapshot, reject stale version, correct and reo
     await page.getByRole("alertdialog").getByRole("button", { name: "Corregir datos", exact: true }).click();
     await expect(section.getByRole("textbox", { name: /Notas internas/ })).toBeEnabled();
     await section.getByRole("textbox", { name: /Notas internas/ }).fill("Nota D");
-    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toHaveCount(0);
-    await section.getByRole("button", { name: "Guardar datos del índice" }).click();
+    await expect(page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })).toHaveCount(0);
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }).click();
     await confirm();
     await page.getByRole("button", { name: "Reabrir escritura", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Reabrir escritura", exact: true }).click();

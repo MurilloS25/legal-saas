@@ -161,10 +161,16 @@ After finalization, authorized users may include or exclude it from the Index.
 Notarial metadata progresses through pending, ready-to-confirm, confirmed and
 correction-required states. Confirmation binds to the exact persisted visible
 snapshot; reopening invalidates confirmation without deleting metadata.
-The Índice section shows one primary action per state and says what is
-missing: Guardar while there are unsaved changes, missing data or a content
-change to review; Confirmar only when everything is complete and saved;
-Corregir once confirmed. Guardar never confirms and Confirmar never saves.
+Inside an Escritura the persistent dock is the only Guardar: while the
+Escritura is a draft it saves the Escritura; once finalized (content
+read-only, Índice unlocked) it saves the Índice data, so there is never
+more than one thing to save. "Confirmar Índice" is a separate lifecycle
+action in the dock, offered only when the Índice data is complete and
+saved; "Corregir datos" lives in the Índice status header. The status
+header says what is missing for each state (Pendiente, Listo para
+confirmar, Confirmado, Revisión requerida). Guardar never confirms,
+Confirmar never saves, and Reabrir is blocked while Índice changes are
+unsaved.
 `Partes` distinguishes derived, manually overridden and explicitly empty data.
 
 The system must not submit the official notarial index.

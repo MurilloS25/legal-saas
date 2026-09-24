@@ -157,12 +157,15 @@ export function NotarialConfirmationSection({
   controller,
   confirmedByName,
   guidance,
+  correctAvailable,
   children,
 }: {
   controller: NotarialConfirmationController;
   confirmedByName: string | null;
   /** Qué falta hacer ahora (`notarialNextStep`). */
   guidance: string;
+  /** Datos confirmados y con permiso: "Corregir datos" contextual aquí. */
+  correctAvailable: boolean;
   children: ReactNode;
 }) {
   const {
@@ -212,6 +215,16 @@ export function NotarialConfirmationSection({
             {guidance}
           </p>
         </div>
+        {correctAvailable && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setDialog("correct")}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            Corregir datos
+          </button>
+        )}
       </div>
       {error && (
         <p
@@ -224,9 +237,9 @@ export function NotarialConfirmationSection({
       {children}
       {dialog === "confirm" && (
         <ConfirmDialog
-          title="¿Confirmar datos del Índice?"
+          title="¿Confirmar Índice?"
           description="Confirma que revisaste la información utilizada para el Índice Notarial. Después de confirmar, los datos quedarán bloqueados para edición normal. Si necesitas corregirlos posteriormente, el cambio quedará registrado."
-          confirmLabel="Confirmar datos"
+          confirmLabel="Confirmar Índice"
           pending={busy || savePending || !matchesPersisted}
           onConfirm={confirm}
           onClose={() => setDialog(null)}

@@ -1,13 +1,18 @@
 /**
- * Siguiente paso de los datos del Índice de una Escritura: UNA acción
- * principal por estado y una frase que explica qué falta, para que el
- * usuario no tenga que entender el ciclo interno.
+ * Siguiente paso de los datos del Índice de una Escritura: qué se puede
+ * hacer ahora y una frase que explica qué falta, para que el usuario no
+ * tenga que entender el ciclo interno.
  *
  * No cambia ninguna regla de dominio — se apoya en el estado derivado
  * existente (`notarialConfirmationState`) y mantiene separados los
- * conceptos: Guardar persiste datos (nunca confirma); Confirmar es una
- * acción explícita aparte que bloquea la edición normal y solo se ofrece
- * con los datos visibles ya guardados; Corregir reabre datos confirmados.
+ * conceptos: Guardar persiste datos (nunca confirma); Confirmar Índice es
+ * una acción de ciclo de vida aparte que bloquea la edición normal y solo
+ * se ofrece con los datos completos y ya guardados; Corregir reabre datos
+ * confirmados.
+ *
+ * La misma regla alimenta el dock de la Escritura (Guardar + Confirmar
+ * Índice) y la revisión en línea del listado del Índice (una acción
+ * principal por estado, `primary`).
  */
 
 import {
@@ -18,11 +23,11 @@ import {
 
 export type NotarialNextStepInput = {
   state: NotarialConfirmationState;
-  /** Los datos visibles difieren de los guardados. */
+  /** Los datos visibles difieren de los guardados (o nunca se guardaron). */
   dirty: boolean;
   complete: boolean;
   missingFields: NotarialMissingField[];
-  /** documents.edit */
+  /** Puede editar/guardar los datos del Índice. */
   canEdit: boolean;
   /** notarial_index.generate — confirmar/corregir. */
   canConfirm: boolean;
@@ -40,73 +45,85 @@ export type NotarialNextStepInput = {
 };
 
 export type NotarialNextStep = {
+  /** Una acción principal por estado (pantallas sin dock). */
   primary: "save" | "confirm" | "correct" | null;
+  /** Hay algo que persistir: Guardar está habilitado. */
+  saveEnabled: boolean;
+  /** Confirmar Índice disponible (completo, guardado, con permiso). */
+  confirmAvailable: boolean;
+  /** Corregir datos disponible (confirmado, con permiso). */
+  correctAvailable: boolean;
   guidance: string;
 };
 
-const INVALIDATED = "Una corrección o reapertura invalidó la confirmación.";
+const REVIEW = "Hubo una corrección o reapertura.";
 
 export function notarialNextStep(input: NotarialNextStepInput): NotarialNextStep {
   const missing =
     input.listMissing === false
       ? "Faltan datos para completar el Índice."
       : `Faltan datos: ${joinMissingFieldLabels(input.missingFields)}.`;
+  const none = { saveEnabled: false, confirmAvailable: false, correctAvailable: false };
 
   if (input.state === "confirmed") {
     return input.canConfirm
       ? {
+          ...none,
           primary: "correct",
-          guidance:
-            "Listo. Los datos están confirmados y bloqueados; usa “Corregir datos” si necesitas cambiarlos.",
+          correctAvailable: true,
+          guidance: "Índice confirmado. Si necesitas cambiar algo, usa “Corregir datos”.",
         }
       : {
+          ...none,
           primary: null,
-          guidance:
-            "Listo. Los datos están confirmados y bloqueados; solo alguien con permiso puede corregirlos.",
+          guidance: "Índice confirmado. Solo alguien con permiso puede corregirlo.",
         };
   }
 
-  const prefix = input.state === "review_required" ? `${INVALIDATED} ` : "";
-  const save = input.canEdit ? ("save" as const) : null;
+  const reviewing = input.state === "review_required";
+  const somethingToSave = input.canEdit && (input.dirty || !!input.contentChanged);
+  const saveStep = (guidance: string): NotarialNextStep => ({
+    ...none,
+    primary: input.canEdit ? "save" : null,
+    saveEnabled: somethingToSave,
+    guidance,
+  });
 
   if (input.dirty) {
-    return {
-      primary: save,
-      guidance: input.complete
-        ? "Tienes cambios sin guardar. Guárdalos y después confirma los datos."
+    return saveStep(
+      input.complete
+        ? "Tienes cambios sin guardar. Guárdalos con “Guardar”; después podrás confirmar el Índice."
         : `Tienes cambios sin guardar. ${missing}`,
-    };
+    );
   }
 
   if (input.contentChanged) {
-    return {
-      primary: save,
-      guidance: input.complete
-        ? "Revisa los datos y guárdalos para marcarlos como revisados; después podrás confirmarlos."
-        : `Revisa los datos y guárdalos para marcarlos como revisados. ${missing}`,
-    };
+    return saveStep(
+      input.complete
+        ? "Revisa estos datos y guárdalos antes de confirmar el Índice."
+        : `Revisa estos datos y guárdalos. ${missing}`,
+    );
   }
 
   if (!input.complete) {
-    return {
-      primary: save,
-      guidance: `${prefix}${missing}${prefix ? "" : " Complétalos y guarda."}`,
-    };
+    return saveStep(reviewing ? `${REVIEW} ${missing}` : `${missing} Complétalos y guarda.`);
   }
 
   if (!input.canConfirm) {
     return {
+      ...none,
       primary: null,
       guidance:
-        "Todos los datos están completos y guardados. Falta que alguien con permiso los confirme.",
+        "Todos los datos están guardados. Falta que alguien con permiso confirme el Índice.",
     };
   }
 
   return {
+    ...none,
     primary: "confirm",
-    guidance:
-      input.state === "review_required"
-        ? `${INVALIDATED} Revisa los datos y confírmalos de nuevo.`
-        : "Todos los datos están completos y guardados. Falta confirmarlos.",
+    confirmAvailable: true,
+    guidance: reviewing
+      ? `${REVIEW} Revisa los datos antes de confirmar nuevamente el Índice.`
+      : "Todos los datos están guardados. Falta confirmar el Índice.",
   };
 }

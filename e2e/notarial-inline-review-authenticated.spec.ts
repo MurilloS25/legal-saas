@@ -112,7 +112,7 @@ test.describe("notarial inline review", () => {
     await expect(confirm).toHaveCount(0);
     await expect(detail.getByRole("button", { name: "Guardar datos" })).toBeVisible();
     await expect(
-      detail.getByText("Tienes cambios sin guardar. Guárdalos y después confirma los datos."),
+      detail.getByText("Tienes cambios sin guardar. Guárdalos con “Guardar”; después podrás confirmar el Índice."),
     ).toBeVisible();
     await detail.getByLabel("Tomo").fill("08");
     await expect(confirm).toBeEnabled();
