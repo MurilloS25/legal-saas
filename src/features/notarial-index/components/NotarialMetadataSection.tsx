@@ -34,6 +34,7 @@ import type { NotarialMetadata } from "../model/notarial";
 import type { NotarialMetadataPrefill } from "../model/prefill";
 import { joinMissingFieldLabels } from "../model/notarial";
 import { notarialNextStep } from "../model/next-step";
+import type { NotarialDockState } from "../model/dock-state";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { useToast } from "@/components/feedback/Toast";
 import {
@@ -69,7 +70,16 @@ type Props = {
   /** Nombre del actor de la confirmación más reciente, o null si nunca se
    * confirmó. */
   confirmedByName: string | null;
+  /**
+   * Con dock (workspace de la Escritura): la sección no dibuja sus propios
+   * botones de Guardar/Confirmar — el dock es el único lugar de Guardar y
+   * ofrece "Confirmar Índice" como acción de ciclo de vida. Sin dock
+   * (Escritura sin machote), la sección conserva su barra de acciones.
+   */
+  onDockStateChange?: (state: NotarialDockState | null) => void;
 };
+
+const FORM_ID = "notarial-metadata-form";
 
 export function NotarialMetadataSection({
   documentId,
@@ -83,7 +93,9 @@ export function NotarialMetadataSection({
   reviewRequired = false,
   canConfirm,
   confirmedByName,
+  onDockStateChange,
 }: Props) {
+  const dockMode = onDockStateChange !== undefined;
   const action = saveNotarialMetadataAction.bind(null, documentId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const { showToast } = useToast();
@@ -133,6 +145,36 @@ export function NotarialMetadataSection({
     listMissing: false,
   });
 
+  const dirty = !draft.matchesPersisted;
+  const canSave = canEdit && !confirmation.isConfirmed;
+  const busy = pending || confirmation.busy;
+  const requestConfirm = confirmation.setDialog;
+  useEffect(() => {
+    onDockStateChange?.({
+      formId: FORM_ID,
+      canSave,
+      saveEnabled: nextStep.saveEnabled,
+      unsaved: dirty,
+      saving: pending,
+      confirming: confirmation.busy,
+      errorMessage: state.message,
+      confirmAvailable: nextStep.confirmAvailable && !busy,
+      requestConfirm: () => requestConfirm("confirm"),
+    });
+  }, [
+    onDockStateChange,
+    canSave,
+    nextStep.saveEnabled,
+    nextStep.confirmAvailable,
+    dirty,
+    busy,
+    pending,
+    confirmation.busy,
+    state.message,
+    requestConfirm,
+  ]);
+  useEffect(() => () => onDockStateChange?.(null), [onDockStateChange]);
+
   const fieldsDisabled =
     !canEdit || confirmation.isConfirmed || pending || confirmation.busy;
   const { values } = draft;
@@ -146,8 +188,9 @@ export function NotarialMetadataSection({
       controller={confirmation}
       confirmedByName={confirmedByName}
       guidance={nextStep.guidance}
+      correctAvailable={nextStep.correctAvailable}
     >
-      <form action={formAction} noValidate className="px-6 py-6">
+      <form id={FORM_ID} action={formAction} noValidate className="px-6 py-6">
         {state.message && (
           <div
             role="alert"
@@ -269,7 +312,7 @@ export function NotarialMetadataSection({
             datos; Confirmar solo con todo completo y guardado; Corregir
             cuando ya está confirmado. Nunca Guardar y Confirmar compitiendo
             a la vez. */}
-        {nextStep.primary && (
+        {!dockMode && (nextStep.primary === "save" || nextStep.primary === "confirm") && (
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-5">
             {nextStep.primary === "save" && (
               <button
@@ -289,17 +332,7 @@ export function NotarialMetadataSection({
                 onClick={() => confirmation.setDialog("confirm")}
                 className={PRIMARY_BUTTON}
               >
-                Confirmar datos del Índice
-              </button>
-            )}
-            {nextStep.primary === "correct" && (
-              <button
-                type="button"
-                disabled={confirmation.busy}
-                onClick={() => confirmation.setDialog("correct")}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
-              >
-                Corregir datos
+                Confirmar Índice
               </button>
             )}
           </div>

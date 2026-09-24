@@ -160,8 +160,7 @@ test.describe("notarial index metadata", () => {
     );
     await expect(summaryCount(page, "pendientes")).toHaveText("0");
 
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     // Con todos los campos configurados, el guardado es realmente completo
     // — el toast lo confirma con ese texto exacto, no el genérico de
@@ -268,8 +267,7 @@ test.describe("notarial index metadata", () => {
       section.getByLabel("Partes", { exact: true }),
     ).toHaveValue("PERSONA UNO Y PERSONA DOS");
 
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     await expect(
       page.getByText("Datos del índice completos.", { exact: true }),
@@ -292,7 +290,7 @@ test.describe("notarial index metadata", () => {
       section.getByText(/se guardan y se confirman aparte/),
     ).toBeVisible();
     await expect(
-      section.getByRole("button", { name: "Guardar datos del índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }),
     ).toBeVisible();
   });
 
@@ -317,8 +315,7 @@ test.describe("notarial index metadata", () => {
       section.getByText(/Faltan datos para completar el Índice:/),
     ).toBeVisible();
 
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
 
     // Nunca el texto que implicaría que el Índice quedó completo/agregado.
@@ -355,12 +352,11 @@ test.describe("notarial index metadata", () => {
     await expect(indiceTab.getByText("✓", { exact: true })).toHaveCount(0);
 
     await page.goto(`/documents/${workingId}?section=notarial`);
-    await notarialSection(page)
-      .getByRole("button", { name: "Confirmar datos del Índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })
       .click();
     await page
-      .getByRole("alertdialog", { name: "¿Confirmar datos del Índice?" })
-      .getByRole("button", { name: "Confirmar datos" })
+      .getByRole("alertdialog", { name: "¿Confirmar Índice?" })
+      .getByRole("button", { name: "Confirmar Índice" })
       .click();
     await expect(
       page.getByText("Datos del Índice confirmados.", { exact: true }),
@@ -408,8 +404,7 @@ test.describe("notarial index metadata", () => {
     await section
       .getByLabel("Acto o contrato", { exact: true })
       .fill("Donación");
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     // Solo "Acto o contrato" quedó configurado — el guardado es parcial, así
     // que el toast es el genérico ("guardados"), no el de completitud.
@@ -442,8 +437,7 @@ test.describe("notarial index metadata", () => {
     await section
       .getByLabel("Número de instrumento", { exact: true })
       .fill("1");
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     // El resto de los campos requeridos siguen vacíos — sigue siendo un
     // guardado parcial, mismo toast genérico que en I.

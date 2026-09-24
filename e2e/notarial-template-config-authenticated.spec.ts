@@ -161,8 +161,7 @@ async function fillStructuredMetadata(page: Page, instrument: number) {
   await openIndexRow(page, "Folios");
   await section.getByLabel("Folio inicial", { exact: true }).fill("40");
   await section.getByLabel("Folio final", { exact: true }).fill("41");
-  await section
-    .getByRole("button", { name: "Guardar datos del índice" })
+  await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
     .click();
   // Acto/Partes no se llenan aquí a propósito — ya vienen resueltos por el
   // snapshot/generado del machote, así que con instrumento + fecha + tomo +
@@ -179,7 +178,7 @@ test.describe("template notarial index configuration", () => {
     await restoreTestLawyerProfile(previousProfile);
   });
 
-  test("A: seed one template and two documents", async () => {
+  test("A: seed one template", async () => {
     previousProfile = await replaceTestLawyerProfile("Notaria Normalización E2E");
     const template = await createTestTemplate(registry, {
       name: templateName,
@@ -222,45 +221,6 @@ test.describe("template notarial index configuration", () => {
       label: "Minutos",
       sort_order: 9,
     });
-    const instrumentWords = integerToUppercaseWords(String(firstInstrument));
-    if (!instrumentWords.ok) throw new Error(instrumentWords.error);
-    firstDocumentId = (
-      await createTestDocument(registry, template.id, {
-        title: uniqueName("index-config", "primera"),
-        status: "final",
-        field_values: {
-          "seller.name": "Juan Pérez",
-          "buyer.name": "María Rodríguez",
-          "instrument.number": instrumentWords.value,
-          "authorized.date": "catorce de julio de dos mil veintiséis",
-          "hora.valor": "diez",
-          "hora.minutos": "veinte",
-          "protocol.book": "tomo siete",
-          "folio.initial": "veinticinco",
-          "folio.final": "veintiséis",
-        },
-        option_selections: { [timeBlockId]: withMinutesVariantId },
-        rendered_content: "VENDE Juan Pérez A María Rodríguez.",
-      })
-    ).id;
-    secondDocumentId = (
-      await createTestDocument(registry, template.id, {
-        title: uniqueName("index-config", "segunda"),
-        status: "final",
-        field_values: {
-          "seller.name": "Ana Mora",
-          "buyer.name": "Luis Solano",
-          "instrument.number": "siete ocho",
-          "authorized.date": "2026-07-15",
-          "hora.valor": "once",
-          "protocol.book": "Tomo IX",
-          "folio.initial": "41F",
-          "folio.final": "41V",
-        },
-        option_selections: { [timeBlockId]: onTheHourVariantId },
-        rendered_content: "VENDE Ana Mora A Luis Solano.",
-      })
-    ).id;
   });
 
   test("B: configure ordered fields with a live preview", async ({ page }) => {
@@ -367,6 +327,52 @@ test.describe("template notarial index configuration", () => {
     ).toBeVisible();
   });
 
+  // Las Escrituras se crean DESPUÉS de configurar el Índice del Machote,
+  // como en el flujo real: cada Escritura congela en su snapshot la
+  // configuración vigente al crearse (snapshot v2) — editar el Machote
+  // después no cambia su vista histórica del Índice.
+  test("C2: Escrituras created from the configured Machote", async () => {
+    const instrumentWords = integerToUppercaseWords(String(firstInstrument));
+    if (!instrumentWords.ok) throw new Error(instrumentWords.error);
+    firstDocumentId = (
+      await createTestDocument(registry, templateId, {
+        title: uniqueName("index-config", "primera"),
+        status: "final",
+        field_values: {
+          "seller.name": "Juan Pérez",
+          "buyer.name": "María Rodríguez",
+          "instrument.number": instrumentWords.value,
+          "authorized.date": "catorce de julio de dos mil veintiséis",
+          "hora.valor": "diez",
+          "hora.minutos": "veinte",
+          "protocol.book": "tomo siete",
+          "folio.initial": "veinticinco",
+          "folio.final": "veintiséis",
+        },
+        option_selections: { [timeBlockId]: withMinutesVariantId },
+        rendered_content: "VENDE Juan Pérez A María Rodríguez.",
+      })
+    ).id;
+    secondDocumentId = (
+      await createTestDocument(registry, templateId, {
+        title: uniqueName("index-config", "segunda"),
+        status: "final",
+        field_values: {
+          "seller.name": "Ana Mora",
+          "buyer.name": "Luis Solano",
+          "instrument.number": "siete ocho",
+          "authorized.date": "2026-07-15",
+          "hora.valor": "once",
+          "protocol.book": "Tomo IX",
+          "folio.initial": "41F",
+          "folio.final": "41V",
+        },
+        option_selections: { [timeBlockId]: onTheHourVariantId },
+        rendered_content: "VENDE Ana Mora A Luis Solano.",
+      })
+    ).id;
+  });
+
   test("D: values in words preload as canonical index values", async ({
     page,
   }) => {
@@ -418,8 +424,7 @@ test.describe("template notarial index configuration", () => {
       "JUAN PÉREZ Y MARÍA RODRÍGUEZ",
     );
 
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     // Todos los campos quedaron configurados (línea siguiente lo confirma:
     // "0 pendientes") — el toast lo refleja con el texto de completitud, no
@@ -444,8 +449,7 @@ test.describe("template notarial index configuration", () => {
     await section
       .getByLabel("Partes", { exact: true })
       .fill("PARTE CORREGIDA");
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     await expect(
       section.getByLabel("Partes", { exact: true }),
@@ -519,12 +523,11 @@ test.describe("template notarial index configuration", () => {
     await open(page, secondDocumentId);
     const section = metadataSection(page);
     await expect(
-      section.getByText(/Puedes corregir estos datos del índice/),
+      section.getByText(/se guardan y se confirman aparte/),
     ).toBeVisible();
     await openIndexRow(page, "Tomo");
     await section.getByLabel("Tomo", { exact: true }).fill("10");
-    await section
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     // El documento ya había quedado completo en el test F — editar solo
     // Tomo no lo vuelve incompleto, así que sigue siendo el toast de

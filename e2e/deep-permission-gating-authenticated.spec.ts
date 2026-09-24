@@ -472,7 +472,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByText("Tu rol no permite editar los datos del índice"),
     ).not.toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Guardar datos del índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }),
     ).toBeVisible();
 
     await loginAndExpectDashboard(page, readerEmail, PASSWORD);
@@ -485,7 +485,7 @@ test.describe("deep permission gating (propietario / asistente / solo_lectura)",
       page.getByText("Tu rol no permite editar los datos del índice"),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Guardar datos del índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }),
     ).not.toBeVisible();
   });
 

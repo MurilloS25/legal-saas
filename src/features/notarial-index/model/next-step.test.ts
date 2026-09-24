@@ -11,92 +11,107 @@ const base: NotarialNextStepInput = {
   contentChanged: false,
 };
 
-describe("notarialNextStep — una acción principal por estado", () => {
-  it("Pendiente: faltan datos → Guardar, explicando qué falta", () => {
+const complete: Pick<NotarialNextStepInput, "complete" | "missingFields"> = {
+  complete: true,
+  missingFields: [],
+};
+
+describe("notarialNextStep", () => {
+  it("Pendiente: explains what is missing; nothing to save until something changes", () => {
     const step = notarialNextStep(base);
     expect(step.primary).toBe("save");
+    expect(step.saveEnabled).toBe(false);
+    expect(step.confirmAvailable).toBe(false);
     expect(step.guidance).toBe(
       "Faltan datos: número de instrumento y tomo. Complétalos y guarda.",
     );
   });
 
-  it("with unsaved changes the primary action is always Guardar, never Confirmar", () => {
+  it("with unsaved changes, Guardar is enabled and Confirmar Índice is never offered", () => {
     for (const state of ["pending", "ready_to_confirm", "review_required"] as const) {
-      const step = notarialNextStep({ ...base, state, dirty: true, complete: true, missingFields: [] });
+      const step = notarialNextStep({ ...base, ...complete, state, dirty: true });
       expect(step.primary).toBe("save");
+      expect(step.saveEnabled).toBe(true);
+      expect(step.confirmAvailable).toBe(false);
       expect(step.guidance).toBe(
-        "Tienes cambios sin guardar. Guárdalos y después confirma los datos.",
+        "Tienes cambios sin guardar. Guárdalos con “Guardar”; después podrás confirmar el Índice.",
       );
     }
   });
 
-  it("unsaved changes while data is still incomplete mention what is missing", () => {
-    expect(notarialNextStep({ ...base, dirty: true }).guidance).toBe(
+  it("unsaved changes while still incomplete mention what is missing", () => {
+    const step = notarialNextStep({ ...base, dirty: true });
+    expect(step.saveEnabled).toBe(true);
+    expect(step.guidance).toBe(
       "Tienes cambios sin guardar. Faltan datos: número de instrumento y tomo.",
     );
   });
 
-  it("Listo: complete and saved → Confirmar", () => {
-    const step = notarialNextStep({ ...base, state: "ready_to_confirm", complete: true, missingFields: [] });
-    expect(step.primary).toBe("confirm");
-    expect(step.guidance).toBe(
-      "Todos los datos están completos y guardados. Falta confirmarlos.",
-    );
+  it("Listo: all saved and complete → Confirmar Índice, nothing to save", () => {
+    const step = notarialNextStep({ ...base, ...complete, state: "ready_to_confirm" });
+    expect(step).toEqual({
+      primary: "confirm",
+      saveEnabled: false,
+      confirmAvailable: true,
+      correctAvailable: false,
+      guidance: "Todos los datos están guardados. Falta confirmar el Índice.",
+    });
   });
 
-  it("Confirmado → Corregir (secundaria), nada más que hacer", () => {
-    const step = notarialNextStep({ ...base, state: "confirmed", complete: true, missingFields: [] });
-    expect(step.primary).toBe("correct");
-    expect(step.guidance).toBe(
-      "Listo. Los datos están confirmados y bloqueados; usa “Corregir datos” si necesitas cambiarlos.",
-    );
+  it("Confirmado: only Corregir, no save and no confirm", () => {
+    const step = notarialNextStep({ ...base, ...complete, state: "confirmed" });
+    expect(step).toEqual({
+      primary: "correct",
+      saveEnabled: false,
+      confirmAvailable: false,
+      correctAvailable: true,
+      guidance: "Índice confirmado. Si necesitas cambiar algo, usa “Corregir datos”.",
+    });
   });
 
-  it("Revisión requerida: explains that a correction/reopen invalidated the confirmation", () => {
-    const ready = notarialNextStep({ ...base, state: "review_required", complete: true, missingFields: [] });
-    expect(ready.primary).toBe("confirm");
+  it("Revisión requerida explains the correction/reopen before confirming again", () => {
+    const ready = notarialNextStep({ ...base, ...complete, state: "review_required" });
+    expect(ready.confirmAvailable).toBe(true);
     expect(ready.guidance).toBe(
-      "Una corrección o reapertura invalidó la confirmación. Revisa los datos y confírmalos de nuevo.",
+      "Hubo una corrección o reapertura. Revisa los datos antes de confirmar nuevamente el Índice.",
     );
     const incomplete = notarialNextStep({ ...base, state: "review_required" });
-    expect(incomplete.primary).toBe("save");
-    expect(incomplete.guidance).toMatch(/^Una corrección o reapertura invalidó la confirmación\. Faltan datos: /);
+    expect(incomplete.confirmAvailable).toBe(false);
+    expect(incomplete.guidance).toBe(
+      "Hubo una corrección o reapertura. Faltan datos: número de instrumento y tomo.",
+    );
+  });
+
+  it("a content change to review enables Guardar even without edits, and blocks Confirmar", () => {
+    const step = notarialNextStep({ ...base, ...complete, state: "ready_to_confirm", contentChanged: true });
+    expect(step.saveEnabled).toBe(true);
+    expect(step.confirmAvailable).toBe(false);
+    expect(step.guidance).toBe("Revisa estos datos y guárdalos antes de confirmar el Índice.");
+  });
+
+  it("a confirmed Índice ignores later content changes until someone corrects it", () => {
+    const step = notarialNextStep({ ...base, ...complete, state: "confirmed", contentChanged: true });
+    expect(step.correctAvailable).toBe(true);
+    expect(step.saveEnabled).toBe(false);
   });
 
   it("without permission to confirm, complete data waits for someone who can", () => {
-    const step = notarialNextStep({ ...base, state: "ready_to_confirm", complete: true, missingFields: [], canConfirm: false });
-    expect(step.primary).toBeNull();
-    expect(step.guidance).toBe(
-      "Todos los datos están completos y guardados. Falta que alguien con permiso los confirme.",
+    const ready = notarialNextStep({ ...base, ...complete, state: "ready_to_confirm", canConfirm: false });
+    expect(ready.confirmAvailable).toBe(false);
+    expect(ready.guidance).toBe(
+      "Todos los datos están guardados. Falta que alguien con permiso confirme el Índice.",
     );
-    const confirmed = notarialNextStep({ ...base, state: "confirmed", complete: true, missingFields: [], canConfirm: false });
+    const confirmed = notarialNextStep({ ...base, ...complete, state: "confirmed", canConfirm: false });
+    expect(confirmed.correctAvailable).toBe(false);
     expect(confirmed.primary).toBeNull();
   });
 
   it("without edit permission there is never a Guardar action", () => {
-    expect(notarialNextStep({ ...base, canEdit: false }).primary).toBeNull();
-    expect(notarialNextStep({ ...base, canEdit: false, dirty: true }).primary).toBeNull();
-  });
-
-  it("when the Escritura content changed after the last save, the primary action is Guardar (to mark them reviewed), even without edits", () => {
-    const step = notarialNextStep({
-      ...base,
-      state: "ready_to_confirm",
-      complete: true,
-      missingFields: [],
-      contentChanged: true,
-    });
-    expect(step.primary).toBe("save");
-    expect(step.guidance).toBe(
-      "Revisa los datos y guárdalos para marcarlos como revisados; después podrás confirmarlos.",
-    );
-  });
-
-  it("a confirmed Índice ignores later content changes until someone corrects it", () => {
-    expect(
-      notarialNextStep({ ...base, state: "confirmed", complete: true, missingFields: [], contentChanged: true })
-        .primary,
-    ).toBe("correct");
+    for (const dirty of [false, true]) {
+      const step = notarialNextStep({ ...base, canEdit: false, dirty });
+      expect(step.primary).toBeNull();
+      expect(step.saveEnabled).toBe(false);
+    }
   });
 
   it("does not repeat the missing-field list when the screen already shows it", () => {

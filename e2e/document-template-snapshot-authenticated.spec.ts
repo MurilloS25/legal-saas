@@ -176,7 +176,7 @@ test.describe("document template snapshot", () => {
     await expectNotarialSnapshot(page, v1TemplateName, "ANA V1 EDITADA Y VERSION V1");
     await page.getByRole("button", { name: /Número de instrumento/ }).click();
     await page.getByRole("spinbutton", { name: "Número de instrumento" }).fill("101");
-    await page.getByRole("button", { name: "Guardar datos del índice" }).click();
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }).click();
     await expect(page.getByText("Cambios del índice guardados.", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
@@ -220,7 +220,7 @@ test.describe("document template snapshot", () => {
     await expectNotarialSnapshot(page, v2TemplateName, "BEATRIZ V2 Y VERSION V2");
     await page.getByRole("button", { name: /Número de instrumento/ }).click();
     await page.getByRole("spinbutton", { name: "Número de instrumento" }).fill("102");
-    await page.getByRole("button", { name: "Guardar datos del índice" }).click();
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }).click();
     await expect(page.getByText("Cambios del índice guardados.", { exact: true })).toBeVisible({
       timeout: 15_000,
     });

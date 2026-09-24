@@ -361,7 +361,10 @@ route boundary rather than physical nesting below `/dashboard`.
 - Escrituras use Completar → Cobro → Índice. `Revisar y finalizar` is not a
   step: preview is part of Completar and Finalizar/Reabrir are lifecycle actions
   in the persistent action dock. Download, history and duplication remain
-  header utilities.
+  header utilities. When finalized, the same dock saves the Índice data
+  (`NotarialMetadataSection` reports a `NotarialDockState`) and offers
+  "Confirmar Índice" as a lifecycle action; content and Índice edits never
+  coexist because the Índice is only editable once the Escritura is final.
 - The persistent action dock (`WorkspaceActionDock`) reserves exactly its
   measured height (ResizeObserver) at the end of the page and sets
   `scroll-padding-bottom`, so it never covers page controls when its actions

@@ -98,6 +98,7 @@ import { ExpandableDocumentPanel } from "@/components/document/ExpandableDocumen
 import { DocumentSheet } from "@/components/document/DocumentSheet";
 import {
   NotarialMetadataSection,
+  type NotarialDockState,
   type NotarialMetadata,
   type NotarialMetadataPrefill,
 } from "@/features/notarial-index";
@@ -171,6 +172,9 @@ export function DocumentComposer(props: Props) {
   // por enlace directo aunque esté excluido, para mostrar la tarjeta
   // compacta "No pertenece al Índice Notarial" (ver NotarialMetadataSection).
   const notarialUnlocked = isEdit && status === "final";
+  // Estado del Índice expuesto por su sección para el dock (Guardar +
+  // Confirmar Índice) — ver `NotarialDockState`.
+  const [notarialDock, setNotarialDock] = useState<NotarialDockState | null>(null);
   // Controla si el paso aparece en la fila normal del stepper — distinto de
   // `notarialUnlocked`: una Escritura excluida no muestra el paso en la
   // navegación normal, aunque la ruta siga siendo válida.
@@ -593,6 +597,7 @@ export function DocumentComposer(props: Props) {
               reviewRequired={props.reviewRequired}
               canConfirm={props.canConfirmNotarial}
               confirmedByName={props.notarialConfirmedByName}
+              onDockStateChange={setNotarialDock}
             />
           </DocumentNotarialInclusionSection>
         ) : (
@@ -618,6 +623,7 @@ export function DocumentComposer(props: Props) {
           importar el estado. */}
       <DocumentSaveControls
         formId="document-completar-form"
+        notarial={notarialUnlocked ? notarialDock : null}
         status={status}
         dirty={dirty}
         pending={pending}
@@ -632,7 +638,10 @@ export function DocumentComposer(props: Props) {
               key={status}
               documentId={props.draft.id}
               status={status}
-              dirty={dirty || pending}
+              // Finalizada: el contenido es de solo lectura y lo único
+              // editable son los datos del Índice (no se puede reabrir con
+              // esos cambios sin guardar).
+              dirty={dirty || pending || !!notarialDock?.unsaved}
               canFinalize={canFinalize}
               notarialDataConfirmed={completedNotarial}
               includeInNotarialIndex={includeInNotarialIndex}
