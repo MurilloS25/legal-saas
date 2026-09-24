@@ -13,7 +13,7 @@ import {
 } from "@/features/templates/domain";
 import { resolveTemplateContent } from "@/lib/editor/content";
 import { applyVariableLabels } from "@/lib/editor/variables";
-import { DocumentComposer } from "@/features/documents";
+import { DocumentComposer, toAutofillClientOption } from "@/features/documents";
 import { isResourceId } from "@/lib/validation/resource-id";
 
 export const metadata = {
@@ -88,12 +88,7 @@ export default async function NewDocumentPage({ params, searchParams }: Props) {
   // Solo clientes propios; un `client` preseleccionado ajeno o inexistente
   // simplemente se ignora (no aparece en la lista → initialClientId null).
   const clients = await listClients();
-  const clientOptions = clients.map((client) => ({
-    id: client.id,
-    full_name: client.full_name,
-    identification_number: client.identification_number,
-    exact_address: client.exact_address,
-  }));
+  const clientOptions = clients.map(toAutofillClientOption);
   const initialClientId =
     clientParam && clientOptions.some((c) => c.id === clientParam)
       ? clientParam

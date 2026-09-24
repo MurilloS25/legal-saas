@@ -62,6 +62,7 @@ export function RoleAutofillFields({
     null,
   );
   const [incomplete, setIncomplete] = useState<string[]>([]);
+  const [notApplicable, setNotApplicable] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
 
   function handleSelect(client: DocumentClientOption) {
@@ -69,6 +70,7 @@ export function RoleAutofillFields({
     const overwriteFields = fieldsToOverwrite(result.values, values);
 
     setIncomplete(result.incomplete);
+    setNotApplicable(result.notApplicable);
     if (overwriteFields.length > 0) {
       setConfirmation({ client, values: result.values, overwriteFields });
       return;
@@ -127,6 +129,13 @@ export function RoleAutofillFields({
       {incomplete.length > 0 && (
         <p className="mt-2 text-xs text-amber-700">
           Algunos campos no se pudieron completar: {incomplete.join(", ")}.
+        </p>
+      )}
+
+      {notApplicable.length > 0 && (
+        <p className="mt-2 text-xs text-slate-500">
+          No aplican a una persona jurídica y quedaron sin completar:{" "}
+          {notApplicable.join(", ")}.
         </p>
       )}
 

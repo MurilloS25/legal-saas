@@ -35,7 +35,7 @@ The MVP database must support:
 - Multiple independent lawyers.
 - Lawyer profile data.
 - One default document formatting configuration per lawyer.
-- Physical-person client metadata.
+- Physical-person and legal-entity (sociedad) client metadata.
 - Template management.
 - Template variable and field definitions.
 - Persistent draft escrituras.
@@ -198,18 +198,52 @@ Pending questions:
 
 Purpose:
 
-Stores reusable client metadata for physical persons.
+Stores reusable client metadata for physical persons and legal entities
+(sociedades).
 
 Decision:
 
-- First migration focuses on physical-person clients only.
-- `identification_type` remains included for future compatibility.
-- MVP will primarily use `cedula_fisica`.
-- Initial allowed `identification_type` value: `cedula_fisica`.
-- Company clients are deferred.
-- Legal representative data is deferred.
+- `identification_type` allows `cedula_fisica` (persona física) and
+  `cedula_juridica` (persona jurídica / sociedad) — migration
+  `20260923180000_clients_legal_entity_and_autofill_sources`.
+- A legal entity stores only razón social (`full_name`), cédula jurídica
+  (`identification_number`) and domicilio (`exact_address`).
+  `marital_status`, `nationality` and `occupation` are nullable columns;
+  `clients_person_fields_by_type_check` requires them for `cedula_fisica`
+  and requires them to be `NULL` for `cedula_juridica` (a sociedad never
+  carries personal data that autofill could copy into an Escritura).
+- Identification format: `cedula_fisica` is stored without hyphens or spaces
+  (unchanged). `cedula_juridica` is stored exactly as typed, hyphens included
+  (`3-101-123456`); the only normalization is trimming and removing spaces
+  around a hyphen. Accepted: digit groups separated by single hyphens, or
+  digits only, max 30 characters (`clients_juridica_identification_format_check`
+  enforces the pattern in the database). No fixed length or grouping is
+  imposed because the project has no referenced official rule.
+- Changing a client from física to jurídica clears the three personal fields
+  on save; the edit form warns before saving when data would be removed.
+- Legal representatives, personería, poderes, juntas directivas, capital and
+  registry data are deferred; representation inside an Escritura is handled
+  with separate roles/Clients.
 - `email` and `phone` are not first-migration fields.
 - `notes` is not a first-migration field.
+
+Autofill (`template_fields.autofill_source`) can copy: `client_full_name`,
+`client_identification`, `client_address`, `client_marital_status`,
+`client_occupation`, `client_nationality`. The last three never apply to a
+legal entity (the Escritura value is left untouched, never invented).
+
+Known limitation — transforms and hyphens: the `digits_to_words` output
+transform treats hyphens and spaces as non-semantic separators and drops them
+(`3-101-123456` → `TRES UNO CERO UNO UNO DOS TRES CUATRO CINCO SEIS`). The raw
+value keeps its hyphens up to the transform, and a variable without transform
+renders `3-101-123456`. Preserving the separator inside the transform would
+change the output of every existing Machote that uses `digits_to_words` on
+hyphenated values (plates such as `ABC-102`), so it is intentionally not
+changed yet. Minimal proposal pending approval: in `digitsToUppercaseWords`,
+keep a hyphen between two digits as a `-` token (e.g.
+`TRES - UNO CERO UNO - UNO DOS TRES CUATRO CINCO SEIS`), or scope that rule to
+a new opt-in transform, and update the characterization test in
+`src/lib/editor/text-transforms.test.ts`.
 
 Candidate fields:
 
@@ -247,7 +281,7 @@ RLS need:
 
 Pending questions:
 
-- Decide how to model company clients later.
+- Decide whether `digits_to_words` should preserve hyphens (see limitation above).
 - Decide how to model legal representatives later.
 
 ### `templates`

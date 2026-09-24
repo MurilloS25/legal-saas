@@ -15,6 +15,7 @@ export {
 } from "./model/templates";
 export type { TemplateStatus } from "./model/templates";
 export {
+  NATURAL_PERSON_ONLY_AUTOFILL_SOURCES,
   VARIABLE_AUTOFILL_SOURCES,
   resolveAutofillSource,
   stripDiacritics,

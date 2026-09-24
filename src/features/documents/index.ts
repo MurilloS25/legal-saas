@@ -31,6 +31,7 @@ export type {
 export { DocumentIdSchema } from "./model/document-schema";
 export { buildDuplicateDocumentTitle } from "./model/duplicate";
 export { resolveDocumentTemplateSnapshot } from "./model/document-template-snapshot";
+export { toAutofillClientOption } from "./model/role-autofill";
 export type {
   DocumentNotarialSnapshot,
   ResolvedDocumentTemplateSnapshot,

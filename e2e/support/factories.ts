@@ -108,7 +108,10 @@ export async function createTestTemplateField(
       | "none"
       | "client_full_name"
       | "client_identification"
-      | "client_address";
+      | "client_address"
+      | "client_marital_status"
+      | "client_occupation"
+      | "client_nationality";
     output_transform?: "none" | "digits_to_words" | "number_to_words";
   },
 ): Promise<{ id: string }> {
@@ -135,17 +138,23 @@ export async function createTestClient(
     full_name: string;
     identification_number?: string;
     exact_address?: string;
+    /** `cedula_juridica` guarda estado civil/nacionalidad/ocupación en NULL. */
+    identification_type?: "cedula_fisica" | "cedula_juridica";
+    marital_status?: string;
+    nationality?: string;
+    occupation?: string;
   },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
+  const legalEntity = options.identification_type === "cedula_juridica";
   const id = await restInsert("clients", {
     owner_id: userId,
     full_name: options.full_name,
-    identification_type: "cedula_fisica",
+    identification_type: options.identification_type ?? "cedula_fisica",
     identification_number: options.identification_number ?? "0-0000-0000",
-    marital_status: "single",
-    nationality: "Costa Rican",
-    occupation: "Tester",
+    marital_status: legalEntity ? null : (options.marital_status ?? "single"),
+    nationality: legalEntity ? null : (options.nationality ?? "Costa Rican"),
+    occupation: legalEntity ? null : (options.occupation ?? "Tester"),
     exact_address: options.exact_address ?? "Fake test address",
   });
   registry.register("clients", id);
