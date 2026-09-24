@@ -40,16 +40,40 @@ import { estimateInputTokens } from "../../model/ai-generation/limits";
 import {
   AI_TEMPLATE_SCHEMA_VERSION,
   parseAiTemplateProposal,
+  type AiProposalIssueCode,
 } from "../../model/ai-generation/proposal";
+import { validateProposalSemantics } from "../../model/ai-generation/semantic-validation";
 import type { AiTemplateConfig } from "./config";
 import type { AiGenerationDiagnostics, AiGenerationLogger } from "./logging";
 import {
   AiProviderError,
   type AiTemplateProvider,
+  type TemplateGenerationRequest,
   type TemplateGenerationResult,
 } from "./provider";
 
-export const MAX_PROVIDER_ATTEMPTS = 2; // 1 intento + 1 retry técnico
+export const MAX_PROVIDER_ATTEMPTS = 2; // 1 intento + 1 retry (técnico o de reparación)
+
+/**
+ * Incidencias de parseo que ameritan el retry de reparación: sin ellas se
+ * perdería una variable o un bloque que el modelo puede corregir. Las
+ * demás (advertencias inválidas, exceso de ítems) solo se descartan.
+ */
+const REPAIRABLE_PARSE_ISSUES = new Set<AiProposalIssueCode>([
+  "output_not_json",
+  "envelope_invalid",
+  "variable_invalid",
+  "option_block_invalid",
+  "vehicle_identifiers_invalid",
+  "identification_type_invalid",
+]);
+
+/** Tope de la salida anterior reenviada en la reparación. */
+const MAX_REPAIR_PREVIOUS_OUTPUT_CHARS = 120_000;
+
+function formatIssue(issue: { code: string; path: string }): string {
+  return `${issue.code}@${issue.path}`;
+}
 
 export type GenerationSource =
   | { kind: "text"; text: string }
@@ -187,6 +211,8 @@ export async function runTemplateGeneration(
     rejectedBy: null,
     providerErrorType: null,
     providerDurationMs: null,
+    repairAttempted: null,
+    issueCodes: null,
   };
 
   const reject = (
@@ -290,22 +316,31 @@ export async function runTemplateGeneration(
     return reject("internal_error", "quota:begin_failed", { sourceType, inputChars });
   }
 
-  // ---- 4. proveedor + validación (máximo 1 retry técnico)
+  // ---- 4. proveedor + validación (máximo 1 retry: técnico o de reparación)
   const paragraphs = splitSourceParagraphs(extracted.text);
   let attempts = 0;
   let inputTokens: number | null = null;
   let outputTokens: number | null = null;
   let last: AttemptResult | null = null;
   let anyBillableAttempt = false;
+  // Retry de reparación: la salida anterior + incidencias. Un error técnico
+  // transitorio del proveedor repite la misma solicitud.
+  let repair: TemplateGenerationRequest["repair"] = null;
+  // Primer borrador UTILIZABLE (coherente tras los descartes deterministas):
+  // si la reparación falla, se usa este en lugar de perder la generación.
+  let fallbackDraft: AiTemplateDraft | null = null;
+  const issueCodes = new Set<string>();
 
   while (attempts < MAX_PROVIDER_ATTEMPTS) {
     attempts += 1;
     let result: TemplateGenerationResult;
     const attemptStartedAt = now();
+    if (repair) diagnostics.repairAttempted = true;
     try {
       result = await provider.generateTemplate({
         paragraphs,
         variantInstructions: instructions === "" ? null : instructions,
+        ...(repair ? { repair } : {}),
       });
       diagnostics.providerDurationMs = (diagnostics.providerDurationMs ?? 0) + (now() - attemptStartedAt);
     } catch (error) {
@@ -340,27 +375,47 @@ export async function runTemplateGeneration(
     }
 
     const parsed = parseAiTemplateProposal(result.rawOutput);
+    for (const issue of parsed.issues) issueCodes.add(issue.code);
     if (!parsed.ok) {
       last = { ok: false, code: "invalid_output", retryable: true, billable: true };
+      repair = { previousOutput: null, issues: parsed.issues.map(formatIssue) };
       continue;
     }
+
+    // Validación semántica: coherencia de LexCR (no jurídica). Decide si
+    // vale la pena el único retry de reparación.
+    const semantic = validateProposalSemantics(parsed.proposal, paragraphs);
+    for (const issue of semantic) issueCodes.add(issue.code);
     const built = buildTemplateDraftFromProposal({
       sourceText: extracted.text,
       proposal: parsed.proposal,
-      instructionsProvided: instructions !== "",
+      instructions: instructions === "" ? null : instructions,
     });
-    if (!built.ok) {
-      last = {
-        ok: false,
-        code: built.code,
-        retryable: built.code === "invalid_output",
-        billable: true,
-      };
-      if (last.retryable) continue;
-      break;
+    const needsRepair =
+      parsed.issues.some((issue) => REPAIRABLE_PARSE_ISSUES.has(issue.code)) ||
+      semantic.some((issue) => issue.severity === "repair") ||
+      (!built.ok && built.code === "invalid_output");
+
+    if (built.ok) {
+      last = { ok: true, draft: built.draft };
+      if (!needsRepair || attempts >= MAX_PROVIDER_ATTEMPTS) break;
+      fallbackDraft = built.draft;
+    } else {
+      last = { ok: false, code: built.code, retryable: needsRepair, billable: true };
+      if (attempts >= MAX_PROVIDER_ATTEMPTS) break;
     }
-    last = { ok: true, draft: built.draft };
-    break;
+    repair = {
+      previousOutput:
+        result.rawOutput.length <= MAX_REPAIR_PREVIOUS_OUTPUT_CHARS ? result.rawOutput : null,
+      issues: [...parsed.issues, ...semantic].map(formatIssue),
+    };
+  }
+  diagnostics.issueCodes = issueCodes.size > 0 ? [...issueCodes].slice(0, 20).join(",") : null;
+
+  // La reparación falló (o el proveedor falló en ese retry) pero el primer
+  // intento ya era utilizable: se conserva ese borrador coherente.
+  if ((!last || !last.ok) && fallbackDraft) {
+    last = { ok: true, draft: fallbackDraft };
   }
 
   const finishFailure = async (

@@ -44,6 +44,7 @@ import {
 import { stripDiacritics, suggestAutofillSource } from "../variable-autofill";
 import { AI_PROPOSAL_LIMITS } from "./limits";
 import type {
+  AiIdentificationDocumentType,
   AiProposalOptionBlock,
   AiProposalVariable,
   AiProposalVehicleIdentifiers,
@@ -52,6 +53,8 @@ import type {
   AiVariableSemanticType,
   AiVehicleIdentifierCase,
 } from "./proposal";
+import { findNth, locateReference } from "./references";
+import { isCoherentTimeBlock } from "./semantic-validation";
 
 export const AI_BUILDER_WARNING_CODES = [
   "occurrence_not_found",
@@ -59,9 +62,13 @@ export const AI_BUILDER_WARNING_CODES = [
   "option_block_discarded",
   "option_variant_discarded",
   "time_output_discarded",
+  "time_block_discarded",
   "transform_corrected",
   "index_mapping_discarded",
   "vehicle_identifier_block_missing",
+  "professional_data_kept_fixed",
+  "nationality_completed",
+  "identification_type_skipped",
 ] as const;
 export type AiBuilderWarningCode = (typeof AI_BUILDER_WARNING_CODES)[number];
 export type AiDraftWarningCode = AiProposalWarningCode | AiBuilderWarningCode;
@@ -106,8 +113,12 @@ export type BuildAiDraftResult =
 type BuildInput = {
   sourceText: string;
   proposal: AiTemplateProposal;
-  /** true si el abogado escribió "Variantes del documento". */
-  instructionsProvided: boolean;
+  /**
+   * Indicaciones del abogado ("Notas para la IA"), ya normalizadas,
+   * o null. Se usan solo para reglas deterministas cerradas (p. ej. si piden
+   * parametrizar los datos del profesional); nunca como instrucciones.
+   */
+  instructions: string | null;
   /** Inyectable para pruebas deterministas. */
   generateId?: () => string;
 };
@@ -128,15 +139,169 @@ function sanitizeLabel(raw: string, max: number): string {
   return out.replace(/\s+/g, " ").trim().slice(0, max);
 }
 
-function findNth(haystack: string, needle: string, n: number): number {
-  let from = 0;
-  for (let i = 1; i <= n; i += 1) {
-    const index = haystack.indexOf(needle, from);
-    if (index < 0) return -1;
-    if (i === n) return index;
-    from = index + needle.length;
-  }
-  return -1;
+function normalizeForMatch(text: string): string {
+  return stripDiacritics(text).toLowerCase();
+}
+
+// ------------------------------------------ datos del profesional (fijos)
+
+/**
+ * Segmentos de clave que identifican al profesional autor del Machote
+ * (notario/abogado que redacta o autoriza). Por defecto esos datos quedan
+ * como texto FIJO: el abogado convierte su propio documento en Machote para
+ * reutilizarlo él mismo.
+ */
+const PROFESSIONAL_KEY_TOKENS = new Set([
+  "notario",
+  "notaria",
+  "abogado",
+  "abogada",
+  "profesional",
+  "licenciado",
+  "licenciada",
+  "autorizante",
+  "carne",
+]);
+
+export function isProfessionalDataKey(key: string): boolean {
+  return normalizeForMatch(key)
+    .split(/[._]/)
+    .some((token) => PROFESSIONAL_KEY_TOKENS.has(token));
+}
+
+/** Las indicaciones piden explícitamente parametrizar al profesional. */
+export function instructionsRequestProfessionalData(instructions: string | null): boolean {
+  if (!instructions) return false;
+  return /\b(notari[oa]s?|abogad[oa]s?|profesional(es)?|licenciad[oa]s?|autorizante)\b/.test(
+    normalizeForMatch(instructions),
+  );
+}
+
+// ------------------------------------------------- nacionalidad de Partes
+
+/**
+ * Gentilicios frecuentes en escrituras de Costa Rica (lista cerrada; sin
+ * coincidencia difusa). Si uno queda como texto literal justo después del
+ * nombre de una Parte, LexCR lo convierte en `rol.nacionalidad`.
+ */
+/** Palabras completas, con plural opcional ("costarricenses"). */
+const NATIONALITY_WORDS = ["costarricense", "nicaraguense", "estadounidense", "canadiense", "belga"];
+/** Terminan en consonante; femenino/plural opcional ("alemán", "alemana"). */
+const NATIONALITY_CONSONANT_WORDS = [
+  "aleman", "frances", "ingles", "portugues", "holandes", "japones", "espanol",
+];
+/** Raíces que exigen -o/-a ("uruguayo", nunca el país "Uruguay"). */
+const NATIONALITY_STEMS = [
+  "panamen", "salvadoren", "honduren", "guatemaltec", "mexican", "colombian",
+  "venezolan", "cuban", "dominican", "peruan", "ecuatorian", "argentin", "chilen",
+  "uruguay", "paraguay", "bolivian", "brasilen", "italian", "britanic", "suiz",
+  "suec", "chin", "corean", "rus", "austriac",
+];
+const NATIONALITY_PATTERN = new RegExp(
+  `\\b(?:(?:${NATIONALITY_WORDS.join("|")})s?|israeli(?:es)?|(?:${NATIONALITY_CONSONANT_WORDS.join("|")})(?:a|as|es)?|(?:${NATIONALITY_STEMS.join("|")})(?:o|a|os|as))\\b`,
+  "g",
+);
+
+/** Rangos [start, end) de gentilicios de la lista en un párrafo. */
+export function findNationalityMentions(paragraph: string): Array<{ start: number; end: number }> {
+  // stripDiacritics preserva la longitud en texto NFC compuesto (un carácter
+  // acentuado se reemplaza por uno sin acento), así que las posiciones del
+  // texto normalizado son las del original.
+  const normalized = normalizeForMatch(paragraph);
+  if (normalized.length !== paragraph.length) return [];
+  return [...normalized.matchAll(NATIONALITY_PATTERN)].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+}
+
+// ------------------------------------ patrón Cédula / DIMEX / Pasaporte
+
+const IDENTIFICATION_TYPE_LABELS: Record<AiIdentificationDocumentType, string> = {
+  cedula: "Cédula",
+  dimex: "DIMEX",
+  pasaporte: "Pasaporte",
+};
+/** Redacción mínima de cada modalidad: solo el nombre del documento. */
+const IDENTIFICATION_TYPE_PHRASES: Record<AiIdentificationDocumentType, string> = {
+  cedula: "cédula de identidad",
+  dimex: "DIMEX",
+  pasaporte: "pasaporte",
+};
+/** Mención del documento de identificación dentro del fragmento. */
+const IDENTIFICATION_PHRASE_PATTERN =
+  /c[eé]dula de identidad|c[eé]dula de residencia|c[eé]dula|documento de identidad migratorio para extranjeros|dimex|pasaporte/i;
+
+/**
+ * Mención del documento JUSTO antes del número de una Parte ("cédula de
+ * identidad número ", "pasaporte No. ", "DIMEX: "). Nunca incluye "cédula
+ * jurídica": el patrón es solo para personas físicas.
+ */
+const IDENTIFICATION_LEADING_PATTERN =
+  /(c[eé]dula de identidad|c[eé]dula de residencia|c[eé]dula|documento de identidad migratorio para extranjeros|dimex|pasaporte)(?:\s+(?:n[uú]mero|no\.|n[°º]\.?))?\s*:?\s*$/i;
+const IDENTIFICATION_LOOKBEHIND_CHARS = 70;
+/** Datos (último segmento) de una clave que es el número de identificación. */
+const IDENTIFICATION_DATA_KEYS = new Set([
+  "cedula",
+  "identificacion",
+  "numero_identificacion",
+  "cedula_identidad",
+  "documento_identidad",
+]);
+/** Roles que representan una persona jurídica (el patrón no aplica). */
+const LEGAL_ENTITY_ROLE_TOKENS = new Set([
+  "sociedad",
+  "empresa",
+  "compania",
+  "persona_juridica",
+  "entidad",
+  "corporacion",
+  "asociacion",
+  "fundacion",
+  "cooperativa",
+]);
+/** Formato de cédula jurídica costarricense (3-101-123456). */
+const LEGAL_ENTITY_ID_PATTERN = /^3-?\d{3}-?\d{6}$/;
+
+/**
+ * El abogado desactiva explícitamente el patrón ("solo cédula", "sin DIMEX
+ * ni pasaporte", "no agregues opciones de tipo de identificación"). Sin una
+ * exclusión explícita, el patrón canónico aplica.
+ */
+export function identificationTypesDisabledByNotes(instructions: string | null): boolean {
+  const notes = normalizeForMatch(instructions ?? "");
+  return (
+    /\b(solo|solamente|unicamente)\s+(con\s+)?cedula\b/.test(notes) ||
+    /\bsin\s+(opciones?\s+de\s+)?(dimex|pasaporte|tipos?\s+de\s+(documento|identificacion))\b/.test(notes) ||
+    /\bno\s+(ofrezcas?|agregues|agregar|incluyas|incluir|crees|crear|uses|usar)\s+(opciones?\s+de\s+)?(dimex|pasaporte|tipos?\s+de\s+(documento|identificacion))\b/.test(
+      notes,
+    )
+  );
+}
+
+function documentTypeOf(phrase: string): AiIdentificationDocumentType {
+  const normalized = normalizeForMatch(phrase);
+  if (/pasaporte/.test(normalized)) return "pasaporte";
+  if (/dimex|residencia|migratorio/.test(normalized)) return "dimex";
+  return "cedula";
+}
+
+/** La identificación es de una persona jurídica: el patrón no aplica. */
+function isLegalEntityIdentification(key: string, spanText: string, value: string): boolean {
+  const role = normalizeForMatch(key.split(".")[0] ?? "");
+  return (
+    role.split("_").some((token) => LEGAL_ENTITY_ROLE_TOKENS.has(token)) ||
+    LEGAL_ENTITY_ROLE_TOKENS.has(role) ||
+    /jur[ií]dica/i.test(spanText) ||
+    LEGAL_ENTITY_ID_PATTERN.test(value.trim())
+  );
+}
+
+function adaptIdentificationPhrase(text: string, target: AiIdentificationDocumentType): string {
+  return text.replace(IDENTIFICATION_PHRASE_PATTERN, (match) => {
+    const phrase = IDENTIFICATION_TYPE_PHRASES[target];
+    return match === match.toUpperCase() ? phrase.toUpperCase() : phrase;
+  });
 }
 
 /**
@@ -313,6 +478,17 @@ export function buildTemplateDraftFromProposal(
       declared.set(variable.key, variable);
     }
   }
+  // ---- datos del profesional autor: texto fijo salvo pedido explícito
+  if (!instructionsRequestProfessionalData(input.instructions)) {
+    for (const key of [...declared.keys()]) {
+      if (isProfessionalDataKey(key)) {
+        declared.delete(key);
+        warnings.add("professional_data_kept_fixed");
+      }
+    }
+  }
+  const instructionsProvided = (input.instructions ?? "").trim() !== "";
+
   const labels = new Map<string, string>();
   for (const [key, variable] of declared) {
     labels.set(key, sanitizeLabel(variable.label, AI_PROPOSAL_LIMITS.maxLabelChars) || key);
@@ -329,6 +505,12 @@ export function buildTemplateDraftFromProposal(
     /** Alternativas propuestas originalmente (para validar `time_output`). */
     proposedAlternativeCount: number;
     timeOutput: AiProposalOptionBlock["time_output"];
+    /**
+     * Patrón Cédula / DIMEX / Pasaporte: las alternativas se derivan del
+     * propio texto original (con sus variables) cambiando solo la mención
+     * del documento, al construir el párrafo.
+     */
+    identification?: { originalType: AiIdentificationDocumentType };
   };
   const candidateBlocks: CandidateBlock[] = [];
 
@@ -358,7 +540,6 @@ export function buildTemplateDraftFromProposal(
             label: VEHICLE_KEY_DEFAULTS[role].label,
             semantic_type: "vehicle_identifier",
             output_transform: "digits_to_words",
-            required: true,
             needs_review: false,
             occurrences: [],
           });
@@ -383,6 +564,111 @@ export function buildTemplateDraftFromProposal(
       });
     }
   }
+  // ---- patrón canónico Cédula / DIMEX / Pasaporte (personas físicas)
+  // Toda identificación de una Parte persona física queda preparada para
+  // las tres modalidades, reutilizando la MISMA variable. Fuentes: lo que
+  // propone el modelo y, además, una detección determinista de LexCR (la
+  // mención del documento justo antes del número), para no depender del
+  // modelo. Las notas solo lo desactivan con una exclusión explícita.
+  type IdentificationCandidate = {
+    paragraphIndex: number;
+    start: number;
+    end: number;
+    key: string;
+    type: AiIdentificationDocumentType;
+  };
+  const identificationCandidates: IdentificationCandidate[] = [];
+  const pushIdentification = (candidate: IdentificationCandidate, value: string) => {
+    const spanText = paragraphs[candidate.paragraphIndex].slice(candidate.start, candidate.end);
+    if (isLegalEntityIdentification(candidate.key, spanText, value)) {
+      warnings.add("identification_type_skipped");
+      return;
+    }
+    identificationCandidates.push(candidate);
+  };
+  if (identificationTypesDisabledByNotes(input.instructions)) {
+    if (proposal.identification_types.length > 0) warnings.add("identification_type_skipped");
+  } else {
+    // 1) propuestas del modelo (fragmento que contiene la mención y el número)
+    for (const item of proposal.identification_types) {
+      const located = locateReference(paragraphs, item);
+      const phrase = IDENTIFICATION_PHRASE_PATTERN.exec(item.text);
+      const inner = (declared.get(item.identification_key)?.occurrences ?? [])
+        .map((occurrence) => ({ occurrence, found: locateReference(paragraphs, occurrence) }))
+        .find(
+          ({ found }) =>
+            located !== null &&
+            found !== null &&
+            found.paragraphIndex === located.paragraphIndex &&
+            found.start >= located.start &&
+            found.end <= located.end,
+        );
+      if (!located || !phrase || !inner) {
+        warnings.add("identification_type_skipped");
+        continue;
+      }
+      pushIdentification(
+        { ...located, key: item.identification_key, type: documentTypeOf(phrase[0]) },
+        inner.occurrence.text,
+      );
+    }
+    // 2) detección determinista: número de identificación de un rol
+    //    precedido por la mención del documento
+    for (const [key, variable] of declared) {
+      const dot = key.indexOf(".");
+      if (dot <= 0) continue;
+      const data = normalizeForMatch(key.slice(dot + 1));
+      if (variable.semantic_type !== "identification" && !IDENTIFICATION_DATA_KEYS.has(data)) continue;
+      for (const occurrence of variable.occurrences) {
+        const found = locateReference(paragraphs, occurrence);
+        if (!found) continue;
+        const paragraph = paragraphs[found.paragraphIndex];
+        const lookStart = Math.max(0, found.start - IDENTIFICATION_LOOKBEHIND_CHARS);
+        const leading = IDENTIFICATION_LEADING_PATTERN.exec(paragraph.slice(lookStart, found.start));
+        if (!leading) continue;
+        pushIdentification(
+          {
+            paragraphIndex: found.paragraphIndex,
+            start: lookStart + leading.index,
+            end: found.end,
+            key,
+            type: documentTypeOf(leading[1]),
+          },
+          occurrence.text,
+        );
+      }
+    }
+  }
+  // Una sola opción por fragmento (el modelo y la detección suelen coincidir).
+  const acceptedIdentifications: IdentificationCandidate[] = [];
+  for (const candidate of identificationCandidates) {
+    if (
+      !acceptedIdentifications.some(
+        (other) => other.paragraphIndex === candidate.paragraphIndex && overlaps(other, candidate),
+      )
+    ) {
+      acceptedIdentifications.push(candidate);
+    }
+  }
+  acceptedIdentifications.forEach((candidate, index) => {
+    const blockIndex = -100 - index;
+    candidateBlocks.push({
+      blockIndex,
+      name: "Tipo de identificación",
+      originalLabel: `${IDENTIFICATION_TYPE_LABELS[candidate.type]} (según el documento)`,
+      span: {
+        start: candidate.start,
+        end: candidate.end,
+        blockIndex,
+        paragraphIndex: candidate.paragraphIndex,
+      },
+      alternatives: [],
+      proposedAlternativeCount: 0,
+      timeOutput: null,
+      identification: { originalType: candidate.type },
+    });
+  });
+
   proposal.option_blocks.forEach((block, blockIndex) => {
     const paragraphIndex = block.paragraph - 1;
     const paragraph = paragraphs[paragraphIndex];
@@ -390,8 +676,19 @@ export function buildTemplateDraftFromProposal(
       warnings.add("option_block_discarded");
       return;
     }
-    if (block.basis === "user_instruction" && !input.instructionsProvided) {
+    if (block.basis === "user_instruction" && !instructionsProvided) {
       warnings.add("option_block_discarded");
+      return;
+    }
+    // Un Bloque de hora incoherente (la "hora" es la fecha, la hora queda
+    // fuera del fragmento, una variante incluye la fecha…) nunca se guarda:
+    // sus variables quedan como variables normales del texto.
+    if (
+      block.basis === "known_pattern_time_minutes" &&
+      (!isCoherentTimeBlock(block, { declared, paragraphs }) ||
+        !hasKnownPatternEvidence(block.basis, block.text))
+    ) {
+      warnings.add("time_block_discarded");
       return;
     }
     if (!hasKnownPatternEvidence(block.basis, block.text)) {
@@ -406,10 +703,13 @@ export function buildTemplateDraftFromProposal(
     const alternatives: CandidateBlock["alternatives"] = [];
     block.alternative_variants.forEach((variant, originalIndex) => {
       const label = sanitizeLabel(variant.label, AI_PROPOSAL_LIMITS.maxLabelChars);
-      const content = parseVariantContentText(variant.content);
+      // Variante vacía válida: la cláusula no existe en esa modalidad (p. ej.
+      // "Sin garantía"). Nunca se rellena con texto que no existía.
+      const content =
+        variant.content.trim() === "" ? [] : parseVariantContentText(variant.content);
       const keys = variantKeys(content);
       const undeclared = [...keys].some((key) => !declared.has(key));
-      if (label === "" || content.length === 0 || undeclared) {
+      if (label === "" || undeclared) {
         warnings.add("option_variant_discarded");
         return;
       }
@@ -463,6 +763,51 @@ export function buildTemplateDraftFromProposal(
       varsByParagraph.set(paragraphIndex, list);
     }
   }
+
+  // ---- nacionalidad de las Partes: nunca queda como texto fijo
+  // Un gentilicio de la lista cerrada que el modelo dejó literal, a poca
+  // distancia después del nombre de una Parte (`rol.x` de tipo
+  // `person_name`) en el mismo párrafo, pasa a `rol.nacionalidad` —
+  // cualquier rol, sin lista de roles.
+  const NATIONALITY_MAX_DISTANCE = 250;
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const spans = varsByParagraph.get(paragraphIndex) ?? [];
+    const blocks = blocksByParagraph.get(paragraphIndex) ?? [];
+    for (const mention of findNationalityMentions(paragraph)) {
+      if (
+        spans.some((span) => overlaps(span, mention)) ||
+        blocks.some((block) => overlaps(block.span, mention))
+      ) {
+        continue;
+      }
+      const owner = spans
+        .filter(
+          (span) =>
+            span.end <= mention.start &&
+            mention.start - span.end <= NATIONALITY_MAX_DISTANCE &&
+            span.key.includes(".") &&
+            declared.get(span.key)?.semantic_type === "person_name",
+        )
+        .sort((a, b) => b.end - a.end)[0];
+      if (!owner) continue;
+      const role = owner.key.slice(0, owner.key.indexOf("."));
+      const key = `${role}.nacionalidad`;
+      if (!declared.has(key)) {
+        declared.set(key, {
+          key,
+          label: `Nacionalidad (${role.replaceAll("_", " ")})`,
+          semantic_type: "nationality",
+          output_transform: "none",
+          needs_review: false,
+          occurrences: [],
+        });
+        labels.set(key, `Nacionalidad (${role.replaceAll("_", " ")})`);
+      }
+      spans.push({ start: mention.start, end: mention.end, key });
+      varsByParagraph.set(paragraphIndex, spans);
+      warnings.add("nationality_completed");
+    }
+  });
 
   // ---- construcción de párrafos
   const content: TemplateParagraphNode[] = [];
@@ -552,6 +897,24 @@ export function buildTemplateDraftFromProposal(
         innerSpans,
       );
       const originalId = generateId();
+      if (block.identification) {
+        // Alternativas = el mismo texto original (con sus variables) con
+        // solo la mención del documento adaptada; nada de contenido nuevo.
+        const originalType = block.identification.originalType;
+        block.alternatives = (["cedula", "dimex", "pasaporte"] as const)
+          .filter((type) => type !== originalType)
+          .map((type, originalIndex) => {
+            let adapted = false;
+            const content = originalContent.map((node) => {
+              if (adapted || node.type !== "text" || !IDENTIFICATION_PHRASE_PATTERN.test(node.text)) {
+                return node;
+              }
+              adapted = true;
+              return { ...node, text: adaptIdentificationPhrase(node.text, type) };
+            });
+            return { label: IDENTIFICATION_TYPE_LABELS[type], content, originalIndex };
+          });
+      }
       const variants = [
         {
           id: originalId,
@@ -641,7 +1004,9 @@ export function buildTemplateDraftFromProposal(
     const parsed = TemplateWorkspaceVariableSchema.safeParse({
       field_key: key,
       label: labels.get(key),
-      required: proposalVariable.required,
+      // Regla de LexCR, no del modelo: toda variable generada con IA es
+      // opcional. El abogado decide qué exigir al revisar el Machote.
+      required: false,
       autofill_source: suggestAutofillSource(key),
       output_transform: resolveTransform(proposalVariable, warnings),
     });
@@ -671,16 +1036,29 @@ export function buildTemplateDraftFromProposal(
       warnings.add("index_mapping_discarded");
     }
   }
-  // La hora tiene una sola fuente: el Bloque de Hora gana si es válido.
+  // La fecha se resuelve ANTES que la hora: si el modelo propone la misma
+  // clave para ambas, nunca gana la hora (antes la fecha terminaba mapeada
+  // como hora de otorgamiento y la fecha del Índice quedaba vacía).
+  const instrumentNumberKey = simpleKey(index.instrument_number_key);
+  const authorizedDateKey = simpleKey(index.authorized_date_key);
+  // La hora tiene una sola fuente: el Bloque de Hora gana si es válido. Una
+  // variable de tipo fecha nunca es la hora del Índice.
   let authorizedTimeKey: string | null = null;
   if (authorizedTimeOptionBlockId === null) {
-    authorizedTimeKey = simpleKey(index.authorized_time_key);
+    if (
+      index.authorized_time_key !== null &&
+      declared.get(index.authorized_time_key)?.semantic_type === "date"
+    ) {
+      warnings.add("index_mapping_discarded");
+    } else {
+      authorizedTimeKey = simpleKey(index.authorized_time_key);
+    }
   } else if (index.authorized_time_key !== null) {
     warnings.add("index_mapping_discarded");
   }
   const simpleFieldKeys: AiIndexPlan["simpleFieldKeys"] = {
-    instrument_number: simpleKey(index.instrument_number_key),
-    authorized_date: simpleKey(index.authorized_date_key),
+    instrument_number: instrumentNumberKey,
+    authorized_date: authorizedDateKey,
     authorized_time: authorizedTimeKey,
     protocol_book: simpleKey(index.protocol_book_key),
     initial_folio: simpleKey(index.initial_folio_key),

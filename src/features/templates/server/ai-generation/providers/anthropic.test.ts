@@ -89,7 +89,7 @@ describe("toAnthropicJsonSchema", () => {
     expect(serialized).not.toContain('"pattern"');
     expect(serialized).not.toContain("final_folio");
     expect(serialized).not.toMatch(/"type":\[/);
-    expect(serialized).toContain("lexcr.template_generation.v2");
+    expect(serialized).toContain("lexcr.template_generation.v3");
   });
 });
 

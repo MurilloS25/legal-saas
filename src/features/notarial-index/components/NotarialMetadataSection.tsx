@@ -145,7 +145,12 @@ export function NotarialMetadataSection({
     listMissing: false,
   });
 
-  const dirty = !draft.matchesPersisted;
+  // "Sin guardar" para el dock = ediciones reales del usuario en esta
+  // sesión (`draft.dirty`), NO `!matchesPersisted`: una Escritura cuyo
+  // Índice nunca se guardó (o con valores precargados) no tiene cambios del
+  // usuario y no debe bloquear Reabrir. Guardar/Confirmar siguen usando
+  // `matchesPersisted` vía `notarialNextStep`.
+  const dirty = draft.dirty;
   const canSave = canEdit && !confirmation.isConfirmed;
   const busy = pending || confirmation.busy;
   const requestConfirm = confirmation.setDialog;

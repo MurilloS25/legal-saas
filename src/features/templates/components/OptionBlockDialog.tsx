@@ -6,8 +6,10 @@
  * Configura: nombre del bloque, una lista de variantes (etiqueta +
  * contenido con `{{clave.variable}}` opcional) y cuál variante es la
  * predeterminada. Reglas (ver `option-blocks.ts`): al menos una variante,
- * etiqueta y contenido no vacíos por variante, y exactamente una
- * predeterminada. Sin código ni expresiones — solo texto con placeholders.
+ * etiqueta no vacía por variante, contenido vacío permitido (la cláusula no
+ * aparece en esa modalidad) si al menos una variante tiene contenido, y
+ * exactamente una predeterminada. Sin código ni expresiones — solo texto
+ * con placeholders.
  */
 
 import { useId, useRef, useState } from "react";
@@ -303,7 +305,7 @@ export function OptionBlockDialog({
                           onClick={(event) => trackVariantCursor(variant.id, event)}
                           onKeyUp={(event) => trackVariantCursor(variant.id, event)}
                           className={`${inputClass} font-mono text-xs`}
-                          placeholder="Ej: CHASIS número {{vehiculo.chasis}}"
+                          placeholder="Ej: CHASIS número {{vehiculo.chasis}} — vacío si el texto no aparece"
                         />
                       </div>
 

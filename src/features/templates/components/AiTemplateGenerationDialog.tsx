@@ -357,15 +357,13 @@ export function AiTemplateGenerationDialog({ limits, onClose }: Props) {
 
                 <div>
                   <label htmlFor={variantsId} className="mb-1 block text-sm font-medium text-slate-700">
-                    Variantes del documento (opcional)
+                    Notas para la IA (opcional)
                   </label>
                   <p id={variantsHelpId} className="mb-2 text-xs text-slate-500">
-                    Indica si alguna parte de la escritura puede redactarse de distintas
-                    maneras según el caso. LexCR intentará convertir esas variantes en
-                    opciones dentro de un mismo machote, para evitar que tengas que crear
-                    varios machotes casi iguales. Por ejemplo: «Chasis, VIN y serie pueden
-                    ser iguales o diferentes» o «La hora puede indicarse solo con horas o
-                    con horas y minutos». Este campo no es un chat.
+                    Indica lo que la IA no puede deducir del documento sobre cómo
+                    reutilizarlo: qué cláusulas pueden omitirse o redactarse de otra
+                    forma, qué texto debe quedar fijo y qué datos deben convertirse en
+                    variables. No es un chat ni un campo de comentarios.
                   </p>
                   <textarea
                     id={variantsId}
@@ -375,6 +373,9 @@ export function AiTemplateGenerationDialog({ limits, onClose }: Props) {
                     onChange={(event) => setVariants(event.target.value)}
                     className={inputClass}
                     aria-describedby={variantsHelpId}
+                    placeholder={
+                      "Ej.: La cláusula de garantía puede ir o no.\nEl domicilio del vendedor debe ser una variable.\nLos datos de la finca quedan fijos."
+                    }
                   />
                 </div>
 
