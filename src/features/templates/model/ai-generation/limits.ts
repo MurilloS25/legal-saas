@@ -15,7 +15,7 @@ export const AI_TEMPLATE_DEFAULTS = {
   maxPastedChars: 12_000,
   /** Texto extraído de un archivo: ~5 páginas. */
   maxExtractedChars: 20_000,
-  /** Campo "Variantes del documento". */
+  /** Campo "Notas para la IA". */
   maxVariantInstructionsChars: 1_000,
   /** Generaciones por usuario y día (hora de Costa Rica). */
   dailyLimitPerUser: 2,

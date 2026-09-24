@@ -86,7 +86,8 @@ describe("TEMPLATE_GENERATION_SYSTEM_PROMPT — reglas de modelado", () => {
     'Una variante puede tener "content": "" (vacío)',
     "Un bloque puede contener variables",
     "NO crees el bloque",
-    "Documento de identificación (Cédula / DIMEX / Pasaporte)",
+    "Documento de identificación (Cédula / DIMEX / Pasaporte) (patrón canónico, se evalúa siempre)",
+    "Nunca para una cédula jurídica ni para una sociedad o persona jurídica",
     "instrucciones de MODELADO con prioridad alta",
   ])("states: %s", (rule) => {
     expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain(rule);

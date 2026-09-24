@@ -397,53 +397,145 @@ describe("E. Hora y minutos coherentes con el Índice", () => {
 
 // ------------------------------------------------------------------ F
 
-describe("F. Documento de identificación: Cédula / DIMEX / Pasaporte", () => {
+describe("F. Documento de identificación: Cédula / DIMEX / Pasaporte (patrón canónico)", () => {
   const source = "Comparece TEST PERSONA UNO, portador de la cédula de identidad número 1-0234-0567, como comprador.";
-  const proposal = proposalWith({
-    variables: [
-      variable("comprador.nombre", "person_name", [{ paragraph: 1, text: "TEST PERSONA UNO", occurrence: 1 }]),
-      variable(
-        "comprador.identificacion",
-        "identification",
-        [{ paragraph: 1, text: "1-0234-0567", occurrence: 1 }],
-        "digits_to_words",
-      ),
-    ],
-    identification_types: [
-      {
-        paragraph: 1,
-        text: "cédula de identidad número 1-0234-0567",
-        occurrence: 1,
-        identification_key: "comprador.identificacion",
-        original_type: "cedula",
-      },
-    ],
-  });
+  const buyerVariables = [
+    variable("comprador.nombre", "person_name", [{ paragraph: 1, text: "TEST PERSONA UNO", occurrence: 1 }]),
+    variable(
+      "comprador.identificacion",
+      "identification",
+      [{ paragraph: 1, text: "1-0234-0567", occurrence: 1 }],
+      "digits_to_words",
+    ),
+  ];
+  const expectedTexts = (key: string) => [
+    `cédula de identidad número {{${key}}}`,
+    `DIMEX número {{${key}}}`,
+    `pasaporte número {{${key}}}`,
+  ];
 
-  it("with evidence (notes), adapts ONLY the document name and keeps the same variable", () => {
-    const draft = build(source, proposal, "El comprador puede ser extranjero y usar DIMEX o pasaporte.");
+  it("a document with ONLY 'cédula de identidad' and empty notes ends up with the three variants (same variable)", () => {
+    // El modelo ni siquiera propuso `identification_types`: la detección
+    // determinista de LexCR prepara el Machote igual.
+    const draft = build(source, proposalWith({ variables: buyerVariables }), null);
     const [block] = blocksOf(draft.document);
+    expect(block.name).toBe("Tipo de identificación");
     expect(block.variants.map((variant) => variant.label)).toEqual([
       "Cédula (según el documento)",
       "DIMEX",
       "Pasaporte",
     ]);
-    expect(block.variants.map((variant) => textOf(variant.content))).toEqual([
-      "cédula de identidad número {{comprador.identificacion}}",
-      "DIMEX número {{comprador.identificacion}}",
-      "pasaporte número {{comprador.identificacion}}",
+    expect(block.variants.map((variant) => textOf(variant.content))).toEqual(
+      expectedTexts("comprador.identificacion"),
+    );
+    expect(paragraphText(draft.document, 0)).toBe(
+      "Comparece {{comprador.nombre}}, portador de la [[Tipo de identificación]], como comprador.",
+    );
+  });
+
+  it("the model's own proposal and LexCR's detection produce a single block", () => {
+    const draft = build(
+      source,
+      proposalWith({
+        variables: buyerVariables,
+        identification_types: [
+          {
+            paragraph: 1,
+            text: "cédula de identidad número 1-0234-0567",
+            occurrence: 1,
+            identification_key: "comprador.identificacion",
+            original_type: "cedula",
+          },
+        ],
+      }),
+    );
+    expect(blocksOf(draft.document)).toHaveLength(1);
+  });
+
+  it("works for any role, adapting only the document name (no added legal content)", () => {
+    const multi = [
+      "Comparece TEST PERSONA UNO, cédula número 1-0234-0567, como otorgante,",
+      "y TEST PERSONA DOS, pasaporte número A1234567, como apoderada del acreedor.",
+    ].join("\n");
+    const draft = build(
+      multi,
+      proposalWith({
+        variables: [
+          variable("otorgante.cedula", "identification", [{ paragraph: 1, text: "1-0234-0567", occurrence: 1 }]),
+          variable("apoderado.identificacion", "identification", [{ paragraph: 2, text: "A1234567", occurrence: 1 }]),
+        ],
+      }),
+    );
+    const blocks = blocksOf(draft.document);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].variants.map((variant) => textOf(variant.content))).toEqual([
+      "cédula número {{otorgante.cedula}}",
+      "DIMEX número {{otorgante.cedula}}",
+      "pasaporte número {{otorgante.cedula}}",
     ]);
+    expect(blocks[1].variants.map((variant) => variant.label)).toEqual([
+      "Pasaporte (según el documento)",
+      "Cédula",
+      "DIMEX",
+    ]);
+    expect(blocks[1].variants.map((variant) => textOf(variant.content))).toEqual([
+      "pasaporte número {{apoderado.identificacion}}",
+      "cédula de identidad número {{apoderado.identificacion}}",
+      "DIMEX número {{apoderado.identificacion}}",
+    ]);
+    const serialized = JSON.stringify(blocks);
+    expect(serialized).not.toMatch(/residencia|vigente|migratori|permiso/i);
   });
 
-  it("without evidence it does not create identification options", () => {
-    const draft = build(source, proposal, null);
+  it("the lawyer's notes can switch it off explicitly", () => {
+    for (const notes of [
+      "Solo cédula de identidad.",
+      "Sin DIMEX ni pasaporte.",
+      "No agregues opciones de tipo de identificación.",
+    ]) {
+      expect(blocksOf(build(source, proposalWith({ variables: buyerVariables }), notes).document)).toHaveLength(0);
+    }
+  });
+
+  it("notes that merely mention another topic do not switch it off", () => {
+    const draft = build(
+      source,
+      proposalWith({ variables: buyerVariables }),
+      "El comprador no es costarricense; la venta puede ser con o sin garantía.",
+    );
+    expect(blocksOf(draft.document)).toHaveLength(1);
+  });
+
+  it("never applies to a legal entity: cédula jurídica, a legal-entity role or a 3-XXX-XXXXXX number", () => {
+    const company =
+      "Comparece INVERSIONES TEST S.A., cédula jurídica número 3-101-123456, representada por TEST PERSONA UNO.";
+    const draft = build(
+      company,
+      proposalWith({
+        variables: [
+          variable("vendedor.nombre", "person_name", [{ paragraph: 1, text: "INVERSIONES TEST S.A.", occurrence: 1 }]),
+          variable("vendedor.identificacion", "identification", [{ paragraph: 1, text: "3-101-123456", occurrence: 1 }]),
+        ],
+        identification_types: [
+          {
+            paragraph: 1,
+            text: "cédula jurídica número 3-101-123456",
+            occurrence: 1,
+            identification_key: "vendedor.identificacion",
+            original_type: "cedula",
+          },
+        ],
+      }),
+    );
     expect(blocksOf(draft.document)).toHaveLength(0);
-    expect(draft.warnings).toContain("identification_type_skipped");
-    expect(paragraphText(draft.document, 0)).toContain("cédula de identidad número {{comprador.identificacion}}");
-  });
+    expect(paragraphText(draft.document, 0)).toContain("cédula jurídica número {{vendedor.identificacion}}");
 
-  it("the document itself mentioning a passport is enough evidence", () => {
-    const withPassport = `${source}\nEl apoderado se identifica con pasaporte número A123.`;
-    expect(blocksOf(build(withPassport, proposal, null).document)).toHaveLength(1);
+    const byRole = build(
+      "Comparece la sociedad, cédula número 3101123456.",
+      proposalWith({
+        variables: [variable("sociedad.cedula", "identification", [{ paragraph: 1, text: "3101123456", occurrence: 1 }])],
+      }),
+    );
+    expect(blocksOf(byRole.document)).toHaveLength(0);
   });
 });

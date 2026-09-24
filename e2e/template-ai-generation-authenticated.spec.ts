@@ -88,8 +88,8 @@ test("the dialog explains the feature, requires consent and keeps manual creatio
   const surface = dialog(page);
   await expect(surface.getByText(/proveedor externo de inteligencia artificial/)).toBeVisible();
   await expect(surface.getByText(/LexCR no conservará el archivo original/)).toBeVisible();
-  await expect(surface.getByLabel("Variantes del documento (opcional)")).toBeVisible();
-  await expect(surface.getByText("Este campo no es un chat.", { exact: false })).toBeVisible();
+  await expect(surface.getByLabel("Notas para la IA (opcional)")).toBeVisible();
+  await expect(surface.getByText("No es un chat ni un campo de comentarios.", { exact: false })).toBeVisible();
 
   const generate = surface.getByRole("button", { name: "Generar machote" });
   await surface.getByLabel("Texto del documento").fill(FAKE_DOCUMENT);

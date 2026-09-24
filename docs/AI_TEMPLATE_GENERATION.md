@@ -12,7 +12,7 @@ Este documento es la fuente de verdad de la feature. Complementa a
 
 El abogado pega el texto de una escritura existente o sube **un** archivo
 `.docx` o PDF con texto seleccionable, opcionalmente describe qué partes
-pueden redactarse de varias formas ("Variantes del documento"), acepta el
+pueden redactarse de varias formas ("Notas para la IA"), acepta el
 aviso de procesamiento y pulsa **Generar machote**. LexCR:
 
 1. extrae el texto en memoria y aplica límites deterministas;
@@ -37,7 +37,7 @@ Machotes ──► [Crear con IA]  (también en /templates/new y en el estado va
                ▼
      Diálogo "Crear machote con IA"
        · Documento: Pegar texto | Subir archivo (.docx / .pdf)
-       · Variantes del documento (opcional)  — no es un chat
+       · Notas para la IA (opcional)  — no es un chat
        · Aviso de procesamiento + [ ] Entiendo y deseo continuar
                │  Generar machote
                ▼
@@ -315,20 +315,27 @@ de salida. Reglas deterministas de LexCR (no dependen del modelo):
   El editor manual también las admite si al menos una variante tiene
   contenido. Un bloque puede contener variables en sus variantes.
 - **Política de Bloques**: A) notas del abogado (`user_instruction`, solo
-  si hay notas); B) patrón conocido con evidencia (hora, Chasis/VIN/Serie,
-  documento de identificación); C) mera posibilidad: no se crea.
+  si hay notas); B) patrón conocido con evidencia (hora, Chasis/VIN/Serie) o canónico
+  (documento de identificación); C) mera posibilidad: no se crea.
 - **Bloque de hora coherente o nada**: si la hora no es `time_hour`, los
   minutos no son `time_minutes`, no están dentro del fragmento/variante, o
   una variante incluye la fecha, el bloque se descarta completo
   (`time_block_discarded`) y sus variables quedan en el texto. La fecha se
   mapea al Índice antes que la hora y una variable de tipo fecha nunca es
   la hora del Índice (causa del caso "minutos + fecha de otorgamiento").
-- **Cédula / DIMEX / Pasaporte** (`identification_types`): solo con
-  evidencia (las notas lo mencionan o el documento menciona DIMEX o
-  pasaporte). LexCR construye las variantes cambiando únicamente el nombre
-  del documento dentro del fragmento original ("cédula de identidad",
-  "DIMEX", "pasaporte"); el número sigue siendo la misma variable. Sin
-  evidencia: `identification_type_skipped`.
+- **Cédula / DIMEX / Pasaporte** (patrón canónico): toda identificación
+  de una Parte persona física, de cualquier rol, queda preparada para las
+  tres modalidades en un Bloque "Tipo de identificación" que reutiliza la
+  MISMA variable. Fuentes: `identification_types` del modelo y una
+  detección determinista de LexCR (variable de identificación de un rol
+  precedida por "cédula de identidad (número)", "cédula", "DIMEX" o
+  "pasaporte"), deduplicadas. LexCR solo cambia el nombre del documento
+  ("cédula de identidad", "DIMEX", "pasaporte"); nunca agrega requisitos,
+  residencia ni vigencias. No aplica a personas jurídicas (mención de
+  "cédula jurídica", rol de entidad como `sociedad`/`empresa`, o número con
+  formato 3-XXX-XXXXXX). Las notas lo desactivan solo con una exclusión
+  explícita ("solo cédula", "sin DIMEX ni pasaporte", "no agregues opciones
+  de tipo de identificación").
 
 Limitación conocida: un Bloque de opciones vive dentro de UN párrafo; una
 cláusula opcional de varios párrafos no puede ser un solo bloque (el
@@ -476,7 +483,7 @@ Servicio ──(metadata sin contenido)──► RPCs del libro de cuota (solo s
 ### A. Frontera de confianza
 
 Son **input no confiable**: el archivo subido, el texto pegado y el campo
-"Variantes del documento". Aunque contengan frases como "ignora todas las
+"Notas para la IA". Aunque contengan frases como "ignora todas las
 instrucciones anteriores", siguen siendo **datos**: el documento que se
 convierte en Machote. Nunca sustituyen las instrucciones de LexCR. También
 es no confiable **la respuesta del modelo**: se trata exactamente igual que
@@ -850,7 +857,7 @@ Trazabilidad: el Machote muestra que fue generado con IA leyendo
 | Texto pegado | 12.000 caracteres (~3 páginas) | constante |
 | Texto extraído | 20.000 caracteres (4.000 × páginas) | derivado |
 | Tokens estimados de entrada | techo del documento + indicaciones: ⌈(12.000 + 1.000)/3,5⌉ = 3.715 para texto pegado; ⌈(20.000 + 1.000)/3,5⌉ = 6.000 para archivos. Solo cuenta lo que aporta el usuario (documento + "Variantes"); el prompt de sistema y el schema son fijos y **no** cuentan. Es una segunda barrera de costo coherente con los límites de caracteres (no puede rechazar algo que ya pasó el límite de caracteres de su fuente). | derivado |
-| Variantes del documento | 1.000 caracteres | constante |
+| Notas para la IA | 1.000 caracteres | constante |
 | Tokens de salida pedidos | 24.000 | constante |
 | Timeout por llamada al proveedor | 120 s | `AI_TEMPLATE_TIMEOUT_MS` (5–240 s) |
 | Timeout de extracción | 15 s | constante |

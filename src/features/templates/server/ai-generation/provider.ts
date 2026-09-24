@@ -16,7 +16,7 @@ import "server-only";
 export type TemplateGenerationRequest = {
   /** Párrafos del texto extraído; el prompt los numera desde 1. */
   paragraphs: string[];
-  /** Indicaciones opcionales del abogado ("Variantes del documento"). */
+  /** Indicaciones opcionales del abogado ("Notas para la IA"). */
   variantInstructions: string | null;
   /**
    * Solo en el ÚNICO retry de reparación: la salida anterior del propio

@@ -114,7 +114,7 @@ type BuildInput = {
   sourceText: string;
   proposal: AiTemplateProposal;
   /**
-   * Indicaciones del abogado ("Variantes del documento"), ya normalizadas,
+   * Indicaciones del abogado ("Notas para la IA"), ya normalizadas,
    * o null. Se usan solo para reglas deterministas cerradas (p. ej. si piden
    * parametrizar los datos del profesional); nunca como instrucciones.
    */
@@ -233,19 +233,68 @@ const IDENTIFICATION_PHRASE_PATTERN =
   /c[eé]dula de identidad|c[eé]dula de residencia|c[eé]dula|documento de identidad migratorio para extranjeros|dimex|pasaporte/i;
 
 /**
- * Evidencia suficiente para ofrecer las modalidades: las indicaciones las
- * mencionan, o el propio documento menciona DIMEX o pasaporte. Sin
- * evidencia, no se crean (no se llena el Machote de opciones hipotéticas).
+ * Mención del documento JUSTO antes del número de una Parte ("cédula de
+ * identidad número ", "pasaporte No. ", "DIMEX: "). Nunca incluye "cédula
+ * jurídica": el patrón es solo para personas físicas.
  */
-export function hasIdentificationTypeEvidence(
-  instructions: string | null,
-  sourceText: string,
-): boolean {
+const IDENTIFICATION_LEADING_PATTERN =
+  /(c[eé]dula de identidad|c[eé]dula de residencia|c[eé]dula|documento de identidad migratorio para extranjeros|dimex|pasaporte)(?:\s+(?:n[uú]mero|no\.|n[°º]\.?))?\s*:?\s*$/i;
+const IDENTIFICATION_LOOKBEHIND_CHARS = 70;
+/** Datos (último segmento) de una clave que es el número de identificación. */
+const IDENTIFICATION_DATA_KEYS = new Set([
+  "cedula",
+  "identificacion",
+  "numero_identificacion",
+  "cedula_identidad",
+  "documento_identidad",
+]);
+/** Roles que representan una persona jurídica (el patrón no aplica). */
+const LEGAL_ENTITY_ROLE_TOKENS = new Set([
+  "sociedad",
+  "empresa",
+  "compania",
+  "persona_juridica",
+  "entidad",
+  "corporacion",
+  "asociacion",
+  "fundacion",
+  "cooperativa",
+]);
+/** Formato de cédula jurídica costarricense (3-101-123456). */
+const LEGAL_ENTITY_ID_PATTERN = /^3-?\d{3}-?\d{6}$/;
+
+/**
+ * El abogado desactiva explícitamente el patrón ("solo cédula", "sin DIMEX
+ * ni pasaporte", "no agregues opciones de tipo de identificación"). Sin una
+ * exclusión explícita, el patrón canónico aplica.
+ */
+export function identificationTypesDisabledByNotes(instructions: string | null): boolean {
   const notes = normalizeForMatch(instructions ?? "");
-  if (/\b(dimex|pasaporte|extranjer[oa]s?|tipo de (documento|identificacion))\b/.test(notes)) {
-    return true;
-  }
-  return /\b(dimex|pasaporte)\b/.test(normalizeForMatch(sourceText));
+  return (
+    /\b(solo|solamente|unicamente)\s+(con\s+)?cedula\b/.test(notes) ||
+    /\bsin\s+(opciones?\s+de\s+)?(dimex|pasaporte|tipos?\s+de\s+(documento|identificacion))\b/.test(notes) ||
+    /\bno\s+(ofrezcas?|agregues|agregar|incluyas|incluir|crees|crear|uses|usar)\s+(opciones?\s+de\s+)?(dimex|pasaporte|tipos?\s+de\s+(documento|identificacion))\b/.test(
+      notes,
+    )
+  );
+}
+
+function documentTypeOf(phrase: string): AiIdentificationDocumentType {
+  const normalized = normalizeForMatch(phrase);
+  if (/pasaporte/.test(normalized)) return "pasaporte";
+  if (/dimex|residencia|migratorio/.test(normalized)) return "dimex";
+  return "cedula";
+}
+
+/** La identificación es de una persona jurídica: el patrón no aplica. */
+function isLegalEntityIdentification(key: string, spanText: string, value: string): boolean {
+  const role = normalizeForMatch(key.split(".")[0] ?? "");
+  return (
+    role.split("_").some((token) => LEGAL_ENTITY_ROLE_TOKENS.has(token)) ||
+    LEGAL_ENTITY_ROLE_TOKENS.has(role) ||
+    /jur[ií]dica/i.test(spanText) ||
+    LEGAL_ENTITY_ID_PATTERN.test(value.trim())
+  );
 }
 
 function adaptIdentificationPhrase(text: string, target: AiIdentificationDocumentType): string {
@@ -515,40 +564,108 @@ export function buildTemplateDraftFromProposal(
       });
     }
   }
-  // ---- patrón conocido Cédula / DIMEX / Pasaporte (solo con evidencia)
-  const identificationEvidence = hasIdentificationTypeEvidence(input.instructions, sourceText);
-  proposal.identification_types.forEach((item, itemIndex) => {
-    const located = locateReference(paragraphs, item);
-    const keyInsideSpan =
-      located !== null &&
-      (declared.get(item.identification_key)?.occurrences ?? []).some((occurrence) => {
-        const found = locateReference(paragraphs, occurrence);
-        return (
-          found !== null &&
-          found.paragraphIndex === located.paragraphIndex &&
-          found.start >= located.start &&
-          found.end <= located.end
-        );
-      });
-    if (
-      !identificationEvidence ||
-      !located ||
-      !keyInsideSpan ||
-      !IDENTIFICATION_PHRASE_PATTERN.test(item.text)
-    ) {
+  // ---- patrón canónico Cédula / DIMEX / Pasaporte (personas físicas)
+  // Toda identificación de una Parte persona física queda preparada para
+  // las tres modalidades, reutilizando la MISMA variable. Fuentes: lo que
+  // propone el modelo y, además, una detección determinista de LexCR (la
+  // mención del documento justo antes del número), para no depender del
+  // modelo. Las notas solo lo desactivan con una exclusión explícita.
+  type IdentificationCandidate = {
+    paragraphIndex: number;
+    start: number;
+    end: number;
+    key: string;
+    type: AiIdentificationDocumentType;
+  };
+  const identificationCandidates: IdentificationCandidate[] = [];
+  const pushIdentification = (candidate: IdentificationCandidate, value: string) => {
+    const spanText = paragraphs[candidate.paragraphIndex].slice(candidate.start, candidate.end);
+    if (isLegalEntityIdentification(candidate.key, spanText, value)) {
       warnings.add("identification_type_skipped");
       return;
     }
-    const blockIndex = -100 - itemIndex;
+    identificationCandidates.push(candidate);
+  };
+  if (identificationTypesDisabledByNotes(input.instructions)) {
+    if (proposal.identification_types.length > 0) warnings.add("identification_type_skipped");
+  } else {
+    // 1) propuestas del modelo (fragmento que contiene la mención y el número)
+    for (const item of proposal.identification_types) {
+      const located = locateReference(paragraphs, item);
+      const phrase = IDENTIFICATION_PHRASE_PATTERN.exec(item.text);
+      const inner = (declared.get(item.identification_key)?.occurrences ?? [])
+        .map((occurrence) => ({ occurrence, found: locateReference(paragraphs, occurrence) }))
+        .find(
+          ({ found }) =>
+            located !== null &&
+            found !== null &&
+            found.paragraphIndex === located.paragraphIndex &&
+            found.start >= located.start &&
+            found.end <= located.end,
+        );
+      if (!located || !phrase || !inner) {
+        warnings.add("identification_type_skipped");
+        continue;
+      }
+      pushIdentification(
+        { ...located, key: item.identification_key, type: documentTypeOf(phrase[0]) },
+        inner.occurrence.text,
+      );
+    }
+    // 2) detección determinista: número de identificación de un rol
+    //    precedido por la mención del documento
+    for (const [key, variable] of declared) {
+      const dot = key.indexOf(".");
+      if (dot <= 0) continue;
+      const data = normalizeForMatch(key.slice(dot + 1));
+      if (variable.semantic_type !== "identification" && !IDENTIFICATION_DATA_KEYS.has(data)) continue;
+      for (const occurrence of variable.occurrences) {
+        const found = locateReference(paragraphs, occurrence);
+        if (!found) continue;
+        const paragraph = paragraphs[found.paragraphIndex];
+        const lookStart = Math.max(0, found.start - IDENTIFICATION_LOOKBEHIND_CHARS);
+        const leading = IDENTIFICATION_LEADING_PATTERN.exec(paragraph.slice(lookStart, found.start));
+        if (!leading) continue;
+        pushIdentification(
+          {
+            paragraphIndex: found.paragraphIndex,
+            start: lookStart + leading.index,
+            end: found.end,
+            key,
+            type: documentTypeOf(leading[1]),
+          },
+          occurrence.text,
+        );
+      }
+    }
+  }
+  // Una sola opción por fragmento (el modelo y la detección suelen coincidir).
+  const acceptedIdentifications: IdentificationCandidate[] = [];
+  for (const candidate of identificationCandidates) {
+    if (
+      !acceptedIdentifications.some(
+        (other) => other.paragraphIndex === candidate.paragraphIndex && overlaps(other, candidate),
+      )
+    ) {
+      acceptedIdentifications.push(candidate);
+    }
+  }
+  acceptedIdentifications.forEach((candidate, index) => {
+    const blockIndex = -100 - index;
     candidateBlocks.push({
       blockIndex,
-      name: "Documento de identificación",
-      originalLabel: `${IDENTIFICATION_TYPE_LABELS[item.original_type]} (según el documento)`,
-      span: { start: located.start, end: located.end, blockIndex, paragraphIndex: located.paragraphIndex },
+      name: "Tipo de identificación",
+      originalLabel: `${IDENTIFICATION_TYPE_LABELS[candidate.type]} (según el documento)`,
+      span: {
+        start: candidate.start,
+        end: candidate.end,
+        blockIndex,
+        paragraphIndex: candidate.paragraphIndex,
+      },
       alternatives: [],
       proposedAlternativeCount: 0,
       timeOutput: null,
-      identification: { originalType: item.original_type },
+      identification: { originalType: candidate.type },
     });
   });
 
