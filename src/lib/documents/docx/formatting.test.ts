@@ -73,8 +73,11 @@ describe("FIXED_BODY_LINE_SPACING", () => {
     expect(FIXED_BODY_LINE_SPACING.line).toBe(480);
   });
 
-  it("uses the exactly rule, not auto or atLeast", () => {
-    expect(FIXED_BODY_LINE_SPACING.lineRule).toBe("exactly");
+  // OOXML (ST_LineSpacingRule) solo admite "auto" | "exact" | "atLeast".
+  // `LineRuleType.EXACTLY` de `docx` emite "exactly", que Word descarta y
+  // trata como "auto": 480 se leía como interlineado doble.
+  it("uses the OOXML exact rule, not the invalid \"exactly\", auto or atLeast", () => {
+    expect(FIXED_BODY_LINE_SPACING.lineRule).toBe("exact");
   });
 });
 
@@ -89,7 +92,7 @@ describe("FIXED_BODY_PARAGRAPH", () => {
     expect(FIXED_BODY_PARAGRAPH).toEqual({
       alignment: "both",
       indent: { left: 0, right: 0 },
-      spacing: { before: 0, after: 0, line: 480, lineRule: "exactly" },
+      spacing: { before: 0, after: 0, line: 480, lineRule: "exact" },
     });
   });
 });

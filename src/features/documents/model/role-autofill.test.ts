@@ -185,7 +185,7 @@ describe("mapClientToRoleVariables — persona física (todos los datos)", () =>
     full_name: "Juan Pérez",
     identification_number: "108880777",
     exact_address: "Heredia, Barva",
-    marital_status: "Casado/a",
+    marital_status: "Casado/a una vez",
     occupation: "Abogado",
     nationality: "costarricense",
   };
@@ -204,7 +204,7 @@ describe("mapClientToRoleVariables — persona física (todos los datos)", () =>
       expect(result.values).toEqual({
         [`${role}.nombre`]: "Juan Pérez",
         [`${role}.identificacion`]: "108880777",
-        [`${role}.estado_civil`]: "Casado/a",
+        [`${role}.estado_civil`]: "Casado/a una vez",
         [`${role}.ocupacion`]: "Abogado",
         [`${role}.nacionalidad`]: "costarricense",
         [`${role}.direccion`]: "Heredia, Barva",
@@ -227,9 +227,31 @@ describe("mapClientToRoleVariables — persona física (todos los datos)", () =>
       field("comprador.oficio_actual", { autofill_source: "client_occupation" }),
     ]);
     expect(mapClientToRoleVariables(juan, group.variables).values).toEqual({
-      "comprador.ec": "Casado/a",
+      "comprador.ec": "Casado/a una vez",
       "comprador.oficio_actual": "Abogado",
     });
+  });
+
+  it.each([
+    ["Casado/a", "Casado/a una vez"],
+    ["casada", "Casado/a una vez"],
+    ["Libre", "Unión libre"],
+    ["union_libre", "Unión libre"],
+    ["Casada dos veces", "Casado/a dos veces"],
+  ])("copies the canonical form of a legacy stored marital status %s → %s", (stored, expected) => {
+    const [group] = groupVariablesByRole([field("apoderado.estado_civil")]);
+    expect(
+      mapClientToRoleVariables({ ...juan, marital_status: stored }, group.variables)
+        .values,
+    ).toEqual({ "apoderado.estado_civil": expected });
+  });
+
+  it("copies an unrecognized stored marital status as-is (never drops it)", () => {
+    const [group] = groupVariablesByRole([field("comprador.estado_civil")]);
+    expect(
+      mapClientToRoleVariables({ ...juan, marital_status: "single" }, group.variables)
+        .values,
+    ).toEqual({ "comprador.estado_civil": "single" });
   });
 
   it("reports an empty marital status as incomplete", () => {

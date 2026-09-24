@@ -45,22 +45,23 @@ export const LEGAL_ENTITY_IDENTIFICATION_PATTERN = /^[0-9]+(-[0-9]+)*$/;
 export const LEGAL_ENTITY_IDENTIFICATION_MAX_LENGTH = 30;
 
 // Única fuente de las opciones de estado civil — la reutilizan tanto el
-// formulario completo (`ClientForm`) como el diálogo de creación contextual
-// (`CreateClientDialog`), para no duplicar la lista.
+// formulario completo como el diálogo de creación contextual (ambos vía
+// `ClientFields`), para no duplicar la lista.
 //
 // El valor almacenado es exactamente el texto visible (p. ej.
 // "Casado/a dos veces"), porque se reutiliza tal cual en documentos
-// notariales. `Casado/a` y `Divorciado/a` son el caso normal (primera vez).
+// notariales. "Casado/a una vez" explicita la primera vez; "Divorciado/a"
+// sigue siendo el caso normal (primera vez).
 export const MARITAL_STATUS_VALUES = [
   "Soltero/a",
-  "Casado/a",
+  "Casado/a una vez",
   "Casado/a dos veces",
   "Casado/a tres veces",
   "Divorciado/a",
   "Divorciado/a dos veces",
   "Divorciado/a tres veces",
   "Viudo/a",
-  "Libre",
+  "Unión libre",
 ] as const;
 
 export type MaritalStatus = (typeof MARITAL_STATUS_VALUES)[number];
@@ -70,25 +71,37 @@ export const MARITAL_STATUS_OPTIONS = MARITAL_STATUS_VALUES.map((value) => ({
   label: value,
 }));
 
-const LEGACY_BASE: Record<string, string> = {
-  soltero: "Soltero/a",
-  soltera: "Soltero/a",
-  casado: "Casado/a",
-  casada: "Casado/a",
-  divorciado: "Divorciado/a",
-  divorciada: "Divorciado/a",
-  viudo: "Viudo/a",
-  viuda: "Viudo/a",
-  libre: "Libre",
-  "union libre": "Libre",
+type MaritalBase = "soltero" | "casado" | "divorciado" | "viudo" | "union_libre";
+
+const LEGACY_BASE: Record<string, MaritalBase> = {
+  soltero: "soltero",
+  soltera: "soltero",
+  casado: "casado",
+  casada: "casado",
+  divorciado: "divorciado",
+  divorciada: "divorciado",
+  viudo: "viudo",
+  viuda: "viudo",
+  libre: "union_libre",
+  "union libre": "union_libre",
+};
+
+const TIMES_SUFFIX: Record<string, "una" | "dos" | "tres"> = {
+  "una vez": "una",
+  "dos veces": "dos",
+  "tres veces": "tres",
 };
 
 /**
- * Equivalente canónico de un valor histórico de estado civil, o "" si no hay
- * equivalencia clara. Los Clientes anteriores guardaron slugs ("soltero",
- * "union_libre"), formas de género ("Casada") o el texto actual. Solo se usa
- * para preseleccionar el formulario: no se reescribe nada en la base de datos;
- * el valor canónico se persiste al guardar de nuevo el Cliente.
+ * Equivalente canónico de un valor de estado civil (actual o histórico), o
+ * "" si no hay equivalencia clara. Los Clientes anteriores guardaron slugs
+ * ("soltero", "union_libre"), formas de género ("Casada") o textos
+ * canónicos previos ("Casado/a", "Libre"). "Casado" sin número de veces es
+ * siempre "Casado/a una vez": nunca se infiere "dos" ni "tres veces".
+ *
+ * Compatibilidad sin migración: no se reescribe nada en la base de datos;
+ * se normaliza al leer (preselección del formulario y autollenado) y el
+ * valor canónico se persiste la próxima vez que se guarda el Cliente.
  */
 export function resolveMaritalStatusSelection(
   stored: string | null | undefined,
@@ -102,12 +115,37 @@ export function resolveMaritalStatusSelection(
     .replace(/_/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const times = key.match(/^(.*?)(?: (dos|tres) veces)?$/);
-  const base = LEGACY_BASE[times?.[1] ?? ""];
-  if (!base || base === "Soltero/a" || base === "Viudo/a" || base === "Libre") {
-    return times?.[2] ? "" : (base ?? "");
+  const match = key.match(/^(.*?)(?: (una vez|dos veces|tres veces))?$/);
+  const base = LEGACY_BASE[match?.[1] ?? ""];
+  const times = match?.[2] ? TIMES_SUFFIX[match[2]] : undefined;
+  switch (base) {
+    case "casado":
+      return `Casado/a ${times === "dos" ? "dos veces" : times === "tres" ? "tres veces" : "una vez"}`;
+    case "divorciado":
+      if (times === "dos") return "Divorciado/a dos veces";
+      if (times === "tres") return "Divorciado/a tres veces";
+      return "Divorciado/a";
+    case "soltero":
+      return times ? "" : "Soltero/a";
+    case "viudo":
+      return times ? "" : "Viudo/a";
+    case "union_libre":
+      return times ? "" : "Unión libre";
+    default:
+      return "";
   }
-  return times?.[2] ? `${base} ${times[2]} veces` : base;
+}
+
+/**
+ * Valor de estado civil que se copia a una Escritura: el canónico cuando
+ * el valor guardado tiene equivalencia (p. ej. "Casado/a" -> "Casado/a una
+ * vez"); si no, el texto guardado tal cual, para no perder un dato que el
+ * abogado sí escribió.
+ */
+export function resolveMaritalStatus(stored: string | null | undefined): string {
+  const trimmed = (stored ?? "").trim();
+  if (!trimmed) return "";
+  return resolveMaritalStatusSelection(trimmed) || trimmed;
 }
 
 const sharedClientFields = {
