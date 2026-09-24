@@ -97,6 +97,12 @@ Templates may include:
 - Simple conditional blocks.
 - Repeated parties or roles when needed.
 
+Any Machote can be duplicated ("Duplicar machote", `templates.write`) into a
+new independent **draft** named "X - Copia" / "X - Copia 2"…: same document,
+variables (autofill and transforms), Option Blocks and Índice configuration,
+with new internal ids. Activity, AI generation metadata, timestamps and the
+Escrituras created from the original are never copied.
+
 ### Document Generation
 
 The MVP lets authorized Workspace members save escrituras while they work,
@@ -155,6 +161,10 @@ After finalization, authorized users may include or exclude it from the Index.
 Notarial metadata progresses through pending, ready-to-confirm, confirmed and
 correction-required states. Confirmation binds to the exact persisted visible
 snapshot; reopening invalidates confirmation without deleting metadata.
+The Índice section shows one primary action per state and says what is
+missing: Guardar while there are unsaved changes, missing data or a content
+change to review; Confirmar only when everything is complete and saved;
+Corregir once confirmed. Guardar never confirms and Confirmar never saves.
 `Partes` distinguishes derived, manually overridden and explicitly empty data.
 
 The system must not submit the official notarial index.

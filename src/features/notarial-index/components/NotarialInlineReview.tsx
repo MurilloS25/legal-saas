@@ -12,7 +12,6 @@ import { isoToCostaRicaLocal } from "../model/datetime";
 import {
   canConfirmNotarialIndex,
   isNotarialComplete,
-  joinMissingFieldLabels,
   notarialConfirmationState,
   notarialMissingFields,
   NOTARIAL_CONFIRMATION_STATE_LABEL,
@@ -31,6 +30,10 @@ import {
   saveNotarialMetadataAction,
 } from "../server/metadata-actions";
 import type { NotarialMetadataState } from "../model/action-state";
+import { notarialNextStep } from "../model/next-step";
+
+const INLINE_PRIMARY_BUTTON =
+  "rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:opacity-60";
@@ -181,6 +184,17 @@ function NotarialInlineReviewForm({
     metadata !== null &&
     canConfirmNotarialIndex(confirmationState, complete);
   const canCorrectNow = canManage && isConfirmed;
+  // Misma regla que la sección del Índice en la Escritura: una acción
+  // principal por estado. Sin metadata guardada nunca se puede confirmar,
+  // así que "nunca guardado" cuenta como cambios sin guardar.
+  const nextStep = notarialNextStep({
+    state: confirmationState,
+    dirty: metadata === null || !matchesPersisted,
+    complete,
+    missingFields,
+    canEdit: canManage,
+    canConfirm: canManage,
+  });
 
   const lastSuccess = useRef<NotarialMetadataState | null>(null);
   useEffect(() => {
@@ -252,26 +266,6 @@ function NotarialInlineReviewForm({
           {NOTARIAL_CONFIRMATION_STATE_LABEL[confirmationState]}
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          {canConfirmNow && (
-            <button
-              type="button"
-              disabled={confirmationBusy || pending || dirty}
-              onClick={() => setConfirmationDialog("confirm")}
-              className="rounded-lg bg-accent-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 disabled:opacity-50"
-            >
-              Confirmar datos
-            </button>
-          )}
-          {canCorrectNow && (
-            <button
-              type="button"
-              disabled={confirmationBusy}
-              onClick={() => setConfirmationDialog("correct")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 disabled:opacity-50"
-            >
-              Corregir datos
-            </button>
-          )}
           <Link
             href={`/documents/${row.document_id}`}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-1"
@@ -281,24 +275,18 @@ function NotarialInlineReviewForm({
         </div>
       </div>
 
-      {!complete && (
-        <p className="text-xs text-amber-800">
-          Faltan: {joinMissingFieldLabels(missingFields)}.
-        </p>
-      )}
-      {dirty && canConfirmNow && (
-        <p role="status" className="text-xs text-amber-800">
-          Guarda los cambios antes de confirmar los datos visibles.
-        </p>
-      )}
+      <p
+        className={`text-xs ${
+          confirmationState === "review_required" || !complete
+            ? "text-amber-800"
+            : "text-slate-600"
+        }`}
+      >
+        {nextStep.guidance}
+      </p>
       {!canManage && (
         <p role="status" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           Tu rol permite revisar estos datos, pero no modificarlos.
-        </p>
-      )}
-      {isConfirmed && canManage && (
-        <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-          Los datos confirmados están bloqueados. Usa “Corregir datos” para editarlos.
         </p>
       )}
       {confirmationError && (
@@ -351,11 +339,23 @@ function NotarialInlineReviewForm({
           </InlineField>
         </div>
 
-        {canManage && !isConfirmed && (
-          <div className="mt-4 flex justify-end">
-            <button type="submit" name="intent" value="save" disabled={pending || confirmationBusy} className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-              {pending ? "Guardando…" : "Guardar datos"}
-            </button>
+        {nextStep.primary && (
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            {nextStep.primary === "save" && (
+              <button type="submit" name="intent" value="save" disabled={pending || confirmationBusy} className={INLINE_PRIMARY_BUTTON}>
+                {pending ? "Guardando…" : "Guardar datos"}
+              </button>
+            )}
+            {nextStep.primary === "confirm" && canConfirmNow && (
+              <button type="button" disabled={confirmationBusy || pending} onClick={() => setConfirmationDialog("confirm")} className={INLINE_PRIMARY_BUTTON}>
+                Confirmar datos
+              </button>
+            )}
+            {nextStep.primary === "correct" && canCorrectNow && (
+              <button type="button" disabled={confirmationBusy} onClick={() => setConfirmationDialog("correct")} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50">
+                Corregir datos
+              </button>
+            )}
           </div>
         )}
       </form>

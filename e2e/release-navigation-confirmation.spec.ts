@@ -123,7 +123,7 @@ test("confirmation: save visible snapshot, reject stale version, correct and reo
     await expect.poll(async () => (await restSelect<{notes: string}>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]?.notes).toBe("Nota A");
     await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeEnabled();
     await section.getByRole("textbox", { name: /Notas internas/ }).fill("Nota B");
-    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeDisabled();
+    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toHaveCount(0);
     expect((await restSelect<{ notes: string; notarial_confirmed_at: string | null }>("document_notarial_metadata", `document_id=eq.${data.document.id}`))[0]).toMatchObject({ notes: "Nota A", notarial_confirmed_at: null });
     await section.getByRole("button", { name: "Guardar datos del índice" }).click();
     await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeEnabled();
@@ -149,7 +149,7 @@ test("confirmation: save visible snapshot, reject stale version, correct and reo
     await page.getByRole("alertdialog").getByRole("button", { name: "Corregir datos", exact: true }).click();
     await expect(section.getByRole("textbox", { name: /Notas internas/ })).toBeEnabled();
     await section.getByRole("textbox", { name: /Notas internas/ }).fill("Nota D");
-    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toBeDisabled();
+    await expect(section.getByRole("button", { name: "Confirmar datos del Índice" })).toHaveCount(0);
     await section.getByRole("button", { name: "Guardar datos del índice" }).click();
     await confirm();
     await page.getByRole("button", { name: "Reabrir escritura", exact: true }).click();

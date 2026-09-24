@@ -452,6 +452,28 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Floating workspace action dock never hides page controls — authenticated.
+    {
+      name: "chromium-workspace-action-dock",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /workspace-action-dock-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Duplicate a Machote from the templates list — authenticated.
+    {
+      name: "chromium-template-duplication",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-duplication-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Clients as legal entities (cédula jurídica) + full client autofill
     // (estado civil, ocupación, sociedades) — authenticated.
     {

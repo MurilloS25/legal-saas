@@ -27,7 +27,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string; section?: string }>;
+  searchParams: Promise<{ created?: string; duplicated?: string; section?: string }>;
 };
 
 // Una entrada normal desde la lista (sin `?section=`) siempre abre en
@@ -46,7 +46,7 @@ function resolveInitialSection(raw: string | undefined): TemplateWorkspaceSectio
 
 export default async function TemplateDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { created, section } = await searchParams;
+  const { created, duplicated, section } = await searchParams;
   const { role } = await requireWorkspace();
   if (!isResourceId(id)) notFound();
 
@@ -97,6 +97,7 @@ export default async function TemplateDetailPage({ params, searchParams }: Props
             template.include_in_notarial_index_by_default,
         }}
         createdJustNow={created === "1"}
+        duplicatedJustNow={duplicated === "1"}
         initialSection={resolveInitialSection(section)}
         initialDocument={labeledDocument}
         initialVariables={fields.map((field) => ({

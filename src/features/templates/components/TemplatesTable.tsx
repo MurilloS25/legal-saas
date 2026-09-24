@@ -7,6 +7,8 @@ import { createTemplatesColumns } from "./templates-columns";
 
 type Props = {
   rows: TemplateListRow[];
+  /** El rol tiene `templates.write`: muestra "Duplicar" por fila. */
+  canDuplicate?: boolean;
 };
 
 // Columna secundaria: se oculta en viewports angostos para evitar
@@ -15,10 +17,13 @@ const RESPONSIVE_HIDDEN: Record<string, string> = {
   updated_at: "hidden sm:table-cell",
 };
 
-export function TemplatesTable({ rows }: Props) {
+export function TemplatesTable({ rows, canDuplicate = false }: Props) {
   "use no memo";
 
-  const columns = useMemo(() => createTemplatesColumns(), []);
+  const columns = useMemo(
+    () => createTemplatesColumns({ canDuplicate }),
+    [canDuplicate],
+  );
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -42,7 +47,7 @@ export function TemplatesTable({ rows }: Props) {
                   key={header.id}
                   scope="col"
                   className={`px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 ${
-                    header.column.id === "actions" ? "text-right w-16" : ""
+                    header.column.id === "actions" ? "text-right w-24" : ""
                   } ${RESPONSIVE_HIDDEN[header.column.id] ?? ""}`}
                 >
                   {header.isPlaceholder

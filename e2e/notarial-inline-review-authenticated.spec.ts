@@ -107,8 +107,13 @@ test.describe("notarial inline review", () => {
     const confirm = detail.getByRole("button", { name: "Confirmar datos" });
     await expect(confirm).toBeEnabled();
     await detail.getByLabel("Tomo").fill("09-dirty");
-    await expect(confirm).toBeDisabled();
-    await expect(detail.getByText("Guarda los cambios antes de confirmar los datos visibles.")).toBeVisible();
+    // Una acción principal por estado: con cambios sin guardar, Confirmar
+    // no se ofrece; la acción visible es Guardar y se explica el orden.
+    await expect(confirm).toHaveCount(0);
+    await expect(detail.getByRole("button", { name: "Guardar datos" })).toBeVisible();
+    await expect(
+      detail.getByText("Tienes cambios sin guardar. Guárdalos y después confirma los datos."),
+    ).toBeVisible();
     await detail.getByLabel("Tomo").fill("08");
     await expect(confirm).toBeEnabled();
   });
