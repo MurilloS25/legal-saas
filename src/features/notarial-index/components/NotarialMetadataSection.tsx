@@ -17,7 +17,9 @@
  * Finalizar Escritura ≠ Guardar datos del Índice ≠ Confirmar datos del
  * Índice. Guardar nunca bloquea campos ni confirma; Confirmar es una acción
  * explícita aparte que sí bloquea edición normal hasta que alguien con
- * permiso pulse "Corregir datos". El estado se deriva (nunca se infiere
+ * permiso pulse "Corregir datos". La UI muestra UNA acción principal por
+ * estado en la barra al pie (`notarialNextStep`) y el encabezado explica
+ * qué falta hacer. El estado se deriva (nunca se infiere
  * localmente): `notarialConfirmationState()` a partir de
  * `notarial_confirmed_at`/`notarial_review_required` (servidor) +
  * completitud en vivo (cliente).
@@ -31,6 +33,7 @@ import type { NotarialMetadataState } from "../model/action-state";
 import type { NotarialMetadata } from "../model/notarial";
 import type { NotarialMetadataPrefill } from "../model/prefill";
 import { joinMissingFieldLabels } from "../model/notarial";
+import { notarialNextStep } from "../model/next-step";
 import { IndexSummaryHeader } from "./IndexSummaryHeader";
 import { useToast } from "@/components/feedback/Toast";
 import {
@@ -118,6 +121,18 @@ export function NotarialMetadataSection({
     }
   }
 
+  const nextStep = notarialNextStep({
+    state: confirmation.state,
+    dirty: !draft.matchesPersisted,
+    complete: draft.complete,
+    missingFields: draft.missingFields,
+    canEdit,
+    canConfirm,
+    contentChanged: reviewRequired,
+    // El resumen (`IndexSummaryHeader`) ya lista los datos faltantes.
+    listMissing: false,
+  });
+
   const fieldsDisabled =
     !canEdit || confirmation.isConfirmed || pending || confirmation.busy;
   const { values } = draft;
@@ -130,6 +145,7 @@ export function NotarialMetadataSection({
     <NotarialConfirmationSection
       controller={confirmation}
       confirmedByName={confirmedByName}
+      guidance={nextStep.guidance}
     >
       <form action={formAction} noValidate className="px-6 py-6">
         {state.message && (
@@ -149,18 +165,11 @@ export function NotarialMetadataSection({
             lectura.
           </div>
         )}
-        {canEdit && confirmation.isConfirmed && (
-          <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
-            Estos datos están confirmados y de solo lectura.
-            {confirmation.canConfirmNow || confirmation.canCorrectNow
-              ? " Usa “Corregir datos” para editarlos."
-              : " No tienes permiso para corregirlos."}
-          </div>
-        )}
         {canEdit && !confirmation.isConfirmed && readOnly && (
           <div className="mb-6 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
-            La escritura está finalizada. Puedes corregir estos datos del
-            índice sin modificar el contenido de la escritura.
+            La escritura ya está finalizada. Estos datos del Índice se
+            guardan y se confirman aparte, sin modificar el contenido de la
+            escritura.
           </div>
         )}
         {reviewRequired && (
@@ -255,23 +264,53 @@ export function NotarialMetadataSection({
           pending={pending}
         />
 
-        {canEdit && !confirmation.isConfirmed && (
-          <div className="mt-5 flex justify-end">
-            <button
-              type="submit"
-              name="intent"
-              value="save"
-              disabled={pending}
-              className="rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {pending ? "Guardando…" : "Guardar datos del índice"}
-            </button>
+        {/* Una sola barra de acción, con una acción principal por estado
+            (`notarialNextStep`): Guardar mientras haya cambios o falten
+            datos; Confirmar solo con todo completo y guardado; Corregir
+            cuando ya está confirmado. Nunca Guardar y Confirmar compitiendo
+            a la vez. */}
+        {nextStep.primary && (
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-5">
+            {nextStep.primary === "save" && (
+              <button
+                type="submit"
+                name="intent"
+                value="save"
+                disabled={pending || confirmation.busy}
+                className={PRIMARY_BUTTON}
+              >
+                {pending ? "Guardando…" : "Guardar datos del índice"}
+              </button>
+            )}
+            {nextStep.primary === "confirm" && (
+              <button
+                type="button"
+                disabled={pending || confirmation.busy}
+                onClick={() => confirmation.setDialog("confirm")}
+                className={PRIMARY_BUTTON}
+              >
+                Confirmar datos del Índice
+              </button>
+            )}
+            {nextStep.primary === "correct" && (
+              <button
+                type="button"
+                disabled={confirmation.busy}
+                onClick={() => confirmation.setDialog("correct")}
+                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+              >
+                Corregir datos
+              </button>
+            )}
           </div>
         )}
       </form>
     </NotarialConfirmationSection>
   );
 }
+
+const PRIMARY_BUTTON =
+  "rounded-lg bg-accent-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
 const ROW_FOR_ERROR: Array<{ id: NotarialMetadataRowId; errorKey: string }> = [
   { id: "instrument_number", errorKey: "instrument_number" },

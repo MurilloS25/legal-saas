@@ -199,9 +199,17 @@ test.describe("notarial index confirmation lifecycle", () => {
     const tomoInput = notarialSection(page).getByLabel("Tomo", { exact: true });
     await expect(tomoInput).toBeEnabled();
     await expect(tomoInput).toHaveValue("08");
-    await expect(
-      notarialSection(page).getByRole("button", { name: "Guardar datos del índice" }),
-    ).toBeVisible();
+    // Una acción principal por estado: sin cambios, lo que falta es volver
+    // a confirmar; en cuanto se edita algo, la acción pasa a Guardar.
+    const save = notarialSection(page).getByRole("button", { name: "Guardar datos del índice" });
+    const confirm = notarialSection(page).getByRole("button", { name: "Confirmar datos del Índice" });
+    await expect(confirm).toBeVisible();
+    await expect(save).toHaveCount(0);
+    await tomoInput.fill("09");
+    await expect(save).toBeVisible();
+    await expect(confirm).toHaveCount(0);
+    await tomoInput.fill("08");
+    await expect(confirm).toBeVisible();
 
     // El check del stepper desaparece: ya no está confirmado.
     const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });

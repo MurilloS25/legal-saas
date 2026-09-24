@@ -289,7 +289,7 @@ test.describe("notarial index metadata", () => {
       section.getByLabel("Número de instrumento", { exact: true }),
     ).toBeEnabled();
     await expect(
-      section.getByText(/Puedes corregir estos datos del índice/),
+      section.getByText(/se guardan y se confirman aparte/),
     ).toBeVisible();
     await expect(
       section.getByRole("button", { name: "Guardar datos del índice" }),
