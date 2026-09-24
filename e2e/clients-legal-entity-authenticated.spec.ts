@@ -366,4 +366,47 @@ test.describe("clients — persona jurídica", () => {
       page.getByRole("region", { name: "Documento", exact: true }).getByText(newCompanyId).first(),
     ).toBeVisible();
   });
+
+  test("J: a Machote with sociedad.* variables shows a Sociedad Parte that fills only the sociedad data", async ({
+    page,
+  }) => {
+    const template = await createTestTemplate(registry, {
+      name: uniqueName("clients-legal-entity", "constitucion"),
+      content:
+        "Comparece {{sociedad.razon_social}}, cédula jurídica {{sociedad.cedula_juridica}}, domiciliada en {{sociedad.direccion}}.",
+    });
+    for (const [index, key] of [
+      "sociedad.razon_social",
+      "sociedad.cedula_juridica",
+      "sociedad.direccion",
+    ].entries()) {
+      await createTestTemplateField(registry, template.id, { field_key: key, label: key, sort_order: index });
+    }
+
+    await page.goto(`/documents/new/${template.id}`);
+    // 1. El rol aparece como Parte seleccionable (mismo mecanismo de roles).
+    await expect(roleChip(page, "Sociedad")).toBeVisible();
+
+    // 2. Se selecciona una sociedad Cliente.
+    await completeRoleFromClient(page, "Sociedad", companyName);
+
+    // 3-4. Los tres campos se completan y la cédula jurídica conserva guiones.
+    await expect(fieldValue(page, "sociedad.razon_social")).toHaveValue(companyName);
+    await expect(fieldValue(page, "sociedad.cedula_juridica")).toHaveValue(companyId);
+    await expect(fieldValue(page, "sociedad.direccion")).toHaveValue(
+      "Heredia, Belén, domicilio editado",
+    );
+
+    // 5. No se crean ni rellenan campos personales: el Machote no los
+    // tiene y la Escritura solo contiene las tres variables del rol.
+    const roleInputs = page.locator('input[name^="sociedad."]');
+    await expect(roleInputs).toHaveCount(3);
+    await expect(page.locator('input[name="sociedad.estado_civil"]')).toHaveCount(0);
+    await expect(
+      roleBlock(page, "Sociedad").getByText(/No aplican a una persona jurídica/),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "Documento", exact: true }).getByText(companyId).first(),
+    ).toBeVisible();
+  });
 });

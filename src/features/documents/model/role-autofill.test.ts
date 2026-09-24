@@ -489,3 +489,67 @@ describe("matchesClientSearch", () => {
     expect(matchesClientSearch(juan, "  ")).toBe(true);
   });
 });
+
+describe("rol `sociedad` en el Machote (sin lista cerrada de roles)", () => {
+  const sociedad: AutofillClient = {
+    identification_type: "cedula_juridica",
+    full_name: "Inversiones Ejemplo S.A.",
+    identification_number: "3-101-123456",
+    exact_address: "San José, Escazú",
+    marital_status: null,
+    occupation: null,
+    nationality: null,
+  };
+
+  it("groups sociedad.* as its own autofillable Parte, like comprador/vendedor", () => {
+    const groups = groupVariablesByRole([
+      field("comprador.nombre"),
+      field("sociedad.razon_social"),
+      field("sociedad.cedula_juridica"),
+      field("sociedad.direccion"),
+    ]);
+    const group = groups.find((g) => g.role === "sociedad")!;
+    expect(group.hasClientAutofill).toBe(true);
+    expect(group.variables.map((v) => v.resolvedAutofillSource)).toEqual([
+      "client_full_name",
+      "client_identification",
+      "client_address",
+    ]);
+  });
+
+  it("recognizes every alias used for a sociedad", () => {
+    const [group] = groupVariablesByRole([
+      field("sociedad.nombre"),
+      field("sociedad.razon_social"),
+      field("sociedad.identificacion"),
+      field("sociedad.cedula_juridica"),
+      field("sociedad.direccion"),
+      field("sociedad.domicilio"),
+    ]);
+    const plan = planRoleAutofill(sociedad, group.variables, {});
+    expect(plan.values).toEqual({
+      "sociedad.nombre": "Inversiones Ejemplo S.A.",
+      "sociedad.razon_social": "Inversiones Ejemplo S.A.",
+      "sociedad.identificacion": "3-101-123456",
+      "sociedad.cedula_juridica": "3-101-123456",
+      "sociedad.direccion": "San José, Escazú",
+      "sociedad.domicilio": "San José, Escazú",
+    });
+  });
+
+  it("never fills personal fields of a sociedad role", () => {
+    const [group] = groupVariablesByRole([
+      field("sociedad.razon_social"),
+      field("sociedad.estado_civil"),
+      field("sociedad.ocupacion"),
+      field("sociedad.nacionalidad"),
+    ]);
+    const plan = planRoleAutofill(sociedad, group.variables, {});
+    expect(plan.values).toEqual({ "sociedad.razon_social": "Inversiones Ejemplo S.A." });
+    expect(plan.notApplicable).toEqual([
+      "sociedad.estado_civil",
+      "sociedad.ocupacion",
+      "sociedad.nacionalidad",
+    ]);
+  });
+});
