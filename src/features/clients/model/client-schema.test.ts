@@ -5,6 +5,7 @@ import {
   MARITAL_STATUS_VALUES,
   normalizeClientIdentification,
   normalizeLegalEntityIdentification,
+  resolveMaritalStatus,
   resolveMaritalStatusSelection,
 } from "./client-schema";
 
@@ -174,14 +175,14 @@ describe("ClientSchema", () => {
   it("offers exactly the 9 canonical marital status options in order", () => {
     expect(MARITAL_STATUS_OPTIONS.map((o) => o.value)).toEqual([
       "Soltero/a",
-      "Casado/a",
+      "Casado/a una vez",
       "Casado/a dos veces",
       "Casado/a tres veces",
       "Divorciado/a",
       "Divorciado/a dos veces",
       "Divorciado/a tres veces",
       "Viudo/a",
-      "Libre",
+      "Unión libre",
     ]);
   });
 
@@ -189,9 +190,10 @@ describe("ClientSchema", () => {
     "soltero",
     "Soltera",
     "Casado",
+    "Casado/a",
     "Casada dos veces",
     "union_libre",
-    "Unión libre",
+    "Libre",
     "Casado/a cuatro veces",
   ])("rejects non-canonical marital_status %s on save", (value) => {
     const result = ClientSchema.safeParse({ ...valid, marital_status: value });
@@ -202,24 +204,35 @@ describe("ClientSchema", () => {
     ["soltero", "Soltero/a"],
     ["Soltera", "Soltero/a"],
     ["Soltero/a", "Soltero/a"],
-    ["casado", "Casado/a"],
-    ["Casada", "Casado/a"],
-    ["Casado/a", "Casado/a"],
+    // Casado sin número de veces es siempre la primera vez: nunca se
+    // infiere "dos" ni "tres veces".
+    ["Casado/a", "Casado/a una vez"],
+    ["casado", "Casado/a una vez"],
+    ["casada", "Casado/a una vez"],
+    ["Casado", "Casado/a una vez"],
+    ["Casada", "Casado/a una vez"],
+    ["Casado una vez", "Casado/a una vez"],
+    ["Casada una vez", "Casado/a una vez"],
+    ["Casado/a una vez", "Casado/a una vez"],
     ["Casada dos veces", "Casado/a dos veces"],
+    ["Casado/a tres veces", "Casado/a tres veces"],
     ["divorciado", "Divorciado/a"],
     ["Divorciada", "Divorciado/a"],
     ["Divorciada tres veces", "Divorciado/a tres veces"],
     ["viudo", "Viudo/a"],
     ["viuda", "Viudo/a"],
-    ["union_libre", "Libre"],
-    ["Unión libre", "Libre"],
-    ["Libre", "Libre"],
+    ["Libre", "Unión libre"],
+    ["libre", "Unión libre"],
+    ["union_libre", "Unión libre"],
+    ["Unión libre", "Unión libre"],
   ])("normalizes legacy %s → %s for preselection", (stored, expected) => {
     expect(resolveMaritalStatusSelection(stored)).toBe(expected);
   });
 
   it("leaves unknown or empty legacy values unselected", () => {
     expect(resolveMaritalStatusSelection("single")).toBe("");
+    expect(resolveMaritalStatusSelection("Casado/a cuatro veces")).toBe("");
+    expect(resolveMaritalStatusSelection("Soltero una vez")).toBe("");
     expect(resolveMaritalStatusSelection("Viudo dos veces")).toBe("");
     expect(resolveMaritalStatusSelection(null)).toBe("");
   });
@@ -392,5 +405,21 @@ describe("ClientSchema — persona jurídica (cedula_juridica)", () => {
     if (result.success) {
       expect(result.data.identification_number).toBe("208390123");
     }
+  });
+});
+
+describe("resolveMaritalStatus (valor para documentos/autollenado)", () => {
+  it("returns the canonical form of a legacy value", () => {
+    expect(resolveMaritalStatus("Casado/a")).toBe("Casado/a una vez");
+    expect(resolveMaritalStatus("Libre")).toBe("Unión libre");
+  });
+
+  it("keeps an unrecognized stored value as-is instead of dropping it", () => {
+    expect(resolveMaritalStatus("single")).toBe("single");
+  });
+
+  it("returns an empty string for a missing value", () => {
+    expect(resolveMaritalStatus(null)).toBe("");
+    expect(resolveMaritalStatus("  ")).toBe("");
   });
 });

@@ -7,5 +7,6 @@ export {
   IDENTIFICATION_TYPES,
   IDENTIFICATION_TYPE_LABELS,
   isLegalEntityType,
+  resolveMaritalStatus,
   type IdentificationType,
 } from "./model/client-schema";

@@ -4,6 +4,7 @@ import { buildDocumentModel } from "@/lib/editor/render";
 import { legacyTextToDocument } from "@/lib/editor/convert";
 import { readDocx } from "../../../../test/support/docx";
 import type { DocumentFormattingPreferences } from "./formatting";
+import type { TemplateDocument } from "@/lib/editor/types";
 
 // Verifica que `generateDocumentDocx` aplica de verdad las preferencias de
 // formato al OOXML generado (no solo que las acepta como parámetro): página
@@ -109,7 +110,9 @@ describe("formatting applied to the generated docx", () => {
       before: "0",
       after: "0",
       line: "480", // 24 pt = 480 veinteavos de punto
-      lineRule: "exactly", // "Exactly", no "auto" (1.5) ni "atLeast"
+      // "Exactly" en Word = "exact" en OOXML. "exactly" (lo que emitía
+      // `LineRuleType.EXACTLY`) no es válido y Word lo lee como "auto".
+      lineRule: "exact",
     });
     expect(attrs(pPrDefault, "ind")).toEqual({ left: "0", right: "0" });
     expect(pPrDefault).not.toMatch(/firstLine|hanging/); // sin sangría especial
@@ -135,7 +138,7 @@ describe("formatting applied to the generated docx", () => {
 
     expect(parts.stylesXml).toContain('w:ascii="Arial"');
     expect(parts.stylesXml).toContain('<w:sz w:val="22"/>'); // 11pt
-    expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exactly"');
+    expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exact"');
     expect(parts.stylesXml).toContain('<w:jc w:val="both"/>');
     expect(parts.documentXml).toContain(
       '<w:pgSz w:w="12240" w:h="20160" w:orient="portrait"/>',
@@ -164,10 +167,58 @@ describe("formatting applied to the generated docx", () => {
 
     // El formato se declara una sola vez en docDefaults, aplicado a todos los
     // párrafos; ningún párrafo del modelo lo sobreescribe con el suyo.
-    expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exactly"');
+    expect(parts.stylesXml).toContain('w:line="480" w:lineRule="exact"');
     expect(parts.stylesXml).toContain('<w:jc w:val="both"/>');
     expect(parts.documentXml).not.toMatch(/<w:pPr>[\s\S]*?<w:spacing/);
     expect(parts.documentXml).not.toMatch(/<w:pPr>[\s\S]*?<w:jc/);
     expect(parts.documentXml).not.toMatch(/<w:pPr>[\s\S]*?<w:ind/);
+  });
+
+  it("regression: the real OOXML is Word 'Exactly 24 pt' for Machote paragraphs with variables and bold", async () => {
+    const machote: TemplateDocument = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Comparece " },
+            { type: "templateVariable", attrs: { key: "comprador.nombre" } },
+            { type: "text", text: ", mayor de edad", marks: [{ type: "bold" }] },
+          ],
+        },
+        { type: "paragraph", content: [{ type: "text", text: "Segundo párrafo." }] },
+      ],
+    };
+    const parts = await readDocx(
+      await generateDocumentDocx(
+        buildDocumentModel(machote, { "comprador.nombre": "Juan Pérez" }),
+      ),
+    );
+
+    // Valor OOXML válido: nunca "exactly" (Word lo ignora → "auto" → doble).
+    expect(parts.stylesXml).not.toContain('w:lineRule="exactly"');
+    for (const [, rule] of parts.stylesXml.matchAll(/w:lineRule="([^"]*)"/g)) {
+      expect(["auto", "exact", "atLeast"]).toContain(rule);
+    }
+
+    const pPrDefault = /<w:pPrDefault>[\s\S]*?<\/w:pPrDefault>/.exec(
+      parts.stylesXml,
+    )![0];
+    expect(attrs(pPrDefault, "spacing")).toEqual({
+      before: "0",
+      after: "0",
+      line: "480",
+      lineRule: "exact",
+    });
+    expect(attrs(pPrDefault, "ind")).toEqual({ left: "0", right: "0" });
+    expect(attrs(pPrDefault, "jc")).toEqual({ val: "both" });
+
+    // Nada sobrescribe docDefaults: sin estilo "Normal" propio, sin pStyle
+    // ni pPr en los párrafos (incluidos los que tienen variable y negrita).
+    expect(parts.stylesXml).not.toMatch(/w:styleId="Normal"/);
+    expect(parts.documentXml).not.toContain("<w:pStyle");
+    expect(parts.documentXml).not.toContain("<w:pPr>");
+    expect(parts.documentXml).toContain("Juan Pérez");
+    expect(parts.documentXml).toContain("<w:b/>");
   });
 });

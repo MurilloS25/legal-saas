@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import {
   CleanupRegistry,
   createTestClient,
@@ -8,6 +8,7 @@ import {
   runCleanup,
   uniqueName,
 } from "./support/factories";
+import { restSelect } from "./support/supabase-api";
 
 /**
  * Clientes persona jurídica (sociedades) y autollenado completo del
@@ -34,6 +35,10 @@ async function openClientFromList(page: Page, name: string) {
   const href = await link.getAttribute("href");
   await page.goto(href!);
   await expect(page).toHaveURL(/\/clients\/(?!new)[^/]+$/);
+  // Esperar a que carguen los chunks de JS (hidratación): si `fill` corre
+  // mientras React hidrata el <textarea>, el cursor vuelve al inicio y el
+  // texto nuevo queda antepuesto al anterior.
+  await page.waitForLoadState("networkidle");
   return page.url();
 }
 
@@ -117,6 +122,9 @@ test.describe("clients — persona jurídica", () => {
     await expect(page.getByLabel("Estado civil")).toBeHidden();
 
     await page.getByLabel("Domicilio").fill("Heredia, Belén, domicilio editado");
+    await expect(page.getByLabel("Domicilio")).toHaveValue(
+      "Heredia, Belén, domicilio editado",
+    );
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(page).toHaveURL(/\/clients(\?.*)?$/, { timeout: 15_000 });
 
@@ -133,6 +141,8 @@ test.describe("clients — persona jurídica", () => {
     await createTestClient(registry, {
       full_name: personName,
       identification_number: "108880777",
+      // Valor legacy (canónico anterior): debe abrir y autocompletar como
+      // "Casado/a una vez" sin migrar datos.
       marital_status: "Casado/a",
       occupation: "Abogado",
       nationality: "costarricense",
@@ -140,7 +150,7 @@ test.describe("clients — persona jurídica", () => {
     });
 
     await openClientFromList(page, personName);
-    await expect(page.getByLabel("Estado civil")).toHaveValue("Casado/a");
+    await expect(page.getByLabel("Estado civil")).toHaveValue("Casado/a una vez");
 
     await page
       .getByLabel("Tipo de identificación")
@@ -153,7 +163,7 @@ test.describe("clients — persona jurídica", () => {
     await page
       .getByLabel("Tipo de identificación")
       .selectOption({ label: "Cédula física" });
-    await expect(page.getByLabel("Estado civil")).toHaveValue("Casado/a");
+    await expect(page.getByLabel("Estado civil")).toHaveValue("Casado/a una vez");
     await expect(page.getByLabel("Ocupación")).toHaveValue("Abogado");
     await expect(
       page.getByRole("status").filter({ hasText: "se eliminarán" }),
@@ -194,7 +204,9 @@ test.describe("clients — persona jurídica", () => {
     await completeRoleFromClient(page, "Comprador", personName);
     await expect(fieldValue(page, "comprador.nombre")).toHaveValue(personName);
     await expect(fieldValue(page, "comprador.cedula")).toHaveValue("108880777");
-    await expect(fieldValue(page, "comprador.estado_civil")).toHaveValue("Casado/a");
+    await expect(fieldValue(page, "comprador.estado_civil")).toHaveValue(
+      "Casado/a una vez",
+    );
     await expect(fieldValue(page, "comprador.ocupacion")).toHaveValue("Abogado");
     await expect(fieldValue(page, "comprador.direccion")).toHaveValue("Heredia, Barva");
     await closeRolePopover(page, "Comprador");
@@ -215,5 +227,60 @@ test.describe("clients — persona jurídica", () => {
     await expect(
       page.getByRole("region", { name: "Documento", exact: true }).getByText(companyId).first(),
     ).toBeVisible();
+  });
+
+  test("E: a legacy 'Libre' client opens as 'Unión libre' and saving persists the canonical value", async ({
+    page,
+  }) => {
+    const legacyName = uniqueName("clients-legal-entity", "union-libre");
+    const { id } = await createTestClient(registry, {
+      full_name: legacyName,
+      identification_number: "108880999",
+      marital_status: "Libre",
+      occupation: "Docente",
+      nationality: "costarricense",
+      exact_address: "Cartago, Paraíso",
+    });
+
+    await openClientFromList(page, legacyName);
+    await expect(page.getByLabel("Estado civil")).toHaveValue("Unión libre");
+
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(page).toHaveURL(/\/clients(\?.*)?$/, { timeout: 15_000 });
+
+    const [row] = await restSelect<{ marital_status: string }>(
+      `clients?select=marital_status&id=eq.${id}`,
+    );
+    expect(row.marital_status).toBe("Unión libre");
+  });
+
+  test("F: the visible marital status options are the approved canonical list in create, edit and the contextual dialog", async ({
+    page,
+  }) => {
+    const expected = [
+      "Soltero/a",
+      "Casado/a una vez",
+      "Casado/a dos veces",
+      "Casado/a tres veces",
+      "Divorciado/a",
+      "Divorciado/a dos veces",
+      "Divorciado/a tres veces",
+      "Viudo/a",
+      "Unión libre",
+    ];
+    const visibleOptions = (select: Locator) =>
+      select.locator("option:not([disabled])").allTextContents();
+
+    await page.goto("/clients/new");
+    expect(await visibleOptions(page.getByLabel("Estado civil"))).toEqual(expected);
+
+    await openClientFromList(page, personName);
+    expect(await visibleOptions(page.getByLabel("Estado civil"))).toEqual(expected);
+
+    await page.goto("/receivables/new");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "+ Crear nuevo cliente" }).click();
+    const dialog = page.getByRole("dialog", { name: "Crear nuevo cliente" });
+    expect(await visibleOptions(dialog.getByLabel("Estado civil"))).toEqual(expected);
   });
 });

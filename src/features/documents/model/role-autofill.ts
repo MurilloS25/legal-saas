@@ -8,7 +8,10 @@
  * copiados quedan como un snapshot editable dentro de la Escritura.
  */
 
-import { isLegalEntityType } from "@/features/clients/domain";
+import {
+  isLegalEntityType,
+  resolveMaritalStatus,
+} from "@/features/clients/domain";
 import type { FillableTemplateField } from "@/features/templates/domain";
 import {
   NATURAL_PERSON_ONLY_AUTOFILL_SOURCES,
@@ -142,7 +145,8 @@ function clientFieldFor(
     case "client_address":
       return client.exact_address;
     case "client_marital_status":
-      return client.marital_status ?? "";
+      // Forma canónica ("Casado/a" guardado antes -> "Casado/a una vez").
+      return resolveMaritalStatus(client.marital_status);
     case "client_occupation":
       return client.occupation ?? "";
     case "client_nationality":

@@ -25,9 +25,9 @@ Declared once in `FIXED_BODY_PARAGRAPH` (`formatting.ts`) and written to the doc
 | Alignment | Justified | `<w:jc w:val="both"/>` |
 | Left / right indent | 0 | `<w:ind w:left="0" w:right="0"/>` (no `firstLine`/`hanging`) |
 | Spacing before / after | 0 pt | `w:before="0" w:after="0"` |
-| Line spacing | **Exactly 24 pt** | `w:line="480" w:lineRule="exactly"` (480 = 24 pt × 20) |
+| Line spacing | **Exactly 24 pt** | `w:line="480" w:lineRule="exact"` (480 = 24 pt × 20) |
 
-Line spacing is a fixed absolute measure (`lineRule="exactly"`), never a multiple such as 1.5 (`auto`). The old `line_spacing` preference no longer exists in the UI or validation; the `document_settings.line_spacing` column remains (default 1.5, unused) only for compatibility.
+Line spacing is a fixed absolute measure (`lineRule="exact"`), never a multiple such as 1.5 (`auto`). It must be emitted with `LineRuleType.EXACT` ("exact"): the `docx` library's `LineRuleType.EXACTLY` writes `w:lineRule="exactly"`, which is not a valid OOXML `ST_LineSpacingRule` value (`auto | exact | atLeast`); Word discards it, falls back to `auto` and reads `line="480"` as double spacing. Verified on a generated `.docx`: `word/styles.xml` `<w:pPrDefault>` holds `<w:spacing w:after="0" w:before="0" w:line="480" w:lineRule="exact"/><w:ind w:left="0" w:right="0"/><w:jc w:val="both"/>`; there is no `Normal` style and body paragraphs (plain, with variables or bold runs) carry no `w:pPr`, so nothing overrides these defaults. `formatting-applied.test.ts` asserts this on the real OOXML. The old `line_spacing` preference no longer exists in the UI or validation; the `document_settings.line_spacing` column remains (default 1.5, unused) only for compatibility.
 
 ### Margins: Frente / Vuelto
 

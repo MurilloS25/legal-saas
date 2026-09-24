@@ -1,13 +1,13 @@
 import { MAX_NUMBER_TO_WORDS } from "@/lib/editor/text-transforms";
 
-export type NotarialSemanticType = "integer" | "date" | "time" | "text";
+export type NotarialSemanticType = "integer" | "folio" | "date" | "time" | "text";
 export type NotarialLocale = "es-CR";
 
 export const NOTARIAL_SEMANTIC_TYPES = {
   instrument_number: "integer",
   protocol_book: "integer",
-  initial_folio: "integer",
-  final_folio: "integer",
+  initial_folio: "folio",
+  final_folio: "folio",
   authorized_date: "date",
   authorized_time: "time",
   act_name: "text",
@@ -244,6 +244,44 @@ function normalizeInteger(value: string): NormalizationResult<number> {
   return { ok: true, value: parsed, source: "parsed" };
 }
 
+/**
+ * Folio del protocolo, con cara opcional: Frente (F) o Vuelto (V).
+ *
+ * Forma canónica (la que ya se usaba al escribir folios a mano y la que se
+ * muestra/exporta en el Índice): el número seguido de la letra, sin
+ * espacio — "20F", "20V" —, o solo el número ("20") si no se indica cara.
+ *
+ * Acepta, sin distinguir mayúsculas ni tildes y con espacios normalizados:
+ * "20 frente", "20 F", "20F", "20 vuelto", "20 V", "20V", "folio 20 F" y el
+ * número en palabras ("veinte frente"). La cara siempre va después del
+ * número; cualquier otra forma ("F 20", "20 fte", "20-21", "20 fv") se
+ * rechaza en vez de adivinar.
+ */
+function normalizeFolio(value: string): NormalizationResult<string> {
+  const trimmed = value.trim();
+  if (trimmed === "") return failure(value, "empty");
+  const normalized = normalizeWords(trimmed);
+
+  // Cara al final: palabra completa separada por espacio, o una sola
+  // letra pegada a un dígito ("20f"). "20frente" no se acepta.
+  const withSide =
+    /^(.*\S) (frente|vuelto|f|v)$/.exec(normalized) ??
+    /^(.*\d)(f|v)$/.exec(normalized);
+  const numberPart = withSide ? withSide[1] : normalized;
+  const side = withSide ? (withSide[2].startsWith("f") ? "F" : "V") : "";
+
+  const number = normalizeInteger(numberPart);
+  if (!number.ok) return failure(value, number.reason);
+  if (number.value < 1) return failure(value, "invalid");
+
+  const canonical = `${number.value}${side}`;
+  return {
+    ok: true,
+    value: canonical,
+    source: trimmed === canonical ? "structured" : "parsed",
+  };
+}
+
 function validDate(year: number, month: number, day: number): boolean {
   if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) {
     return false;
@@ -363,14 +401,19 @@ export function normalizeNotarialValue(
   input: NormalizationInput<"integer">,
 ): NormalizationResult<number>;
 export function normalizeNotarialValue(
-  input: NormalizationInput<"date" | "time" | "text">,
+  input: NormalizationInput<"folio" | "date" | "time" | "text">,
 ): NormalizationResult<string>;
+export function normalizeNotarialValue(
+  input: NormalizationInput<NotarialSemanticType>,
+): NormalizationResult<number | string>;
 export function normalizeNotarialValue(
   input: NormalizationInput<NotarialSemanticType>,
 ): NormalizationResult<number | string> {
   switch (input.type) {
     case "integer":
       return normalizeInteger(input.value);
+    case "folio":
+      return normalizeFolio(input.value);
     case "date":
       return normalizeDate(input.value);
     case "time":

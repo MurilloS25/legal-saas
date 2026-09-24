@@ -19,7 +19,7 @@ select lives_ok(
   $$insert into public.clients (id, owner_id, full_name, identification_type,
       identification_number, marital_status, nationality, occupation, exact_address)
     values ('c1e00000-c000-0000-0000-000000000001','c1e00000-1111-1111-1111-111111111111',
-      'Juan Pérez','cedula_fisica','108880777','Casado/a','costarricense','Abogado','Heredia')$$,
+      'Juan Pérez','cedula_fisica','108880777','Casado/a una vez','costarricense','Abogado','Heredia')$$,
   'persona física with all personal fields is accepted (unchanged)'
 );
 

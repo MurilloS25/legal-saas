@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { costaRicaLocalToIso } from "./datetime";
+import { normalizeNotarialValue } from "./normalization";
 
 /**
  * Validación de la metadata del índice notarial. Todos los campos son
@@ -20,6 +21,36 @@ const optionalText = (max: number) =>
     .trim()
     .max(max, "El valor es demasiado largo")
     .transform((value) => (value === "" ? null : value))
+    .nullable();
+
+/**
+ * Folio opcional con cara Frente/Vuelto: se guarda en la forma canónica
+ * ("20F", "20V" o "20") que produce `normalizeNotarialValue` — la misma que
+ * usa la derivación desde el Machote. Una entrada ambigua se rechaza con un
+ * mensaje claro en vez de guardarse tal cual o adivinarse.
+ */
+const optionalFolio = () =>
+  z
+    .string()
+    .trim()
+    .max(MAX_SHORT, "El valor es demasiado largo")
+    .transform((value, ctx) => {
+      if (value === "") return null;
+      const result = normalizeNotarialValue({
+        value,
+        type: "folio",
+        locale: "es-CR",
+      });
+      if (!result.ok) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "Folio no válido. Usa el número y, si aplica, la cara: 20, 20 F, 20 frente, 20 V o 20 vuelto.",
+        });
+        return z.NEVER;
+      }
+      return result.value;
+    })
     .nullable();
 
 const optionalInteger = () =>
@@ -53,8 +84,8 @@ export const NotarialMetadataSchema = z.object({
       .nullable(),
   ),
   protocol_book: optionalText(MAX_SHORT),
-  initial_folio: optionalText(MAX_SHORT),
-  final_folio: optionalText(MAX_SHORT),
+  initial_folio: optionalFolio(),
+  final_folio: optionalFolio(),
   act_name_override: optionalText(MAX_ACT_TYPE),
   parties_override: optionalText(MAX_LONG),
   notes: optionalText(MAX_LONG),

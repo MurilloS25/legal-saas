@@ -234,15 +234,19 @@ describe("resolveNotarialMetadataPrefill", () => {
       rawValue: "Tomo IX",
       compatible: false,
     });
+    // Frente/Vuelto: "40F"/"40V" (forma canónica existente) ya son
+    // compatibles en vez de exigir corrección manual.
     expect(result.initialFolio).toMatchObject({
-      value: "",
+      value: "40F",
+      source: "template",
       rawValue: "40F",
-      compatible: false,
+      compatible: true,
     });
     expect(result.finalFolio).toMatchObject({
-      value: "",
+      value: "40V",
+      source: "template",
       rawValue: "40V",
-      compatible: false,
+      compatible: true,
     });
     expect(result.actName).toMatchObject({
       value: "Compraventa",
