@@ -210,7 +210,7 @@ test("invalid model output never creates a template", async ({ page }) => {
   await pasteAndConsent(page, `${FAKE_DOCUMENT}\n[[lexcr-fake:invalid-output]]`);
   await dialog(page).getByRole("button", { name: "Generar machote" }).click();
   await expect(dialog(page).getByRole("alert")).toContainText(
-    "La IA devolvió una propuesta que LexCR no pudo validar",
+    "No fue posible completar la generación. Intenta nuevamente",
     { timeout: 60_000 },
   );
   const templates = await restSelect("templates", `workspace_id=eq.${ownerId}&select=id`);

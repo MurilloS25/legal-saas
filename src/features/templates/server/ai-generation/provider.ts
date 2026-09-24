@@ -18,6 +18,13 @@ export type TemplateGenerationRequest = {
   paragraphs: string[];
   /** Indicaciones opcionales del abogado ("Variantes del documento"). */
   variantInstructions: string | null;
+  /**
+   * Solo en el ÚNICO retry de reparación: la salida anterior del propio
+   * modelo (si era JSON utilizable) y las incidencias que LexCR encontró
+   * (códigos y rutas estructurales, nunca texto nuevo). Se pide corregir
+   * esas incidencias, no rehacer el análisis.
+   */
+  repair?: { previousOutput: string | null; issues: string[] } | null;
 };
 
 export type TemplateGenerationResult = {

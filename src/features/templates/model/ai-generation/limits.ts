@@ -50,6 +50,7 @@ export const AI_PROPOSAL_LIMITS = {
   maxBlockSpanChars: 600,
   maxWarnings: 20,
   maxPartyKeys: 10,
+  maxIdentificationTypes: 10,
   /** Tope del JSON crudo devuelto por el proveedor antes de parsearlo. */
   maxRawOutputChars: 400_000,
 } as const;

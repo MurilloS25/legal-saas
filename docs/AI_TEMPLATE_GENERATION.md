@@ -170,7 +170,7 @@ httpStatus }` sin cuerpo, cabeceras ni request IDs del proveedor.
   del entorno.
 - La salida estructurada de Anthropic no admite `pattern` ni uniones de
   tipo (`["string","null"]`). Se envía el **mismo** contrato
-  `lexcr.template_generation.v2` transformado (`toAnthropicJsonSchema`:
+  `lexcr.template_generation.v3` transformado (`toAnthropicJsonSchema`:
   quita `pattern`, convierte uniones nulas en `anyOf`). La validación
   Zod server-side es idéntica para ambos proveedores y sigue exigiendo los
   patrones de clave.
@@ -260,20 +260,23 @@ y número de aparición dentro del párrafo). `build-draft.ts`:
 - pasa el resultado por `validateTemplateDocument`,
   `TemplateWorkspaceVariableSchema` y los límites de `TEMPLATE_DOC_LIMITS`.
 
-Schema (`lexcr.template_generation.v2`, resumido; v2 agregó
-`vehicle_identifiers` y retiró la base de bloque `known_pattern_vin_chassis_serial`):
+Schema (`lexcr.template_generation.v3`, resumido; v2 agregó
+`vehicle_identifiers`; v3 retiró `required` (lo decide LexCR), admite
+variantes vacías y agregó `identification_types`):
 
 ```text
 { schema_version, template:{name, description|null},
-  variables:[{ key, label, semantic_type, output_transform, required,
+  variables:[{ key, label, semantic_type, output_transform,
                needs_review, occurrences:[{paragraph,text,occurrence}] }],
   option_blocks:[{ name, basis, paragraph, text, occurrence,
                    original_variant_label,
-                   alternative_variants:[{label, content "{{clave}}"}],
+                   alternative_variants:[{label, content "{{clave}}" | ""}],
                    time_output: {original:{hour_key,minute_key|null},
                                  alternatives:[…]} | null }],
   vehicle_identifiers: { paragraph, text, occurrence, original_case,
                          chassis_key, vin_key, serial_key } | null,
+  identification_types:[{ paragraph, text, occurrence,
+                          identification_key, original_type }],
   notarial_index:{ instrument_number_key, authorized_date_key,
                    authorized_time_key, authorized_time_option_block,
                    protocol_book_key, initial_folio_key, party_keys[] },
@@ -286,9 +289,56 @@ para el abogado.
 
 ## 4. Comportamiento de la IA
 
-- **Variables**: máximo número razonable de datos variables (partes,
-  identificaciones, estado civil, profesión, domicilios, fechas, horas,
-  montos, folios, número de escritura, vehículos, fincas…). Convención
+### 4.0 Modelado del Machote (v3)
+
+El objetivo no es "reemplazar datos por variables" sino **modelar un
+Machote legal reutilizable**: qué queda fijo, qué cambia entre escrituras,
+qué cláusulas pueden aparecer o desaparecer y qué redacciones son
+alternativas. El prompt se organiza en: objetivo, preservación,
+clasificación del contenido, variables, Bloques de opciones, notas del
+abogado, patrones conocidos, datos no confiables/prohibiciones y contrato
+de salida. Reglas deterministas de LexCR (no dependen del modelo):
+
+- **`required = false` siempre**: el contrato ya no tiene `required`; toda
+  variable generada con IA es opcional. El abogado decide qué exigir.
+- **Datos del profesional fijos**: variables cuya clave nombra al notario,
+  abogado, licenciado, autorizante o carné se descartan y el texto queda
+  literal, salvo que las notas pidan expresamente parametrizarlos
+  (`professional_data_kept_fixed`).
+- **Nacionalidad de las Partes**: un gentilicio de una lista cerrada que
+  quedó literal hasta 250 caracteres después del nombre de una Parte
+  (`rol.x`, `person_name`) en el mismo párrafo pasa a `rol.nacionalidad`
+  (autollenado `client_nationality`), para cualquier rol
+  (`nationality_completed`).
+- **Variantes vacías**: una alternativa con `content: ""` es válida y
+  significa que la cláusula no existe en esa modalidad ("Sin garantía").
+  El editor manual también las admite si al menos una variante tiene
+  contenido. Un bloque puede contener variables en sus variantes.
+- **Política de Bloques**: A) notas del abogado (`user_instruction`, solo
+  si hay notas); B) patrón conocido con evidencia (hora, Chasis/VIN/Serie,
+  documento de identificación); C) mera posibilidad: no se crea.
+- **Bloque de hora coherente o nada**: si la hora no es `time_hour`, los
+  minutos no son `time_minutes`, no están dentro del fragmento/variante, o
+  una variante incluye la fecha, el bloque se descarta completo
+  (`time_block_discarded`) y sus variables quedan en el texto. La fecha se
+  mapea al Índice antes que la hora y una variable de tipo fecha nunca es
+  la hora del Índice (causa del caso "minutos + fecha de otorgamiento").
+- **Cédula / DIMEX / Pasaporte** (`identification_types`): solo con
+  evidencia (las notas lo mencionan o el documento menciona DIMEX o
+  pasaporte). LexCR construye las variantes cambiando únicamente el nombre
+  del documento dentro del fragmento original ("cédula de identidad",
+  "DIMEX", "pasaporte"); el número sigue siendo la misma variable. Sin
+  evidencia: `identification_type_skipped`.
+
+Limitación conocida: un Bloque de opciones vive dentro de UN párrafo; una
+cláusula opcional de varios párrafos no puede ser un solo bloque (el
+modelo puede proponer un bloque por párrafo, sin sincronización entre
+ellos).
+
+- **Variables**: los datos que cambian entre escrituras (partes,
+  identificaciones, estado civil, profesión, domicilios, nacionalidad de
+  las partes, fechas, horas, montos, folios, número de escritura,
+  vehículos, fincas…); los datos del profesional autor quedan fijos. Convención
   actual de claves (`FIELD_KEY_PATTERN`): minúsculas, dígitos, `_` y `.` para
   rol (`comprador.nombre`) o claves simples (`fecha_otorgamiento`).
 - **Deduplicación semántica**: el mismo dato en varias formas ("JUAN PÉREZ",
@@ -495,7 +545,7 @@ de proveedor o de modelo por configuración (`AI_PROVIDER`,
 problemático o comprometido** sin reescribir la lógica de Machotes, la
 validación ni la persistencia.
 
-### F. Salida estructurada (JSON Schema `lexcr.template_generation.v2`)
+### F. Salida estructurada (JSON Schema `lexcr.template_generation.v3`)
 
 El modelo no puede devolver "acciones": solo una estructura limitada con
 variables (clave, etiqueta, tipo semántico, transformación, apariciones),
@@ -516,12 +566,24 @@ modelo acierte la forma. Aunque la respuesta parezca cumplirlo, LexCR:
 1. limita el tamaño del JSON crudo antes de parsearlo;
 2. parsea con un reviver que **rechaza `__proto__`, `constructor` y
    `prototype`** (contaminación de prototipos);
-3. valida con Zod `.strict()`: tipos, enums, patrones de clave, longitudes,
-   cantidades máximas y **ningún campo extra** (un `system_prompt`, una
-   "tool call" o texto conversacional se rechazan).
+3. valida la forma de primer nivel y el Índice con Zod `.strict()`
+   (**ningún campo extra**: un `system_prompt`, una "tool call" o texto
+   conversacional rechazan la salida completa; un folio final dentro del
+   Índice también);
+4. valida **cada ítem por separado** (variables, bloques, patrones,
+   advertencias): tipos, enums, patrones de clave, longitudes. Un ítem
+   inválido se **descarta con un código de incidencia** en lugar de
+   invalidar toda la generación; los campos desconocidos de un ítem se
+   ignoran y nunca se guardan.
 
-Si falla, hay un único retry técnico; si vuelve a fallar, no se escribe
-nada.
+Después corre la **validación semántica** (`semantic-validation.ts`):
+coherencia estructural de LexCR, no corrección jurídica — referencias que
+no existen, variantes con claves no declaradas, Bloque de hora incoherente
+(la "hora" debe ser `time_hour`, los minutos `time_minutes`, ambos dentro
+del fragmento y de cada variante, sin la fecha), hora del Índice apuntando
+a la fecha, índice de bloque de hora inválido. Cada incidencia es `repair`
+(amerita el único retry de reparación) o `discard` (la reconstrucción la
+descarta y el resto sigue coherente). Ver §9.
 
 ### H. Validadores del dominio
 
@@ -747,7 +809,9 @@ del proveedor, y diagnóstico numérico: `documentChars`,
 `provider:<tipo>`, `proposal:<código>`), `providerDurationMs` (tiempo
 esperando al proveedor) y, en timeouts, `providerErrorType` `client_timeout`
 (timeout propio de LexCR, `AI_TEMPLATE_TIMEOUT_MS`) o `http_408` (del
-proveedor). Nunca: documento, texto extraído, indicaciones, prompt,
+proveedor), `repairAttempted` (hubo retry de reparación) e `issueCodes`
+(códigos de incidencias de parseo/semántica, sin rutas ni contenido).
+Nunca: documento, texto extraído, indicaciones, prompt,
 respuesta, PII del documento, secretos ni API keys. El costo no se calcula
 en v1 (depende de tarifas por modelo); los tokens registrados permiten
 calcularlo después.
@@ -805,9 +869,20 @@ el límite efectivo de archivo es ese**. Una escritura de ≤ 5 páginas en
 
 - Una unidad de cuota por generación solicitada por el usuario. El retry
   técnico interno usa la misma fila y la misma unidad.
-- Solo se reintenta (una vez) ante: salida estructurada inválida, salida
-  vacía, error transitorio del proveedor antes de procesar (5xx, 529
-  overloaded, red). **Un timeout nunca se reintenta** (política central en
+- Hay como máximo **un** retry, de uno de dos tipos:
+  - **reparación**: la salida no era JSON del schema, tenía ítems
+    inválidos o incidencias semánticas `repair`. El retry reenvía la salida
+    anterior (si era JSON utilizable, delimitada como dato no confiable) y
+    la lista de incidencias (códigos y rutas, sin texto), y pide corregir
+    SOLO eso. Luego se valida TODO otra vez.
+  - **técnico**: error transitorio del proveedor antes de procesar (5xx,
+    529 overloaded, red); repite la solicitud idéntica.
+  Si la reparación falla pero el primer intento ya era utilizable
+  (coherente tras los descartes), se conserva ese borrador; si nada es
+  utilizable, no se crea ningún Machote y la persona ve un mensaje genérico
+  ("No fue posible completar la generación. Intenta nuevamente"), sin
+  detalles técnicos. El log seguro registra `repairAttempted` y los
+  códigos de incidencia (`issueCodes`), nunca el contenido. **Un timeout nunca se reintenta** (política central en
   `runTemplateGeneration`): la solicitud pudo haberse procesado y
   facturado, y repetirla duplicaría costo y latencia. Tampoco se reintenta:
   archivo inválido, PDF sin texto, rate limit, entrada demasiado grande,

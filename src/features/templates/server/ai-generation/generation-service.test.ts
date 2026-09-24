@@ -584,3 +584,88 @@ describe("runTemplateGeneration — timeout regression", () => {
     expect(env.quota.rows).toHaveLength(1);
   });
 });
+
+describe("runTemplateGeneration — G. robustez estructural y reparación", () => {
+  // JSON válido del schema, pero semánticamente incoherente: la hora del
+  // Índice apunta a la fecha de otorgamiento.
+  const timeIsDate = () =>
+    fakeProposal({
+      notarial_index: { ...fakeProposal().notarial_index, authorized_time_key: "fecha_otorgamiento" },
+    });
+
+  it("malformed output → ONE repair retry that fixes it; the first request had no repair", async () => {
+    const env = setup([ok("Claro, aquí tienes tu machote"), ok(JSON.stringify(fakeProposal()))]);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.requests).toHaveLength(2);
+    expect(env.requests[0]).not.toHaveProperty("repair");
+    expect(env.requests[1].repair).toEqual({ previousOutput: null, issues: ["output_not_json@$"] });
+    expect(env.logs[0]).toMatchObject({ repairAttempted: true, issueCodes: "output_not_json" });
+  });
+
+  it("schema-valid but semantically invalid output → repair retry with the previous JSON and the issue codes", async () => {
+    const first = JSON.stringify(timeIsDate());
+    const env = setup([ok(first), ok(JSON.stringify(fakeProposal()))]);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.requests[1].repair?.previousOutput).toBe(first);
+    expect(env.requests[1].repair?.issues).toContain(
+      "index_time_is_date@notarial_index.authorized_time_key",
+    );
+    expect(env.store.drafts[0].indexPlan.simpleFieldKeys.authorized_time).toBeNull();
+  });
+
+  it("if the repair fails but the first attempt was usable, keeps the first (coherent after discards)", async () => {
+    const env = setup([ok(JSON.stringify(timeIsDate())), ok("still not json")]);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.requests).toHaveLength(2);
+    expect(env.store.persistence.createDraft).toHaveBeenCalledTimes(1);
+    // La hora nunca queda mapeada a la fecha.
+    expect(env.store.drafts[0].indexPlan.simpleFieldKeys).toMatchObject({
+      authorized_date: "fecha_otorgamiento",
+      authorized_time: null,
+    });
+  });
+
+  it("if the repair fails again with nothing usable, never saves partially and shows only the generic message", async () => {
+    const env = setup([ok("{\"schema_version\":\"otra\"}"), ok("SENTINEL-MODEL-OUTPUT")]);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome).toEqual({ ok: false, code: "invalid_output" });
+    expect(env.requests).toHaveLength(MAX_PROVIDER_ATTEMPTS);
+    expect(env.store.persistence.createDraft).not.toHaveBeenCalled();
+    expect(env.store.persistence.saveIndexPlan).not.toHaveBeenCalled();
+    const { aiGenerationErrorMessage } = await import("../../model/ai-generation/errors");
+    const message = aiGenerationErrorMessage("invalid_output");
+    expect(message).toBe("No fue posible completar la generación. Intenta nuevamente; no se creó ningún machote.");
+    expect(message).not.toMatch(/formato|JSON|schema|proveedor|IA respondi/i);
+    const serialized = env.logs.map(serializeAiGenerationLog).join("\n");
+    expect(serialized).toContain('"issueCodes":"envelope_invalid,output_not_json"');
+    expect(serialized).not.toContain("SENTINEL");
+    expect(serialized).not.toContain("TEST PERSONA");
+  });
+
+  it("an invalid single variable no longer sinks the whole generation (repaired or discarded)", async () => {
+    const proposal = fakeProposal();
+    const withBadKey = {
+      ...proposal,
+      variables: [{ ...proposal.variables[0], key: "Número Escritura" }, ...proposal.variables.slice(1)],
+    };
+    const env = setup([ok(JSON.stringify(withBadKey)), ok("not json either")]);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.requests[1].repair?.issues).toContain("variable_invalid@variables[0]");
+    expect(env.store.drafts[0].variables.map((v) => v.field_key)).not.toContain("numero_escritura");
+  });
+
+  it("a transient provider error still retries the identical request (no repair)", async () => {
+    const env = setup([
+      new AiProviderError("unavailable", { retryable: true, billable: false }),
+      ok(JSON.stringify(fakeProposal())),
+    ]);
+    const outcome = await runTemplateGeneration(textInput(), env.deps);
+    expect(outcome.ok).toBe(true);
+    expect(env.requests[1]).not.toHaveProperty("repair");
+    expect(env.logs[0]).toMatchObject({ repairAttempted: null });
+  });
+});

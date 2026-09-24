@@ -28,6 +28,11 @@ export type AiGenerationDiagnostics = {
   providerErrorType: string | null;
   /** Tiempo total esperando al proveedor (todas las llamadas). */
   providerDurationMs: number | null;
+  /** true si se hizo el único retry de reparación de la salida. */
+  repairAttempted: boolean | null;
+  /** Códigos de incidencias de parseo/semántica (solo códigos, nunca
+   * contenido), separados por coma, p. ej. `variable_invalid,time_block_incoherent`. */
+  issueCodes: string | null;
 };
 
 export type AiGenerationLogEntry = AiGenerationDiagnostics & {
@@ -74,6 +79,8 @@ const ALLOWED_KEYS: ReadonlyArray<keyof AiGenerationLogEntry> = [
   "fileBytes",
   "pages",
   "providerDurationMs",
+  "repairAttempted",
+  "issueCodes",
 ];
 
 /** Serializa solo las claves permitidas (defensa ante objetos ampliados). */
