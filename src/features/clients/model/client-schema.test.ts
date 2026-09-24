@@ -4,6 +4,7 @@ import {
   MARITAL_STATUS_OPTIONS,
   MARITAL_STATUS_VALUES,
   normalizeClientIdentification,
+  normalizeLegalEntityIdentification,
   resolveMaritalStatusSelection,
 } from "./client-schema";
 
@@ -56,7 +57,7 @@ describe("ClientSchema", () => {
     if (result.success) expect(result.data.full_name).toBe("A");
   });
 
-  it("rejects an identification_type other than cedula_fisica", () => {
+  it("rejects an identification_type other than cedula_fisica/cedula_juridica", () => {
     const result = ClientSchema.safeParse({
       ...valid,
       identification_type: "pasaporte",
@@ -240,5 +241,156 @@ describe("ClientSchema", () => {
       exact_address: "Dirección de prueba 123",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("normalizeLegalEntityIdentification", () => {
+  it("keeps the hyphens of a cédula jurídica exactly as typed", () => {
+    expect(normalizeLegalEntityIdentification("3-101-123456")).toBe(
+      "3-101-123456",
+    );
+  });
+
+  it("only trims and removes spaces around hyphens", () => {
+    expect(normalizeLegalEntityIdentification("  3 - 101 -123456 ")).toBe(
+      "3-101-123456",
+    );
+  });
+
+  it("leaves a value typed without hyphens unchanged", () => {
+    expect(normalizeLegalEntityIdentification("3101123456")).toBe("3101123456");
+  });
+});
+
+const validLegalEntity = {
+  full_name: "Inversiones Ejemplo Sociedad Anónima",
+  identification_type: "cedula_juridica" as const,
+  identification_number: "3-101-123456",
+  exact_address: "San José, Escazú, oficentro de prueba",
+};
+
+describe("ClientSchema — persona jurídica (cedula_juridica)", () => {
+  it("accepts a sociedad without marital status, nationality or occupation", () => {
+    const result = ClientSchema.safeParse(validLegalEntity);
+    expect(result.success).toBe(true);
+  });
+
+  it("preserves the hyphens of the cédula jurídica", () => {
+    const result = ClientSchema.safeParse(validLegalEntity);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.identification_number).toBe("3-101-123456");
+    }
+  });
+
+  it("does not apply the cédula física normalization", () => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      identification_number: " 3 - 101 - 123456 ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.identification_number).toBe("3-101-123456");
+    }
+  });
+
+  it("accepts a legacy value written without hyphens as-is", () => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      identification_number: "3101123456",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.identification_number).toBe("3101123456");
+    }
+  });
+
+  it.each([
+    "",
+    "   ",
+    "-",
+    "3-101-",
+    "-3-101-123456",
+    "3--101-123456",
+    "3-101-12345A",
+    "3.101.123456",
+    "3/101/123456",
+    "3 101 123456",
+    "3-101-123456; drop",
+  ])("rejects the invalid cédula jurídica %j", (value) => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      identification_number: value,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an overly long cédula jurídica", () => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      identification_number: "1".repeat(31),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("stores personal fields as null, discarding any submitted value", () => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      marital_status: "Casado/a",
+      nationality: "costarricense",
+      occupation: "abogado",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.marital_status).toBeNull();
+      expect(result.data.nationality).toBeNull();
+      expect(result.data.occupation).toBeNull();
+    }
+  });
+
+  it("still requires razón social and domicilio", () => {
+    expect(
+      ClientSchema.safeParse({ ...validLegalEntity, full_name: " " }).success,
+    ).toBe(false);
+    expect(
+      ClientSchema.safeParse({ ...validLegalEntity, exact_address: "" }).success,
+    ).toBe(false);
+  });
+
+  it("reports the identification error on identification_number", () => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      identification_number: "3-101-ABC",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.identification_number?.[0]).toMatch(
+        /guiones/,
+      );
+    }
+  });
+
+  it("reports an unknown identification type on identification_type", () => {
+    const result = ClientSchema.safeParse({
+      ...validLegalEntity,
+      identification_type: "pasaporte",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.identification_type?.[0]).toBe(
+        "El tipo de identificación no es válido",
+      );
+    }
+  });
+
+  it("keeps normalizing cédula física (no regression)", () => {
+    const result = ClientSchema.safeParse({
+      ...valid,
+      identification_number: "2-0839-0123",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.identification_number).toBe("208390123");
+    }
   });
 });

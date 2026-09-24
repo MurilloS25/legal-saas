@@ -452,6 +452,18 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Clients as legal entities (cédula jurídica) + full client autofill
+    // (estado civil, ocupación, sociedades) — authenticated.
+    {
+      name: "chromium-clients-legal-entity",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /clients-legal-entity-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Role-based autofill from a registered client — authenticated.
     {
       name: "chromium-document-role-autofill",

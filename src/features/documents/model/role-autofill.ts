@@ -8,8 +8,10 @@
  * copiados quedan como un snapshot editable dentro de la Escritura.
  */
 
+import { isLegalEntityType } from "@/features/clients/domain";
 import type { FillableTemplateField } from "@/features/templates/domain";
 import {
+  NATURAL_PERSON_ONLY_AUTOFILL_SOURCES,
   resolveAutofillSource,
   type VariableAutofillSource,
 } from "@/features/templates/domain";
@@ -75,14 +77,42 @@ export function groupVariablesByRole(
   });
 }
 
+/**
+ * Datos del Cliente que el autollenado puede copiar. Estado civil,
+ * ocupación y nacionalidad son `null` en una persona jurídica.
+ */
 export type AutofillClient = {
+  identification_type: string;
   full_name: string;
   identification_number: string;
   exact_address: string;
+  marital_status: string | null;
+  occupation: string | null;
+  nationality: string | null;
 };
 
 /** Cliente listado en el selector de la Escritura, con los campos copiables. */
 export type DocumentClientOption = AutofillClient & { id: string };
+
+/**
+ * Única proyección de una fila de Cliente a opción del selector de la
+ * Escritura: así las páginas de creación y edición nunca olvidan un campo
+ * copiable (la causa de que estado civil/ocupación no llegaran al rol).
+ */
+export function toAutofillClientOption(
+  client: DocumentClientOption,
+): DocumentClientOption {
+  return {
+    id: client.id,
+    identification_type: client.identification_type,
+    full_name: client.full_name,
+    identification_number: client.identification_number,
+    exact_address: client.exact_address,
+    marital_status: client.marital_status,
+    occupation: client.occupation,
+    nationality: client.nationality,
+  };
+}
 
 export type ClientAutofillResult = {
   /** Solo las variables cuyo campo de Cliente configurado tiene un valor. */
@@ -92,6 +122,12 @@ export type ClientAutofillResult = {
    * de `values` (no se copia nada, no se borra un valor manual existente).
    */
   incomplete: string[];
+  /**
+   * Variables de datos personales (estado civil, ocupación, nacionalidad)
+   * cuando el Cliente es una persona jurídica: no aplican, no se copia nada
+   * y el valor de la Escritura queda como esté.
+   */
+  notApplicable: string[];
 };
 
 function clientFieldFor(
@@ -105,6 +141,12 @@ function clientFieldFor(
       return client.identification_number;
     case "client_address":
       return client.exact_address;
+    case "client_marital_status":
+      return client.marital_status ?? "";
+    case "client_occupation":
+      return client.occupation ?? "";
+    case "client_nationality":
+      return client.nationality ?? "";
     case "none":
       return null;
   }
@@ -116,7 +158,8 @@ function clientFieldFor(
  * el resto de las variables del rol no se tocan. No aplica ninguna
  * transformación aquí — la transformación de salida se aplica de forma
  * determinística en el render (ver `applyVariableTransform`), así que el
- * valor copiado es siempre el dato crudo del Cliente.
+ * valor copiado es siempre el dato crudo del Cliente (una cédula jurídica
+ * llega con sus guiones).
  */
 export function mapClientToRoleVariables(
   client: AutofillClient,
@@ -124,9 +167,16 @@ export function mapClientToRoleVariables(
 ): ClientAutofillResult {
   const values: Record<string, string> = {};
   const incomplete: string[] = [];
+  const notApplicable: string[] = [];
+  const legalEntity = isLegalEntityType(client.identification_type);
 
   for (const variable of variables) {
-    const raw = clientFieldFor(variable.resolvedAutofillSource, client);
+    const source = variable.resolvedAutofillSource;
+    if (legalEntity && NATURAL_PERSON_ONLY_AUTOFILL_SOURCES.has(source)) {
+      notApplicable.push(variable.field_key);
+      continue;
+    }
+    const raw = clientFieldFor(source, client);
     if (raw === null) continue;
     const trimmed = raw.trim();
     if (trimmed === "") {
@@ -136,7 +186,7 @@ export function mapClientToRoleVariables(
     }
   }
 
-  return { values, incomplete };
+  return { values, incomplete, notApplicable };
 }
 
 /**

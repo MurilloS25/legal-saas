@@ -98,9 +98,9 @@ export type Database = {
           id: string
           identification_number: string
           identification_type: string
-          marital_status: string
-          nationality: string
-          occupation: string
+          marital_status: string | null
+          nationality: string | null
+          occupation: string | null
           owner_id: string
           updated_at: string
           workspace_id: string
@@ -112,9 +112,9 @@ export type Database = {
           id?: string
           identification_number: string
           identification_type: string
-          marital_status: string
-          nationality: string
-          occupation: string
+          marital_status?: string | null
+          nationality?: string | null
+          occupation?: string | null
           owner_id: string
           updated_at?: string
           workspace_id: string
@@ -126,9 +126,9 @@ export type Database = {
           id?: string
           identification_number?: string
           identification_type?: string
-          marital_status?: string
-          nationality?: string
-          occupation?: string
+          marital_status?: string | null
+          nationality?: string | null
+          occupation?: string | null
           owner_id?: string
           updated_at?: string
           workspace_id?: string
