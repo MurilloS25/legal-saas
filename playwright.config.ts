@@ -452,6 +452,51 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Índice flow: the dock is the only Guardar; Confirmar Índice is lifecycle.
+    {
+      name: "chromium-notarial-index-dock-flow",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /notarial-index-dock-flow-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Floating workspace action dock never hides page controls — authenticated.
+    {
+      name: "chromium-workspace-action-dock",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /workspace-action-dock-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Duplicate a Machote from the templates list — authenticated.
+    {
+      name: "chromium-template-duplication",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /template-duplication-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // Clients as legal entities (cédula jurídica) + full client autofill
+    // (estado civil, ocupación, sociedades) — authenticated.
+    {
+      name: "chromium-clients-legal-entity",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /clients-legal-entity-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Role-based autofill from a registered client — authenticated.
     {
       name: "chromium-document-role-autofill",

@@ -37,6 +37,9 @@ export const VARIABLE_AUTOFILL_SOURCES = [
   "client_full_name",
   "client_identification",
   "client_address",
+  "client_marital_status",
+  "client_occupation",
+  "client_nationality",
 ] as const;
 
 export type VariableAutofillSource = (typeof VARIABLE_AUTOFILL_SOURCES)[number];
@@ -49,7 +52,18 @@ export const VARIABLE_AUTOFILL_SOURCE_LABELS: Record<
   client_full_name: "Nombre completo del Cliente",
   client_identification: "Identificación del Cliente",
   client_address: "Dirección del Cliente",
+  client_marital_status: "Estado civil del Cliente",
+  client_occupation: "Ocupación / profesión del Cliente",
+  client_nationality: "Nacionalidad del Cliente",
 };
+
+/**
+ * Orígenes que solo existen para una persona física. Una persona jurídica
+ * (sociedad) no tiene estado civil, ocupación ni nacionalidad personal: el
+ * autollenado nunca los inventa para ella.
+ */
+export const NATURAL_PERSON_ONLY_AUTOFILL_SOURCES: ReadonlySet<VariableAutofillSource> =
+  new Set(["client_marital_status", "client_occupation", "client_nationality"]);
 
 /**
  * Normaliza un valor de origen de autollenado leído de la base de datos
@@ -98,17 +112,27 @@ const CLIENT_FULL_NAME_ALIASES = new Set([
   "nombre",
   "nombre_completo",
   "full_name",
+  "razon_social",
 ]);
 const CLIENT_IDENTIFICATION_ALIASES = new Set([
   "cedula",
   "identificacion",
   "numero_identificacion",
+  "cedula_juridica",
 ]);
 const CLIENT_ADDRESS_ALIASES = new Set([
   "direccion",
   "domicilio",
   "direccion_exacta",
 ]);
+const CLIENT_MARITAL_STATUS_ALIASES = new Set(["estado_civil"]);
+const CLIENT_OCCUPATION_ALIASES = new Set([
+  "ocupacion",
+  "profesion",
+  "oficio",
+  "profesion_u_oficio",
+]);
+const CLIENT_NATIONALITY_ALIASES = new Set(["nacionalidad"]);
 // "correo"/"email"/"telefono" no se mapean intencionalmente: `clients` no
 // tiene columnas email/phone hoy. No inventar ni simular esas fuentes.
 
@@ -125,6 +149,11 @@ export function inferAutofillSource(dato: string): VariableAutofillSource {
     return "client_identification";
   }
   if (CLIENT_ADDRESS_ALIASES.has(normalized)) return "client_address";
+  if (CLIENT_MARITAL_STATUS_ALIASES.has(normalized)) {
+    return "client_marital_status";
+  }
+  if (CLIENT_OCCUPATION_ALIASES.has(normalized)) return "client_occupation";
+  if (CLIENT_NATIONALITY_ALIASES.has(normalized)) return "client_nationality";
   return "none";
 }
 

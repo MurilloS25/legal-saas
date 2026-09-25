@@ -58,7 +58,6 @@ export function buildFakeProposal(request: TemplateGenerationRequest): AiTemplat
         label: "Número de escritura",
         semantic_type: "instrument_number",
         output_transform: "number_to_words",
-        required: true,
         needs_review: false,
         occurrences: [{ paragraph: index + 1, text: instrument[1], occurrence: 1 }],
       });
@@ -73,7 +72,6 @@ export function buildFakeProposal(request: TemplateGenerationRequest): AiTemplat
           label: ROLE_LABELS[role],
           semantic_type: "person_name",
           output_transform: "none",
-          required: true,
           needs_review: role === 1,
           occurrences: [],
         });
@@ -95,6 +93,7 @@ export function buildFakeProposal(request: TemplateGenerationRequest): AiTemplat
     variables,
     option_blocks: [],
     vehicle_identifiers: null,
+    identification_types: [],
     notarial_index: {
       instrument_number_key: instrumentKey,
       authorized_date_key: null,

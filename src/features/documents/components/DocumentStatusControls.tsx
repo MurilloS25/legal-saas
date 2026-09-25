@@ -166,12 +166,16 @@ export function DocumentStatusControls({
       )}
 
       {status === "final" && canFinalize && (
+        // `dirty` aquí son cambios sin guardar de los datos del Índice:
+        // reabrir redirige (server action) sin pasar por la guarda de
+        // navegación, así que esos cambios se perderían.
         <button
           ref={triggerRef}
           type="button"
-          disabled={anyPending}
+          disabled={dirty || anyPending}
+          title={dirty ? "Guarda los datos del Índice antes de reabrir." : undefined}
           onClick={() => setDialog("reopen")}
-          className={primaryButtonClass}
+          className={secondaryButtonClass}
         >
           Reabrir escritura
         </button>

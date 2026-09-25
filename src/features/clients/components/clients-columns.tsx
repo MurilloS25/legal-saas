@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
+import { isLegalEntityType } from "../model/client-schema";
 import type { ClientRow } from "../model/types";
 
 export const CLIENTS_COLUMN_LABELS = {
@@ -72,10 +73,13 @@ export function createClientsColumns(): ColumnDef<ClientRow>[] {
     {
       id: "occupation",
       header: CLIENTS_COLUMN_LABELS.occupation,
-      accessorFn: (row) => row.occupation,
-      cell: ({ row }) => (
-        <span className="text-sm text-slate-600">{row.original.occupation}</span>
-      ),
+      accessorFn: (row) => row.occupation ?? "",
+      cell: ({ row }) =>
+        isLegalEntityType(row.original.identification_type) ? (
+          <span className="text-sm text-slate-400">Persona jurídica</span>
+        ) : (
+          <span className="text-sm text-slate-600">{row.original.occupation}</span>
+        ),
     },
     {
       id: "actions",

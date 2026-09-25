@@ -100,7 +100,8 @@ function mappedValue(
 
 /**
  * Campo numérico simple (instrument_number/protocol_book/initial_folio/
- * final_folio) con precedencia manual-vs-derivado. `effective`/`lastSnapshot`
+ * final_folio; los folios admiten además la cara F/V — ver
+ * `normalizeNotarialValue`) con precedencia manual-vs-derivado. `effective`/`lastSnapshot`
  * vienen de `metadata` (null si nunca se guardó nada — el mismo código
  * cubre "primera vez" y "ya guardado, sin tocar" sin una rama aparte).
  */

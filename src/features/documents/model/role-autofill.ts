@@ -8,9 +8,15 @@
  * copiados quedan como un snapshot editable dentro de la Escritura.
  */
 
+import {
+  isLegalEntityType,
+  resolveMaritalStatus,
+} from "@/features/clients/domain";
 import type { FillableTemplateField } from "@/features/templates/domain";
 import {
+  NATURAL_PERSON_ONLY_AUTOFILL_SOURCES,
   resolveAutofillSource,
+  stripDiacritics,
   type VariableAutofillSource,
 } from "@/features/templates/domain";
 
@@ -75,14 +81,42 @@ export function groupVariablesByRole(
   });
 }
 
+/**
+ * Datos del Cliente que el autollenado puede copiar. Estado civil,
+ * ocupación y nacionalidad son `null` en una persona jurídica.
+ */
 export type AutofillClient = {
+  identification_type: string;
   full_name: string;
   identification_number: string;
   exact_address: string;
+  marital_status: string | null;
+  occupation: string | null;
+  nationality: string | null;
 };
 
 /** Cliente listado en el selector de la Escritura, con los campos copiables. */
 export type DocumentClientOption = AutofillClient & { id: string };
+
+/**
+ * Única proyección de una fila de Cliente a opción del selector de la
+ * Escritura: así las páginas de creación y edición nunca olvidan un campo
+ * copiable (la causa de que estado civil/ocupación no llegaran al rol).
+ */
+export function toAutofillClientOption(
+  client: DocumentClientOption,
+): DocumentClientOption {
+  return {
+    id: client.id,
+    identification_type: client.identification_type,
+    full_name: client.full_name,
+    identification_number: client.identification_number,
+    exact_address: client.exact_address,
+    marital_status: client.marital_status,
+    occupation: client.occupation,
+    nationality: client.nationality,
+  };
+}
 
 export type ClientAutofillResult = {
   /** Solo las variables cuyo campo de Cliente configurado tiene un valor. */
@@ -92,6 +126,12 @@ export type ClientAutofillResult = {
    * de `values` (no se copia nada, no se borra un valor manual existente).
    */
   incomplete: string[];
+  /**
+   * Variables de datos personales (estado civil, ocupación, nacionalidad)
+   * cuando el Cliente es una persona jurídica: no aplican, no se copia nada
+   * y el valor de la Escritura queda como esté.
+   */
+  notApplicable: string[];
 };
 
 function clientFieldFor(
@@ -105,6 +145,13 @@ function clientFieldFor(
       return client.identification_number;
     case "client_address":
       return client.exact_address;
+    case "client_marital_status":
+      // Forma canónica ("Casado/a" guardado antes -> "Casado/a una vez").
+      return resolveMaritalStatus(client.marital_status);
+    case "client_occupation":
+      return client.occupation ?? "";
+    case "client_nationality":
+      return client.nationality ?? "";
     case "none":
       return null;
   }
@@ -116,7 +163,8 @@ function clientFieldFor(
  * el resto de las variables del rol no se tocan. No aplica ninguna
  * transformación aquí — la transformación de salida se aplica de forma
  * determinística en el render (ver `applyVariableTransform`), así que el
- * valor copiado es siempre el dato crudo del Cliente.
+ * valor copiado es siempre el dato crudo del Cliente (una cédula jurídica
+ * llega con sus guiones).
  */
 export function mapClientToRoleVariables(
   client: AutofillClient,
@@ -124,9 +172,16 @@ export function mapClientToRoleVariables(
 ): ClientAutofillResult {
   const values: Record<string, string> = {};
   const incomplete: string[] = [];
+  const notApplicable: string[] = [];
+  const legalEntity = isLegalEntityType(client.identification_type);
 
   for (const variable of variables) {
-    const raw = clientFieldFor(variable.resolvedAutofillSource, client);
+    const source = variable.resolvedAutofillSource;
+    if (legalEntity && NATURAL_PERSON_ONLY_AUTOFILL_SOURCES.has(source)) {
+      notApplicable.push(variable.field_key);
+      continue;
+    }
+    const raw = clientFieldFor(source, client);
     if (raw === null) continue;
     const trimmed = raw.trim();
     if (trimmed === "") {
@@ -136,7 +191,7 @@ export function mapClientToRoleVariables(
     }
   }
 
-  return { values, incomplete };
+  return { values, incomplete, notApplicable };
 }
 
 /**
@@ -150,5 +205,69 @@ export function fieldsToOverwrite(
 ): string[] {
   return Object.keys(proposedValues).filter(
     (key) => (currentValues[key] ?? "").trim() !== "",
+  );
+}
+
+export type RoleAutofillPlan = ClientAutofillResult & {
+  /**
+   * Variables de datos personales que se vacían porque el Cliente elegido
+   * es una persona jurídica y el rol tenía un valor (p. ej. el estado civil
+   * de la persona física seleccionada antes): nunca se deja un dato
+   * personal ajeno atribuido a una sociedad.
+   */
+  clearedFields: string[];
+  /** Variables con valor actual que se reemplazan o vacían: requieren confirmación. */
+  overwriteFields: string[];
+};
+
+/**
+ * Plan completo de autollenado de un rol: los valores a copiar del Cliente
+ * y, si es una persona jurídica, el vaciado de los datos personales que
+ * no le aplican pero que el rol todavía contiene. Todo reemplazo o vaciado
+ * de un valor existente pasa por la misma confirmación.
+ */
+export function planRoleAutofill(
+  client: AutofillClient,
+  variables: ResolvedRoleVariable[],
+  currentValues: Record<string, string>,
+): RoleAutofillPlan {
+  const result = mapClientToRoleVariables(client, variables);
+  const clearedFields = result.notApplicable.filter(
+    (key) => (currentValues[key] ?? "").trim() !== "",
+  );
+  const values = { ...result.values };
+  for (const key of clearedFields) values[key] = "";
+
+  const overwriteFields = variables
+    .map((variable) => variable.field_key)
+    .filter((key) => key in values && (currentValues[key] ?? "").trim() !== "");
+
+  return { ...result, values, clearedFields, overwriteFields };
+}
+
+function comparableIdentification(value: string): string {
+  return value.toLowerCase().replace(/[-\s]/g, "");
+}
+
+/**
+ * Búsqueda del selector de Clientes: por nombre (sin distinguir mayúsculas
+ * ni tildes) o por identificación sin importar guiones ni espacios — una
+ * cédula jurídica guardada como "3-101-123456" se encuentra escribiendo
+ * "3101123456", y una física guardada sin guiones con "1-0888-0777".
+ */
+export function matchesClientSearch(
+  client: Pick<AutofillClient, "full_name" | "identification_number">,
+  query: string,
+): boolean {
+  const trimmed = query.trim();
+  if (trimmed === "") return true;
+  const normalizedQuery = stripDiacritics(trimmed).toLowerCase();
+  if (stripDiacritics(client.full_name).toLowerCase().includes(normalizedQuery)) {
+    return true;
+  }
+  const idQuery = comparableIdentification(trimmed);
+  return (
+    idQuery !== "" &&
+    comparableIdentification(client.identification_number).includes(idQuery)
   );
 }

@@ -26,6 +26,20 @@
  * (`vehicle_identifiers`). El modelo solo identifica el fragmento, el caso
  * que muestra el documento y las tres claves; LexCR construye las cinco
  * variantes de forma determinista (ver `build-draft.ts`).
+ *
+ * v3:
+ * - `required` ya no es parte del contrato: toda variable generada con IA
+ *   es opcional (`required = false`), decidido por LexCR, no por el modelo;
+ * - una variante alternativa puede ser vacía ("" = la cláusula no existe en
+ *   esa modalidad, p. ej. "Sin garantía");
+ * - patrón conocido Cédula / DIMEX / Pasaporte (`identification_types`): el
+ *   modelo solo señala el fragmento, la clave y el tipo que muestra el
+ *   documento; LexCR construye las variantes adaptando solo la mención del
+ *   documento;
+ * - validación POR ÍTEM: un ítem inválido (una variable, un bloque) se
+ *   descarta con un código de incidencia en lugar de invalidar toda la
+ *   propuesta. La forma de primer nivel (JSON, campos, Índice) sigue siendo
+ *   estricta.
  */
 
 import { z } from "zod";
@@ -34,7 +48,7 @@ import { TEMPLATE_DOC_LIMITS } from "@/lib/editor/types";
 import { VARIABLE_OUTPUT_TRANSFORMS } from "@/lib/editor/text-transforms";
 import { AI_PROPOSAL_LIMITS as L } from "./limits";
 
-export const AI_TEMPLATE_SCHEMA_VERSION = "lexcr.template_generation.v2";
+export const AI_TEMPLATE_SCHEMA_VERSION = "lexcr.template_generation.v3";
 
 /** Tipo semántico del dato: guía normalizaciones y mapeos del Índice. */
 export const AI_VARIABLE_SEMANTIC_TYPES = [
@@ -73,6 +87,10 @@ export const AI_OPTION_BLOCK_BASES = [
 ] as const;
 export type AiOptionBlockBasis = (typeof AI_OPTION_BLOCK_BASES)[number];
 
+/** Tipos de documento de identificación del patrón conocido. */
+export const AI_IDENTIFICATION_DOCUMENT_TYPES = ["cedula", "dimex", "pasaporte"] as const;
+export type AiIdentificationDocumentType = (typeof AI_IDENTIFICATION_DOCUMENT_TYPES)[number];
+
 /** Advertencias cerradas: nunca texto libre del modelo en la UI/DB. */
 export const AI_PROPOSAL_WARNING_CODES = [
   "ambiguous_party_roles",
@@ -99,6 +117,9 @@ export const AI_VEHICLE_IDENTIFIER_CASES = [
 ] as const;
 export type AiVehicleIdentifierCase = (typeof AI_VEHICLE_IDENTIFIER_CASES)[number];
 
+// Ítems: los campos desconocidos se IGNORAN (`.strip()`), nunca se usan ni
+// se guardan; así un campo extra inofensivo no descarta cada variable. El
+// primer nivel y el Índice siguen siendo estrictos (`.strict()`).
 const keyString = z
   .string()
   .min(1)
@@ -113,7 +134,7 @@ const OccurrenceSchema = z
     text: shortText(L.maxOccurrenceTextChars),
     occurrence: positiveInt,
   })
-  .strict();
+  .strip();
 
 const VariableSchema = z
   .object({
@@ -121,18 +142,17 @@ const VariableSchema = z
     label: shortText(L.maxLabelChars),
     semantic_type: z.enum(AI_VARIABLE_SEMANTIC_TYPES),
     output_transform: z.enum(VARIABLE_OUTPUT_TRANSFORMS),
-    required: z.boolean(),
     needs_review: z.boolean(),
     // Puede estar vacío solo para variables que aparecen únicamente en una
     // variante alternativa de un Bloque de opciones (p. ej. `vehiculo.serie`
     // cuando el documento original solo menciona el VIN).
     occurrences: z.array(OccurrenceSchema).max(L.maxOccurrencesPerVariable),
   })
-  .strict();
+  .strip();
 
 const TimeKeysSchema = z
   .object({ hour_key: keyString, minute_key: keyString.nullable() })
-  .strict();
+  .strip();
 
 const OptionBlockSchema = z
   .object({
@@ -147,9 +167,10 @@ const OptionBlockSchema = z
         z
           .object({
             label: shortText(L.maxLabelChars),
-            content: shortText(L.maxVariantContentChars),
+            // "" es válido: la cláusula no existe en esa modalidad.
+            content: z.string().max(L.maxVariantContentChars),
           })
-          .strict(),
+          .strip(),
       )
       .min(1)
       .max(L.maxAlternativeVariants),
@@ -158,10 +179,10 @@ const OptionBlockSchema = z
         original: TimeKeysSchema,
         alternatives: z.array(TimeKeysSchema).max(L.maxAlternativeVariants),
       })
-      .strict()
+      .strip()
       .nullable(),
   })
-  .strict();
+  .strip();
 
 const VehicleIdentifiersSchema = z
   .object({
@@ -173,7 +194,17 @@ const VehicleIdentifiersSchema = z
     vin_key: keyString,
     serial_key: keyString,
   })
-  .strict();
+  .strip();
+
+const IdentificationTypeSchema = z
+  .object({
+    paragraph: positiveInt,
+    text: shortText(L.maxBlockSpanChars),
+    occurrence: positiveInt,
+    identification_key: keyString,
+    original_type: z.enum(AI_IDENTIFICATION_DOCUMENT_TYPES),
+  })
+  .strip();
 
 const NotarialIndexSchema = z
   .object({
@@ -199,6 +230,7 @@ export const AiTemplateProposalSchema = z
     variables: z.array(VariableSchema).max(L.maxVariables),
     option_blocks: z.array(OptionBlockSchema).max(L.maxOptionBlocks),
     vehicle_identifiers: VehicleIdentifiersSchema.nullable(),
+    identification_types: z.array(IdentificationTypeSchema).max(L.maxIdentificationTypes),
     notarial_index: NotarialIndexSchema,
     warnings: z.array(z.enum(AI_PROPOSAL_WARNING_CODES)).max(L.maxWarnings),
   })
@@ -208,6 +240,7 @@ export type AiTemplateProposal = z.infer<typeof AiTemplateProposalSchema>;
 export type AiProposalVariable = AiTemplateProposal["variables"][number];
 export type AiProposalOptionBlock = AiTemplateProposal["option_blocks"][number];
 export type AiProposalVehicleIdentifiers = NonNullable<AiTemplateProposal["vehicle_identifiers"]>;
+export type AiProposalIdentificationType = AiTemplateProposal["identification_types"][number];
 
 // ------------------------------------------------------------ JSON Schema
 
@@ -240,6 +273,7 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
     "variables",
     "option_blocks",
     "vehicle_identifiers",
+    "identification_types",
     "notarial_index",
     "warnings",
   ],
@@ -264,7 +298,6 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
           "label",
           "semantic_type",
           "output_transform",
-          "required",
           "needs_review",
           "occurrences",
         ],
@@ -276,7 +309,6 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
             type: "string",
             enum: [...VARIABLE_OUTPUT_TRANSFORMS],
           },
-          required: { type: "boolean" },
           needs_review: { type: "boolean" },
           occurrences: {
             type: "array",
@@ -372,6 +404,21 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
         { type: "null" },
       ],
     },
+    identification_types: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["paragraph", "text", "occurrence", "identification_key", "original_type"],
+        properties: {
+          paragraph: { type: "integer" },
+          text: { type: "string" },
+          occurrence: { type: "integer" },
+          identification_key: jsonKey,
+          original_type: { type: "string", enum: [...AI_IDENTIFICATION_DOCUMENT_TYPES] },
+        },
+      },
+    },
     notarial_index: {
       type: "object",
       additionalProperties: false,
@@ -403,18 +450,87 @@ export const AI_TEMPLATE_PROPOSAL_JSON_SCHEMA = {
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
+/**
+ * Incidencias del parseo por ítem. Solo códigos y rutas estructurales
+ * (`variables[3]`), nunca contenido del documento: deciden el retry de
+ * reparación, viajan al proveedor en ese retry y se registran como códigos.
+ */
+export const AI_PROPOSAL_ISSUE_CODES = [
+  "output_not_json",
+  "output_too_large",
+  "envelope_invalid",
+  "template_invalid",
+  "variable_invalid",
+  "option_block_invalid",
+  "vehicle_identifiers_invalid",
+  "identification_type_invalid",
+  "warning_invalid",
+  "too_many_items",
+] as const;
+export type AiProposalIssueCode = (typeof AI_PROPOSAL_ISSUE_CODES)[number];
+export type AiProposalIssue = { code: AiProposalIssueCode; path: string };
+
 export type AiProposalParseResult =
-  | { ok: true; proposal: AiTemplateProposal }
-  | { ok: false };
+  | { ok: true; proposal: AiTemplateProposal; issues: AiProposalIssue[] }
+  | { ok: false; issues: AiProposalIssue[] };
+
+/** Forma de primer nivel: estricta. Los ítems se validan uno por uno. */
+const EnvelopeSchema = z
+  .object({
+    schema_version: z.literal(AI_TEMPLATE_SCHEMA_VERSION),
+    template: z.unknown(),
+    variables: z.array(z.unknown()),
+    option_blocks: z.array(z.unknown()),
+    vehicle_identifiers: z.unknown(),
+    identification_types: z.array(z.unknown()),
+    // El Índice sigue siendo estricto: p. ej. un folio final contrabandeado
+    // invalida la propuesta completa.
+    notarial_index: NotarialIndexSchema,
+    warnings: z.array(z.unknown()),
+  })
+  .strict();
+
+const TemplateInfoSchema = z
+  .object({
+    name: shortText(L.maxNameChars),
+    description: z.string().max(L.maxDescriptionChars).nullable(),
+  })
+  .strict();
+
+function itemsOf<T>(
+  items: unknown[],
+  schema: z.ZodType<T>,
+  max: number,
+  path: string,
+  code: AiProposalIssueCode,
+  issues: AiProposalIssue[],
+): T[] {
+  const out: T[] = [];
+  items.forEach((item, index) => {
+    const parsed = schema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+    else issues.push({ code, path: `${path}[${index}]` });
+  });
+  if (out.length > max) {
+    issues.push({ code: "too_many_items", path });
+    return out.slice(0, max);
+  }
+  return out;
+}
 
 /**
- * Parsea la salida cruda del proveedor. Rechaza JSON inválido, salidas
- * demasiado grandes y cualquier forma fuera del contrato (incluidas
- * propiedades extra, como un intento de "devolver el system prompt" en un
- * campo no previsto).
+ * Parsea la salida cruda del proveedor. Rechaza (sin propuesta) JSON
+ * inválido, salidas demasiado grandes, claves de prototipo y cualquier
+ * forma de primer nivel fuera del contrato (incluidas propiedades extra,
+ * como un intento de "devolver el system prompt"). Dentro de esa forma,
+ * cada ítem inválido se descarta con una incidencia: una sola variable mal
+ * formada ya no invalida toda la generación.
  */
 export function parseAiTemplateProposal(raw: string): AiProposalParseResult {
-  if (raw.length === 0 || raw.length > L.maxRawOutputChars) return { ok: false };
+  if (raw.length === 0) return { ok: false, issues: [{ code: "output_not_json", path: "$" }] };
+  if (raw.length > L.maxRawOutputChars) {
+    return { ok: false, issues: [{ code: "output_too_large", path: "$" }] };
+  }
   let json: unknown;
   try {
     // Las claves de prototipo se rechazan explícitamente: `.strict()` de
@@ -424,8 +540,58 @@ export function parseAiTemplateProposal(raw: string): AiProposalParseResult {
       return value;
     });
   } catch {
-    return { ok: false };
+    return { ok: false, issues: [{ code: "output_not_json", path: "$" }] };
   }
-  const result = AiTemplateProposalSchema.safeParse(json);
-  return result.success ? { ok: true, proposal: result.data } : { ok: false };
+  const envelope = EnvelopeSchema.safeParse(json);
+  if (!envelope.success) {
+    return { ok: false, issues: [{ code: "envelope_invalid", path: "$" }] };
+  }
+
+  const issues: AiProposalIssue[] = [];
+  const data = envelope.data;
+  const template = TemplateInfoSchema.safeParse(data.template);
+  if (!template.success) issues.push({ code: "template_invalid", path: "template" });
+
+  let vehicle: AiProposalVehicleIdentifiers | null = null;
+  if (data.vehicle_identifiers !== null) {
+    const parsed = VehicleIdentifiersSchema.safeParse(data.vehicle_identifiers);
+    if (parsed.success) vehicle = parsed.data;
+    else issues.push({ code: "vehicle_identifiers_invalid", path: "vehicle_identifiers" });
+  }
+
+  const warnings = itemsOf(
+    data.warnings,
+    z.enum(AI_PROPOSAL_WARNING_CODES),
+    L.maxWarnings,
+    "warnings",
+    "warning_invalid",
+    issues,
+  );
+
+  const proposal: AiTemplateProposal = {
+    schema_version: AI_TEMPLATE_SCHEMA_VERSION,
+    // Sin nombre válido, el constructor usa su nombre por defecto.
+    template: template.success ? template.data : { name: " ", description: null },
+    variables: itemsOf(data.variables, VariableSchema, L.maxVariables, "variables", "variable_invalid", issues),
+    option_blocks: itemsOf(
+      data.option_blocks,
+      OptionBlockSchema,
+      L.maxOptionBlocks,
+      "option_blocks",
+      "option_block_invalid",
+      issues,
+    ),
+    vehicle_identifiers: vehicle,
+    identification_types: itemsOf(
+      data.identification_types,
+      IdentificationTypeSchema,
+      L.maxIdentificationTypes,
+      "identification_types",
+      "identification_type_invalid",
+      issues,
+    ),
+    notarial_index: data.notarial_index,
+    warnings: [...new Set(warnings)],
+  };
+  return { ok: true, proposal, issues };
 }

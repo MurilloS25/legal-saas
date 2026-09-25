@@ -275,7 +275,23 @@ describe("buildOptionBlockAttrs", () => {
     expect(buildOptionBlockAttrs(bad).ok).toBe(false);
   });
 
-  it("rejects a variant with empty content", () => {
+  it("accepts an intentionally empty variant (the clause does not exist, e.g. 'Sin garantía')", () => {
+    const result = buildOptionBlockAttrs(
+      draft({
+        name: "Garantía",
+        variants: [
+          { id: "v1", label: "Con garantía", contentText: "con garantía de {{garantia.plazo}} meses" },
+          { id: "v2", label: "Sin garantía", contentText: "   " },
+        ],
+        defaultVariantId: "v1",
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.attrs.variants[1].content).toEqual([]);
+  });
+
+  it("rejects a block whose variants are all empty", () => {
     const bad = draft({
       variants: [{ id: "v1", label: "Vacía", contentText: "   " }],
       defaultVariantId: "v1",

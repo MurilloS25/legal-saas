@@ -9,8 +9,8 @@ describe("notarial semantic destinations", () => {
     expect(NOTARIAL_SEMANTIC_TYPES).toEqual({
       instrument_number: "integer",
       protocol_book: "integer",
-      initial_folio: "integer",
-      final_folio: "integer",
+      initial_folio: "folio",
+      final_folio: "folio",
       authorized_date: "date",
       authorized_time: "time",
       act_name: "text",
@@ -127,5 +127,68 @@ describe("normalizeNotarialValue text", () => {
     expect(
       normalizeNotarialValue({ value: "   ", type: "date", locale: "es-CR" }),
     ).toEqual({ ok: false, reason: "empty", originalValue: "   " });
+  });
+});
+
+describe("normalizeNotarialValue es-CR folios (Frente/Vuelto)", () => {
+  const folio = (value: string) =>
+    normalizeNotarialValue({ value, type: "folio", locale: "es-CR" });
+
+  it.each([
+    ["20 frente", "20F"],
+    ["20 Frente", "20F"],
+    ["20 FRENTE", "20F"],
+    ["20 F", "20F"],
+    ["20 f", "20F"],
+    ["20F", "20F"],
+    ["20f", "20F"],
+    ["  20   frente  ", "20F"],
+    ["20 vuelto", "20V"],
+    ["20 Vuelto", "20V"],
+    ["20 V", "20V"],
+    ["20 v", "20V"],
+    ["20V", "20V"],
+    ["folio 20 vuelto", "20V"],
+    ["Folio 20 F", "20F"],
+    ["veinte frente", "20F"],
+  ])("parses %j as %j", (input, expected) => {
+    expect(folio(input)).toMatchObject({ ok: true, value: expected });
+  });
+
+  it.each([
+    ["20", "20"],
+    ["020", "20"],
+    ["folio 20", "20"],
+    ["veinte", "20"],
+  ])("keeps a folio without side as a plain number: %j → %j", (input, expected) => {
+    expect(folio(input)).toMatchObject({ ok: true, value: expected });
+  });
+
+  it("marks the canonical form as structured", () => {
+    expect(folio("20F")).toMatchObject({ ok: true, source: "structured" });
+    expect(folio("20V")).toMatchObject({ ok: true, source: "structured" });
+    expect(folio("20 F")).toMatchObject({ ok: true, source: "parsed" });
+    expect(folio("20")).toMatchObject({ ok: true, source: "structured" });
+    expect(folio("20 frente")).toMatchObject({ ok: true, source: "parsed" });
+  });
+
+  it.each([
+    "",
+    "F",
+    "frente",
+    "F 20",
+    "frente 20",
+    "20 fv",
+    "20 frente vuelto",
+    "20 fte",
+    "20 x",
+    "20-21",
+    "20.5 F",
+    "-20 F",
+    "0 F",
+    "20 F 21",
+    "20Frente",
+  ])("rejects the invalid or ambiguous folio %j", (input) => {
+    expect(folio(input).ok).toBe(false);
   });
 });

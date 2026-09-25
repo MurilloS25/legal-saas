@@ -48,6 +48,7 @@
 
 import { useId } from "react";
 import { WorkspaceActionDock } from "@/components/workspace/WorkspaceActionDock";
+import type { NotarialDockState } from "@/features/notarial-index";
 import type { DocumentStatus } from "../model/lifecycle";
 
 type Props = {
@@ -74,6 +75,13 @@ type Props = {
   /** id del `<form>` de Completar a enviar — el botón vive fuera de su
    * árbol DOM (dock fijo, montado una sola vez, fuera de los paneles). */
   formId: string;
+  /**
+   * Escritura finalizada: estado de los datos del Índice. El dock pasa a ser
+   * el único lugar de Guardar para esos datos (el contenido ya es de solo
+   * lectura, así que nunca hay dos cosas distintas que guardar) y ofrece
+   * "Confirmar Índice" como acción de ciclo de vida, separada de Guardar.
+   */
+  notarial?: NotarialDockState | null;
 };
 
 export function DocumentSaveControls({
@@ -88,26 +96,84 @@ export function DocumentSaveControls({
   onSaveClick,
   actions,
   formId,
+  notarial,
 }: Props) {
   const errorDescId = useId();
   const isFinal = isEdit && status === "final";
 
   if (isFinal) {
-    // Nada que ofrecer sin permiso — a diferencia de la rama editable, acá
-    // no hay un equivalente a "ver, pero deshabilitado": si no puede
-    // reabrir, el dock no aporta nada y no se monta.
-    if (!canFinalize) return null;
+    const canSaveIndex = !!notarial?.canSave;
+    const canConfirmIndex = !!notarial?.confirmAvailable;
+    // Nada que ofrecer: sin permiso para reabrir ni acciones del Índice.
+    if (!canFinalize && !canSaveIndex && !canConfirmIndex) return null;
+
+    const busy = !!(notarial?.saving || notarial?.confirming);
+    const indexStatus = notarial?.saving
+      ? "Guardando…"
+      : notarial?.confirming
+        ? "Confirmando…"
+        : notarial?.errorMessage
+        ? "Error al guardar"
+        : notarial?.unsaved
+          ? "Índice sin guardar"
+          : "Finalizada";
+
     return (
       <WorkspaceActionDock>
         <p
-          className="text-xs whitespace-nowrap text-slate-500"
-          title="Finalizada es de solo lectura. No significa firmada, presentada ni enviada oficialmente."
+          role="status"
+          className={`text-xs whitespace-nowrap ${
+            notarial?.errorMessage
+              ? "text-red-700 font-medium"
+              : notarial?.unsaved && !busy
+                ? "text-amber-700 font-medium"
+                : "text-slate-500"
+          }`}
+          title={
+            notarial?.errorMessage ??
+            "Finalizada es de solo lectura. No significa firmada, presentada ni enviada oficialmente."
+          }
         >
-          Finalizada
+          {indexStatus}
         </p>
-        {actions && (
+        {canSaveIndex && (
+          <button
+            type="submit"
+            form={notarial!.formId}
+            disabled={busy || !notarial!.saveEnabled}
+            className="rounded-md bg-accent-700 px-4 py-1.5 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {notarial!.saving ? "Guardando…" : "Guardar"}
+          </button>
+        )}
+        {(canConfirmIndex || actions) && (
           <div className="flex flex-wrap items-center gap-2 border-l border-slate-200/80 pl-3">
-            {actions}
+            {canConfirmIndex && (
+              // Ciclo de vida, no otro guardado: estilo de contorno con
+              // ícono de verificación, distinto del botón Guardar.
+              <button
+                type="button"
+                onClick={notarial!.requestConfirm}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Confirmar Índice
+              </button>
+            )}
+            {canFinalize && actions}
           </div>
         )}
       </WorkspaceActionDock>

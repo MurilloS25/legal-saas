@@ -340,11 +340,14 @@ test.describe("document composer workspace", () => {
   test("H: a nonexistent document returns the not-found page", async ({
     page,
   }) => {
-    await page.goto(
-      "/documents/00000000-0000-0000-0000-000000000000",
-    );
-
-    await expect(page.getByText("404")).toBeVisible();
+    // El "404" grande y el badge "Ruta 404" son decorativos (aria-hidden);
+    // lo que importa es el status HTTP y el encabezado accesible, igual
+    // que en not-found-authenticated.spec.ts.
+    const response = await page.goto("/documents/00000000-0000-0000-0000-000000000000");
+    expect(response?.status()).toBe(404);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Página no encontrada" }),
+    ).toBeVisible();
   });
 
   test("N: a draft template is excluded from the create-document picker, and its direct URL is blocked", async ({

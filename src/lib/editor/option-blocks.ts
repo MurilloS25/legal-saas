@@ -158,7 +158,9 @@ function pruneStructuredOutput(
 /**
  * Valida un borrador del diálogo y lo convierte a los attrs estructurados
  * del nodo `optionBlock`. Reglas: nombre no vacío; entre 1 y el máximo de
- * variantes permitido; cada variante con etiqueta y contenido no vacíos;
+ * variantes permitido; cada variante con etiqueta no vacía; el contenido de
+ * una variante PUEDE ser vacío (la cláusula no existe en esa modalidad, p. ej.
+ * "Sin garantía"), pero al menos una variante debe tener contenido;
  * exactamente una variante marcada como predeterminada.
  *
  * `existingStructuredOutput` es el mapeo Hora/Minutos vigente del bloque
@@ -197,11 +199,17 @@ export function buildOptionBlockAttrs(
     if (label.length > TEMPLATE_DOC_LIMITS.maxOptionVariantLabelLength) {
       return { ok: false, error: "La etiqueta de una variante es demasiado larga." };
     }
-    const content = parseVariantContentText(variantDraft.contentText);
-    if (content.length === 0) {
-      return { ok: false, error: "Cada variante necesita contenido." };
-    }
+    const content =
+      variantDraft.contentText.trim() === ""
+        ? []
+        : parseVariantContentText(variantDraft.contentText);
     variants.push({ id: variantDraft.id, label, content });
+  }
+  if (variants.every((variant) => variant.content.length === 0)) {
+    return {
+      ok: false,
+      error: "Al menos una variante necesita contenido. Una variante vacía indica que el texto no aparece.",
+    };
   }
 
   if (!draft.variants.some((v) => v.id === draft.defaultVariantId)) {

@@ -65,7 +65,9 @@ async function createClientRow(
   const { data, error } = await supabase
     .from("clients")
     .insert({ owner_id: user.id, workspace_id: workspaceId, ...result.data })
-    .select("id, full_name, identification_number, exact_address")
+    .select(
+      "id, identification_type, full_name, identification_number, exact_address, marital_status, occupation, nationality",
+    )
     .single();
 
   if (error || !data) {

@@ -94,15 +94,14 @@ test.describe("notarial index confirmation lifecycle", () => {
       notarialSection(page).getByText(/Estado de los datos del Índice: Pendiente/),
     ).toBeVisible();
     await expect(
-      notarialSection(page).getByRole("button", { name: "Confirmar datos del Índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" }),
     ).toHaveCount(0);
 
     await openIndexRow(page, "Número de instrumento");
     await notarialSection(page)
       .getByLabel("Número de instrumento", { exact: true })
       .fill(String(instrumentNumber));
-    await notarialSection(page)
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     await expect(
       page.getByText("Cambios del índice guardados.", { exact: true }),
@@ -115,8 +114,7 @@ test.describe("notarial index confirmation lifecycle", () => {
   test("B: completing all fields moves to Listo para confirmar", async ({ page }) => {
     await open(page, "notarial");
     await fillCompleteMetadata(page);
-    await notarialSection(page)
-      .getByRole("button", { name: "Guardar datos del índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true })
       .click();
     await expect(
       page.getByText("Datos del índice completos.", { exact: true }),
@@ -125,22 +123,21 @@ test.describe("notarial index confirmation lifecycle", () => {
       notarialSection(page).getByText(/Estado de los datos del Índice: Listo para confirmar/),
     ).toBeVisible();
     await expect(
-      notarialSection(page).getByRole("button", { name: "Confirmar datos del Índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" }),
     ).toBeVisible();
   });
 
   test("C: confirming shows the dialog, locks fields, checks the stepper", async ({ page }) => {
     await open(page, "notarial");
-    await notarialSection(page)
-      .getByRole("button", { name: "Confirmar datos del Índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })
       .click();
 
-    const dialog = page.getByRole("alertdialog", { name: "¿Confirmar datos del Índice?" });
+    const dialog = page.getByRole("alertdialog", { name: "¿Confirmar Índice?" });
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByText(/quedarán bloqueados para edición normal/),
     ).toBeVisible();
-    await dialog.getByRole("button", { name: "Confirmar datos" }).click();
+    await dialog.getByRole("button", { name: "Confirmar Índice" }).click();
 
     await expect(
       page.getByText("Datos del Índice confirmados.", { exact: true }),
@@ -151,7 +148,7 @@ test.describe("notarial index confirmation lifecycle", () => {
 
     // Campos bloqueados — el botón "Guardar" desaparece, "Corregir datos" aparece.
     await expect(
-      notarialSection(page).getByRole("button", { name: "Guardar datos del índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true }),
     ).toHaveCount(0);
     await expect(
       notarialSection(page).getByRole("button", { name: "Corregir datos" }),
@@ -199,9 +196,18 @@ test.describe("notarial index confirmation lifecycle", () => {
     const tomoInput = notarialSection(page).getByLabel("Tomo", { exact: true });
     await expect(tomoInput).toBeEnabled();
     await expect(tomoInput).toHaveValue("08");
-    await expect(
-      notarialSection(page).getByRole("button", { name: "Guardar datos del índice" }),
-    ).toBeVisible();
+    // El dock es el único Guardar: sin cambios queda deshabilitado y lo que
+    // falta es volver a confirmar; en cuanto se edita algo, Guardar se
+    // habilita y Confirmar Índice deja de ofrecerse.
+    const save = page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Guardar", exact: true });
+    const confirm = page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" });
+    await expect(confirm).toBeVisible();
+    await expect(save).toBeDisabled();
+    await tomoInput.fill("09");
+    await expect(save).toBeEnabled();
+    await expect(confirm).toHaveCount(0);
+    await tomoInput.fill("08");
+    await expect(confirm).toBeVisible();
 
     // El check del stepper desaparece: ya no está confirmado.
     const stepper = page.getByRole("navigation", { name: "Pasos de la escritura" });
@@ -212,12 +218,11 @@ test.describe("notarial index confirmation lifecycle", () => {
 
   test("F: reconfirming after a correction returns to Confirmado", async ({ page }) => {
     await open(page, "notarial");
-    await notarialSection(page)
-      .getByRole("button", { name: "Confirmar datos del Índice" })
+    await page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" })
       .click();
     await page
-      .getByRole("alertdialog", { name: "¿Confirmar datos del Índice?" })
-      .getByRole("button", { name: "Confirmar datos" })
+      .getByRole("alertdialog", { name: "¿Confirmar Índice?" })
+      .getByRole("button", { name: "Confirmar Índice" })
       .click();
     await expect(
       notarialSection(page).getByText("Datos del Índice confirmados", { exact: true }),

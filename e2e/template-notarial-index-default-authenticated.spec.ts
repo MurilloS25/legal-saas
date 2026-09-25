@@ -275,7 +275,7 @@ test.describe("template notarial index default", () => {
     // Nunca se muestran los campos detallados ni acciones de confirmación.
     await expect(page.getByText("Número de instrumento")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Confirmar datos del Índice" }),
+      page.locator("[data-workspace-action-dock]").getByRole("button", { name: "Confirmar Índice" }),
     ).toHaveCount(0);
   });
 

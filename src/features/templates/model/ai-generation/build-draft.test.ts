@@ -19,19 +19,19 @@ function sequentialIds() {
 
 function build(
   proposal: AiTemplateProposal,
-  options: { instructionsProvided?: boolean; sourceText?: string } = {},
+  options: { instructions?: string | null; sourceText?: string } = {},
 ) {
   return buildTemplateDraftFromProposal({
     sourceText: options.sourceText ?? FAKE_SOURCE_TEXT,
     proposal,
-    instructionsProvided: options.instructionsProvided ?? false,
+    instructions: options.instructions ?? null,
     generateId: sequentialIds(),
   });
 }
 
 function mustBuild(
   proposal: AiTemplateProposal,
-  options?: { instructionsProvided?: boolean; sourceText?: string },
+  options?: { instructions?: string | null; sourceText?: string },
 ): AiTemplateDraft {
   const result = build(proposal, options);
   if (!result.ok) throw new Error(`build failed: ${result.code}`);
@@ -79,7 +79,6 @@ const vehicleVariables: AiTemplateProposal["variables"] = [
     label: "VIN",
     semantic_type: "vehicle_identifier",
     output_transform: "digits_to_words",
-    required: true,
     needs_review: false,
     occurrences: [{ paragraph: 2, text: "ABC123", occurrence: 1 }],
   },
@@ -88,7 +87,6 @@ const vehicleVariables: AiTemplateProposal["variables"] = [
     label: "Chasis",
     semantic_type: "vehicle_identifier",
     output_transform: "digits_to_words",
-    required: true,
     needs_review: false,
     occurrences: [],
   },
@@ -97,7 +95,6 @@ const vehicleVariables: AiTemplateProposal["variables"] = [
     label: "Serie",
     semantic_type: "vehicle_identifier",
     output_transform: "digits_to_words",
-    required: true,
     needs_review: false,
     occurrences: [{ paragraph: 2, text: "ABC123", occurrence: 2 }],
   },
@@ -154,7 +151,6 @@ describe("buildTemplateDraftFromProposal — fidelity and variables", () => {
     const buyer = draft.variables.find((v) => v.field_key === "comprador.nombre");
     expect(buyer).toMatchObject({
       label: "Nombre del comprador",
-      required: true,
       autofill_source: "client_full_name",
       output_transform: "none",
     });
@@ -167,7 +163,6 @@ describe("buildTemplateDraftFromProposal — fidelity and variables", () => {
       label: "Inventado",
       semantic_type: "text",
       output_transform: "none",
-      required: true,
       needs_review: false,
       occurrences: [{ paragraph: 1, text: "TEXTO QUE NO EXISTE", occurrence: 1 }],
     });
@@ -183,7 +178,6 @@ describe("buildTemplateDraftFromProposal — fidelity and variables", () => {
       label: "Apellido",
       semantic_type: "person_name",
       output_transform: "none",
-      required: true,
       needs_review: false,
       occurrences: [{ paragraph: 1, text: "PERSONA UNO", occurrence: 1 }],
     });
@@ -199,7 +193,6 @@ describe("buildTemplateDraftFromProposal — fidelity and variables", () => {
       label: "Minutos",
       semantic_type: "time_minutes",
       output_transform: "digits_to_words",
-      required: true,
       needs_review: false,
       occurrences: [{ paragraph: 3, text: "treinta", occurrence: 1 }],
     });
@@ -268,7 +261,7 @@ describe("buildTemplateDraftFromProposal — Option Blocks", () => {
     expect(optionBlocks(without.document)).toHaveLength(0);
 
     const withInstructions = mustBuild(fakeProposal({ option_blocks: [block] }), {
-      instructionsProvided: true,
+      instructions: "Puede venderse de contado o a plazos.",
     });
     expect(optionBlocks(withInstructions.document)).toHaveLength(1);
   });
@@ -282,7 +275,6 @@ describe("buildTemplateDraftFromProposal — Option Blocks", () => {
           label: "Hora",
           semantic_type: "time_hour",
           output_transform: "number_to_words",
-          required: true,
           needs_review: false,
           occurrences: [{ paragraph: 3, text: "diez", occurrence: 1 }],
         },
@@ -291,7 +283,6 @@ describe("buildTemplateDraftFromProposal — Option Blocks", () => {
           label: "Minutos",
           semantic_type: "time_minutes",
           output_transform: "number_to_words",
-          required: true,
           needs_review: false,
           occurrences: [{ paragraph: 3, text: "treinta", occurrence: 1 }],
         },
@@ -331,7 +322,7 @@ describe("buildTemplateDraftFromProposal — Option Blocks", () => {
     expect(draft.indexPlan.simpleFieldKeys.authorized_time).toBeNull();
   });
 
-  it("drops time output whose keys are not in the variant", () => {
+  it("discards an incoherent time block entirely (never saves a broken time mapping)", () => {
     const proposal = fakeProposal({
       option_blocks: [
         {
@@ -351,10 +342,10 @@ describe("buildTemplateDraftFromProposal — Option Blocks", () => {
       notarial_index: { ...fakeProposal().notarial_index, authorized_time_option_block: 0 },
     });
     const draft = mustBuild(proposal);
-    expect(optionBlocks(draft.document)[0].attrs.structuredOutput).toBeNull();
+    expect(optionBlocks(draft.document)).toHaveLength(0);
     expect(draft.indexPlan.authorizedTimeOptionBlockId).toBeNull();
     expect(draft.warnings).toEqual(
-      expect.arrayContaining(["time_output_discarded", "index_mapping_discarded"]),
+      expect.arrayContaining(["time_block_discarded", "index_mapping_discarded"]),
     );
   });
 });
@@ -368,7 +359,7 @@ describe("buildTemplateDraftFromProposal — Chasis/VIN/Serie known pattern", ()
     });
 
   it("creates the block automatically without any lawyer instruction", () => {
-    const draft = mustBuild(withVehicle(), { instructionsProvided: false });
+    const draft = mustBuild(withVehicle(), { instructions: null });
     const blocks = optionBlocks(draft.document);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].attrs.name).toBe("Chasis, VIN y serie");
@@ -459,7 +450,6 @@ describe("buildTemplateDraftFromProposal — identifier normalization", () => {
       label: "Modelo de motor",
       semantic_type: "text",
       output_transform: "none",
-      required: true,
       needs_review: true,
       occurrences: [{ paragraph: 2, text: "ABC123", occurrence: 2 }],
       ...variable,

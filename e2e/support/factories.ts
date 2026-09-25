@@ -15,6 +15,8 @@ import {
 } from "../../src/features/templates/model/variable-autofill";
 import { resolveTemplateContent } from "../../src/lib/editor/content";
 import { createDocumentTemplateSnapshot } from "../../src/features/documents/model/document-template-snapshot";
+import { createDocumentNotarialSnapshot } from "../../src/features/notarial-index/model/document-notarial-snapshot";
+import type { TemplateIndexConfiguration } from "../../src/features/notarial-index/model/template-index-configuration";
 import {
   CleanupRegistry,
   formatCleanupFailures,
@@ -108,7 +110,10 @@ export async function createTestTemplateField(
       | "none"
       | "client_full_name"
       | "client_identification"
-      | "client_address";
+      | "client_address"
+      | "client_marital_status"
+      | "client_occupation"
+      | "client_nationality";
     output_transform?: "none" | "digits_to_words" | "number_to_words";
   },
 ): Promise<{ id: string }> {
@@ -135,21 +140,75 @@ export async function createTestClient(
     full_name: string;
     identification_number?: string;
     exact_address?: string;
+    /** `cedula_juridica` guarda estado civil/nacionalidad/ocupación en NULL. */
+    identification_type?: "cedula_fisica" | "cedula_juridica";
+    marital_status?: string;
+    nationality?: string;
+    occupation?: string;
   },
 ): Promise<{ id: string }> {
   const { userId } = getTestUserAuth();
+  const legalEntity = options.identification_type === "cedula_juridica";
   const id = await restInsert("clients", {
     owner_id: userId,
     full_name: options.full_name,
-    identification_type: "cedula_fisica",
+    identification_type: options.identification_type ?? "cedula_fisica",
     identification_number: options.identification_number ?? "0-0000-0000",
-    marital_status: "single",
-    nationality: "Costa Rican",
-    occupation: "Tester",
+    marital_status: legalEntity ? null : (options.marital_status ?? "single"),
+    nationality: legalEntity ? null : (options.nationality ?? "Costa Rican"),
+    occupation: legalEntity ? null : (options.occupation ?? "Tester"),
     exact_address: options.exact_address ?? "Fake test address",
   });
   registry.register("clients", id);
   return { id };
+}
+
+/** Configuración del Índice vigente del Machote (o null), leída por REST. */
+async function currentTemplateIndexConfiguration(
+  templateId: string,
+): Promise<TemplateIndexConfiguration | null> {
+  const [row] = await restSelect<{
+    id: string;
+    template_id: string;
+    instrument_number_field_id: string | null;
+    authorized_date_field_id: string | null;
+    authorized_time_field_id: string | null;
+    authorized_time_option_block_id: string | null;
+    protocol_book_field_id: string | null;
+    initial_folio_field_id: string | null;
+    final_folio_field_id: string | null;
+    invalid_mappings: string[];
+    party_separator: string;
+    fixed_suffix: string | null;
+    allow_empty: boolean;
+    is_complete: boolean;
+  }>(`template_index_configurations?select=*&template_id=eq.${templateId}`);
+  if (!row) return null;
+  const parties = await restSelect<{ template_field_id: string; sort_order: number }>(
+    `template_index_configuration_fields?select=template_field_id,sort_order&configuration_id=eq.${row.id}&order=sort_order.asc`,
+  );
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    partySeparator: row.party_separator,
+    fixedSuffix: row.fixed_suffix,
+    allowEmpty: row.allow_empty,
+    mappingsValid: row.is_complete,
+    simpleFields: {
+      instrument_number: row.instrument_number_field_id,
+      authorized_date: row.authorized_date_field_id,
+      authorized_time: row.authorized_time_field_id,
+      protocol_book: row.protocol_book_field_id,
+      initial_folio: row.initial_folio_field_id,
+      final_folio: row.final_folio_field_id,
+    },
+    authorizedTimeOptionBlockId: row.authorized_time_option_block_id,
+    invalidMappings: row.invalid_mappings as TemplateIndexConfiguration["invalidMappings"],
+    fields: parties.map((party) => ({
+      templateFieldId: party.template_field_id,
+      order: party.sort_order,
+    })),
+  };
 }
 
 export async function createTestDocument(
@@ -182,6 +241,7 @@ export async function createTestDocument(
       `templates?select=content_json,name&id=eq.${templateId}`,
     );
     const templateFields = await restSelect<{
+      id: string;
       field_key: string;
       label: string;
       field_type: string;
@@ -189,9 +249,12 @@ export async function createTestDocument(
       autofill_source: string;
       output_transform: string;
     }>(
-      `template_fields?select=field_key,label,field_type,required,autofill_source,output_transform&template_id=eq.${templateId}&order=sort_order.asc,created_at.asc`,
+      `template_fields?select=id,field_key,label,field_type,required,autofill_source,output_transform&template_id=eq.${templateId}&order=sort_order.asc,created_at.asc`,
     );
     if (!template) throw new Error("Test template not found while creating document snapshot");
+    // Igual que `createDocumentDraftAction`: la Escritura congela la
+    // configuración del Índice que el Machote tiene al momento de crearla.
+    const notarialConfiguration = await currentTemplateIndexConfiguration(templateId);
     const resolved = resolveTemplateContent(template.content_json);
     templateSnapshot = createDocumentTemplateSnapshot(
       resolved.document,
@@ -203,7 +266,11 @@ export async function createTestDocument(
         })),
         resolved.templateText,
       ),
-      { templateName: template.name, configuration: null },
+      createDocumentNotarialSnapshot(
+        template.name,
+        notarialConfiguration,
+        templateFields.map((field) => ({ id: field.id, fieldKey: field.field_key })),
+      ),
     );
   }
   const id = await restInsert("documents", {

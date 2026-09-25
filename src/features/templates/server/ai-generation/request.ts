@@ -9,7 +9,7 @@ import "server-only";
  * - `source_kind`: "text" | "file";
  * - `text`: texto pegado (si `source_kind=text`);
  * - `file`: un único archivo (si `source_kind=file`);
- * - `variant_instructions`: "Variantes del documento" (opcional);
+ * - `variant_instructions`: "Notas para la IA" (opcional);
  * - `consent`: "on" si la persona aceptó el aviso de procesamiento.
  */
 

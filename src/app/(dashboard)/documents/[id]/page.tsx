@@ -25,6 +25,7 @@ import {
   DocumentLifecycleToast,
   DocumentNotarialInclusionSection,
   resolveDocumentTemplateSnapshot,
+  toAutofillClientOption,
   type DocumentLifecycleEvent,
   type DocumentWorkspaceSection,
 } from "@/features/documents";
@@ -259,12 +260,7 @@ async function DocumentComposerLoader({
   );
 
   const clients = await listClients();
-  const clientOptions = clients.map((client) => ({
-    id: client.id,
-    full_name: client.full_name,
-    identification_number: client.identification_number,
-    exact_address: client.exact_address,
-  }));
+  const clientOptions = clients.map(toAutofillClientOption);
 
   return (
     <DocumentComposer

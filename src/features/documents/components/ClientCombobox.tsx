@@ -2,7 +2,8 @@
 
 /**
  * Selector searchable de Cliente: combobox accesible (patrón ARIA
- * combobox + listbox) que filtra por nombre o número de identificación.
+ * combobox + listbox) que filtra por nombre o número de identificación
+ * (sin importar guiones ni espacios — ver `matchesClientSearch`).
  * Cada opción muestra el nombre completo y la cédula del Cliente.
  *
  * El valor mostrado cuando no hay búsqueda en curso es solo una referencia
@@ -12,8 +13,11 @@
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { DocumentClientOption } from "../model/role-autofill";
-import { stripDiacritics } from "@/features/templates/domain";
+import {
+  matchesClientSearch,
+  type DocumentClientOption,
+} from "../model/role-autofill";
+import { isLegalEntityType } from "@/features/clients/domain";
 
 type Props = {
   clients: DocumentClientOption[];
@@ -23,10 +27,6 @@ type Props = {
   onSelect: (client: DocumentClientOption) => void;
   onClear: () => void;
 };
-
-function normalizeSearch(value: string): string {
-  return stripDiacritics(value).toLowerCase();
-}
 
 function XIcon() {
   return (
@@ -64,16 +64,10 @@ export function ClientCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const filtered = useMemo(() => {
-    const q = normalizeSearch(query.trim());
-    if (q === "") return clients;
-    const qDigits = q.replace(/\s/g, "");
-    return clients.filter((client) => {
-      const name = normalizeSearch(client.full_name);
-      const id = client.identification_number.toLowerCase();
-      return name.includes(q) || id.includes(qDigits);
-    });
-  }, [clients, query]);
+  const filtered = useMemo(
+    () => clients.filter((client) => matchesClientSearch(client, query)),
+    [clients, query],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -221,7 +215,10 @@ export function ClientCombobox({
               >
                 <p className="font-medium">{client.full_name}</p>
                 <p className="text-xs text-slate-500">
-                  Cédula: {client.identification_number}
+                  {isLegalEntityType(client.identification_type)
+                    ? "Cédula jurídica"
+                    : "Cédula"}
+                  : {client.identification_number}
                 </p>
               </li>
             ))

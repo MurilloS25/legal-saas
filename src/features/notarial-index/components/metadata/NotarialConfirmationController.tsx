@@ -147,21 +147,30 @@ export type NotarialConfirmationController = ReturnType<
   typeof useNotarialConfirmationController
 >;
 
+/**
+ * Encabezado de estado de los datos del Índice + diálogos de Confirmar /
+ * Corregir. Las acciones en sí viven en una sola barra al pie del
+ * formulario (`NotarialActionBar`), con una acción principal por estado;
+ * aquí solo se muestra el estado y qué falta hacer (`guidance`).
+ */
 export function NotarialConfirmationSection({
   controller,
   confirmedByName,
+  guidance,
+  correctAvailable,
   children,
 }: {
   controller: NotarialConfirmationController;
   confirmedByName: string | null;
+  /** Qué falta hacer ahora (`notarialNextStep`). */
+  guidance: string;
+  /** Datos confirmados y con permiso: "Corregir datos" contextual aquí. */
+  correctAvailable: boolean;
   children: ReactNode;
 }) {
   const {
     state,
     isConfirmed,
-    canConfirm,
-    canConfirmNow,
-    canCorrectNow,
     matchesPersisted,
     confirmedAt,
     busy,
@@ -198,41 +207,25 @@ export function NotarialConfirmationSection({
               {confirmedAt && ` · ${formatNotarialDateTime(confirmedAt)}`}
             </p>
           )}
-          {state === "review_required" && (
-            <p className="mt-0.5 text-xs text-amber-800">
-              Estos datos estuvieron confirmados; revísalos y confírmalos de
-              nuevo.
-            </p>
-          )}
+          <p
+            className={`mt-0.5 text-xs ${
+              state === "review_required" ? "text-amber-800" : "text-slate-600"
+            }`}
+          >
+            {guidance}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {canConfirmNow && (
-            <button
-              type="button"
-              disabled={busy || savePending || !matchesPersisted}
-              onClick={() => setDialog("confirm")}
-              className="rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
-            >
-              Confirmar datos del Índice
-            </button>
-          )}
-          {canCorrectNow && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setDialog("correct")}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
-            >
-              Corregir datos
-            </button>
-          )}
-        </div>
+        {correctAvailable && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setDialog("correct")}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            Corregir datos
+          </button>
+        )}
       </div>
-      {canConfirm && !isConfirmed && !matchesPersisted && (
-        <p role="status" className="px-6 py-2 text-sm text-amber-800">
-          Guarda los cambios del índice antes de confirmar los datos visibles.
-        </p>
-      )}
       {error && (
         <p
           role="alert"
@@ -244,9 +237,9 @@ export function NotarialConfirmationSection({
       {children}
       {dialog === "confirm" && (
         <ConfirmDialog
-          title="¿Confirmar datos del Índice?"
+          title="¿Confirmar Índice?"
           description="Confirma que revisaste la información utilizada para el Índice Notarial. Después de confirmar, los datos quedarán bloqueados para edición normal. Si necesitas corregirlos posteriormente, el cambio quedará registrado."
-          confirmLabel="Confirmar datos"
+          confirmLabel="Confirmar Índice"
           pending={busy || savePending || !matchesPersisted}
           onConfirm={confirm}
           onClose={() => setDialog(null)}

@@ -69,8 +69,10 @@ export const AI_GENERATION_ERROR_MESSAGES: Record<AiGenerationErrorCode, string>
   provider_refused: "El servicio de IA no pudo procesar este documento.",
   provider_rejected:
     "El servicio de IA rechazó la solicitud por un problema de configuración del proveedor. No se creó ningún machote. Puedes crear el machote manualmente.",
+  // Sin detalles técnicos (formato, schema, proveedor): esos quedan solo en
+  // el log seguro como códigos.
   invalid_output:
-    "La IA devolvió una propuesta que LexCR no pudo validar. No se creó ningún machote. Puedes intentarlo de nuevo.",
+    "No fue posible completar la generación. Intenta nuevamente; no se creó ningún machote.",
   no_variables:
     "No se detectaron datos variables en el documento. No se creó ningún machote.",
   internal_error: "Ocurrió un error inesperado. No se creó ningún machote.",

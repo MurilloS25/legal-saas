@@ -72,6 +72,18 @@ describe("inferAutofillSource", () => {
     ["direccion", "client_address"],
     ["domicilio", "client_address"],
     ["direccion_exacta", "client_address"],
+    ["estado_civil", "client_marital_status"],
+    ["Estado Civil", "client_marital_status"],
+    ["estadoCivil", "client_marital_status"],
+    ["ocupacion", "client_occupation"],
+    ["ocupación", "client_occupation"],
+    ["profesion", "client_occupation"],
+    ["profesión", "client_occupation"],
+    ["oficio", "client_occupation"],
+    ["profesion_u_oficio", "client_occupation"],
+    ["nacionalidad", "client_nationality"],
+    ["razon_social", "client_full_name"],
+    ["cedula_juridica", "client_identification"],
   ];
 
   for (const [dato, expected] of cases) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { TemplateListRow } from "../server/workspace-queries";
 import { templateStatusBadgeClass, templateStatusLabel } from "../model/templates";
+import { DuplicateTemplateButton } from "./DuplicateTemplateButton";
 
 export const TEMPLATES_COLUMN_LABELS = {
   name: "Machote",
@@ -28,7 +29,10 @@ export function formatTemplateDate(iso: string): string {
   });
 }
 
-export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
+/** `canDuplicate`: el rol tiene `templates.write` (lo decide la página). */
+export function createTemplatesColumns(
+  options: { canDuplicate?: boolean } = {},
+): ColumnDef<TemplateListRow>[] {
   return [
     {
       id: "name",
@@ -76,7 +80,13 @@ export function createTemplatesColumns(): ColumnDef<TemplateListRow>[] {
       cell: ({ row }) => {
         const template = row.original;
         return (
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-1">
+            {options.canDuplicate && (
+              <DuplicateTemplateButton
+                templateId={template.id}
+                templateName={template.name}
+              />
+            )}
             <Link
               href={`/templates/${template.id}`}
               aria-label={`Abrir machote ${template.name}`}

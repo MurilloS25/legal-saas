@@ -3,6 +3,10 @@ import {
   fieldsToOverwrite,
   groupVariablesByRole,
   mapClientToRoleVariables,
+  matchesClientSearch,
+  planRoleAutofill,
+  toAutofillClientOption,
+  type AutofillClient,
 } from "./role-autofill";
 import type { FillableTemplateField } from "@/features/templates/domain";
 
@@ -124,10 +128,14 @@ describe("groupVariablesByRole", () => {
 });
 
 describe("mapClientToRoleVariables", () => {
-  const client = {
+  const client: AutofillClient = {
+    identification_type: "cedula_fisica",
     full_name: "María Rodríguez",
     identification_number: "208390123",
     exact_address: "San José, Costa Rica",
+    marital_status: "Casado/a",
+    occupation: "Abogada",
+    nationality: "costarricense",
   };
 
   it("copies only fields whose resolved source maps to a client field", () => {
@@ -173,6 +181,182 @@ describe("mapClientToRoleVariables", () => {
   });
 });
 
+describe("mapClientToRoleVariables — persona física (todos los datos)", () => {
+  const juan: AutofillClient = {
+    identification_type: "cedula_fisica",
+    full_name: "Juan Pérez",
+    identification_number: "108880777",
+    exact_address: "Heredia, Barva",
+    marital_status: "Casado/a una vez",
+    occupation: "Abogado",
+    nationality: "costarricense",
+  };
+
+  it("fills nombre, identificación, estado civil, ocupación, nacionalidad and dirección of any role", () => {
+    for (const role of ["comprador", "vendedor", "apoderado"]) {
+      const [group] = groupVariablesByRole([
+        field(`${role}.nombre`),
+        field(`${role}.identificacion`),
+        field(`${role}.estado_civil`),
+        field(`${role}.ocupacion`),
+        field(`${role}.nacionalidad`),
+        field(`${role}.direccion`),
+      ]);
+      const result = mapClientToRoleVariables(juan, group.variables);
+      expect(result.values).toEqual({
+        [`${role}.nombre`]: "Juan Pérez",
+        [`${role}.identificacion`]: "108880777",
+        [`${role}.estado_civil`]: "Casado/a una vez",
+        [`${role}.ocupacion`]: "Abogado",
+        [`${role}.nacionalidad`]: "costarricense",
+        [`${role}.direccion`]: "Heredia, Barva",
+      });
+      expect(result.incomplete).toEqual([]);
+      expect(result.notApplicable).toEqual([]);
+    }
+  });
+
+  it("fills *.profesion from the client occupation", () => {
+    const [group] = groupVariablesByRole([field("vendedor.profesion")]);
+    expect(mapClientToRoleVariables(juan, group.variables).values).toEqual({
+      "vendedor.profesion": "Abogado",
+    });
+  });
+
+  it("honors an explicit marital status / occupation mapping on a non-standard key", () => {
+    const [group] = groupVariablesByRole([
+      field("comprador.ec", { autofill_source: "client_marital_status" }),
+      field("comprador.oficio_actual", { autofill_source: "client_occupation" }),
+    ]);
+    expect(mapClientToRoleVariables(juan, group.variables).values).toEqual({
+      "comprador.ec": "Casado/a una vez",
+      "comprador.oficio_actual": "Abogado",
+    });
+  });
+
+  it.each([
+    ["Casado/a", "Casado/a una vez"],
+    ["casada", "Casado/a una vez"],
+    ["Libre", "Unión libre"],
+    ["union_libre", "Unión libre"],
+    ["Casada dos veces", "Casado/a dos veces"],
+  ])("copies the canonical form of a legacy stored marital status %s → %s", (stored, expected) => {
+    const [group] = groupVariablesByRole([field("apoderado.estado_civil")]);
+    expect(
+      mapClientToRoleVariables({ ...juan, marital_status: stored }, group.variables)
+        .values,
+    ).toEqual({ "apoderado.estado_civil": expected });
+  });
+
+  it("copies an unrecognized stored marital status as-is (never drops it)", () => {
+    const [group] = groupVariablesByRole([field("comprador.estado_civil")]);
+    expect(
+      mapClientToRoleVariables({ ...juan, marital_status: "single" }, group.variables)
+        .values,
+    ).toEqual({ "comprador.estado_civil": "single" });
+  });
+
+  it("reports an empty marital status as incomplete", () => {
+    const [group] = groupVariablesByRole([field("comprador.estado_civil")]);
+    const result = mapClientToRoleVariables(
+      { ...juan, marital_status: "" },
+      group.variables,
+    );
+    expect(result.values).toEqual({});
+    expect(result.incomplete).toEqual(["comprador.estado_civil"]);
+  });
+});
+
+describe("mapClientToRoleVariables — persona jurídica", () => {
+  const sociedad: AutofillClient = {
+    identification_type: "cedula_juridica",
+    full_name: "Inversiones Ejemplo Sociedad Anónima",
+    identification_number: "3-101-123456",
+    exact_address: "San José, Escazú",
+    marital_status: null,
+    occupation: null,
+    nationality: null,
+  };
+
+  it("fills razón social, cédula jurídica (with hyphens) and domicilio", () => {
+    const [group] = groupVariablesByRole([
+      field("vendedor.nombre"),
+      field("vendedor.cedula_juridica"),
+      field("vendedor.domicilio"),
+    ]);
+    const result = mapClientToRoleVariables(sociedad, group.variables);
+    expect(result.values).toEqual({
+      "vendedor.nombre": "Inversiones Ejemplo Sociedad Anónima",
+      "vendedor.cedula_juridica": "3-101-123456",
+      "vendedor.domicilio": "San José, Escazú",
+    });
+  });
+
+  it("keeps the hyphens even when the variable has a digits_to_words transform (raw value only)", () => {
+    const [group] = groupVariablesByRole([
+      field("vendedor.cedula", { output_transform: "digits_to_words" }),
+    ]);
+    expect(
+      mapClientToRoleVariables(sociedad, group.variables).values["vendedor.cedula"],
+    ).toBe("3-101-123456");
+  });
+
+  it("never invents marital status, occupation or nationality", () => {
+    const [group] = groupVariablesByRole([
+      field("vendedor.nombre"),
+      field("vendedor.estado_civil"),
+      field("vendedor.ocupacion"),
+      field("vendedor.nacionalidad"),
+    ]);
+    const result = mapClientToRoleVariables(sociedad, group.variables);
+    expect(result.values).toEqual({
+      "vendedor.nombre": "Inversiones Ejemplo Sociedad Anónima",
+    });
+    expect(result.notApplicable).toEqual([
+      "vendedor.estado_civil",
+      "vendedor.ocupacion",
+      "vendedor.nacionalidad",
+    ]);
+    expect(result.incomplete).toEqual([]);
+  });
+
+  it("ignores stale personal data even if present on a legal entity", () => {
+    const [group] = groupVariablesByRole([field("vendedor.estado_civil")]);
+    const result = mapClientToRoleVariables(
+      { ...sociedad, marital_status: "Casado/a" },
+      group.variables,
+    );
+    expect(result.values).toEqual({});
+    expect(result.notApplicable).toEqual(["vendedor.estado_civil"]);
+  });
+});
+
+describe("toAutofillClientOption", () => {
+  it("keeps every autofill-relevant column of a client row", () => {
+    expect(
+      toAutofillClientOption({
+        id: "c1",
+        identification_type: "cedula_fisica",
+        full_name: "Juan Pérez",
+        identification_number: "108880777",
+        exact_address: "Heredia",
+        marital_status: "Casado/a",
+        occupation: "Abogado",
+        nationality: "costarricense",
+      }),
+    ).toEqual({
+      id: "c1",
+      identification_type: "cedula_fisica",
+      full_name: "Juan Pérez",
+      identification_number: "108880777",
+      exact_address: "Heredia",
+      marital_status: "Casado/a",
+      occupation: "Abogado",
+      nationality: "costarricense",
+    });
+  });
+});
+
 describe("fieldsToOverwrite", () => {
   it("returns keys where the current value is non-empty", () => {
     const overwritten = fieldsToOverwrite(
@@ -188,5 +372,184 @@ describe("fieldsToOverwrite", () => {
       { "comprador.nombre": "" },
     );
     expect(overwritten).toEqual([]);
+  });
+});
+
+describe("planRoleAutofill — reemplazar una persona física por una sociedad", () => {
+  const juan: AutofillClient = {
+    identification_type: "cedula_fisica",
+    full_name: "Juan Pérez",
+    identification_number: "108880777",
+    exact_address: "Heredia",
+    marital_status: "Casado/a una vez",
+    occupation: "Abogado",
+    nationality: "costarricense",
+  };
+  const sociedad: AutofillClient = {
+    identification_type: "cedula_juridica",
+    full_name: "Inversiones Ejemplo S.A.",
+    identification_number: "3-101-123456",
+    exact_address: "San José, Escazú",
+    marital_status: null,
+    occupation: null,
+    nationality: null,
+  };
+  const keys = [
+    "vendedor.nombre",
+    "vendedor.cedula",
+    "vendedor.estado_civil",
+    "vendedor.ocupacion",
+    "vendedor.nacionalidad",
+    "vendedor.domicilio",
+  ];
+
+  it("clears personal data left by the previous person instead of attributing it to the sociedad", () => {
+    const [group] = groupVariablesByRole(keys.map((key) => field(key)));
+    const current = mapClientToRoleVariables(juan, group.variables).values;
+    const plan = planRoleAutofill(sociedad, group.variables, current);
+    expect(plan.values).toEqual({
+      "vendedor.nombre": "Inversiones Ejemplo S.A.",
+      "vendedor.cedula": "3-101-123456",
+      "vendedor.domicilio": "San José, Escazú",
+      "vendedor.estado_civil": "",
+      "vendedor.ocupacion": "",
+      "vendedor.nacionalidad": "",
+    });
+    expect(plan.clearedFields).toEqual([
+      "vendedor.estado_civil",
+      "vendedor.ocupacion",
+      "vendedor.nacionalidad",
+    ]);
+    // Reemplazar o vaciar valores existentes siempre pide confirmación.
+    expect(plan.overwriteFields).toEqual(keys);
+  });
+
+  it("does not touch not-applicable fields that are already empty", () => {
+    const [group] = groupVariablesByRole(keys.map((key) => field(key)));
+    const plan = planRoleAutofill(sociedad, group.variables, {});
+    expect(plan.clearedFields).toEqual([]);
+    expect(plan.overwriteFields).toEqual([]);
+    expect(plan.values).not.toHaveProperty("vendedor.estado_civil");
+    expect(plan.notApplicable).toEqual([
+      "vendedor.estado_civil",
+      "vendedor.ocupacion",
+      "vendedor.nacionalidad",
+    ]);
+  });
+
+  it("works the same for any role", () => {
+    const [group] = groupVariablesByRole([field("apoderado.nombre"), field("apoderado.estado_civil")]);
+    const plan = planRoleAutofill(sociedad, group.variables, {
+      "apoderado.estado_civil": "Soltero/a",
+    });
+    expect(plan.values).toEqual({
+      "apoderado.nombre": "Inversiones Ejemplo S.A.",
+      "apoderado.estado_civil": "",
+    });
+  });
+
+  it("a persona física keeps filling every field (no regression)", () => {
+    const [group] = groupVariablesByRole(keys.map((key) => field(key)));
+    const plan = planRoleAutofill(juan, group.variables, {});
+    expect(plan.clearedFields).toEqual([]);
+    expect(plan.values["vendedor.estado_civil"]).toBe("Casado/a una vez");
+    expect(plan.values["vendedor.ocupacion"]).toBe("Abogado");
+  });
+});
+
+describe("matchesClientSearch", () => {
+  const sociedad = { full_name: "Inversiones Ejemplo S.A.", identification_number: "3-101-123456" };
+  const juan = { full_name: "Juan Pérez", identification_number: "108880777" };
+
+  it.each(["3-101-123456", "3101123456", "3 101 123456", "101-1234", "1011234"])(
+    "finds a sociedad by cédula jurídica typed as %j",
+    (query) => {
+      expect(matchesClientSearch(sociedad, query)).toBe(true);
+    },
+  );
+
+  it.each(["1-0888-0777", "108880777", "0888"])(
+    "finds a persona física by cédula typed as %j",
+    (query) => {
+      expect(matchesClientSearch(juan, query)).toBe(true);
+    },
+  );
+
+  it("matches names ignoring case and accents", () => {
+    expect(matchesClientSearch(juan, "perez")).toBe(true);
+    expect(matchesClientSearch(sociedad, "INVERSIONES")).toBe(true);
+  });
+
+  it("does not match unrelated text or separators alone", () => {
+    expect(matchesClientSearch(juan, "sociedad")).toBe(false);
+    expect(matchesClientSearch(juan, "-")).toBe(false);
+  });
+
+  it("an empty query matches everything", () => {
+    expect(matchesClientSearch(juan, "  ")).toBe(true);
+  });
+});
+
+describe("rol `sociedad` en el Machote (sin lista cerrada de roles)", () => {
+  const sociedad: AutofillClient = {
+    identification_type: "cedula_juridica",
+    full_name: "Inversiones Ejemplo S.A.",
+    identification_number: "3-101-123456",
+    exact_address: "San José, Escazú",
+    marital_status: null,
+    occupation: null,
+    nationality: null,
+  };
+
+  it("groups sociedad.* as its own autofillable Parte, like comprador/vendedor", () => {
+    const groups = groupVariablesByRole([
+      field("comprador.nombre"),
+      field("sociedad.razon_social"),
+      field("sociedad.cedula_juridica"),
+      field("sociedad.direccion"),
+    ]);
+    const group = groups.find((g) => g.role === "sociedad")!;
+    expect(group.hasClientAutofill).toBe(true);
+    expect(group.variables.map((v) => v.resolvedAutofillSource)).toEqual([
+      "client_full_name",
+      "client_identification",
+      "client_address",
+    ]);
+  });
+
+  it("recognizes every alias used for a sociedad", () => {
+    const [group] = groupVariablesByRole([
+      field("sociedad.nombre"),
+      field("sociedad.razon_social"),
+      field("sociedad.identificacion"),
+      field("sociedad.cedula_juridica"),
+      field("sociedad.direccion"),
+      field("sociedad.domicilio"),
+    ]);
+    const plan = planRoleAutofill(sociedad, group.variables, {});
+    expect(plan.values).toEqual({
+      "sociedad.nombre": "Inversiones Ejemplo S.A.",
+      "sociedad.razon_social": "Inversiones Ejemplo S.A.",
+      "sociedad.identificacion": "3-101-123456",
+      "sociedad.cedula_juridica": "3-101-123456",
+      "sociedad.direccion": "San José, Escazú",
+      "sociedad.domicilio": "San José, Escazú",
+    });
+  });
+
+  it("never fills personal fields of a sociedad role", () => {
+    const [group] = groupVariablesByRole([
+      field("sociedad.razon_social"),
+      field("sociedad.estado_civil"),
+      field("sociedad.ocupacion"),
+      field("sociedad.nacionalidad"),
+    ]);
+    const plan = planRoleAutofill(sociedad, group.variables, {});
+    expect(plan.values).toEqual({ "sociedad.razon_social": "Inversiones Ejemplo S.A." });
+    expect(plan.notApplicable).toEqual([
+      "sociedad.estado_civil",
+      "sociedad.ocupacion",
+      "sociedad.nacionalidad",
+    ]);
   });
 });

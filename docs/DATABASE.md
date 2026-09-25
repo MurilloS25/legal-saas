@@ -35,7 +35,7 @@ The MVP database must support:
 - Multiple independent lawyers.
 - Lawyer profile data.
 - One default document formatting configuration per lawyer.
-- Physical-person client metadata.
+- Physical-person and legal-entity (sociedad) client metadata.
 - Template management.
 - Template variable and field definitions.
 - Persistent draft escrituras.
@@ -198,18 +198,64 @@ Pending questions:
 
 Purpose:
 
-Stores reusable client metadata for physical persons.
+Stores reusable client metadata for physical persons and legal entities
+(sociedades).
 
 Decision:
 
-- First migration focuses on physical-person clients only.
-- `identification_type` remains included for future compatibility.
-- MVP will primarily use `cedula_fisica`.
-- Initial allowed `identification_type` value: `cedula_fisica`.
-- Company clients are deferred.
-- Legal representative data is deferred.
+- `identification_type` allows `cedula_fisica` (persona física) and
+  `cedula_juridica` (persona jurídica / sociedad) — migration
+  `20260923180000_clients_legal_entity_and_autofill_sources`.
+- A legal entity stores only razón social (`full_name`), cédula jurídica
+  (`identification_number`) and domicilio (`exact_address`).
+  `marital_status`, `nationality` and `occupation` are nullable columns;
+  `clients_person_fields_by_type_check` requires them for `cedula_fisica`
+  and requires them to be `NULL` for `cedula_juridica` (a sociedad never
+  carries personal data that autofill could copy into an Escritura).
+- Identification format: `cedula_fisica` is stored without hyphens or spaces
+  (unchanged). `cedula_juridica` is stored exactly as typed, hyphens included
+  (`3-101-123456`); the only normalization is trimming and removing spaces
+  around a hyphen. Accepted: digit groups separated by single hyphens, or
+  digits only, max 30 characters (`clients_juridica_identification_format_check`
+  enforces the pattern in the database). No fixed length or grouping is
+  imposed because the project has no referenced official rule.
+- Changing a client from física to jurídica clears the three personal fields
+  on save; the edit form warns before saving when data would be removed.
+- Legal representatives, personería, poderes, juntas directivas, capital and
+  registry data are deferred; representation inside an Escritura is handled
+  with separate roles/Clients.
 - `email` and `phone` are not first-migration fields.
 - `notes` is not a first-migration field.
+
+Autofill (`template_fields.autofill_source`) can copy: `client_full_name`,
+`client_identification`, `client_address`, `client_marital_status`,
+`client_occupation`, `client_nationality`. The last three never apply to a
+legal entity (the Escritura value is left untouched, never invented).
+
+Marital status canonical values (stored exactly as shown, reused verbatim in
+documents): `Soltero/a`, `Casado/a una vez`, `Casado/a dos veces`,
+`Casado/a tres veces`, `Divorciado/a`, `Divorciado/a dos veces`,
+`Divorciado/a tres veces`, `Viudo/a`, `Unión libre`. Legacy values are not
+migrated: they are normalized on read (form preselection and
+`client_marital_status` autofill) and persisted canonically on the next save.
+`Casado/a`, `casado`, `Casada`, `Casado una vez`… → `Casado/a una vez` (never
+inferred as dos/tres veces); `Libre`, `libre`, `union_libre`, `Unión libre` →
+`Unión libre`; slugs and gendered forms of the other statuses keep their
+previous mapping. An unrecognized stored value is copied to the Escritura
+as-is.
+
+Known limitation — transforms and hyphens: the `digits_to_words` output
+transform treats hyphens and spaces as non-semantic separators and drops them
+(`3-101-123456` → `TRES UNO CERO UNO UNO DOS TRES CUATRO CINCO SEIS`). The raw
+value keeps its hyphens up to the transform, and a variable without transform
+renders `3-101-123456`. Preserving the separator inside the transform would
+change the output of every existing Machote that uses `digits_to_words` on
+hyphenated values (plates such as `ABC-102`), so it is intentionally not
+changed yet. Minimal proposal pending approval: in `digitsToUppercaseWords`,
+keep a hyphen between two digits as a `-` token (e.g.
+`TRES - UNO CERO UNO - UNO DOS TRES CUATRO CINCO SEIS`), or scope that rule to
+a new opt-in transform, and update the characterization test in
+`src/lib/editor/text-transforms.test.ts`.
 
 Candidate fields:
 
@@ -247,7 +293,7 @@ RLS need:
 
 Pending questions:
 
-- Decide how to model company clients later.
+- Decide whether `digits_to_words` should preserve hyphens (see limitation above).
 - Decide how to model legal representatives later.
 
 ### `templates`
@@ -610,7 +656,8 @@ Deterministic mapped-value normalization:
   never from `rendered_content`. Output transforms such as `number_to_words`
   continue to affect only the rendered Escritura and its DOCX.
 - The `es-CR` normalization layer assigns semantic types to each destination:
-  instrument number, protocol book, and folios are interpreted as integers;
+  instrument number and protocol book are interpreted as integers; folios
+  are a number with an optional side, Frente (F) or Vuelto (V);
   authorization date and time are parsed separately; act name and parties
   remain text.
 - Parsed values prefill the existing structured metadata fields. A manual
@@ -619,6 +666,16 @@ Deterministic mapped-value normalization:
   document draft for review.
 - Ambiguous or unsupported text is never guessed and remains pending manual
   review. No legal content is sent to external services or written to logs.
+- Folio format (`initial_folio`, `final_folio`, both derived and manual): the
+  canonical stored form is the one already used for manual entry, `20F` /
+  `20V`, or just `20` when no side is given. Accepted input, case- and
+  accent-insensitive with normalized spaces: `20 frente`, `20 F`, `20F`,
+  `20 vuelto`, `20 V`, `20V`, an optional `folio` prefix and the number in
+  words (`veinte frente`). The side always follows the number; anything else
+  (`F 20`, `20 fte`, `20-21`, `20 fv`, `0 F`) is rejected with a validation
+  message instead of being guessed. No migration: existing values are
+  untouched and re-normalized only when saved again. AI rules are unchanged:
+  initial folio may be mapped, final folio is never inferred.
 - The text database types for `protocol_book` and folios remain unchanged for
   historical compatibility. This iteration does not rewrite existing saved
   values or require a migration.

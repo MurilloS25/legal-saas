@@ -50,3 +50,51 @@ describe("buildTemplateGenerationPrompt", () => {
     expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).not.toMatch(/sk-|api[_ ]?key\s*[:=]/i);
   });
 });
+
+describe("buildTemplateGenerationPrompt — retry de reparación", () => {
+  it("adds only the issue list and the previous output, delimited as untrusted data", () => {
+    const prompt = buildTemplateGenerationPrompt(
+      {
+        paragraphs: ["Uno."],
+        variantInstructions: null,
+        repair: {
+          previousOutput: '{"schema_version":"x"}',
+          issues: ["time_block_incoherent@option_blocks[0]", "time_block_incoherent@option_blocks[0]"],
+        },
+      },
+      "N1",
+    );
+    expect(prompt.system).toBe(TEMPLATE_GENERATION_SYSTEM_PROMPT);
+    expect(prompt.user).toContain("Corrige SOLO estas incidencias");
+    expect(prompt.user.match(/time_block_incoherent@option_blocks\[0\]/g)).toHaveLength(1);
+    expect(prompt.user).toContain('<<<RESPUESTA_ANTERIOR_N1>>>\n{"schema_version":"x"}\n<<<FIN_RESPUESTA_ANTERIOR_N1>>>');
+  });
+
+  it("the first attempt carries no repair section", () => {
+    const prompt = buildTemplateGenerationPrompt({ paragraphs: ["Uno."], variantInstructions: null }, "N2");
+    expect(prompt.user).not.toContain("REPARACIÓN");
+    expect(prompt.user).not.toContain("RESPUESTA_ANTERIOR");
+  });
+});
+
+describe("TEMPLATE_GENERATION_SYSTEM_PROMPT — reglas de modelado", () => {
+  it.each([
+    "MACHOTE LEGAL REUTILIZABLE",
+    "datos del PROFESIONAL autor",
+    "La NACIONALIDAD de una parte",
+    "LexCR deja todas las variables como opcionales",
+    'Una variante puede tener "content": "" (vacío)',
+    "Un bloque puede contener variables",
+    "NO crees el bloque",
+    "Documento de identificación (Cédula / DIMEX / Pasaporte) (patrón canónico, se evalúa siempre)",
+    "Nunca para una cédula jurídica ni para una sociedad o persona jurídica",
+    "instrucciones de MODELADO con prioridad alta",
+  ])("states: %s", (rule) => {
+    expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).toContain(rule);
+  });
+
+  it("no longer contains the contradicting old rules", () => {
+    expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).not.toContain("máximo número razonable");
+    expect(TEMPLATE_GENERATION_SYSTEM_PROMPT).not.toContain('"required": true');
+  });
+});

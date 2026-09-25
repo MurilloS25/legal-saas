@@ -76,14 +76,19 @@ export function pointsToHalfPoints(valuePt: number): number {
 
 /**
  * Interlineado fijo del cuerpo documental: exactamente 24pt con regla
- * "exactly" — una medida absoluta, no un múltiplo de la fuente ("auto").
+ * "exact" — una medida absoluta, no un múltiplo de la fuente ("auto").
+ *
+ * Debe ser `LineRuleType.EXACT` ("exact"), no `LineRuleType.EXACTLY`: este
+ * último emite `w:lineRule="exactly"`, que no existe en OOXML
+ * (`ST_LineSpacingRule` = auto | exact | atLeast). Word descarta el valor
+ * inválido, aplica "auto" y lee `w:line="480"` como interlineado doble.
  * Deliberadamente independiente de `DocumentFormattingPreferences.lineSpacing`
  * (ajuste puntual: el interlineado del DOCX generado ya no varía con lo
  * configurado en Configuración).
  */
 export const FIXED_BODY_LINE_SPACING = {
   line: FIXED_BODY_LINE_SPACING_PT * TWENTIETHS_PER_POINT,
-  lineRule: LineRuleType.EXACTLY,
+  lineRule: LineRuleType.EXACT,
 } as const;
 
 /** Alineación fija del cuerpo documental: justificada. */

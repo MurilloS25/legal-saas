@@ -88,6 +88,8 @@ type EditModeProps = {
   mode: "edit";
   template: WorkspaceTemplate;
   createdJustNow?: boolean;
+  /** Recién creado con "Duplicar machote" (`?duplicated=1`). */
+  duplicatedJustNow?: boolean;
   initialSection?: TemplateWorkspaceSection;
   indexConfiguration: TemplateIndexConfiguration | null;
   indexFields: IndexConfigurationField[];
@@ -337,13 +339,23 @@ export function TemplateWorkspace(props: Props) {
   // guarda dispararía `showToast` dos veces.
   const createdToastFired = useRef(false);
   useEffect(() => {
-    if (!isEdit || !props.createdJustNow || createdToastFired.current) return;
+    if (
+      !isEdit ||
+      !(props.createdJustNow || props.duplicatedJustNow) ||
+      createdToastFired.current
+    ) {
+      return;
+    }
     createdToastFired.current = true;
-    showToast("Machote guardado.");
+    showToast(
+      props.duplicatedJustNow
+        ? "Machote duplicado. La copia está en borrador."
+        : "Machote guardado.",
+    );
     const next = stripSearchParams(
       window.location.pathname,
       window.location.search,
-      ["created"],
+      ["created", "duplicated"],
     );
     const current = window.location.pathname + window.location.search;
     if (next !== current) {
