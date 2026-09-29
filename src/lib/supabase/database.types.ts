@@ -97,6 +97,7 @@ export type Database = {
           full_name: string
           id: string
           identification_number: string
+          identification_search: string | null
           identification_type: string
           marital_status: string | null
           nationality: string | null
@@ -111,6 +112,7 @@ export type Database = {
           full_name: string
           id?: string
           identification_number: string
+          identification_search?: string | null
           identification_type: string
           marital_status?: string | null
           nationality?: string | null
@@ -125,6 +127,7 @@ export type Database = {
           full_name?: string
           id?: string
           identification_number?: string
+          identification_search?: string | null
           identification_type?: string
           marital_status?: string | null
           nationality?: string | null

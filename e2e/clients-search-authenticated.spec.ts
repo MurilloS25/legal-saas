@@ -24,6 +24,12 @@ const personName = uniqueName("clients-search", "persona");
 const companyName = uniqueName("clients-search", "sociedad");
 const personId = `1-${randomInt(1000, 9999)}-${randomInt(1000, 9999)}`;
 const companyId = `3-101-${randomInt(100000, 999999)}`;
+// Los dígitos 1-2-3-4 aparecen en este orden pero NO contiguos: una búsqueda
+// aproximada ("%1%2%3%4%") la devolvería; la normalizada no.
+const scatteredName = uniqueName("clients-search", "dispersa");
+const scatteredId = "1-0203-0400";
+const contiguousName = uniqueName("clients-search", "contigua");
+const contiguousId = "9-1234-5678";
 const batchToken = uniqueName("clients-search", "lote");
 const busyName = uniqueName("clients-search", "activo");
 let busyClientId = "";
@@ -51,6 +57,14 @@ test.describe("clients search and detail summary", () => {
       full_name: companyName,
       identification_type: "cedula_juridica",
       identification_number: companyId,
+    });
+    await createTestClient(registry, {
+      full_name: scatteredName,
+      identification_number: scatteredId,
+    });
+    await createTestClient(registry, {
+      full_name: contiguousName,
+      identification_number: contiguousId,
     });
     for (let i = 0; i < 12; i++) {
       await createTestClient(registry, {
@@ -104,6 +118,24 @@ test.describe("clients search and detail summary", () => {
     await search(page, companyId.replace(/-/g, ""));
     await expect(rows(page)).toHaveCount(1);
     await expect(rows(page).first()).toContainText(companyName);
+  });
+
+  test("C2: identification search is exact on the normalized number — spaces work and scattered digits never match", async ({
+    page,
+  }) => {
+    await page.goto("/clients");
+    await search(page, companyId.replace(/-/g, " "));
+    await expect(rows(page)).toHaveCount(1);
+    await expect(rows(page).first()).toContainText(companyName);
+
+    // "1234" está contiguo solo en la cédula contigua, nunca en la dispersa.
+    await search(page, "1234");
+    await expect(rows(page).filter({ hasText: contiguousName })).toHaveCount(1);
+    await expect(rows(page).filter({ hasText: scatteredName })).toHaveCount(0);
+
+    // Con guiones tal como está guardada, la dispersa sí se encuentra.
+    await search(page, scatteredId);
+    await expect(rows(page).filter({ hasText: scatteredName })).toHaveCount(1);
   });
 
   test("D: no results shows an empty state and 'Limpiar búsqueda' restores the directory", async ({

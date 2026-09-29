@@ -69,26 +69,36 @@ export function sanitizeClientSearchTerm(search: string): string {
 }
 
 /**
+ * Forma comparable de una identificación: sin guiones ni espacios y en
+ * minúsculas. Es la MISMA regla que la columna generada
+ * `clients.identification_search` (ver la migración
+ * `20260929120000_clients_identification_search`): si una cambia, la otra
+ * también.
+ */
+export function normalizeIdentificationForSearch(value: string): string {
+  return value.replace(/[\s-]/g, "").toLowerCase();
+}
+
+/**
  * Filtro `.or()` de PostgREST para buscar por nombre / razón social o por
  * identificación. Devuelve `null` si la búsqueda está vacía y `""` si no
  * queda ningún carácter seguro (no debe coincidir nada).
  *
- * La identificación tolera guiones y espacios: si lo escrito son solo
- * dígitos (≥ 4, p. ej. `3101123456`) se agrega un patrón con `%` entre
- * dígitos, que encuentra `3-101-123456` sin necesitar una columna
- * normalizada. Si lo escrito ya trae guiones (`3-101-123`) coincide tal cual.
+ * La identificación se compara contra `identification_search` (columna
+ * generada sin guiones ni espacios) con el texto buscado normalizado igual:
+ * `3101123456`, `3-101-123456` y `3 101 123456` encuentran `3-101-123456`,
+ * y ningún carácter arbitrario puede colarse entre los dígitos. Solo se
+ * consulta por identificación si lo escrito contiene algún dígito.
  */
 export function buildClientSearchFilter(search: string): string | null {
   if (search.trim() === "") return null;
   const term = sanitizeClientSearchTerm(search);
   if (term === "") return "";
 
-  const like = `%${term}%`;
-  const parts = [`full_name.ilike.${like}`, `identification_number.ilike.${like}`];
-
-  const compact = term.replace(/[-\s]/g, "");
-  if (/^\d{4,}$/.test(compact)) {
-    parts.push(`identification_number.ilike.%${compact.split("").join("%")}%`);
+  const parts = [`full_name.ilike.%${term}%`];
+  const identification = normalizeIdentificationForSearch(term);
+  if (/\d/.test(identification)) {
+    parts.push(`identification_search.ilike.%${identification}%`);
   }
   return parts.join(",");
 }

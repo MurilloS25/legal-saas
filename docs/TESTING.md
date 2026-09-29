@@ -452,6 +452,14 @@ pnpm e2e:headed   # headed browser
 - `playwright/.auth/` must stay uncommitted.
 - By default, Playwright starts its own `pnpm dev` server. Do not keep another dev server running on port 3000 during validation.
 - Only reuse an existing local dev server intentionally by setting `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+- Running many Playwright workers against `next dev` can time out (5 s
+  `expect` defaults, ERR_CONNECTION_RESET/REFUSED) because routes compile on
+  demand; that is dev-server saturation, not an assertion bug. To validate a
+  large batch reliably, `pnpm build`, start `AI_PROVIDER=fake pnpm start` and
+  run Playwright with `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+- Specs must not depend on a row's position in an unfiltered, paginated list:
+  other specs share the same account and seed data in parallel. Locate rows
+  with the server-side search (`/clients?q=`) or a filter.
 - Do not run `pnpm build` while an E2E dev server is running, because both commands share `.next/`.
 
 **Phase 1 scope (smoke, unauthenticated — current):**

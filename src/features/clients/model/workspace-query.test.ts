@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildClientSearchFilter,
   clientsQueryToParams,
+  normalizeIdentificationForSearch,
   parseClientsQuery,
   sanitizeClientSearchTerm,
 } from "./workspace-query";
@@ -29,31 +30,35 @@ describe("sanitizeClientSearchTerm", () => {
   });
 });
 
+describe("normalizeIdentificationForSearch", () => {
+  it("strips hyphens and whitespace and lowercases", () => {
+    expect(normalizeIdentificationForSearch("3-101-123456")).toBe("3101123456");
+    expect(normalizeIdentificationForSearch(" 3 101  123456 ")).toBe("3101123456");
+    expect(normalizeIdentificationForSearch("1-0234-0567")).toBe("102340567");
+    expect(normalizeIdentificationForSearch("AB-12")).toBe("ab12");
+  });
+});
+
 describe("buildClientSearchFilter", () => {
   it("returns null without a search and empty string when nothing is searchable", () => {
     expect(buildClientSearchFilter("  ")).toBeNull();
     expect(buildClientSearchFilter(",.()")).toBe("");
   });
 
-  it("searches name and identification", () => {
-    expect(buildClientSearchFilter("sebastian")).toBe(
-      "full_name.ilike.%sebastian%,identification_number.ilike.%sebastian%",
-    );
+  it("searches only the name when the text has no digits", () => {
+    expect(buildClientSearchFilter("sebastian")).toBe("full_name.ilike.%sebastian%");
   });
 
-  it("tolerates missing hyphens in identifications", () => {
+  it("searches the normalized identification for any spelling of the same number", () => {
+    for (const typed of ["3101123456", "3-101-123456", "3 101 123456"]) {
+      expect(buildClientSearchFilter(typed)).toBe(
+        `full_name.ilike.%${typed}%,identification_search.ilike.%3101123456%`,
+      );
+    }
+  });
+
+  it("never spreads wildcards between digits", () => {
     const filter = buildClientSearchFilter("3101123456")!;
-    expect(filter).toContain("identification_number.ilike.%3%1%0%1%1%2%3%4%5%6%");
-  });
-
-  it("matches hyphenated input as typed and also tolerant", () => {
-    const filter = buildClientSearchFilter("3-101-123456")!;
-    expect(filter).toContain("identification_number.ilike.%3-101-123456%");
-    expect(filter).toContain("%3%1%0%1%1%2%3%4%5%6%");
-  });
-
-  it("does not add the tolerant pattern for short or non-numeric terms", () => {
-    expect(buildClientSearchFilter("310")).not.toContain("%3%1%0%");
-    expect(buildClientSearchFilter("ab12345")).not.toContain("%a%b%");
+    expect(filter).not.toContain("%3%1%0%");
   });
 });
