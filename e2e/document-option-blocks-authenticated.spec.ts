@@ -173,8 +173,10 @@ test.describe("document option blocks", () => {
       .blur();
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
+    // El primer guardado compila /documents/[id] en el dev server (~10 s en frío
+    // con un solo worker; más con varios en paralelo): 15 s era el límite justo.
     await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
-      timeout: 15_000,
+      timeout: 45_000,
     });
     documentUrl = page.url();
     await registerCreatedViaUi(
@@ -216,6 +218,39 @@ test.describe("document option blocks", () => {
     expect(text).toContain("ABC123");
     expect(text).toContain("VIN999");
     expect(text).not.toContain("número 999");
+  });
+
+  test("F: the variant trigger is an accessible, keyboard-operable button with open/closed state", async ({
+    page,
+  }) => {
+    await page.goto(`/documents/new/${templateId}`);
+    const trigger = page.getByRole("button", {
+      name: /Cambiar variante de Chasis, VIN y Serie/,
+    });
+    await expect(trigger).toBeVisible();
+    // Ícono real (SVG), no el carácter suelto.
+    await expect(trigger.locator("svg")).toHaveCount(1);
+    await expect(trigger).not.toContainText("▾");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    const box = await trigger.boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(24);
+    expect(box!.height).toBeGreaterThanOrEqual(24);
+
+    // Teclado: Enter abre, Escape cierra.
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      page.getByRole("radiogroup", { name: /Variantes de Chasis, VIN y Serie/ }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("radiogroup")).toHaveCount(0);
+
+    // Elegir una variante sigue funcionando.
+    await trigger.click();
+    await page.getByRole("radio", { name: "Todos distintos" }).click();
+    await expect(documentRegion(page).getByText("CHASIS", { exact: true })).toBeVisible();
   });
 
   test("E: a finalized document is read-only — no variant switcher is offered", async ({

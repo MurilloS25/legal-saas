@@ -45,7 +45,14 @@ export type ClientDocumentRow = {
   templates: { name: string } | null;
 };
 
-export const RELATED_DOCUMENTS_LIMIT = 10;
+/** Escrituras recientes que muestra el resumen del detalle de un cliente. */
+export const RELATED_DOCUMENTS_LIMIT = 5;
+
+export type ClientDocumentsSummary = {
+  rows: ClientDocumentRow[];
+  /** Total de Escrituras del cliente (no solo las mostradas). */
+  total: number;
+};
 
 /** Borradores del usuario, el modificado más recientemente primero. */
 export async function listDocuments(): Promise<DocumentListRow[]> {
@@ -105,24 +112,25 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
 }
 
 /**
- * Escrituras asociadas a un cliente propio, la más reciente primero. Solo
- * del usuario autenticado; el cliente ajeno no devuelve nada.
+ * Resumen de las Escrituras de un cliente propio: las más recientes primero
+ * (limitadas) y el total real. Solo del usuario autenticado; el cliente ajeno
+ * no devuelve nada.
  */
 export async function listDocumentsByClient(
   clientId: string,
-): Promise<ClientDocumentRow[]> {
+): Promise<ClientDocumentsSummary> {
   const { supabase, workspaceId } = await requireWorkspace();
 
-  if (!DocumentIdSchema.safeParse(clientId).success) return [];
+  if (!DocumentIdSchema.safeParse(clientId).success) return { rows: [], total: 0 };
 
-  const { data, error } = await supabase
+  const { data, count, error } = await supabase
     .from("documents")
-    .select("id, title, status, updated_at, templates(name)")
+    .select("id, title, status, updated_at, templates(name)", { count: "exact" })
     .eq("workspace_id", workspaceId)
     .eq("client_id", clientId)
     .order("updated_at", { ascending: false })
     .limit(RELATED_DOCUMENTS_LIMIT);
 
   if (error) throwDataAccessError("list documents by client", error);
-  return data ?? [];
+  return { rows: data ?? [], total: count ?? 0 };
 }

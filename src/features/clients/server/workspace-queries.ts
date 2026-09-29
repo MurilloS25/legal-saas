@@ -2,7 +2,10 @@ import "server-only";
 
 import { requireWorkspace } from "@/lib/server/auth";
 import { isRangeNotSatisfiable, throwDataAccessError } from "@/lib/server/errors";
-import type { ClientsQuery } from "../model/workspace-query";
+import {
+  buildClientSearchFilter,
+  type ClientsQuery,
+} from "../model/workspace-query";
 import type { ClientRow } from "../model/types";
 import {
   AUXILIARY_QUERY_LIMIT,
@@ -36,14 +39,23 @@ export type ClientsPage = {
   pageCount: number;
 };
 
-/** Página del directorio de clientes para el listado principal (server-paginado). */
+/**
+ * Página del directorio de clientes para el listado principal (server-paginado
+ * y con búsqueda opcional por nombre / razón social o identificación).
+ */
 export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage> {
   const { supabase, workspaceId } = await requireWorkspace();
   const from = (query.page - 1) * query.pageSize;
-  const { data, count, error } = await supabase
+  const searchFilter = buildClientSearchFilter(query.q);
+  // Búsqueda sin ningún carácter seguro: no coincide nada.
+  if (searchFilter === "") return { rows: [], total: 0, pageCount: 1 };
+
+  let request = supabase
     .from("clients")
     .select(CLIENT_COLUMNS, { count: "exact" })
-    .eq("workspace_id", workspaceId)
+    .eq("workspace_id", workspaceId);
+  if (searchFilter) request = request.or(searchFilter);
+  const { data, count, error } = await request
     .order("full_name", { ascending: true })
     .range(from, from + query.pageSize - 1);
 
@@ -55,10 +67,12 @@ export async function listClientsPage(query: ClientsQuery): Promise<ClientsPage>
     // El offset pedido quedó más allá de las filas disponibles (p. ej. una
     // página vieja tras borrar clientes): la página está vacía, no es un
     // error real.
-    const { count: totalOnly, error: countError } = await supabase
+    let countRequest = supabase
       .from("clients")
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", workspaceId);
+    if (searchFilter) countRequest = countRequest.or(searchFilter);
+    const { count: totalOnly, error: countError } = await countRequest;
     if (countError) throwDataAccessError("count clients page", countError);
     const total = totalOnly ?? 0;
     return { rows: [], total, pageCount: Math.max(1, Math.ceil(total / query.pageSize)) };
