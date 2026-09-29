@@ -4,16 +4,23 @@ import Link from "next/link";
 
 type Props = {
   documents: ClientDocumentRow[];
+  /** Total real de Escrituras del cliente (`documents` solo trae las recientes). */
+  total: number;
   clientId: string;
 };
 
-export function ClientDocumentsSection({ documents, clientId }: Props) {
+export function ClientDocumentsSection({ documents, total, clientId }: Props) {
   return (
-    <section aria-labelledby="client-documents-heading" className="mt-8">
+    <section aria-labelledby="client-documents-heading" >
       <div className="mb-3 flex items-center justify-between">
-        <h2 id="client-documents-heading" className="text-sm font-semibold text-slate-900">
-          Escrituras
-        </h2>
+        <div className="flex items-baseline gap-2">
+          <h2 id="client-documents-heading" className="text-sm font-semibold text-slate-900">
+            Escrituras
+          </h2>
+          <p className="text-xs text-slate-500">
+            {total === 1 ? "1 en total" : `${total} en total`}
+          </p>
+        </div>
         <Link href={`/documents?client=${clientId}`} className="text-sm font-medium text-accent-700 hover:underline">
           Ver todas
         </Link>

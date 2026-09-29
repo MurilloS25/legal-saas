@@ -9,6 +9,7 @@
 import { useEffect, useId, useRef } from "react";
 
 type Props = {
+  id?: string;
   blockName: string;
   variants: { id: string; label: string }[];
   selectedVariantId: string;
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function OptionBlockPopover({
+  id,
   blockName,
   variants,
   selectedVariantId,
@@ -44,6 +46,7 @@ export function OptionBlockPopover({
 
   return (
     <span
+      id={id}
       ref={popoverRef}
       role="radiogroup"
       aria-label={`Variantes de ${blockName}`}

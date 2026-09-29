@@ -3,6 +3,7 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import Link from "next/link";
 import type { ClientRow } from "../model/types";
 import { ClientsTable } from "./ClientsTable";
+import { ClientsToolbar } from "./ClientsToolbar";
 import type { PageSizeOption } from "@/lib/pagination";
 
 // ------------------------------------------------------------------ page
@@ -13,6 +14,9 @@ type Props = {
   pageCount: number;
   total: number;
   pageSize: PageSizeOption;
+  /** Búsqueda aplicada ("" si no hay). */
+  q: string;
+  searchHref: (q: string) => string;
   pageHref: (page: number) => string;
   pageSizeOptions: { value: PageSizeOption; href: string }[];
   canWrite: boolean;
@@ -24,6 +28,8 @@ export function ClientsWorkspace({
   pageCount,
   total,
   pageSize,
+  q,
+  searchHref,
   pageHref,
   pageSizeOptions,
   canWrite,
@@ -69,8 +75,31 @@ export function ClientsWorkspace({
         )}
       </div>
 
-      {/* ---- empty state ---- */}
-      {total === 0 ? (
+      {/* ---- search (solo si hay clientes o una búsqueda activa) ---- */}
+      {(total > 0 || q !== "") && (
+        <ClientsToolbar key={q} q={q} pageSize={pageSize} />
+      )}
+
+      {/* ---- no search results ---- */}
+      {total === 0 && q !== "" ? (
+        <div
+          role="status"
+          className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm"
+        >
+          <p className="mb-1 text-sm font-medium text-slate-900">
+            Sin resultados para «{q}»
+          </p>
+          <p className="mb-6 text-xs text-slate-500">
+            Prueba con otro nombre, razón social o número de cédula.
+          </p>
+          <Link
+            href={searchHref("")}
+            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 transition-colors"
+          >
+            Limpiar búsqueda
+          </Link>
+        </div>
+      ) : total === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
             <svg

@@ -230,15 +230,31 @@ export function DocumentSheet({
               }}
               aria-haspopup="true"
               aria-expanded={isOpen}
+              aria-controls={isOpen ? `option-block-popover-${run.blockId}` : undefined}
               aria-label={`Cambiar variante de ${run.name} (actual: ${selectedLabel})`}
-              title={`Bloque: ${run.name}`}
-              className="ml-0.5 rounded px-0.5 font-sans text-[0.75em] text-accent-700 hover:bg-accent-100 focus:outline-none focus:ring-2 focus:ring-accent-500"
+              title={`Cambiar variante: ${run.name}`}
+              className="group/opt ml-1 -my-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-accent-200 bg-white align-middle font-sans text-accent-700 shadow-sm transition-colors hover:border-accent-300 hover:bg-accent-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1 aria-expanded:border-accent-400 aria-expanded:bg-accent-100"
             >
-              ▾
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
             </button>
           )}
           {editable && isOpen && (
             <OptionBlockPopover
+              id={`option-block-popover-${run.blockId}`}
               blockName={run.name}
               variants={run.variants}
               selectedVariantId={run.selectedVariantId}

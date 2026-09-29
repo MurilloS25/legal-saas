@@ -15,6 +15,8 @@ import {
 
 const ACTIVITY_LIMIT = 50;
 export const RELATED_RECEIVABLES_LIMIT = 10;
+/** Cuentas recientes que muestra el resumen del detalle de un cliente. */
+export const CLIENT_RECEIVABLES_SUMMARY_LIMIT = 5;
 
 export async function getReceivableEntry(
   id: string,
@@ -60,7 +62,7 @@ export async function listReceivablesByClient(
     .eq("workspace_id", workspaceId)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
-    .limit(RELATED_RECEIVABLES_LIMIT);
+    .limit(CLIENT_RECEIVABLES_SUMMARY_LIMIT);
 
   if (error) throwDataAccessError("list receivables by client", error);
   return mapReceivableEntries(data);

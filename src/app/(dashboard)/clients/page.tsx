@@ -31,16 +31,27 @@ export default async function ClientsPage({ searchParams }: Props) {
       : undefined;
 
   const pageHref = (targetPage: number) => {
-    const params = clientsQueryToParams({ page: targetPage, pageSize: query.pageSize });
+    const params = clientsQueryToParams({
+      page: targetPage,
+      pageSize: query.pageSize,
+      q: query.q,
+    });
     const qs = new URLSearchParams(params).toString();
     return qs ? `/clients?${qs}` : "/clients";
   };
 
   const pageSizeOptions = buildPageSizeOptions((pageSize: PageSizeOption) => {
-    const params = clientsQueryToParams({ page: 1, pageSize });
+    const params = clientsQueryToParams({ page: 1, pageSize, q: query.q });
     const qs = new URLSearchParams(params).toString();
     return qs ? `/clients?${qs}` : "/clients";
   });
+
+  // Buscar o limpiar siempre reinicia a la página 1 y conserva el tamaño de página.
+  const searchHref = (q: string) => {
+    const params = clientsQueryToParams({ page: 1, pageSize: query.pageSize, q });
+    const qs = new URLSearchParams(params).toString();
+    return qs ? `/clients?${qs}` : "/clients";
+  };
 
   if (page.total > 0 && query.page > page.pageCount) {
     redirect(pageHref(page.pageCount));
@@ -55,6 +66,8 @@ export default async function ClientsPage({ searchParams }: Props) {
         pageCount={page.pageCount}
         total={page.total}
         pageSize={query.pageSize}
+        q={query.q}
+        searchHref={searchHref}
         pageHref={pageHref}
         pageSizeOptions={pageSizeOptions}
         canWrite={hasPermission(role, "clients.write")}
