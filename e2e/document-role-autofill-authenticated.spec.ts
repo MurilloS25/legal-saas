@@ -411,4 +411,69 @@ test.describe("document role autofill", () => {
     await expect(fieldValue(page, "comprador.nombre")).toHaveValue(sellerName);
     await expect(roleChip(page, "Comprador")).toContainText(sellerName);
   });
+
+  test("I: switching to a client without occupation/nationality empties them after confirmation; cancelling keeps everything", async ({
+    page,
+  }) => {
+    const withData = uniqueName("document-role-autofill", "con-datos");
+    const withoutData = uniqueName("document-role-autofill", "sin-datos");
+    await createTestClient(registry, {
+      full_name: withData,
+      identification_number: "204440111",
+      occupation: "Ingeniero",
+      nationality: "costarricense",
+    });
+    await createTestClient(registry, {
+      full_name: withoutData,
+      identification_number: "204440222",
+      occupation: "",
+      nationality: "",
+    });
+    const template = await createTestTemplate(registry, {
+      name: uniqueName("document-role-autofill", "machote-vaciado"),
+      content:
+        "Comparece {{apoderado.nombre}}, {{apoderado.ocupacion}}, {{apoderado.nacionalidad}}.",
+    });
+    for (const [index, key] of [
+      "apoderado.nombre",
+      "apoderado.ocupacion",
+      "apoderado.nacionalidad",
+    ].entries()) {
+      await createTestTemplateField(registry, template.id, {
+        field_key: key,
+        label: key,
+        sort_order: index,
+      });
+    }
+
+    await page.goto(`/documents/new/${template.id}`);
+    await completeRoleFromClient(page, "Apoderado", withData);
+    await expect(fieldValue(page, "apoderado.ocupacion")).toHaveValue("Ingeniero");
+    await expect(fieldValue(page, "apoderado.nacionalidad")).toHaveValue(
+      "costarricense",
+    );
+
+    await completeRoleFromClient(page, "Apoderado", withoutData);
+    const dialog = page.getByRole("alertdialog", { name: "Cambiar cliente" });
+    await expect(dialog).toContainText(
+      /Se vaciarán porque el Cliente seleccionado no tiene ese dato: apoderado\.ocupacion, apoderado\.nacionalidad/,
+    );
+
+    // Cancelar conserva valores y asignación anterior.
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect(fieldValue(page, "apoderado.ocupacion")).toHaveValue("Ingeniero");
+    await expect(
+      roleBlock(page, "Apoderado").getByText(`Cliente asignado: ${withData}`),
+    ).toBeVisible();
+
+    // Confirmar vacía los datos que el nuevo Cliente no tiene.
+    await completeRoleFromClient(page, "Apoderado", withoutData);
+    await page
+      .getByRole("alertdialog", { name: "Cambiar cliente" })
+      .getByRole("button", { name: "Reemplazar campos" })
+      .click();
+    await expect(fieldValue(page, "apoderado.nombre")).toHaveValue(withoutData);
+    await expect(fieldValue(page, "apoderado.ocupacion")).toHaveValue("");
+    await expect(fieldValue(page, "apoderado.nacionalidad")).toHaveValue("");
+  });
 });

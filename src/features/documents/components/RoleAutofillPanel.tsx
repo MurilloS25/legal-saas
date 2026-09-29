@@ -39,6 +39,8 @@ type PendingConfirmation = {
   overwriteFields: string[];
   /** Subconjunto de `overwriteFields` que se vacía (no aplica a una sociedad). */
   clearedFields: string[];
+  /** Subconjunto de `overwriteFields` que se vacía (el Cliente nuevo no tiene el dato). */
+  missingFields: string[];
 };
 
 type Props = {
@@ -76,7 +78,12 @@ export function RoleAutofillFields({
   function handleSelect(client: DocumentClientOption) {
     // Incluye el vaciado de datos personales que no aplican a una persona
     // jurídica (p. ej. el estado civil de la persona elegida antes).
-    const plan = planRoleAutofill(client, group.variables, values);
+    const plan = planRoleAutofill(
+      client,
+      group.variables,
+      values,
+      assignedClient !== null && assignedClient.id !== client.id,
+    );
 
     setIncomplete(plan.incomplete);
     setNotApplicable(plan.notApplicable);
@@ -88,6 +95,7 @@ export function RoleAutofillFields({
         values: plan.values,
         overwriteFields: plan.overwriteFields,
         clearedFields: plan.clearedFields,
+        missingFields: plan.missingFields,
       });
       return;
     }
@@ -195,7 +203,9 @@ export function RoleAutofillFields({
                   )}
                   {(() => {
                     const replaced = confirmation.overwriteFields.filter(
-                      (key) => !confirmation.clearedFields.includes(key),
+                      (key) =>
+                        !confirmation.clearedFields.includes(key) &&
+                        !confirmation.missingFields.includes(key),
                     );
                     return (
                       <>
@@ -203,7 +213,9 @@ export function RoleAutofillFields({
                           `Al continuar se reemplazarán únicamente los campos que puedan completarse con el Cliente seleccionado: ${replaced.join(", ")}.`}
                         {replaced.length > 0 && confirmation.clearedFields.length > 0 && " "}
                         {confirmation.clearedFields.length > 0 &&
-                          `Se vaciarán porque no aplican a una persona jurídica: ${confirmation.clearedFields.join(", ")}.`}
+                          `Se vaciarán porque no aplican a una persona jurídica: ${confirmation.clearedFields.join(", ")}. `}
+                        {confirmation.missingFields.length > 0 &&
+                          `Se vaciarán porque el Cliente seleccionado no tiene ese dato: ${confirmation.missingFields.join(", ")}.`}
                       </>
                     );
                   })()}
