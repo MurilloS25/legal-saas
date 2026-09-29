@@ -19,6 +19,8 @@ type Props = {
   returnTo?: string;
   /** Enlace al listado server-paginado con el mismo contexto aplicado. */
   allHref?: string;
+  /** Línea de resumen opcional (total y saldo) bajo el encabezado. */
+  summary?: React.ReactNode;
 };
 
 export function ReceivableMiniList({
@@ -27,6 +29,7 @@ export function ReceivableMiniList({
   emptyText,
   returnTo,
   allHref,
+  summary,
 }: Props) {
   return (
     <div>
@@ -50,6 +53,7 @@ export function ReceivableMiniList({
           )}
         </div>
       </div>
+      {summary && <p className="-mt-2 mb-3 text-xs text-slate-500">{summary}</p>}
 
       {receivables.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">

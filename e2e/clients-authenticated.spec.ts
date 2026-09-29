@@ -8,6 +8,13 @@ test.describe.configure({ mode: "serial" });
 let createdClientName = "";
 let editedClientName = "";
 
+// El directorio está paginado y ordenado por nombre: con datos de otros specs
+// un cliente recién creado puede no estar en la página 1. Se localiza con la
+// búsqueda server-side (`?q=`) en vez de depender de su posición.
+async function gotoClientsSearching(page: Page, name: string) {
+  await page.goto(`/clients?q=${encodeURIComponent(name)}`);
+}
+
 async function openClientFromList(page: Page, name: string) {
   const clientLink = page
     .getByRole("link")
@@ -87,17 +94,18 @@ test.describe("clients module", () => {
     await expect(
       page.getByRole("status").getByText("Cliente creado.", { exact: true }),
     ).toBeVisible();
+    await gotoClientsSearching(page, createdClientName);
     await expect(page.getByText(createdClientName).first()).toBeVisible();
   });
 
   test("D: created client appears in the list", async ({ page }) => {
-    await page.goto("/clients");
+    await gotoClientsSearching(page, createdClientName);
 
     await expect(page.getByText(createdClientName).first()).toBeVisible();
   });
 
   test("E: user can edit an existing client", async ({ page }) => {
-    await page.goto("/clients");
+    await gotoClientsSearching(page, createdClientName);
 
     await openClientFromList(page, createdClientName);
 
@@ -116,7 +124,7 @@ test.describe("clients module", () => {
   });
 
   test("F: edited client name persists after page reload", async ({ page }) => {
-    await page.goto("/clients");
+    await gotoClientsSearching(page, editedClientName);
     await openClientFromList(page, editedClientName);
 
     await page.reload();
@@ -128,7 +136,7 @@ test.describe("clients module", () => {
   test("F2: identification number is stored and displayed without dashes or spaces", async ({
     page,
   }) => {
-    await page.goto("/clients");
+    await gotoClientsSearching(page, editedClientName);
     await openClientFromList(page, editedClientName);
 
     // Entered as "0-0001-0001" in test C — persists normalized.
@@ -139,7 +147,7 @@ test.describe("clients module", () => {
   });
 
   test("G: user can delete a client from the detail page", async ({ page }) => {
-    await page.goto("/clients");
+    await gotoClientsSearching(page, editedClientName);
     await openClientFromList(page, editedClientName);
 
     // Open delete confirmation dialog — trash icon in the card header

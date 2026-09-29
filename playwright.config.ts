@@ -216,6 +216,17 @@ export default defineConfig({
       dependencies: ["setup"],
     },
 
+    // Clients search (server-side ?q=) and detail activity summary.
+    {
+      name: "chromium-clients-search",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
+      testMatch: /clients-search-authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
     // Templates module — authenticated.
     {
       name: "chromium-templates",

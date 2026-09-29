@@ -150,7 +150,10 @@ test.describe("documents workspace management", () => {
     await page.goto(`/documents?client=${clientAlphaId}`);
     await page.getByRole("button", { name: "Limpiar filtros" }).click();
     await expect(page).toHaveURL(/\/documents$/, { timeout: 15_000 });
-    await expect(row(page, titleBeta)).toBeVisible();
+    // El filtro de Cliente se restablece. No se exige una fila concreta: el
+    // listado sin filtros está paginado y otros specs pueden sembrar datos
+    // más recientes que empujen las filas de este a otra página.
+    await expect(page.getByLabel("Cliente", { exact: true })).toHaveValue("");
   });
 
   test("I: a search with no matches shows the no-results state", async ({

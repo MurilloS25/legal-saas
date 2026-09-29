@@ -8,7 +8,7 @@
  *
  * El valor mostrado cuando no hay búsqueda en curso es solo una referencia
  * visual de la sesión (qué Cliente se usó para copiar datos por última
- * vez): nunca se persiste, y "Limpiar selección" solo borra esa referencia,
+ * vez): nunca se persiste, y "Quitar cliente" solo borra esa referencia,
  * nunca los valores ya copiados.
  */
 
@@ -172,7 +172,7 @@ export function ClientCombobox({
           <button
             type="button"
             onClick={clearSelection}
-            aria-label="Limpiar selección"
+            aria-label="Quitar cliente"
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-accent-500"
           >
             <XIcon />

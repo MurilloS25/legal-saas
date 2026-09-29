@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyClientAssignment,
   fieldsToOverwrite,
   groupVariablesByRole,
   mapClientToRoleVariables,
@@ -551,5 +552,157 @@ describe("rol `sociedad` en el Machote (sin lista cerrada de roles)", () => {
       "sociedad.ocupacion",
       "sociedad.nacionalidad",
     ]);
+  });
+});
+
+describe("classifyClientAssignment", () => {
+  const ana = { id: "ana" };
+  const carlos = { id: "carlos" };
+  const noOverwrite = { overwriteFields: [] };
+  const withOverwrite = { overwriteFields: ["comprador.direccion"] };
+
+  it("applies directly when the role has no client and no values to replace", () => {
+    expect(classifyClientAssignment(null, ana, noOverwrite)).toBe("apply");
+  });
+
+  it("asks for overwrite confirmation when values would be replaced", () => {
+    expect(classifyClientAssignment(null, ana, withOverwrite)).toBe("overwrite");
+    expect(classifyClientAssignment(ana, ana, withOverwrite)).toBe("overwrite");
+  });
+
+  it("re-selecting the same client with nothing to replace applies directly", () => {
+    expect(classifyClientAssignment(ana, ana, noOverwrite)).toBe("apply");
+  });
+
+  it("always asks for confirmation when switching to a different client", () => {
+    expect(classifyClientAssignment(ana, carlos, noOverwrite)).toBe("change");
+    expect(classifyClientAssignment(ana, carlos, withOverwrite)).toBe("change");
+  });
+
+  it("a manually edited value stays protected when switching clients", () => {
+    const [group] = groupVariablesByRole([field("comprador.direccion")]);
+    const carlosClient: AutofillClient = {
+      identification_type: "cedula_fisica",
+      full_name: "Carlos Pérez",
+      identification_number: "1-0888-0777",
+      exact_address: "Heredia",
+      marital_status: null,
+      occupation: null,
+      nationality: null,
+    };
+    const plan = planRoleAutofill(carlosClient, group.variables, {
+      "comprador.direccion": "Dirección editada a mano",
+    });
+    expect(plan.overwriteFields).toEqual(["comprador.direccion"]);
+    expect(classifyClientAssignment(ana, carlos, plan)).toBe("change");
+  });
+});
+
+describe("planRoleAutofill — cambiar el Cliente asignado (replacingClient)", () => {
+  const personA: AutofillClient = {
+    identification_type: "cedula_fisica",
+    full_name: "Ana Rodríguez",
+    identification_number: "1-0111-0222",
+    exact_address: "Cartago",
+    marital_status: "Soltero/a",
+    occupation: "Ingeniera",
+    nationality: "costarricense",
+  };
+  const personB: AutofillClient = {
+    ...personA,
+    full_name: "Carlos Pérez",
+    identification_number: "2-0333-0444",
+    exact_address: "Heredia",
+    occupation: null,
+    nationality: null,
+  };
+  const company: AutofillClient = {
+    identification_type: "cedula_juridica",
+    full_name: "Inversiones Ejemplo S.A.",
+    identification_number: "3-101-123456",
+    exact_address: "San José",
+    marital_status: null,
+    occupation: null,
+    nationality: null,
+  };
+  const [group] = groupVariablesByRole([
+    field("comprador.nombre"),
+    field("comprador.direccion"),
+    field("comprador.ocupacion"),
+    field("comprador.nacionalidad"),
+  ]);
+  const current = {
+    "comprador.nombre": "Ana Rodríguez",
+    "comprador.direccion": "Cartago",
+    "comprador.ocupacion": "Ingeniera",
+    "comprador.nacionalidad": "costarricense",
+  };
+
+  it("clears occupation when the new client has none", () => {
+    const plan = planRoleAutofill(personB, group.variables, current, true);
+    expect(plan.values["comprador.ocupacion"]).toBe("");
+    expect(plan.missingFields).toContain("comprador.ocupacion");
+    expect(plan.overwriteFields).toContain("comprador.ocupacion");
+  });
+
+  it("clears nationality when the new client has none", () => {
+    const plan = planRoleAutofill(personB, group.variables, current, true);
+    expect(plan.values["comprador.nacionalidad"]).toBe("");
+    expect(plan.missingFields).toContain("comprador.nacionalidad");
+  });
+
+  it("clears a manually edited value too, but only via the confirmed plan", () => {
+    const plan = planRoleAutofill(
+      personB,
+      group.variables,
+      { ...current, "comprador.ocupacion": "Escrita a mano" },
+      true,
+    );
+    expect(plan.values["comprador.ocupacion"]).toBe("");
+    expect(plan.overwriteFields).toContain("comprador.ocupacion");
+  });
+
+  it("does not clear anything on a first assignment (no previous client)", () => {
+    const plan = planRoleAutofill(personB, group.variables, current, false);
+    expect(plan.missingFields).toEqual([]);
+    expect("comprador.ocupacion" in plan.values).toBe(false);
+  });
+
+  it("does not list already-empty fields as cleared", () => {
+    const plan = planRoleAutofill(
+      personB,
+      group.variables,
+      { ...current, "comprador.ocupacion": "" },
+      true,
+    );
+    expect(plan.missingFields).toEqual(["comprador.nacionalidad"]);
+  });
+
+  it("física → jurídica clears personal data (not applicable), no leftovers", () => {
+    const plan = planRoleAutofill(company, group.variables, current, true);
+    expect(plan.values["comprador.ocupacion"]).toBe("");
+    expect(plan.values["comprador.nacionalidad"]).toBe("");
+    expect(plan.values["comprador.nombre"]).toBe(company.full_name);
+    expect(plan.clearedFields).toEqual([
+      "comprador.ocupacion",
+      "comprador.nacionalidad",
+    ]);
+  });
+
+  it("jurídica → física fills what exists and clears what the person lacks", () => {
+    const plan = planRoleAutofill(
+      personB,
+      group.variables,
+      {
+        "comprador.nombre": company.full_name,
+        "comprador.direccion": "San José",
+        "comprador.ocupacion": "",
+        "comprador.nacionalidad": "",
+      },
+      true,
+    );
+    expect(plan.values["comprador.nombre"]).toBe("Carlos Pérez");
+    expect(plan.values["comprador.direccion"]).toBe("Heredia");
+    expect(plan.missingFields).toEqual([]);
   });
 });
