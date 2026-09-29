@@ -216,6 +216,12 @@ export type RoleAutofillPlan = ClientAutofillResult & {
    * personal ajeno atribuido a una sociedad.
    */
   clearedFields: string[];
+  /**
+   * Solo al reemplazar un Cliente ya asignado: variables con valor actual
+   * cuyo dato el Cliente nuevo no tiene. Se vacían — nunca se conserva un
+   * dato del Cliente anterior atribuido al nuevo.
+   */
+  missingFields: string[];
   /** Variables con valor actual que se reemplazan o vacían: requieren confirmación. */
   overwriteFields: string[];
 };
@@ -225,24 +231,50 @@ export type RoleAutofillPlan = ClientAutofillResult & {
  * y, si es una persona jurídica, el vaciado de los datos personales que
  * no le aplican pero que el rol todavía contiene. Todo reemplazo o vaciado
  * de un valor existente pasa por la misma confirmación.
+ *
+ * Con `replacingClient` (la Parte ya tenía otro Cliente asignado) los campos
+ * que el Cliente nuevo no tiene (`incomplete`) también se vacían.
  */
 export function planRoleAutofill(
   client: AutofillClient,
   variables: ResolvedRoleVariable[],
   currentValues: Record<string, string>,
+  replacingClient = false,
 ): RoleAutofillPlan {
   const result = mapClientToRoleVariables(client, variables);
   const clearedFields = result.notApplicable.filter(
     (key) => (currentValues[key] ?? "").trim() !== "",
   );
+  const missingFields = replacingClient
+    ? result.incomplete.filter((key) => (currentValues[key] ?? "").trim() !== "")
+    : [];
   const values = { ...result.values };
-  for (const key of clearedFields) values[key] = "";
+  for (const key of [...clearedFields, ...missingFields]) values[key] = "";
 
   const overwriteFields = variables
     .map((variable) => variable.field_key)
     .filter((key) => key in values && (currentValues[key] ?? "").trim() !== "");
 
-  return { ...result, values, clearedFields, overwriteFields };
+  return { ...result, values, clearedFields, missingFields, overwriteFields };
+}
+
+export type ClientAssignmentKind = "change" | "overwrite" | "apply";
+
+/**
+ * Qué debe ocurrir al elegir `next` en un rol que hoy tiene `current`
+ * asignado: "change" si es otro Cliente (siempre pide confirmación),
+ * "overwrite" si es el mismo o no había ninguno pero hay valores que se
+ * reemplazarían (confirmación por sobrescritura) y "apply" si se puede
+ * aplicar directo. Nunca decide sobre los valores — eso sigue siendo de
+ * `planRoleAutofill`.
+ */
+export function classifyClientAssignment(
+  current: Pick<DocumentClientOption, "id"> | null,
+  next: Pick<DocumentClientOption, "id">,
+  plan: Pick<RoleAutofillPlan, "overwriteFields">,
+): ClientAssignmentKind {
+  if (current && current.id !== next.id) return "change";
+  return plan.overwriteFields.length > 0 ? "overwrite" : "apply";
 }
 
 function comparableIdentification(value: string): string {
