@@ -41,6 +41,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local AI tooling and generated media (not part of the product)
+/.agents/
+/.claude/
+/agent/
+/videos/
+/skills-lock.json
+/.pnpm-store/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
