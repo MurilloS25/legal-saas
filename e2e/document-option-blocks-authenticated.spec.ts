@@ -173,8 +173,10 @@ test.describe("document option blocks", () => {
       .blur();
 
     await page.getByRole("button", { name: "Crear escritura" }).click();
+    // El primer guardado compila /documents/[id] en el dev server (~10 s en frío
+    // con un solo worker; más con varios en paralelo): 15 s era el límite justo.
     await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}/, {
-      timeout: 15_000,
+      timeout: 45_000,
     });
     documentUrl = page.url();
     await registerCreatedViaUi(
