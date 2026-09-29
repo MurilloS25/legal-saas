@@ -15,8 +15,8 @@ import "server-only";
  * no pueda "cerrar" su bloque e inyectar texto que parezca instrucciones.
  *
  * La protección principal NO es este texto: es que el modelo no tiene
- * herramientas ni secretos, que la salida está forzada a un schema estricto
- * y que LexCR vuelve a validar y reconstruir todo antes de escribir. El
+ * herramientas ni secretos, que la salida debe cumplir un schema estricto
+ * (validado con Zod) y que LexCR reconstruye todo antes de escribir. El
  * prompt no incluye secretos, IDs de usuario/Workspace ni datos de otros
  * módulos.
  */
