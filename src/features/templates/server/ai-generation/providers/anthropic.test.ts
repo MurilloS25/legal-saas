@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { AiProviderError } from "../provider";
 import {
-  ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA,
   buildAnthropicRequestBody,
   createAnthropicTemplateProvider,
   mapAnthropicMessage,
-  toAnthropicJsonSchema,
   type AnthropicProviderConfig,
 } from "./anthropic";
 import { buildFakeProposal } from "./fake";
-import { parseAiTemplateProposal } from "../../../model/ai-generation/proposal";
+import {
+  AI_TEMPLATE_PROPOSAL_JSON_SCHEMA,
+  parseAiTemplateProposal,
+} from "../../../model/ai-generation/proposal";
 
 // Nunca se llama a la API real: el SDK oficial recibe un `fetch` simulado.
 
@@ -65,50 +66,28 @@ async function expectProviderError(promise: Promise<unknown>, kind: string, retr
   throw new Error("expected AiProviderError");
 }
 
-describe("toAnthropicJsonSchema", () => {
-  it("drops pattern and turns nullable type unions into anyOf", () => {
-    expect(
-      toAnthropicJsonSchema({
-        type: "object",
-        properties: {
-          key: { type: ["string", "null"], pattern: "^[a-z]+$" },
-          list: { type: "array", items: { type: "string", pattern: "^x$" } },
-        },
-      }),
-    ).toEqual({
-      type: "object",
-      properties: {
-        key: { anyOf: [{ type: "string" }, { type: "null" }] },
-        list: { type: "array", items: { type: "string" } },
-      },
-    });
-  });
-
-  it("keeps the same contract shape: every object closed and fully required, no final folio", () => {
-    const serialized = JSON.stringify(ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA);
-    expect(serialized).not.toContain('"pattern"');
-    expect(serialized).not.toContain("final_folio");
-    expect(serialized).not.toMatch(/"type":\[/);
-    expect(serialized).toContain("lexcr.template_generation.v3");
-  });
-});
-
 describe("buildAnthropicRequestBody", () => {
   const body = buildAnthropicRequestBody(config, request);
 
-  it("uses the configured model and JSON-schema structured output", () => {
+  it("uses the configured model without grammar-constrained output", () => {
     expect(body.model).toBe("anthropic-model-from-env");
     expect(body.max_tokens).toBe(1234);
-    expect(body.output_config?.format).toEqual({
-      type: "json_schema",
-      schema: ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA,
-    });
+    // `output_config.format` compila el schema a una gramática con un tamaño
+    // máximo que el schema v3 excede (400 "compiled grammar is too large").
+    expect(body.output_config).not.toHaveProperty("format");
+  });
+
+  it("gives the model the full proposal JSON schema in the system prompt", () => {
+    const system = String(body.system);
+    expect(system).toContain(JSON.stringify(AI_TEMPLATE_PROPOSAL_JSON_SCHEMA));
+    expect(system).toContain("lexcr.template_generation.v3");
+    expect(system).not.toContain("final_folio");
   });
 
   it("sends effort low by default, a configured level, or omits it when off", () => {
     expect(body.output_config?.effort).toBe("low");
     expect(buildAnthropicRequestBody({ ...config, effort: "medium" }, request).output_config?.effort).toBe("medium");
-    expect(buildAnthropicRequestBody({ ...config, effort: null }, request).output_config).not.toHaveProperty("effort");
+    expect(buildAnthropicRequestBody({ ...config, effort: null }, request)).not.toHaveProperty("output_config");
     expect(body).not.toHaveProperty("thinking");
   });
 
@@ -151,7 +130,7 @@ describe("createAnthropicTemplateProvider", () => {
     expect(headers.get("anthropic-version")).toBeTruthy();
     const sent = JSON.parse(String(init.body));
     expect(sent).not.toHaveProperty("tools");
-    expect(sent.output_config.format.type).toBe("json_schema");
+    expect(sent.output_config).not.toHaveProperty("format");
     expect(JSON.stringify(sent)).not.toContain("sk-ant-test-not-real");
   });
 
@@ -272,6 +251,14 @@ describe("mapAnthropicMessage", () => {
       "invalid_output",
       true,
     );
+  });
+
+  it.each([
+    ['```json\n{"ok":1}\n```', '{"ok":1}'],
+    ['```\n{"ok":1}\n```', '{"ok":1}'],
+    ['  {"ok":1}\n', '{"ok":1}'],
+  ])("strips a markdown code fence around the JSON (%j)", (text, expected) => {
+    expect(mapAnthropicMessage(message(text)).rawOutput).toBe(expected);
   });
 
   it("ignores thinking blocks and returns only text", () => {

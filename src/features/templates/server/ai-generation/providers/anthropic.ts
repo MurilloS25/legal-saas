@@ -1,11 +1,10 @@
 import "server-only";
 
 /**
- * Adapter de Anthropic (Claude Messages API, `POST /v1/messages`) con salida
- * estructurada (`output_config.format = { type: "json_schema" }`, GA, sin
- * header beta). Usa el SDK oficial `@anthropic-ai/sdk` para tener errores
- * tipados; sus reintentos automáticos se desactivan (`maxRetries: 0`)
- * porque el único retry técnico lo decide `runTemplateGeneration`.
+ * Adapter de Anthropic (Claude Messages API, `POST /v1/messages`). Usa el SDK
+ * oficial `@anthropic-ai/sdk` para tener errores tipados; sus reintentos
+ * automáticos se desactivan (`maxRetries: 0`) porque el único retry técnico
+ * lo decide `runTemplateGeneration`.
  *
  * Decisiones de seguridad/privacidad (equivalentes al adapter de OpenAI):
  * - sin `tools` ni `tool_choice`: el modelo no puede llamar funciones;
@@ -21,11 +20,13 @@ import "server-only";
  *
  * El modelo viene SIEMPRE de configuración (`ANTHROPIC_MODEL`).
  *
- * Diferencia con OpenAI: la salida estructurada de Anthropic no admite
- * `pattern` ni uniones de tipo (`["string", "null"]`). Se envía una copia del
- * MISMO schema `lexcr.template_generation.*` adaptada a esas limitaciones
- * (`toAnthropicJsonSchema`); la validación Zod server-side sigue aplicando el
- * contrato completo, incluidos los patrones de clave.
+ * Diferencia con OpenAI: NO se usa salida estructurada
+ * (`output_config.format`). Anthropic compila ese schema a una gramática con
+ * un tamaño máximo, y el schema `lexcr.template_generation.*` lo excede
+ * (400 "The compiled grammar is too large"). El schema completo, con sus
+ * patrones de clave, viaja en el `system` y el modelo responde solo JSON; el
+ * contrato lo garantiza la validación Zod server-side (más el único retry
+ * de reparación), igual que para cualquier proveedor.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -55,42 +56,13 @@ export type AnthropicProviderConfig = {
   workspaceId?: string | null;
 };
 
-type JsonSchemaNode = Record<string, unknown>;
+/** Instrucción de formato + schema completo, añadidos al prompt `system`. */
+export const ANTHROPIC_OUTPUT_FORMAT_INSTRUCTIONS = `10. FORMATO DE RESPUESTA
+- Responde ÚNICAMENTE con un objeto JSON que cumpla EXACTAMENTE este JSON Schema: todas las propiedades "required", ninguna propiedad adicional, "null" solo donde el schema lo permite y claves que cumplan su "pattern".
+- Sin bloques de código markdown, sin comentarios y sin texto antes ni después del JSON.
 
-/**
- * Adapta un JSON Schema a las limitaciones documentadas de la salida
- * estructurada de Anthropic, sin cambiar su forma:
- * - elimina `pattern` (no soportado; Zod lo valida después);
- * - convierte `type: [T, "null"]` en `anyOf: [{ type: T, ... }, { type: "null" }]`.
- * Exportada para pruebas.
- */
-export function toAnthropicJsonSchema(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(toAnthropicJsonSchema);
-  if (node === null || typeof node !== "object") return node;
-
-  const source = node as JsonSchemaNode;
-  const out: JsonSchemaNode = {};
-  for (const [key, value] of Object.entries(source)) {
-    if (key === "pattern") continue;
-    out[key] = toAnthropicJsonSchema(value);
-  }
-
-  if (Array.isArray(out.type)) {
-    const types = out.type as unknown[];
-    const { type: _type, ...rest } = out;
-    void _type;
-    return {
-      anyOf: types.map((type) =>
-        type === "null" ? { type: "null" } : { ...rest, type },
-      ),
-    };
-  }
-  return out;
-}
-
-export const ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA = toAnthropicJsonSchema(
-  AI_TEMPLATE_PROPOSAL_JSON_SCHEMA,
-) as JsonSchemaNode;
+JSON Schema:
+${JSON.stringify(AI_TEMPLATE_PROPOSAL_JSON_SCHEMA)}`;
 
 /** Construye el cuerpo de la request. Exportada para pruebas. */
 export function buildAnthropicRequestBody(
@@ -103,12 +75,9 @@ export function buildAnthropicRequestBody(
     ...(config.workspaceId ? { workspace_id: config.workspaceId } : {}),
     model: config.model,
     max_tokens: config.maxOutputTokens,
-    system: prompt.system,
+    system: `${prompt.system}\n\n${ANTHROPIC_OUTPUT_FORMAT_INSTRUCTIONS}`,
     messages: [{ role: "user", content: prompt.user }],
-    output_config: {
-      format: { type: "json_schema", schema: ANTHROPIC_TEMPLATE_PROPOSAL_SCHEMA },
-      ...(config.effort !== null ? { effort: config.effort ?? "low" } : {}),
-    },
+    ...(config.effort !== null ? { output_config: { effort: config.effort ?? "low" } } : {}),
   };
 }
 
@@ -132,7 +101,10 @@ export function mapAnthropicMessage(message: {
   for (const block of message.content ?? []) {
     if (block.type === "text" && typeof block.text === "string") text += block.text;
   }
-  if (text.trim() === "") {
+  // Sin salida estructurada el modelo puede envolver el JSON en un bloque
+  // de código markdown pese a la instrucción: se retira solo ese envoltorio.
+  text = text.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n?```$/, "$1").trim();
+  if (text === "") {
     throw new AiProviderError("invalid_output", { retryable: true });
   }
 

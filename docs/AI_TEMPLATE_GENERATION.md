@@ -163,20 +163,22 @@ httpStatus }` sin cuerpo, cabeceras ni request IDs del proveedor.
   (`AI_TEMPLATE_TIMEOUT_MS`).
 - `system` = reglas de LexCR; `messages[0]` (user) = los mismos datos no
   confiables con delimitadores y nonce (`prompt.ts` compartido).
-- Salida estructurada `output_config.format = { type: "json_schema",
-  schema }` (GA, sin header beta). **Sin `tools`, `tool_choice`,
-  `metadata` ni servidores MCP.** La credencial viaja solo en la cabecera
-  `x-api-key`; `authToken: null` evita que el SDK tome otras credenciales
-  del entorno.
-- La salida estructurada de Anthropic no admite `pattern` ni uniones de
-  tipo (`["string","null"]`). Se envía el **mismo** contrato
-  `lexcr.template_generation.v3` transformado (`toAnthropicJsonSchema`:
-  quita `pattern`, convierte uniones nulas en `anyOf`). La validación
-  Zod server-side es idéntica para ambos proveedores y sigue exigiendo los
-  patrones de clave.
+- **Sin salida estructurada (`output_config.format`).** Anthropic compila
+  ese schema a una gramática con un tamaño máximo; el contrato
+  `lexcr.template_generation.v3` lo excede y la API responde 400
+  `invalid_request_error` ("The compiled grammar is too large"). El schema
+  v2 ya estaba al borde del límite, así que simplificarlo no daría margen
+  para crecer. En su lugar, el `system` termina con una sección "FORMATO DE
+  RESPUESTA" que incluye el JSON Schema **completo** (con los `pattern` de
+  clave) y exige responder solo JSON. El contrato lo garantiza la
+  validación Zod server-side (idéntica para ambos proveedores) más el
+  único retry de reparación. **Sin `tools`, `tool_choice`, `metadata` ni
+  servidores MCP.** La credencial viaja solo en la cabecera `x-api-key`;
+  `authToken: null` evita que el SDK tome otras credenciales del entorno.
 - Mapeo: `stop_reason: "refusal"` → rechazo; `"max_tokens"` → salida
   inválida (no se reintenta); texto vacío → reintentable; bloques
-  `thinking` se ignoran. HTTP 429 → rate limit (no se reintenta); 500 y
+  `thinking` se ignoran; un envoltorio de bloque de código markdown
+  alrededor del JSON se retira antes de validar. HTTP 429 → rate limit (no se reintenta); 500 y
   529 `overloaded_error` → no disponible (reintentable, no facturado);
   401/402/403/404 → configuración (clave, saldo, permiso o modelo); 400/413
   → entrada rechazada; red → no disponible; timeout → timeout.
