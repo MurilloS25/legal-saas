@@ -245,6 +245,25 @@ export function planRoleAutofill(
   return { ...result, values, clearedFields, overwriteFields };
 }
 
+export type ClientAssignmentKind = "change" | "overwrite" | "apply";
+
+/**
+ * Qué debe ocurrir al elegir `next` en un rol que hoy tiene `current`
+ * asignado: "change" si es otro Cliente (siempre pide confirmación),
+ * "overwrite" si es el mismo o no había ninguno pero hay valores que se
+ * reemplazarían (confirmación por sobrescritura) y "apply" si se puede
+ * aplicar directo. Nunca decide sobre los valores — eso sigue siendo de
+ * `planRoleAutofill`.
+ */
+export function classifyClientAssignment(
+  current: Pick<DocumentClientOption, "id"> | null,
+  next: Pick<DocumentClientOption, "id">,
+  plan: Pick<RoleAutofillPlan, "overwriteFields">,
+): ClientAssignmentKind {
+  if (current && current.id !== next.id) return "change";
+  return plan.overwriteFields.length > 0 ? "overwrite" : "apply";
+}
+
 function comparableIdentification(value: string): string {
   return value.toLowerCase().replace(/[-\s]/g, "");
 }

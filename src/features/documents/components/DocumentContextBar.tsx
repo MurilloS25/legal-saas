@@ -17,6 +17,7 @@
 
 import type { CreatedClient } from "@/features/clients";
 import { CreateClientDialog } from "@/features/clients";
+import { useState } from "react";
 import { Popover } from "@/components/document/Popover";
 import type { DocumentClientOption, RoleVariableGroup } from "../model/role-autofill";
 import { RoleAutofillFields, roleLabel } from "./RoleAutofillPanel";
@@ -61,6 +62,11 @@ export function DocumentContextBar({
 }: Props) {
   const selectedClient = clients.find((client) => client.id === clientId) ?? null;
   const autofillableGroups = roleGroups.filter((group) => group.hasClientAutofill);
+  // Cliente asignado por Parte: referencia visual de la sesión. Vive aquí (no
+  // en el popover, que desmonta su contenido al cerrarse) para que el chip lo
+  // muestre siempre. Se guarda solo el id y se resuelve contra la lista
+  // compartida de Clientes.
+  const [assignedIds, setAssignedIds] = useState<Record<string, string>>({});
 
   return (
     <section aria-label="Cliente principal y Partes" className="flex flex-wrap gap-2">
@@ -118,13 +124,25 @@ export function DocumentContextBar({
           (variable) => (values[variable.field_key] ?? "").trim() !== "",
         );
         const label = roleLabel(group.role);
+        const assignedId = assignedIds[group.role];
+        const assigned =
+          (assignedId && clients.find((client) => client.id === assignedId)) ||
+          null;
         return (
           <Popover
             key={group.role}
             panelLabel={`Completar ${label} desde un Cliente registrado`}
             triggerClassName={chipClass}
             triggerLabel={
-              complete ? (
+              assigned ? (
+                <>
+                  <span>{label}:</span>
+                  <span className="max-w-[12rem] truncate font-normal">
+                    {assigned.full_name}
+                  </span>
+                  <ChevronIcon />
+                </>
+              ) : complete ? (
                 <>
                   {label}
                   <ChevronIcon />
@@ -140,6 +158,15 @@ export function DocumentContextBar({
                 clients={clients}
                 values={values}
                 readOnly={readOnly}
+                assignedClient={assigned}
+                onAssign={(client) =>
+                  setAssignedIds((current) => {
+                    const next = { ...current };
+                    if (client) next[group.role] = client.id;
+                    else delete next[group.role];
+                    return next;
+                  })
+                }
                 onApply={onApplyRoleAutofill}
                 onClientCreated={onClientRegistered}
               />

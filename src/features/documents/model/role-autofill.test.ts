@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyClientAssignment,
   fieldsToOverwrite,
   groupVariablesByRole,
   mapClientToRoleVariables,
@@ -551,5 +552,48 @@ describe("rol `sociedad` en el Machote (sin lista cerrada de roles)", () => {
       "sociedad.ocupacion",
       "sociedad.nacionalidad",
     ]);
+  });
+});
+
+describe("classifyClientAssignment", () => {
+  const ana = { id: "ana" };
+  const carlos = { id: "carlos" };
+  const noOverwrite = { overwriteFields: [] };
+  const withOverwrite = { overwriteFields: ["comprador.direccion"] };
+
+  it("applies directly when the role has no client and no values to replace", () => {
+    expect(classifyClientAssignment(null, ana, noOverwrite)).toBe("apply");
+  });
+
+  it("asks for overwrite confirmation when values would be replaced", () => {
+    expect(classifyClientAssignment(null, ana, withOverwrite)).toBe("overwrite");
+    expect(classifyClientAssignment(ana, ana, withOverwrite)).toBe("overwrite");
+  });
+
+  it("re-selecting the same client with nothing to replace applies directly", () => {
+    expect(classifyClientAssignment(ana, ana, noOverwrite)).toBe("apply");
+  });
+
+  it("always asks for confirmation when switching to a different client", () => {
+    expect(classifyClientAssignment(ana, carlos, noOverwrite)).toBe("change");
+    expect(classifyClientAssignment(ana, carlos, withOverwrite)).toBe("change");
+  });
+
+  it("a manually edited value stays protected when switching clients", () => {
+    const [group] = groupVariablesByRole([field("comprador.direccion")]);
+    const carlosClient: AutofillClient = {
+      identification_type: "cedula_fisica",
+      full_name: "Carlos Pérez",
+      identification_number: "1-0888-0777",
+      exact_address: "Heredia",
+      marital_status: null,
+      occupation: null,
+      nationality: null,
+    };
+    const plan = planRoleAutofill(carlosClient, group.variables, {
+      "comprador.direccion": "Dirección editada a mano",
+    });
+    expect(plan.overwriteFields).toEqual(["comprador.direccion"]);
+    expect(classifyClientAssignment(ana, carlos, plan)).toBe("change");
   });
 });

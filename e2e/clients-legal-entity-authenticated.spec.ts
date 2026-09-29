@@ -296,7 +296,7 @@ test.describe("clients — persona jurídica", () => {
 
     // Después la sociedad en el mismo rol: nunca debe quedar ese estado civil.
     await completeRoleFromClient(page, "Vendedor", companyName);
-    const dialog = page.getByRole("alertdialog", { name: "Este rol ya contiene información" });
+    const dialog = page.getByRole("alertdialog", { name: "Cambiar cliente" });
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByText(/Se vaciarán porque no aplican a una persona jurídica: vendedor\.estado_civil/),
